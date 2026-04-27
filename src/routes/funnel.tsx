@@ -49,12 +49,22 @@ function FunnelPage() {
             <div className="space-y-3">
               {stages.map((s, i) => {
                 const pct = (s.count / max) * 100;
+                const prev = i > 0 ? stages[i - 1].count : null;
+                const vsPrev =
+                  prev != null && prev > 0
+                    ? `${((s.count / prev) * 100).toFixed(1)}%`
+                    : null;
                 return (
                   <div key={`${s.stage}-${i}`}>
                     <div className="mb-1 flex items-center justify-between text-sm">
                       <span className="font-medium text-foreground">{s.stage}</span>
                       <span className="tabular-nums text-muted-foreground">
                         {new Intl.NumberFormat("lv-LV").format(s.count)}
+                        {vsPrev && (
+                          <span className="ml-2 text-xs">
+                            ({vsPrev} no iepriekšējā)
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="h-3 overflow-hidden rounded-full bg-secondary">
