@@ -22,7 +22,12 @@ const VISIBLE_COLUMNS: {
     widthClass: "w-[250px] max-w-[250px]",
     wrap: true,
   },
-  { key: "email", label: "Email" },
+  {
+    key: "email",
+    label: "Email",
+    widthClass: "w-[250px] max-w-[250px]",
+    wrap: true,
+  },
   { key: "phone_raw", label: "Telefons" },
   { key: "country", label: "Valsts" },
   { key: "source", label: "Avots" },
