@@ -28,7 +28,7 @@ function getEnv() {
   return { url: url.replace(/\/+$/, ""), key };
 }
 
-async function queryView(view: AnalyticsView, query: string) {
+async function queryView(view: AnalyticsView, query: string): Promise<Record<string, unknown>[]> {
   const { url, key } = getEnv();
   const endpoint = `${url}/rest/v1/${view}${query ? `?${query}` : ""}`;
 
@@ -49,7 +49,7 @@ async function queryView(view: AnalyticsView, query: string) {
     );
   }
 
-  return (await res.json()) as unknown[];
+  return (await res.json()) as Record<string, unknown>[];
 }
 
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
@@ -67,6 +67,6 @@ export const fetchAnalyticsView = createServerFn({ method: "GET" })
       const message =
         err instanceof Error ? err.message : "Nezināma kļūda";
       console.error("[analytics]", message);
-      return { rows: [] as unknown[], error: message };
+      return { rows: [] as Record<string, unknown>[], error: message };
     }
   });
