@@ -13,7 +13,6 @@ import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
 import { FilterBar } from "../components/FilterBar";
 import { filtersSearchSchema } from "@/lib/filters";
-import { AuthGate } from "@/components/AuthGate";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -45,31 +44,25 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   validateSearch: zodValidator(filtersSearchSchema),
   search: {
     middlewares: [
-      retainSearchParams([
-        "range",
-        "from",
-        "to",
-        "countries",
-        "sources",
-        "owners",
-        "ppvs",
-      ]),
+      retainSearchParams(["range", "from", "to", "countries", "sources", "owners"]),
     ],
   },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Analītikas panelis" },
-      { name: "description", content: "Lasāmrežīma analītikas dashboard" },
+      { title: "TIVO CRM analītikas panelis" },
+      { name: "description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
       { name: "author", content: "Lovable" },
-      { name: "robots", content: "noindex,nofollow" },
-      { name: "googlebot", content: "noindex,nofollow" },
-      { property: "og:title", content: "Analītikas panelis" },
-      { property: "og:description", content: "Lasāmrežīma analītikas dashboard" },
+      { property: "og:title", content: "TIVO CRM analītikas panelis" },
+      { property: "og:description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "TIVO CRM analītikas panelis" },
+      { name: "twitter:description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png" },
     ],
     links: [
       {
@@ -101,15 +94,13 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthGate>
-        <div className="min-h-screen bg-background text-foreground">
-          <TopNav />
-          <FilterBar />
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-            <Outlet />
-          </main>
-        </div>
-      </AuthGate>
+      <div className="min-h-screen bg-background text-foreground">
+        <TopNav />
+        <FilterBar />
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+          <Outlet />
+        </main>
+      </div>
     </QueryClientProvider>
   );
 }
