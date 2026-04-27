@@ -14,6 +14,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import {
@@ -40,12 +46,18 @@ export function FilterBar() {
 
   const options = useAnalyticsView("filter_options");
   const optRow = (options.data?.rows ?? [])[0] as
-    | { countries?: string[]; sources?: string[]; owners?: string[] }
+    | {
+        countries?: string[];
+        sources?: string[];
+        owners?: string[];
+        ppvs?: string[];
+      }
     | undefined;
 
   const countriesList = optRow?.countries ?? [];
   const sourcesList = optRow?.sources ?? [];
   const ownersList = optRow?.owners ?? [];
+  const ppvsList = optRow?.ppvs ?? [];
 
   const { from, to } = useMemo(() => resolveDateRange(search), [search]);
 
@@ -77,7 +89,7 @@ export function FilterBar() {
   };
 
   const toggleMulti = (
-    key: "countries" | "sources" | "owners",
+    key: "countries" | "sources" | "owners" | "ppvs",
     value: string,
   ) => {
     navigate({
@@ -94,7 +106,7 @@ export function FilterBar() {
     });
   };
 
-  const clearMulti = (key: "countries" | "sources" | "owners") => {
+  const clearMulti = (key: "countries" | "sources" | "owners" | "ppvs") => {
     navigate({
       to: ".",
       search: (prev: FiltersSearch) => ({ ...(prev as FiltersSearch), [key]: [] }),
@@ -112,6 +124,7 @@ export function FilterBar() {
         countries: [],
         sources: [],
         owners: [],
+        ppvs: [],
       }),
       replace: true,
     });
@@ -121,9 +134,11 @@ export function FilterBar() {
     search.range !== "30d" ||
     (search.countries?.length ?? 0) > 0 ||
     (search.sources?.length ?? 0) > 0 ||
-    (search.owners?.length ?? 0) > 0;
+    (search.owners?.length ?? 0) > 0 ||
+    (search.ppvs?.length ?? 0) > 0;
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="border-b border-border bg-card/50">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
         <DateRangeFilter
@@ -161,6 +176,16 @@ export function FilterBar() {
           onClear={() => clearMulti("owners")}
         />
 
+        <MultiSelectFilter
+          label="PPV"
+          tooltip="Pārdošanas pārstāvis / PPV"
+          values={search.ppvs ?? []}
+          options={ppvsList}
+          loading={options.isLoading}
+          onToggle={(v) => toggleMulti("ppvs", v)}
+          onClear={() => clearMulti("ppvs")}
+        />
+
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -174,6 +199,7 @@ export function FilterBar() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -268,6 +294,7 @@ function toIso(d: Date): string {
 
 function MultiSelectFilter({
   label,
+  tooltip,
   values,
   options,
   loading,
@@ -275,31 +302,45 @@ function MultiSelectFilter({
   onClear,
 }: {
   label: string;
+  tooltip?: string;
   values: string[];
   options: string[];
   loading: boolean;
   onToggle: (v: string) => void;
   onClear: () => void;
 }) {
+  const trigger = (
+    <PopoverTrigger asChild>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 gap-2 text-xs font-medium"
+      >
+        <span className="text-muted-foreground">{label}:</span>
+        {values.length === 0 ? (
+          <span className="text-foreground">Visi</span>
+        ) : (
+          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+            {values.length}
+          </Badge>
+        )}
+        <ChevronDown className="h-3 w-3 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+  );
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-2 text-xs font-medium"
-        >
-          <span className="text-muted-foreground">{label}:</span>
-          {values.length === 0 ? (
-            <span className="text-foreground">Visi</span>
-          ) : (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-              {values.length}
-            </Badge>
-          )}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      {tooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">{trigger}</span>
+          </TooltipTrigger>
+          <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        trigger
+      )}
       <PopoverContent align="start" className="w-64 p-0">
         <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
           {label}

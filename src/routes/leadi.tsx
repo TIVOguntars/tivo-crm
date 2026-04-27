@@ -68,8 +68,16 @@ function LeadiPage() {
     ];
     if (from) parts.push(`lead_created_date=gte.${from}`);
     if (to) parts.push(`lead_created_date=lte.${to}`);
+    if (search.countries.length > 0)
+      parts.push(`country=in.(${search.countries.map(encodeURIComponent).join(",")})`);
+    if (search.sources.length > 0)
+      parts.push(`source=in.(${search.sources.map(encodeURIComponent).join(",")})`);
+    if (search.owners.length > 0)
+      parts.push(`owner=in.(${search.owners.map(encodeURIComponent).join(",")})`);
+    if (search.ppvs.length > 0)
+      parts.push(`ppv_vards=in.(${search.ppvs.map(encodeURIComponent).join(",")})`);
     return parts.join("&");
-  }, [from, to]);
+  }, [from, to, search.countries, search.sources, search.owners, search.ppvs]);
 
   const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
   const [q, setQ] = useState("");
