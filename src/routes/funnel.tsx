@@ -15,8 +15,21 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-const MAIN_STAGES = ["Jauns", "Piesaistīšana", "Piedāvājums", "Līgums"];
-const OUTCOME_STAGES = ["Nesasniedzams", "Atcelts", "Atlikts", "Atkārtojas"];
+const MAIN_STAGES = [
+  "Jauns",
+  "Piesaistīšana",
+  "Kvalificēts",
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+];
+const REACHED_STAGES = [
+  "Piesaistīšana",
+  "Kvalificēts",
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+];
 
 function fmt(n: number): string {
   return new Intl.NumberFormat("lv-LV").format(n);
