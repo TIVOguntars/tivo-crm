@@ -19,32 +19,44 @@ function fmt(n: number): string {
   return new Intl.NumberFormat("lv-LV").format(n);
 }
 
+function fmtPct(v: unknown): string {
+  if (v == null || v === "") return "—";
+  const n = num(v);
+  const pct = n <= 1 ? n * 100 : n;
+  return `${pct.toFixed(1)}%`;
+}
+
+const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" }> = [
+  { key: "channel", label: "Kanāls", type: "text" },
+  { key: "outbound_count", label: "Nosūtīti", type: "num" },
+  { key: "delivered_count", label: "Piegādāti", type: "num" },
+  { key: "failed_count", label: "Neizdevās", type: "num" },
+  { key: "engagement_count", label: "Klikšķi", type: "num" },
+  { key: "reply_count", label: "Atbildes", type: "num" },
+  { key: "delivery_rate", label: "Piegādes %", type: "pct" },
+  { key: "engagement_rate", label: "Klikšķu %", type: "pct" },
+  { key: "reply_rate", label: "Atbilžu %", type: "pct" },
+];
+
 function KomunikācijasPage() {
-  const engagement = useAnalyticsView("lead_engagement_summary");
   const channels = useAnalyticsView("channel_performance_summary");
 
   const totals = useMemo(() => {
-    const rows = engagement.data?.rows ?? [];
-    const sent = rows.reduce(
-      (acc, r) => acc + num(r.messages_sent ?? r.sent ?? r.total_sent ?? 0),
-      0,
+    const rows = channels.data?.rows ?? [];
+    return rows.reduce(
+      (acc, r) => ({
+        outbound: acc.outbound + num(r.outbound_count),
+        delivered: acc.delivered + num(r.delivered_count),
+        engagement: acc.engagement + num(r.engagement_count),
+        reply: acc.reply + num(r.reply_count),
+      }),
+      { outbound: 0, delivered: 0, engagement: 0, reply: 0 },
     );
-    const received = rows.reduce(
-      (acc, r) =>
-        acc + num(r.messages_received ?? r.received ?? r.replies ?? 0),
-      0,
-    );
-    const engaged = rows.filter(
-      (r) => num(r.engagement_score ?? r.score ?? r.engaged ?? 0) > 0,
-    ).length;
-    return { sent, received, engaged, totalLeads: rows.length };
-  }, [engagement.data]);
+  }, [channels.data]);
 
   const errorMsg =
-    (engagement.error as Error | null)?.message ||
-    engagement.data?.error ||
-    channels.data?.error;
-  const loading = engagement.isLoading || channels.isLoading;
+    (channels.error as Error | null)?.message || channels.data?.error;
+  const loading = channels.isLoading;
 
   const channelRows = channels.data?.rows ?? [];
 
@@ -61,17 +73,10 @@ function KomunikācijasPage() {
       {!errorMsg && !loading && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatCard label="Nosūtīti" value={fmt(totals.sent)} />
-            <StatCard label="Saņemti" value={fmt(totals.received)} />
-            <StatCard label="Aktīvi leadi" value={fmt(totals.engaged)} />
-            <StatCard
-              label="Atbildes likme"
-              value={
-                totals.sent > 0
-                  ? `${((totals.received / totals.sent) * 100).toFixed(1)}%`
-                  : "—"
-              }
-            />
+            <StatCard label="Nosūtīti" value={fmt(totals.outbound)} />
+            <StatCard label="Piegādāti" value={fmt(totals.delivered)} />
+            <StatCard label="Klikšķi" value={fmt(totals.engagement)} />
+            <StatCard label="Atbildes" value={fmt(totals.reply)} />
           </div>
 
           <div className="mt-6 rounded-lg border border-border bg-card shadow-sm">
@@ -89,12 +94,12 @@ function KomunikācijasPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                     <tr>
-                      {Object.keys(channelRows[0]).map((k) => (
+                      {COLUMNS.map((c) => (
                         <th
-                          key={k}
+                          key={c.key}
                           className="px-4 py-2 text-left font-medium tracking-wide"
                         >
-                          {k}
+                          {c.label}
                         </th>
                       ))}
                     </tr>
@@ -105,14 +110,27 @@ function KomunikācijasPage() {
                         key={i}
                         className="border-t border-border hover:bg-secondary/30"
                       >
-                        {Object.values(row).map((v, j) => (
-                          <td
-                            key={j}
-                            className="px-4 py-2 tabular-nums text-foreground"
-                          >
-                            {v == null ? "—" : String(v)}
-                          </td>
-                        ))}
+                        {COLUMNS.map((c) => {
+                          const v = row[c.key];
+                          let display: string;
+                          if (v == null || v === "") {
+                            display = "—";
+                          } else if (c.type === "num") {
+                            display = fmt(num(v));
+                          } else if (c.type === "pct") {
+                            display = fmtPct(v);
+                          } else {
+                            display = String(v);
+                          }
+                          return (
+                            <td
+                              key={c.key}
+                              className="px-4 py-2 tabular-nums text-foreground"
+                            >
+                              {display}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
