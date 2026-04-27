@@ -16,7 +16,8 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
+import { buildAnalyticsFilters } from "@/lib/filters";
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -32,26 +33,14 @@ function fmt(n: number): string {
 }
 
 function PārskatsPage() {
-  const leads = useAnalyticsView("leads_overview");
-  const channels = useAnalyticsView("channel_performance_summary");
-  const daily = useAnalyticsView(
-    "channel_performance_daily",
-    "order=date.desc&limit=90",
-  );
+  const search = Route.useSearch();
+  const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
 
-  const stats = useMemo(() => {
-    const rows = channels.data?.rows ?? [];
-    return rows.reduce(
-      (acc, r) => ({
-        delivered: acc.delivered + num(r.delivered_count),
-        engagement: acc.engagement + num(r.engagement_count),
-        reply: acc.reply + num(r.reply_count),
-      }),
-      { delivered: 0, engagement: 0, reply: 0 },
-    );
-  }, [channels.data]);
+  const kpi = useAnalyticsRpc("get_kpi_summary", filters);
+  const daily = useAnalyticsRpc("get_daily_activity", filters);
+  const channels = useAnalyticsRpc("get_channel_summary", filters);
 
-  const totalLeads = leads.data?.rows?.length ?? 0;
+  const kpiRow = (kpi.data?.rows ?? [])[0] ?? {};
 
   const dailyChart = useMemo(() => {
     const rows = daily.data?.rows ?? [];
@@ -73,12 +62,8 @@ function PārskatsPage() {
     }));
   }, [channels.data]);
 
-  const error =
-    leads.data?.error ||
-    channels.data?.error ||
-    daily.data?.error;
-
-  const loading = leads.isLoading || channels.isLoading || daily.isLoading;
+  const error = kpi.data?.error || channels.data?.error || daily.data?.error;
+  const loading = kpi.isLoading || channels.isLoading || daily.isLoading;
 
   return (
     <>
@@ -92,11 +77,15 @@ function PārskatsPage() {
 
       {!error && !loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatCard label="Kopā leadi" value={fmt(totalLeads)} />
-            <StatCard label="Piegādāti" value={fmt(stats.delivered)} />
-            <StatCard label="Klikšķi" value={fmt(stats.engagement)} />
-            <StatCard label="Atbildes" value={fmt(stats.reply)} />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+            <StatCard label="Kopā leadi" value={fmt(num(kpiRow.total_leads))} />
+            <StatCard
+              label="Nosūtītie ziņojumi"
+              value={fmt(num(kpiRow.outbound_count))}
+            />
+            <StatCard label="Piegādāti" value={fmt(num(kpiRow.delivered_count))} />
+            <StatCard label="Klikšķi" value={fmt(num(kpiRow.engagement_count))} />
+            <StatCard label="Atbildes" value={fmt(num(kpiRow.reply_count))} />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
