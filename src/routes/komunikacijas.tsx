@@ -23,8 +23,7 @@ function fmt(n: number): string {
 function fmtPct(v: unknown): string {
   if (v == null || v === "") return "—";
   const n = num(v);
-  const pct = n <= 1 ? n * 100 : n;
-  return `${pct.toFixed(1)}%`;
+  return `${n.toFixed(1)}%`;
 }
 
 const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" }> = [
