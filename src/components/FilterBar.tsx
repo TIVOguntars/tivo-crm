@@ -103,7 +103,7 @@ export function FilterBar() {
   const resetAll = () => {
     navigate({
       to: ".",
-      search: (() => ({
+      search: () => ({
         range: "30d" as const,
         from: undefined,
         to: undefined,
