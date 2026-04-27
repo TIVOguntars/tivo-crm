@@ -9,8 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LeadiRouteImport } from './routes/leadi'
+import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
+import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as IndexRouteImport } from './routes/index'
 
+const LeadiRoute = LeadiRouteImport.update({
+  id: '/leadi',
+  path: '/leadi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KomunikacijasRoute = KomunikacijasRouteImport.update({
+  id: '/komunikacijas',
+  path: '/komunikacijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FunnelRoute = FunnelRouteImport.update({
+  id: '/funnel',
+  path: '/funnel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +37,61 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/funnel': typeof FunnelRoute
+  '/komunikacijas': typeof KomunikacijasRoute
+  '/leadi': typeof LeadiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/funnel': typeof FunnelRoute
+  '/komunikacijas': typeof KomunikacijasRoute
+  '/leadi': typeof LeadiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/funnel': typeof FunnelRoute
+  '/komunikacijas': typeof KomunikacijasRoute
+  '/leadi': typeof LeadiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/funnel' | '/komunikacijas' | '/leadi'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/funnel' | '/komunikacijas' | '/leadi'
+  id: '__root__' | '/' | '/funnel' | '/komunikacijas' | '/leadi'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FunnelRoute: typeof FunnelRoute
+  KomunikacijasRoute: typeof KomunikacijasRoute
+  LeadiRoute: typeof LeadiRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/leadi': {
+      id: '/leadi'
+      path: '/leadi'
+      fullPath: '/leadi'
+      preLoaderRoute: typeof LeadiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/komunikacijas': {
+      id: '/komunikacijas'
+      path: '/komunikacijas'
+      fullPath: '/komunikacijas'
+      preLoaderRoute: typeof KomunikacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/funnel': {
+      id: '/funnel'
+      path: '/funnel'
+      fullPath: '/funnel'
+      preLoaderRoute: typeof FunnelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +104,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FunnelRoute: FunnelRoute,
+  KomunikacijasRoute: KomunikacijasRoute,
+  LeadiRoute: LeadiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
