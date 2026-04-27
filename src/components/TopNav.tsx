@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { BarChart3, Filter, MessageSquare, Users } from "lucide-react";
+import { LogoutButton } from "@/components/AuthGate";
 
 const items = [
   { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
@@ -39,6 +40,9 @@ export function TopNav() {
               {item.label}
             </Link>
           ))}
+          <div className="ml-2 border-l border-border pl-2">
+            <LogoutButton />
+          </div>
         </nav>
       </div>
     </header>
