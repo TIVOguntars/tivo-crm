@@ -50,7 +50,7 @@ export function FilterBar() {
   const setRange = (range: DateRangePreset) => {
     navigate({
       to: ".",
-      search: (prev) => ({
+      search: (prev: FiltersSearch) => ({
         ...(prev as FiltersSearch),
         range,
         // clear custom dates when leaving custom
@@ -64,7 +64,7 @@ export function FilterBar() {
   const setCustomDates = (next: { from?: string; to?: string }) => {
     navigate({
       to: ".",
-      search: (prev) => ({
+      search: (prev: FiltersSearch) => ({
         ...(prev as FiltersSearch),
         range: "custom",
         from: next.from,
@@ -80,7 +80,7 @@ export function FilterBar() {
   ) => {
     navigate({
       to: ".",
-      search: (prev) => {
+      search: (prev: FiltersSearch) => {
         const p = prev as FiltersSearch;
         const cur = p[key] ?? [];
         const next = cur.includes(value)
@@ -95,7 +95,7 @@ export function FilterBar() {
   const clearMulti = (key: "countries" | "sources" | "owners") => {
     navigate({
       to: ".",
-      search: (prev) => ({ ...(prev as FiltersSearch), [key]: [] }),
+      search: (prev: FiltersSearch) => ({ ...(prev as FiltersSearch), [key]: [] }),
       replace: true,
     });
   };
@@ -103,7 +103,7 @@ export function FilterBar() {
   const resetAll = () => {
     navigate({
       to: ".",
-      search: () => ({
+      search: (() => ({
         range: "30d" as const,
         from: undefined,
         to: undefined,
