@@ -34,6 +34,7 @@ export interface AnalyticsFilters {
   p_countries?: string[] | null;
   p_sources?: string[] | null;
   p_owners?: string[] | null;
+  p_ppvs?: string[] | null;
 }
 
 function getEnv() {
@@ -118,6 +119,8 @@ function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
       input.p_sources && input.p_sources.length > 0 ? input.p_sources : null,
     p_owners:
       input.p_owners && input.p_owners.length > 0 ? input.p_owners : null,
+    p_ppvs:
+      input.p_ppvs && input.p_ppvs.length > 0 ? input.p_ppvs : null,
   };
 }
 

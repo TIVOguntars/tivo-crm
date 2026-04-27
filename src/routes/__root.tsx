@@ -44,7 +44,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   validateSearch: zodValidator(filtersSearchSchema),
   search: {
     middlewares: [
-      retainSearchParams(["range", "from", "to", "countries", "sources", "owners"]),
+      retainSearchParams([
+        "range",
+        "from",
+        "to",
+        "countries",
+        "sources",
+        "owners",
+        "ppvs",
+      ]),
     ],
   },
   head: () => ({
