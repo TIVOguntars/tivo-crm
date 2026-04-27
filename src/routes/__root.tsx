@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
 import { FilterBar } from "../components/FilterBar";
 import { filtersSearchSchema } from "@/lib/filters";
+import { AuthGate } from "@/components/AuthGate";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -62,6 +63,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { title: "Analītikas panelis" },
       { name: "description", content: "Lasāmrežīma analītikas dashboard" },
       { name: "author", content: "Lovable" },
+      { name: "robots", content: "noindex,nofollow" },
+      { name: "googlebot", content: "noindex,nofollow" },
       { property: "og:title", content: "Analītikas panelis" },
       { property: "og:description", content: "Lasāmrežīma analītikas dashboard" },
       { property: "og:type", content: "website" },
@@ -98,13 +101,15 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background text-foreground">
-        <TopNav />
-        <FilterBar />
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-          <Outlet />
-        </main>
-      </div>
+      <AuthGate>
+        <div className="min-h-screen bg-background text-foreground">
+          <TopNav />
+          <FilterBar />
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+            <Outlet />
+          </main>
+        </div>
+      </AuthGate>
     </QueryClientProvider>
   );
 }
