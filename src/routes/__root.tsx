@@ -4,11 +4,15 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  retainSearchParams,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { zodValidator } from "@tanstack/zod-adapter";
 
 import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
+import { FilterBar } from "@/components/FilterBar";
+import { filtersSearchSchema } from "@/lib/filters";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -37,6 +41,12 @@ function NotFoundComponent() {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  validateSearch: zodValidator(filtersSearchSchema),
+  search: {
+    middlewares: [
+      retainSearchParams(["range", "from", "to", "countries", "sources", "owners"]),
+    ],
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -82,6 +92,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background text-foreground">
         <TopNav />
+        <FilterBar />
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
           <Outlet />
         </main>

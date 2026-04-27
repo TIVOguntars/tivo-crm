@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { resolveDateRange } from "@/lib/filters";
 
 export const Route = createFileRoute("/leadi")({
   component: LeadiPage,
@@ -57,10 +58,20 @@ function formatCell(value: unknown): string {
 }
 
 function LeadiPage() {
-  const { data, isLoading, error } = useAnalyticsView(
-    "leads_overview",
-    "order=lead_created_at.desc.nullslast&limit=500",
-  );
+  const search = Route.useSearch();
+  const { from, to } = useMemo(() => resolveDateRange(search), [search]);
+
+  const query = useMemo(() => {
+    const parts: string[] = [
+      "order=lead_created_at.desc.nullslast",
+      "limit=500",
+    ];
+    if (from) parts.push(`lead_created_date=gte.${from}`);
+    if (to) parts.push(`lead_created_date=lte.${to}`);
+    return parts.join("&");
+  }, [from, to]);
+
+  const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
   const [q, setQ] = useState("");
 
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;

@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
+import { buildAnalyticsFilters } from "@/lib/filters";
 
 export const Route = createFileRoute("/komunikacijas")({
   component: KomunikācijasPage,
@@ -39,7 +40,9 @@ const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" 
 ];
 
 function KomunikācijasPage() {
-  const channels = useAnalyticsView("channel_performance_summary");
+  const search = Route.useSearch();
+  const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  const channels = useAnalyticsRpc("get_channel_summary", filters);
 
   const totals = useMemo(() => {
     const rows = channels.data?.rows ?? [];

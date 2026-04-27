@@ -3,7 +3,8 @@ import { useMemo } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
+import { buildAnalyticsFilters } from "@/lib/filters";
 
 export const Route = createFileRoute("/funnel")({
   component: FunnelPage,
@@ -15,7 +16,9 @@ function num(v: unknown): number {
 }
 
 function FunnelPage() {
-  const { data, isLoading, error } = useAnalyticsView("funnel_summary");
+  const search = Route.useSearch();
+  const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  const { data, isLoading, error } = useAnalyticsRpc("get_funnel", filters);
 
   const stages = useMemo(() => {
     const rows = data?.rows ?? [];
