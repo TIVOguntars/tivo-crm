@@ -20,14 +20,11 @@ function FunnelPage() {
   const stages = useMemo(() => {
     const rows = data?.rows ?? [];
     const mapped = rows.map((r) => ({
-      stage: String(r.stage ?? r.step ?? r.name ?? "—"),
-      count: num(r.count ?? r.leads ?? r.total ?? r.value),
-      conversion_rate: r.conversion_rate ?? r.conv_rate ?? null,
-      order: num(r.order ?? r.position ?? r.step_order ?? 0),
+      stage: String(r.status ?? "—"),
+      count: num(r.lead_count),
+      order: num(r.status_order),
     }));
-    if (mapped.some((m) => m.order > 0)) {
-      mapped.sort((a, b) => a.order - b.order);
-    }
+    mapped.sort((a, b) => a.order - b.order);
     return mapped;
   }, [data]);
 
@@ -52,22 +49,12 @@ function FunnelPage() {
             <div className="space-y-3">
               {stages.map((s, i) => {
                 const pct = (s.count / max) * 100;
-                const ratePct =
-                  s.conversion_rate != null
-                    ? `${(num(s.conversion_rate) <= 1
-                        ? num(s.conversion_rate) * 100
-                        : num(s.conversion_rate)
-                      ).toFixed(1)}%`
-                    : null;
                 return (
                   <div key={`${s.stage}-${i}`}>
                     <div className="mb-1 flex items-center justify-between text-sm">
                       <span className="font-medium text-foreground">{s.stage}</span>
                       <span className="tabular-nums text-muted-foreground">
                         {new Intl.NumberFormat("lv-LV").format(s.count)}
-                        {ratePct && (
-                          <span className="ml-2 text-xs">({ratePct})</span>
-                        )}
                       </span>
                     </div>
                     <div className="h-3 overflow-hidden rounded-full bg-secondary">
