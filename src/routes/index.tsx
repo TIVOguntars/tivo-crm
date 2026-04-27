@@ -32,8 +32,6 @@ function fmt(n: number): string {
 }
 
 function PārskatsPage() {
-  const leads = useAnalyticsView("leads_overview");
-  const funnel = useAnalyticsView("funnel_summary");
   const channels = useAnalyticsView("channel_performance_summary");
   const daily = useAnalyticsView(
     "channel_performance_daily",
@@ -41,29 +39,25 @@ function PārskatsPage() {
   );
 
   const stats = useMemo(() => {
-    const rows = leads.data?.rows ?? [];
-    const total = rows.length;
-    const conv = rows.filter(
-      (r) =>
-        String(r.status ?? r.stage ?? "").toLowerCase().includes("convert") ||
-        String(r.status ?? r.stage ?? "").toLowerCase().includes("won"),
-    ).length;
-    const open = rows.filter(
-      (r) =>
-        !["closed", "lost", "won", "converted"].includes(
-          String(r.status ?? "").toLowerCase(),
-        ),
-    ).length;
-    return { total, conv, open };
-  }, [leads.data]);
+    const rows = channels.data?.rows ?? [];
+    return rows.reduce(
+      (acc, r) => ({
+        outbound: acc.outbound + num(r.outbound_count),
+        delivered: acc.delivered + num(r.delivered_count),
+        engagement: acc.engagement + num(r.engagement_count),
+        reply: acc.reply + num(r.reply_count),
+      }),
+      { outbound: 0, delivered: 0, engagement: 0, reply: 0 },
+    );
+  }, [channels.data]);
 
   const dailyChart = useMemo(() => {
     const rows = daily.data?.rows ?? [];
     return [...rows]
       .map((r) => ({
-        date: String(r.date ?? r.day ?? ""),
-        leads: num(r.leads ?? r.lead_count ?? r.total),
-        conversions: num(r.conversions ?? r.converted ?? 0),
+        date: String(r.date ?? ""),
+        outbound: num(r.outbound_count),
+        reply: num(r.reply_count),
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [daily.data]);
@@ -71,21 +65,17 @@ function PārskatsPage() {
   const channelChart = useMemo(() => {
     const rows = channels.data?.rows ?? [];
     return rows.map((r) => ({
-      channel: String(r.channel ?? r.source ?? "—"),
-      leads: num(r.leads ?? r.lead_count ?? r.total),
-      conversions: num(r.conversions ?? r.converted ?? 0),
+      channel: String(r.channel ?? "—"),
+      outbound: num(r.outbound_count),
+      reply: num(r.reply_count),
     }));
   }, [channels.data]);
 
   const error =
-    leads.error?.message ||
-    leads.data?.error ||
-    funnel.data?.error ||
     channels.data?.error ||
     daily.data?.error;
 
-  const loading =
-    leads.isLoading || funnel.isLoading || channels.isLoading || daily.isLoading;
+  const loading = channels.isLoading || daily.isLoading;
 
   return (
     <>
@@ -100,17 +90,10 @@ function PārskatsPage() {
       {!error && !loading && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatCard label="Kopā leadi" value={fmt(stats.total)} />
-            <StatCard label="Atvērti" value={fmt(stats.open)} />
-            <StatCard label="Konvertēti" value={fmt(stats.conv)} />
-            <StatCard
-              label="Konversija"
-              value={
-                stats.total > 0
-                  ? `${((stats.conv / stats.total) * 100).toFixed(1)}%`
-                  : "—"
-              }
-            />
+            <StatCard label="Kopā leadi" value={fmt(stats.outbound)} />
+            <StatCard label="Piegādāti" value={fmt(stats.delivered)} />
+            <StatCard label="Klikšķi" value={fmt(stats.engagement)} />
+            <StatCard label="Atbildes" value={fmt(stats.reply)} />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -138,16 +121,16 @@ function PārskatsPage() {
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Line
                         type="monotone"
-                        dataKey="leads"
-                        name="Leadi"
+                        dataKey="outbound"
+                        name="Nosūtīti"
                         stroke="oklch(0.55 0.18 255)"
                         strokeWidth={2}
                         dot={false}
                       />
                       <Line
                         type="monotone"
-                        dataKey="conversions"
-                        name="Konversijas"
+                        dataKey="reply"
+                        name="Atbildes"
                         stroke="oklch(0.6 0.118 184.704)"
                         strokeWidth={2}
                         dot={false}
@@ -180,8 +163,8 @@ function PārskatsPage() {
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="leads" name="Leadi" fill="oklch(0.55 0.18 255)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="conversions" name="Konversijas" fill="oklch(0.6 0.118 184.704)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="outbound" name="Nosūtīti" fill="oklch(0.55 0.18 255)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="reply" name="Atbildes" fill="oklch(0.6 0.118 184.704)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
