@@ -10,6 +10,37 @@ export const Route = createFileRoute("/leadi")({
   component: LeadiPage,
 });
 
+const VISIBLE_COLUMNS: { key: string; label: string }[] = [
+  { key: "full_name", label: "Vārds / Uzvārds" },
+  { key: "email", label: "Email" },
+  { key: "phone_raw", label: "Telefons" },
+  { key: "country", label: "Valsts" },
+  { key: "source", label: "Avots" },
+  { key: "source_detailed", label: "Detalizēts avots" },
+  { key: "status", label: "Statuss" },
+  { key: "owner", label: "Atbildīgais" },
+  { key: "next_action", label: "Nākamā darbība" },
+  { key: "next_action_due_date", label: "Termiņš" },
+  { key: "last_contact_date", label: "Pēdējā saziņa" },
+  { key: "rating", label: "Reitings" },
+  { key: "tags", label: "Tags" },
+];
+
+const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
+
+function formatCell(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 function LeadiPage() {
   const { data, isLoading, error } = useAnalyticsView(
     "leads_overview",
@@ -17,19 +48,16 @@ function LeadiPage() {
   );
   const [q, setQ] = useState("");
 
-  const rows = data?.rows ?? [];
-  const columns = useMemo(
-    () => (rows.length > 0 ? Object.keys(rows[0]) : []),
-    [rows],
-  );
+  const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
     const needle = q.trim().toLowerCase();
     return rows.filter((r) =>
-      Object.values(r).some((v) =>
-        v == null ? false : String(v).toLowerCase().includes(needle),
-      ),
+      SEARCH_KEYS.some((k) => {
+        const v = r[k];
+        return v == null ? false : String(v).toLowerCase().includes(needle);
+      }),
     );
   }, [rows, q]);
 
@@ -46,8 +74,8 @@ function LeadiPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Meklēt..."
-            className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-64"
+            placeholder="Meklēt pēc vārda, e-pasta vai telefona..."
+            className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
           />
         </div>
       </PageHeader>
@@ -64,12 +92,12 @@ function LeadiPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
-                    {columns.map((c) => (
+                    {VISIBLE_COLUMNS.map((c) => (
                       <th
-                        key={c}
+                        key={c.key}
                         className="whitespace-nowrap px-4 py-2 text-left font-medium tracking-wide"
                       >
-                        {c}
+                        {c.label}
                       </th>
                     ))}
                   </tr>
@@ -80,17 +108,17 @@ function LeadiPage() {
                       key={i}
                       className="border-t border-border hover:bg-secondary/30"
                     >
-                      {columns.map((c) => {
-                        const v = row[c];
+                      {VISIBLE_COLUMNS.map((c) => {
+                        const text = formatCell(row[c.key]);
                         return (
                           <td
-                            key={c}
+                            key={c.key}
                             className="whitespace-nowrap px-4 py-2 text-foreground"
                           >
-                            {v == null ? (
+                            {text === "" ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
-                              String(v)
+                              text
                             )}
                           </td>
                         );
