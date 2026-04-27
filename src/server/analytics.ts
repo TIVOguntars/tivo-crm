@@ -3,8 +3,9 @@ import { createServerFn } from "@tanstack/react-start";
 /**
  * Read-only analytics client.
  * Calls Supabase PostgREST against the `analytics` schema using the
- * `Accept-Profile` header (required when a non-public schema is exposed).
- * Uses the anon key — RLS / view permissions on the source project apply.
+ * `Accept-Profile` / `Content-Profile` headers (required when a non-public
+ * schema is exposed). Uses the anon key — RLS / view permissions on the
+ * source project apply.
  */
 
 const VIEWS = [
@@ -13,9 +14,27 @@ const VIEWS = [
   "channel_performance_daily",
   "channel_performance_summary",
   "lead_engagement_summary",
+  "filter_options",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
+
+const RPC_FUNCTIONS = [
+  "get_kpi_summary",
+  "get_daily_activity",
+  "get_funnel",
+  "get_channel_summary",
+] as const;
+
+export type AnalyticsRpc = (typeof RPC_FUNCTIONS)[number];
+
+export interface AnalyticsFilters {
+  p_from?: string | null;
+  p_to?: string | null;
+  p_countries?: string[] | null;
+  p_sources?: string[] | null;
+  p_owners?: string[] | null;
+}
 
 function getEnv() {
   const url = process.env.ANALYTICS_SUPABASE_URL;
@@ -55,6 +74,53 @@ async function queryView(view: AnalyticsView, query: string): Promise<AnalyticsR
   return (await res.json()) as AnalyticsRow[];
 }
 
+async function callRpc(
+  fn: AnalyticsRpc,
+  body: Record<string, unknown>,
+): Promise<AnalyticsRow[]> {
+  const { url, key } = getEnv();
+  const endpoint = `${url}/rest/v1/rpc/${fn}`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Accept-Profile": "analytics",
+      "Content-Profile": "analytics",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Neizdevās izsaukt RPC ${fn} (${res.status}): ${text.slice(0, 300)}`,
+    );
+  }
+
+  const json = await res.json();
+  // RPC may return array or single object depending on function definition
+  return Array.isArray(json) ? (json as AnalyticsRow[]) : [json as AnalyticsRow];
+}
+
+function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
+  return {
+    p_from: input.p_from ?? null,
+    p_to: input.p_to ?? null,
+    p_countries:
+      input.p_countries && input.p_countries.length > 0
+        ? input.p_countries
+        : null,
+    p_sources:
+      input.p_sources && input.p_sources.length > 0 ? input.p_sources : null,
+    p_owners:
+      input.p_owners && input.p_owners.length > 0 ? input.p_owners : null,
+  };
+}
+
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
   .inputValidator((input: { view: AnalyticsView; query?: string }) => {
     if (!VIEWS.includes(input.view)) {
@@ -70,6 +136,30 @@ export const fetchAnalyticsView = createServerFn({ method: "GET" })
       const message =
         err instanceof Error ? err.message : "Nezināma kļūda";
       console.error("[analytics]", message);
+      return { rows: [] as AnalyticsRow[], error: message };
+    }
+  });
+
+export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: {
+      fn: AnalyticsRpc;
+      filters: AnalyticsFilters;
+    }) => {
+      if (!RPC_FUNCTIONS.includes(input.fn)) {
+        throw new Error(`Nezināma funkcija: ${input.fn}`);
+      }
+      return { fn: input.fn, filters: input.filters ?? {} };
+    },
+  )
+  .handler(async ({ data }) => {
+    try {
+      const rows = await callRpc(data.fn, normalizeFilters(data.filters));
+      return { rows, error: null as string | null };
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Nezināma kļūda";
+      console.error("[analytics rpc]", message);
       return { rows: [] as AnalyticsRow[], error: message };
     }
   });
