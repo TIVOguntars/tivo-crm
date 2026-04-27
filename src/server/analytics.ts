@@ -28,7 +28,10 @@ function getEnv() {
   return { url: url.replace(/\/+$/, ""), key };
 }
 
-async function queryView(view: AnalyticsView, query: string): Promise<Record<string, unknown>[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnalyticsRow = Record<string, any>;
+
+async function queryView(view: AnalyticsView, query: string): Promise<AnalyticsRow[]> {
   const { url, key } = getEnv();
   const endpoint = `${url}/rest/v1/${view}${query ? `?${query}` : ""}`;
 
@@ -49,7 +52,7 @@ async function queryView(view: AnalyticsView, query: string): Promise<Record<str
     );
   }
 
-  return (await res.json()) as Record<string, unknown>[];
+  return (await res.json()) as AnalyticsRow[];
 }
 
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
@@ -67,6 +70,6 @@ export const fetchAnalyticsView = createServerFn({ method: "GET" })
       const message =
         err instanceof Error ? err.message : "Nezināma kļūda";
       console.error("[analytics]", message);
-      return { rows: [] as Record<string, unknown>[], error: message };
+      return { rows: [] as AnalyticsRow[], error: message };
     }
   });
