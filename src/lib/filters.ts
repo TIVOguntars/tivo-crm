@@ -14,6 +14,7 @@ export const filtersSearchSchema = z.object({
   countries: fallback(z.array(z.string()), []).default([]),
   sources: fallback(z.array(z.string()), []).default([]),
   owners: fallback(z.array(z.string()), []).default([]),
+  ppvs: fallback(z.array(z.string()), []).default([]),
 });
 
 export type FiltersSearch = z.infer<typeof filtersSearchSchema>;
@@ -59,6 +60,7 @@ export function buildAnalyticsFilters(search: FiltersSearch): AnalyticsFilters {
     p_countries: search.countries.length > 0 ? search.countries : null,
     p_sources: search.sources.length > 0 ? search.sources : null,
     p_owners: search.owners.length > 0 ? search.owners : null,
+    p_ppvs: search.ppvs.length > 0 ? search.ppvs : null,
   };
 }
 
