@@ -141,12 +141,14 @@ export function FilterBar() {
     <TooltipProvider delayDuration={200}>
     <div className="border-b border-border bg-card/50">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
-        <DateRangeFilter
-          search={search}
-          onPreset={setRange}
-          onCustomChange={setCustomDates}
-          fromResolved={from}
-          toResolved={to}
+        <MultiSelectFilter
+          label="PPV"
+          tooltip="Pārdošanas pārstāvis / PPV"
+          values={search.ppvs ?? []}
+          options={ppvsList}
+          loading={options.isLoading}
+          onToggle={(v) => toggleMulti("ppvs", v)}
+          onClear={() => clearMulti("ppvs")}
         />
 
         <MultiSelectFilter
@@ -167,6 +169,14 @@ export function FilterBar() {
           onClear={() => clearMulti("sources")}
         />
 
+        <DateRangeFilter
+          search={search}
+          onPreset={setRange}
+          onCustomChange={setCustomDates}
+          fromResolved={from}
+          toResolved={to}
+        />
+
         <MultiSelectFilter
           label="Atbildīgais"
           values={search.owners ?? []}
@@ -174,16 +184,6 @@ export function FilterBar() {
           loading={options.isLoading}
           onToggle={(v) => toggleMulti("owners", v)}
           onClear={() => clearMulti("owners")}
-        />
-
-        <MultiSelectFilter
-          label="PPV"
-          tooltip="Pārdošanas pārstāvis / PPV"
-          values={search.ppvs ?? []}
-          options={ppvsList}
-          loading={options.isLoading}
-          onToggle={(v) => toggleMulti("ppvs", v)}
-          onClear={() => clearMulti("ppvs")}
         />
 
         {hasActiveFilters && (
