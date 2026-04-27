@@ -19,7 +19,7 @@ const VISIBLE_COLUMNS: {
   {
     key: "full_name",
     label: "Vārds / Uzvārds",
-    widthClass: "w-[80px] max-w-[80px]",
+    widthClass: "w-[250px] max-w-[250px]",
     wrap: true,
   },
   { key: "email", label: "Email" },
