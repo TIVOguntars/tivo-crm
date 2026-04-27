@@ -32,6 +32,7 @@ function fmt(n: number): string {
 }
 
 function PārskatsPage() {
+  const leads = useAnalyticsView("leads_overview");
   const channels = useAnalyticsView("channel_performance_summary");
   const daily = useAnalyticsView(
     "channel_performance_daily",
@@ -42,14 +43,15 @@ function PārskatsPage() {
     const rows = channels.data?.rows ?? [];
     return rows.reduce(
       (acc, r) => ({
-        outbound: acc.outbound + num(r.outbound_count),
         delivered: acc.delivered + num(r.delivered_count),
         engagement: acc.engagement + num(r.engagement_count),
         reply: acc.reply + num(r.reply_count),
       }),
-      { outbound: 0, delivered: 0, engagement: 0, reply: 0 },
+      { delivered: 0, engagement: 0, reply: 0 },
     );
   }, [channels.data]);
+
+  const totalLeads = leads.data?.rows?.length ?? 0;
 
   const dailyChart = useMemo(() => {
     const rows = daily.data?.rows ?? [];
@@ -72,10 +74,11 @@ function PārskatsPage() {
   }, [channels.data]);
 
   const error =
+    leads.data?.error ||
     channels.data?.error ||
     daily.data?.error;
 
-  const loading = channels.isLoading || daily.isLoading;
+  const loading = leads.isLoading || channels.isLoading || daily.isLoading;
 
   return (
     <>
@@ -90,7 +93,7 @@ function PārskatsPage() {
       {!error && !loading && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatCard label="Kopā leadi" value={fmt(stats.outbound)} />
+            <StatCard label="Kopā leadi" value={fmt(totalLeads)} />
             <StatCard label="Piegādāti" value={fmt(stats.delivered)} />
             <StatCard label="Klikšķi" value={fmt(stats.engagement)} />
             <StatCard label="Atbildes" value={fmt(stats.reply)} />
@@ -99,7 +102,7 @@ function PārskatsPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
               <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Leadi pa dienām
+                Aktivitāte pa dienām
               </h2>
               {dailyChart.length === 0 ? (
                 <EmptyState />
