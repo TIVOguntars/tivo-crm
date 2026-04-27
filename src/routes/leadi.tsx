@@ -13,7 +13,7 @@ export const Route = createFileRoute("/leadi")({
 function LeadiPage() {
   const { data, isLoading, error } = useAnalyticsView(
     "leads_overview",
-    "order=created_at.desc.nullslast&limit=500",
+    "order=lead_created_at.desc.nullslast&limit=500",
   );
   const [q, setQ] = useState("");
 
