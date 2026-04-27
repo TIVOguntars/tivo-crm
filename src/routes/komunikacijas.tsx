@@ -72,11 +72,19 @@ function KomunikācijasPage() {
 
       {!errorMsg && !loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
             <StatCard label="Nosūtīti" value={fmt(totals.outbound)} />
             <StatCard label="Piegādāti" value={fmt(totals.delivered)} />
             <StatCard label="Klikšķi" value={fmt(totals.engagement)} />
             <StatCard label="Atbildes" value={fmt(totals.reply)} />
+            <StatCard
+              label="Atbilžu %"
+              value={
+                totals.delivered > 0
+                  ? `${((totals.reply / totals.delivered) * 100).toFixed(1)}%`
+                  : "—"
+              }
+            />
           </div>
 
           <div className="mt-6 rounded-lg border border-border bg-card shadow-sm">
