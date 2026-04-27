@@ -15,8 +15,21 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-const MAIN_STAGES = ["Jauns", "Piesaistīšana", "Piedāvājums", "Līgums"];
-const OUTCOME_STAGES = ["Nesasniedzams", "Atcelts", "Atlikts", "Atkārtojas"];
+const MAIN_STAGES = [
+  "Jauns",
+  "Piesaistīšana",
+  "Kvalificēts",
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+];
+const REACHED_STAGES = [
+  "Piesaistīšana",
+  "Kvalificēts",
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+];
 
 function fmt(n: number): string {
   return new Intl.NumberFormat("lv-LV").format(n);
@@ -68,7 +81,7 @@ function FunnelPage() {
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
   const { data, isLoading, error } = useAnalyticsRpc("get_funnel", filters);
 
-  const { mainStages, outcomeStages, total } = useMemo(() => {
+  const { mainStages, reach, total } = useMemo(() => {
     const rows = data?.rows ?? [];
     const mapped: Stage[] = rows.map((r) => ({
       stage: String(r.status ?? "—"),
@@ -82,17 +95,26 @@ function FunnelPage() {
     const main = MAIN_STAGES.map(
       (name, i) => byName.get(name) ?? { stage: name, count: 0, order: i },
     );
-    const outcomes = OUTCOME_STAGES.map(
-      (name, i) => byName.get(name) ?? { stage: name, count: 0, order: i },
-    );
 
-    return { mainStages: main, outcomeStages: outcomes, total };
+    const get = (name: string) => byName.get(name)?.count ?? 0;
+    const newCount = get("Jauns");
+    const notReached = get("Nesasniedzams");
+    const reached = REACHED_STAGES.reduce((acc, n) => acc + get(n), 0);
+    const pool = reached + notReached + newCount;
+
+    return {
+      mainStages: main,
+      reach: { newCount, notReached, reached, pool },
+      total,
+    };
   }, [data]);
 
   const errorMsg = (error as Error | null)?.message || data?.error;
   const hasData = (data?.rows?.length ?? 0) > 0;
   const mainMax = Math.max(1, ...mainStages.map((s) => s.count));
-  const outcomeMax = Math.max(1, ...outcomeStages.map((s) => s.count));
+
+  const pct = (n: number) =>
+    reach.pool > 0 ? ((n / reach.pool) * 100).toFixed(1) : "0.0";
 
   return (
     <>
@@ -123,20 +145,79 @@ function FunnelPage() {
           <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
             <div className="mb-4">
               <h2 className="text-sm font-semibold text-foreground">
-                Iznākumi
+                Sasniedzamība
               </h2>
               <p className="text-xs text-muted-foreground">
-                Noslēgtie statusi
+                Kontaktu bāze: {fmt(reach.pool)} (Jauns + sasniegti +
+                nesasniedzami)
               </p>
             </div>
-            <StageList
-              stages={outcomeStages}
-              total={total}
-              max={outcomeMax}
-            />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <ReachCard
+                label="Sasniegti"
+                count={reach.reached}
+                percent={pct(reach.reached)}
+                hint="Piesaistīšana → Līgums"
+                tone="success"
+              />
+              <ReachCard
+                label="Nesasniedzami"
+                count={reach.notReached}
+                percent={pct(reach.notReached)}
+                hint="Status: Nesasniedzams"
+                tone="danger"
+              />
+              <ReachCard
+                label="Jauni bez rezultāta"
+                count={reach.newCount}
+                percent={pct(reach.newCount)}
+                hint="Status: Jauns"
+                tone="muted"
+              />
+            </div>
           </section>
         </div>
       )}
     </>
+  );
+}
+
+function ReachCard({
+  label,
+  count,
+  percent,
+  hint,
+  tone,
+}: {
+  label: string;
+  count: number;
+  percent: string;
+  hint: string;
+  tone: "success" | "danger" | "muted";
+}) {
+  const barClass =
+    tone === "success"
+      ? "bg-primary"
+      : tone === "danger"
+        ? "bg-destructive"
+        : "bg-muted-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+        {percent}%
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {fmt(count)} · {hint}
+      </p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+        <div
+          className={`h-full rounded-full ${barClass} transition-all`}
+          style={{ width: `${Math.min(100, parseFloat(percent))}%` }}
+        />
+      </div>
+    </div>
   );
 }
