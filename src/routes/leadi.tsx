@@ -10,8 +10,18 @@ export const Route = createFileRoute("/leadi")({
   component: LeadiPage,
 });
 
-const VISIBLE_COLUMNS: { key: string; label: string }[] = [
-  { key: "full_name", label: "Vārds / Uzvārds" },
+const VISIBLE_COLUMNS: {
+  key: string;
+  label: string;
+  widthClass?: string;
+  wrap?: boolean;
+}[] = [
+  {
+    key: "full_name",
+    label: "Vārds / Uzvārds",
+    widthClass: "w-[80px] max-w-[80px]",
+    wrap: true,
+  },
   { key: "email", label: "Email" },
   { key: "phone_raw", label: "Telefons" },
   { key: "country", label: "Valsts" },
@@ -95,7 +105,9 @@ function LeadiPage() {
                     {VISIBLE_COLUMNS.map((c) => (
                       <th
                         key={c.key}
-                        className="whitespace-nowrap px-4 py-2 text-left font-medium tracking-wide"
+                        className={`px-4 py-2 text-left font-medium tracking-wide ${
+                          c.wrap ? "" : "whitespace-nowrap"
+                        } ${c.widthClass ?? ""}`}
                       >
                         {c.label}
                       </th>
@@ -113,7 +125,11 @@ function LeadiPage() {
                         return (
                           <td
                             key={c.key}
-                            className="whitespace-nowrap px-4 py-2 text-foreground"
+                            className={`px-4 py-2 text-foreground ${
+                              c.wrap
+                                ? "whitespace-normal break-words"
+                                : "whitespace-nowrap"
+                            } ${c.widthClass ?? ""}`}
                           >
                             {text === "" ? (
                               <span className="text-muted-foreground">—</span>
