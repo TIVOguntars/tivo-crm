@@ -239,6 +239,14 @@ function LeadProfilePage() {
     fresh: true,
   });
 
+  const trackingLinksQueryStr = hasComms
+    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&select=id,communication_id,link_key,tracking_code,original_url,destination_url,metadata&limit=2000`
+    : "";
+  const trackingLinksQ = usePublicTable("tracking_links", trackingLinksQueryStr, {
+    enabled: hasComms,
+    fresh: true,
+  });
+
   const eventsByComm = useMemo(() => {
     const map = new Map<string, Array<Record<string, unknown>>>();
     if (!hasComms) return map;
@@ -252,6 +260,19 @@ function LeadProfilePage() {
     }
     return map;
   }, [eventsQ.data, hasComms]);
+
+  const trackingLinksByComm = useMemo(() => {
+    const map = new Map<string, Array<Record<string, unknown>>>();
+    const rows = (trackingLinksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const link of rows) {
+      const k = String(link.communication_id ?? "");
+      if (!k) continue;
+      const list = map.get(k) ?? [];
+      list.push(link);
+      map.set(k, list);
+    }
+    return map;
+  }, [trackingLinksQ.data]);
 
   /* ------ lauku izvilkšana ------ */
 
