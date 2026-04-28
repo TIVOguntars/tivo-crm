@@ -147,7 +147,7 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
 }
 
 function DarbaRindaPage() {
-  const search = useSearch({ strict: false }) as { q?: string };
+  const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
   const query = useMemo(
     () => "order=priority_score.desc.nullslast&limit=1000",
     [],
@@ -169,15 +169,32 @@ function DarbaRindaPage() {
   }, [rows]);
 
   const filtered = useMemo(() => {
-    if (!q.trim()) return sorted;
+    const selectedTags = (search.tags ?? []) as string[];
     const needle = q.trim().toLowerCase();
-    return sorted.filter((r) =>
-      SEARCH_KEYS.some((k) => {
-        const v = r[k];
-        return v == null ? false : String(v).toLowerCase().includes(needle);
-      }),
-    );
-  }, [sorted, q]);
+    return sorted.filter((r) => {
+      if (selectedTags.length > 0) {
+        const v = r.tags;
+        const rowTags: string[] = Array.isArray(v)
+          ? v.map((t) => String(t).trim()).filter(Boolean)
+          : v == null
+            ? []
+            : String(v)
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean);
+        const lower = rowTags.map((t) => t.toLowerCase());
+        const hit = selectedTags.some((t) => lower.includes(t.toLowerCase()));
+        if (!hit) return false;
+      }
+      if (needle) {
+        return SEARCH_KEYS.some((k) => {
+          const v = r[k];
+          return v == null ? false : String(v).toLowerCase().includes(needle);
+        });
+      }
+      return true;
+    });
+  }, [sorted, q, search.tags]);
 
   const groups = useMemo(() => {
     return GROUP_DEFS.map((d) => ({

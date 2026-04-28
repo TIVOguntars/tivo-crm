@@ -59,6 +59,32 @@ export function FilterBar() {
   const ownersList = optRow?.owners ?? [];
   const ppvsList = optRow?.ppvs ?? [];
 
+  // Tags come from analytics.lead_priority_queue.tags — no DB schema change.
+  const tagsView = useAnalyticsView(
+    "lead_priority_queue",
+    "select=tags&limit=2000",
+  );
+  const tagsList = useMemo(() => {
+    const rows = (tagsView.data?.rows ?? []) as Array<{ tags?: unknown }>;
+    const set = new Set<string>();
+    for (const r of rows) {
+      const v = r.tags;
+      if (v == null) continue;
+      if (Array.isArray(v)) {
+        for (const t of v) {
+          const s = String(t).trim();
+          if (s) set.add(s);
+        }
+      } else {
+        for (const t of String(v).split(",")) {
+          const s = t.trim();
+          if (s) set.add(s);
+        }
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [tagsView.data]);
+
   const { from, to } = useMemo(() => resolveDateRange(search), [search]);
 
   const setRange = (range: DateRangePreset) => {
@@ -89,7 +115,7 @@ export function FilterBar() {
   };
 
   const toggleMulti = (
-    key: "countries" | "sources" | "owners" | "ppvs",
+    key: "countries" | "sources" | "owners" | "ppvs" | "tags",
     value: string,
   ) => {
     navigate({
@@ -106,7 +132,9 @@ export function FilterBar() {
     });
   };
 
-  const clearMulti = (key: "countries" | "sources" | "owners" | "ppvs") => {
+  const clearMulti = (
+    key: "countries" | "sources" | "owners" | "ppvs" | "tags",
+  ) => {
     navigate({
       to: ".",
       search: ((prev: FiltersSearch) => ({ ...(prev as FiltersSearch), [key]: [] })) as never,
@@ -125,6 +153,7 @@ export function FilterBar() {
         sources: [],
         owners: [],
         ppvs: [],
+        tags: [],
         q: undefined,
       }),
       replace: true,
@@ -147,7 +176,8 @@ export function FilterBar() {
     (search.countries?.length ?? 0) > 0 ||
     (search.sources?.length ?? 0) > 0 ||
     (search.owners?.length ?? 0) > 0 ||
-    (search.ppvs?.length ?? 0) > 0;
+    (search.ppvs?.length ?? 0) > 0 ||
+    (search.tags?.length ?? 0) > 0;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -161,6 +191,15 @@ export function FilterBar() {
           loading={options.isLoading}
           onToggle={(v) => toggleMulti("ppvs", v)}
           onClear={() => clearMulti("ppvs")}
+        />
+
+        <MultiSelectFilter
+          label="Tagi"
+          values={search.tags ?? []}
+          options={tagsList}
+          loading={tagsView.isLoading}
+          onToggle={(v) => toggleMulti("tags", v)}
+          onClear={() => clearMulti("tags")}
         />
 
         <MultiSelectFilter

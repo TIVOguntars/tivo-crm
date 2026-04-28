@@ -84,15 +84,32 @@ function LeadiPage() {
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const filtered = useMemo(() => {
-    if (!q.trim()) return rows;
+    const selectedTags = search.tags ?? [];
     const needle = q.trim().toLowerCase();
-    return rows.filter((r) =>
-      SEARCH_KEYS.some((k) => {
-        const v = r[k];
-        return v == null ? false : String(v).toLowerCase().includes(needle);
-      }),
-    );
-  }, [rows, q]);
+    return rows.filter((r) => {
+      if (selectedTags.length > 0) {
+        const v = r.tags;
+        const rowTags: string[] = Array.isArray(v)
+          ? v.map((t) => String(t).trim()).filter(Boolean)
+          : v == null
+            ? []
+            : String(v)
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean);
+        const lower = rowTags.map((t) => t.toLowerCase());
+        const hit = selectedTags.some((t) => lower.includes(t.toLowerCase()));
+        if (!hit) return false;
+      }
+      if (needle) {
+        return SEARCH_KEYS.some((k) => {
+          const v = r[k];
+          return v == null ? false : String(v).toLowerCase().includes(needle);
+        });
+      }
+      return true;
+    });
+  }, [rows, q, search.tags]);
 
   const errorMsg = (error as Error | null)?.message || data?.error;
 
