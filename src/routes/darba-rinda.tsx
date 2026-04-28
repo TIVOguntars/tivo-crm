@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
@@ -123,7 +123,7 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
 }
 
 function DarbaRindaPage() {
-  const search = Route.useSearch();
+  const search = useSearch({ strict: false }) as { q?: string };
   const query = useMemo(
     () => "order=priority_score.desc.nullslast&limit=1000",
     [],
