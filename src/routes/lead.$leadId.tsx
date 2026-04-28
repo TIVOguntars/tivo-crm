@@ -213,10 +213,8 @@ function LeadProfilePage() {
   const profileError =
     (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
 
-  const commsFetched = !commsQ.isLoading && commsQ.isFetched;
-  const comms = commsFetched
-    ? ((commsQ.data?.rows ?? []) as Array<Record<string, unknown>>)
-    : [];
+  const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+  const commsLoading = commsQ.isLoading || (!!currentLeadId && !commsQ.isFetched);
   const commsError =
     (commsQ.error as Error | null)?.message || commsQ.data?.error;
 
@@ -497,7 +495,7 @@ function LeadProfilePage() {
             </div>
             <CommunicationsTimeline
               comms={comms}
-              loading={commsQ.isLoading}
+              loading={commsLoading}
               error={commsError}
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
