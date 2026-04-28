@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Calendar as CalendarIcon, ChevronDown, X } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, X, Search } from "lucide-react";
 
 // touch: re-resolve module
 
@@ -125,7 +125,19 @@ export function FilterBar() {
         sources: [],
         owners: [],
         ppvs: [],
+        q: undefined,
       }),
+      replace: true,
+    });
+  };
+
+  const setQ = (value: string) => {
+    navigate({
+      to: ".",
+      search: ((prev: FiltersSearch) => ({
+        ...(prev as FiltersSearch),
+        q: value ? value : undefined,
+      })) as never,
       replace: true,
     });
   };
@@ -139,7 +151,7 @@ export function FilterBar() {
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="border-b border-border bg-card/50">
+    <div className="sticky top-14 z-20 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
         <MultiSelectFilter
           label="PPV"
@@ -191,12 +203,22 @@ export function FilterBar() {
             variant="ghost"
             size="sm"
             onClick={resetAll}
-            className="ml-auto h-8 text-xs text-muted-foreground"
+            className="h-8 text-xs text-muted-foreground"
           >
             <X className="mr-1 h-3 w-3" />
             Notīrīt filtrus
           </Button>
         )}
+
+        <div className="relative ml-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search.q ?? ""}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Meklēt pēc vārda, e-pasta vai telefona..."
+            className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+          />
+        </div>
       </div>
     </div>
     </TooltipProvider>
