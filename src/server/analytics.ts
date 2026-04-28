@@ -174,7 +174,11 @@ export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
     }
   });
 
-const PUBLIC_TABLES = ["communications", "communication_events"] as const;
+const PUBLIC_TABLES = [
+  "communications",
+  "communication_events",
+  "tracking_links",
+] as const;
 export type PublicTable = (typeof PUBLIC_TABLES)[number];
 
 async function queryPublicTable(
