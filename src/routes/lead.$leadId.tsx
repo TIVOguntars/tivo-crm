@@ -477,6 +477,7 @@ function CommunicationsTable({
   eventsByComm,
   eventsLoading,
   linkTypeById,
+  onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
@@ -484,6 +485,7 @@ function CommunicationsTable({
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
   linkTypeById: Map<string, string>;
+  onOpenEmail: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -537,7 +539,16 @@ function CommunicationsTable({
                     <td className="whitespace-nowrap px-3 py-2 text-foreground">
                       {fmt(automationStep)}
                     </td>
-                    <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
+                    <td className="px-3 py-2 text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => onOpenEmail(c)}
+                        className="text-left text-primary underline-offset-2 hover:underline"
+                        title="Skatīt nosūtīto e-pastu"
+                      >
+                        {fmt(subject)}
+                      </button>
+                    </td>
                   </tr>
                   {(events.length > 0 || eventsLoading) && (
                     <tr className="bg-muted/20">
