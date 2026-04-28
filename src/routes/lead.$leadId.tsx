@@ -200,22 +200,20 @@ function LeadProfilePage() {
     return map;
   }, [eventsQ.data, hasComms]);
 
-  const linkTypesByComm = useMemo(() => {
-    const map = new Map<string, string[]>();
+  const linkTypeById = useMemo(() => {
+    const map = new Map<string, string>();
     if (!hasComms) return map;
     const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
     for (const link of rows) {
-      const k = String(link.communication_id ?? "");
-      if (!k) continue;
+      const id = String(link.id ?? "");
+      if (!id) continue;
       const meta = link.metadata as Record<string, unknown> | null | undefined;
       const linkType =
         meta && typeof meta === "object"
           ? (meta as Record<string, unknown>).link_type
           : null;
       if (linkType == null) continue;
-      const list = map.get(k) ?? [];
-      list.push(String(linkType));
-      map.set(k, list);
+      map.set(id, String(linkType));
     }
     return map;
   }, [linksQ.data, hasComms]);
@@ -416,7 +414,7 @@ function LeadProfilePage() {
               error={commsError}
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
-              linkTypesByComm={linkTypesByComm}
+              linkTypeById={linkTypeById}
             />
           </section>
         </>
@@ -462,14 +460,14 @@ function CommunicationsTable({
   error,
   eventsByComm,
   eventsLoading,
-  linkTypesByComm,
+  linkTypeById,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
   error?: string | null;
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
-  linkTypesByComm: Map<string, string[]>;
+  linkTypeById: Map<string, string>;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -505,7 +503,6 @@ function CommunicationsTable({
               const automationStep = c.automation_step;
               const commId = String(c.id ?? c.communication_id ?? "");
               const events = commId ? eventsByComm.get(commId) ?? [] : [];
-              const linkTypes = commId ? linkTypesByComm.get(commId) ?? [] : [];
               return (
                 <Fragment key={i}>
                   <tr className="border-t border-border hover:bg-secondary/30">
@@ -544,6 +541,12 @@ function CommunicationsTable({
                                   String(ev.event_type ?? "")
                                     .trim()
                                     .toLowerCase() === "clicked";
+                                const trackingLinkId = ev.tracking_link_id
+                                  ? String(ev.tracking_link_id)
+                                  : "";
+                                const linkType = trackingLinkId
+                                  ? linkTypeById.get(trackingLinkId)
+                                  : undefined;
                                 return (
                                   <li
                                     key={j}
@@ -556,17 +559,12 @@ function CommunicationsTable({
                                     <span className="text-muted-foreground">
                                       {fmtDate(ev.event_timestamp)}
                                     </span>
-                                    {isClicked && linkTypes.length > 0 && (
-                                      <span className="ml-1 inline-flex flex-wrap gap-1">
-                                        {linkTypes.map((lt, k) => (
-                                          <span
-                                            key={k}
-                                            className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-                                            title="Klikšķa tips"
-                                          >
-                                            {translateLinkType(lt)}
-                                          </span>
-                                        ))}
+                                    {isClicked && linkType && (
+                                      <span
+                                        className="ml-1 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                                        title="Klikšķa tips"
+                                      >
+                                        {translateLinkType(linkType)}
                                       </span>
                                     )}
                                   </li>
