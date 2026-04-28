@@ -179,7 +179,35 @@ function LeadProfilePage() {
             )}
           </section>
 
-          {/* 2. Aktivitāte */}
+          {/* 2. Darbības */}
+          <section className="mb-6">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Darbības
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={comingSoon}>
+                <Mail className="mr-2 h-4 w-4" />
+                Sūtīt e-pastu
+              </Button>
+              <Button variant="outline" onClick={comingSoon}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                SMS
+              </Button>
+              <Button variant="outline" onClick={comingSoon}>
+                <Send className="mr-2 h-4 w-4" />
+                WhatsApp
+              </Button>
+              <Button variant="outline" onClick={comingSoon}>
+                <Phone className="mr-2 h-4 w-4" />
+                Zvanīt
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Šobrīd pogas ir tikai UI — komunikāciju sūtīšana drīzumā.
+            </p>
+          </section>
+
+          {/* 3. Aktivitāte */}
           <section className="mb-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Aktivitāte
@@ -221,7 +249,7 @@ function LeadProfilePage() {
             </div>
           </section>
 
-          {/* 3. Komunikāciju vēsture */}
+          {/* 4. Komunikāciju vēsture */}
           <section className="mb-6">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Komunikāciju vēsture
@@ -231,34 +259,6 @@ function LeadProfilePage() {
               loading={commsQ.isLoading}
               error={commsError}
             />
-          </section>
-
-          {/* 4. Darbības */}
-          <section className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Darbības
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={comingSoon}>
-                <Mail className="mr-2 h-4 w-4" />
-                Sūtīt e-pastu
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                SMS
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <Send className="mr-2 h-4 w-4" />
-                WhatsApp
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <Phone className="mr-2 h-4 w-4" />
-                Zvanīt
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Šobrīd pogas ir tikai UI — komunikāciju sūtīšana drīzumā.
-            </p>
           </section>
         </>
       )}
