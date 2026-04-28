@@ -91,6 +91,10 @@ function fmtBool(value: unknown): string {
   return String(value);
 }
 
+function prettifyText(s: string): string {
+  return s.includes("_") ? s.replace(/_/g, " ") : s;
+}
+
 /** Look up a field in row OR row.metadata (if metadata is an object). */
 function pick(
   row: Record<string, unknown> | null | undefined,
@@ -261,22 +265,12 @@ function LeadProfilePage() {
   const b2b = b2bRaw == null ? "" : fmtBool(b2bRaw);
 
   // Objekts / projekts
-  const objekts = pick(profile, "object", "objekts", "object_name");
-  const m2 = pick(profile, "m2", "square_meters", "area_m2", "area");
-  const summa = pick(profile, "amount", "summa", "price", "value");
-  const planotaBuvnieciba = fmtDateOnly(
-    pick(profile, "construction_date", "planned_construction", "planota_buvnieciba"),
-  );
-  const formaZeme = pick(profile, "form_land", "forma_zeme", "land_form");
-  const formaProjekts = pick(profile, "form_project", "forma_projekts", "project_form");
-  const formaZinaNoLead = pick(
-    profile,
-    "form_message",
-    "forma_zina",
-    "forma_message",
-    "lead_message",
-    "message",
-  );
+  const m2 = pick(profile, "platiba_m2");
+  const summa = pick(profile, "summa");
+  const planotaBuvniecibaText = pick(profile, "planota_buvnieciba_text");
+  const formaZeme = pick(profile, "forma_zeme");
+  const formaProjekts = pick(profile, "forma_projekts");
+  const formaZinaNoLead = pick(profile, "forma_zina_no_lead");
 
   // Darba info
   const nextActionRaw = pick(profile, "next_action");
@@ -428,10 +422,9 @@ function LeadProfilePage() {
             <TabsContent value="projekts" className="mt-2">
               <Section title="Projekts" emptyLabel="Nav projekta informācijas">
                 <Grid>
-                  <Field label="Objekts" value={objekts} />
                   <Field label="m²" value={m2} />
                   <Field label="Summa" value={summa} />
-                  <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
+                  <Field label="Plānota būvniecība" value={planotaBuvniecibaText} />
                   <Field label="Forma · Zeme" value={formaZeme} />
                   <Field label="Forma · Projekts" value={formaProjekts} />
                   <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
@@ -597,6 +590,7 @@ function Field({
   if (isEmptyValue(value)) return null;
   const display =
     typeof value === "string" ? value : fmt(value);
+  const shown = prettifyText(display);
   return (
     <div
       className={`flex items-baseline gap-2 text-sm ${
@@ -615,9 +609,9 @@ function Field({
         ]
           .filter(Boolean)
           .join(" ")}
-        title={wide ? undefined : display}
+        title={wide ? undefined : shown}
       >
-        {display}
+        {shown}
       </span>
     </div>
   );
@@ -635,6 +629,7 @@ function InlineField({
 }) {
   if (isEmptyValue(value)) return null;
   const display = typeof value === "string" ? value : fmt(value);
+  const shown = prettifyText(display);
   return (
     <span className="inline-flex items-baseline gap-1.5 text-sm">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -643,7 +638,7 @@ function InlineField({
       <span
         className="font-semibold text-foreground"
       >
-        {display}
+        {shown}
       </span>
     </span>
   );
