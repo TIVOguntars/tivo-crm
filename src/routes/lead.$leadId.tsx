@@ -71,14 +71,10 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 2. Komunikācijas — mēģinām pa pirmo, kas atbild
+  // 2. Komunikācijas no `communications` tabulas
   const commsQ = useAnalyticsView(
-    "lead_communications",
-    `lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc&limit=200`,
-  );
-  const commsFallbackQ = useAnalyticsView(
     "communications",
-    `lead_id=eq.${encodeURIComponent(leadId)}&order=created_at.desc&limit=200`,
+    `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc&limit=200`,
   );
 
   const profile = (profileQ.data?.rows?.[0] ?? null) as Record<
@@ -86,11 +82,9 @@ function LeadProfilePage() {
     unknown
   > | null;
 
-  const comms = useMemo(() => {
-    const a = commsQ.data?.rows ?? [];
-    if (a.length > 0 || !commsQ.data?.error) return a;
-    return commsFallbackQ.data?.rows ?? [];
-  }, [commsQ.data, commsFallbackQ.data]) as Array<Record<string, unknown>>;
+  const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+  const commsError =
+    (commsQ.error as Error | null)?.message || commsQ.data?.error;
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
@@ -233,7 +227,8 @@ function LeadProfilePage() {
             </h2>
             <CommunicationsTable
               comms={comms}
-              loading={commsQ.isLoading && commsFallbackQ.isLoading}
+              loading={commsQ.isLoading}
+              error={commsError}
             />
           </section>
 
