@@ -383,6 +383,7 @@ function LeadProfilePage() {
                 Nākamā darbība
               </span>
               <InlineField label="Darbība" value={nextActionTr} emphasize />
+              <InlineField label="Atbildīgais" value={owner} />
               <InlineField label="Termiņš" value={termins} />
               <div className="ml-auto flex items-center gap-1">
                 <ActionIconButton title="E-pasts" icon={Mail} />
