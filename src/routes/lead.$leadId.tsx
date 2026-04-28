@@ -495,7 +495,7 @@ function LeadProfilePage() {
             </div>
             <CommunicationsTimeline
               comms={comms}
-              loading={commsQ.isLoading}
+              loading={commsLoading}
               error={commsError}
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
