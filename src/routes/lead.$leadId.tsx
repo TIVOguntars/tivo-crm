@@ -67,6 +67,19 @@ const CHANNEL_LV: Record<string, string> = {
   call: "Zvans",
 };
 
+const DIRECTION_LV: Record<string, string> = {
+  outbound: "Nosūtīts",
+  inbound: "Saņemts",
+};
+
+const COMM_STATUS_LV: Record<string, string> = {
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  opened: "Atvērts",
+  clicked: "Klikšķis",
+  replied: "Atbilde",
+};
+
 function translateNextAction(value: unknown): string {
   const raw = fmt(value);
   if (raw === "—") return raw;
@@ -77,6 +90,18 @@ function translateChannel(value: unknown): string {
   const raw = fmt(value);
   if (raw === "—") return raw;
   return CHANNEL_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
+function translateDirection(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return DIRECTION_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
+function translateCommStatus(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return COMM_STATUS_LV[raw.trim().toLowerCase()] ?? raw;
 }
 
 function LeadProfilePage() {
@@ -384,8 +409,8 @@ function CommunicationsTable({
             {comms.map((c, i) => {
               const date = c.sent_at;
               const channel = translateChannel(c.channel);
-              const direction = c.direction;
-              const status = c.current_status ?? c.status;
+              const direction = translateDirection(c.direction);
+              const status = translateCommStatus(c.current_status ?? c.status);
               const subject = c.subject;
               return (
                 <tr
@@ -399,10 +424,10 @@ function CommunicationsTable({
                     <ChannelBadge value={fmt(channel)} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {fmt(direction)}
+                    {direction}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {fmt(status)}
+                    {status}
                   </td>
                   <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
                 </tr>
