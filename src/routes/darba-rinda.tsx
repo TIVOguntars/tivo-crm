@@ -13,6 +13,7 @@ import {
 
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
+import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
@@ -227,7 +228,9 @@ function DarbaRindaPage() {
       <PageHeader
         title="Darba rinda"
         description="Prioritārie leadi no analytics.lead_priority_queue"
-      />
+      >
+        <SearchInput />
+      </PageHeader>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {groups.map((g) => (
