@@ -780,7 +780,7 @@ function clickTagsForEvent(
 
 function ClickTag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+    <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
       {children}
     </span>
   );
