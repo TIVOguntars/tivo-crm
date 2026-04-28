@@ -139,10 +139,11 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 2. Komunikācijas no public.communications tabulas
+  // 2. Komunikācijas no public.communications tabulas (vienmēr svaigi, bez cache)
   const commsQ = usePublicTable(
     "communications",
     `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc&limit=200`,
+    { fresh: true },
   );
 
   const profile = (profileQ.data?.rows?.[0] ?? null) as Record<
@@ -150,11 +151,15 @@ function LeadProfilePage() {
     unknown
   > | null;
 
-  const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+  // Tikai "fetched" rezultāti — nekādi vecie/cache dati no iepriekšējiem pieprasījumiem
+  const commsFetched = !commsQ.isLoading && commsQ.isFetched;
+  const comms = commsFetched
+    ? ((commsQ.data?.rows ?? []) as Array<Record<string, unknown>>)
+    : [];
   const commsError =
     (commsQ.error as Error | null)?.message || commsQ.data?.error;
 
-  // 2b. Visi communication_events priekš šī lead komunikācijām
+  // 2b. Events un tracking_links — TIKAI ja ir reālas komunikācijas šim lead
   const commIds = useMemo(
     () =>
       comms
@@ -163,20 +168,27 @@ function LeadProfilePage() {
     [comms],
   );
 
-  const eventsQuery = useMemo(() => {
-    if (commIds.length === 0) return null;
-    const list = commIds.map((id) => String(id)).join(",");
-    return `communication_id=in.(${list})&order=event_timestamp.asc&limit=2000`;
-  }, [commIds]);
+  const hasComms = commIds.length > 0;
+  const eventsQueryStr = hasComms
+    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&order=event_timestamp.asc&limit=2000`
+    : "";
+  const linksQueryStr = hasComms
+    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&limit=2000`
+    : "";
 
-  const eventsQ = usePublicTable(
-    "communication_events",
-    eventsQuery ?? "communication_id=eq.__none__&limit=1",
-  );
+  const eventsQ = usePublicTable("communication_events", eventsQueryStr, {
+    enabled: hasComms,
+    fresh: true,
+  });
+
+  const linksQ = usePublicTable("tracking_links", linksQueryStr, {
+    enabled: hasComms,
+    fresh: true,
+  });
 
   const eventsByComm = useMemo(() => {
     const map = new Map<string, Array<Record<string, unknown>>>();
-    if (!eventsQuery) return map;
+    if (!hasComms) return map;
     const rows = (eventsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
     for (const ev of rows) {
       const k = String(ev.communication_id ?? "");
@@ -186,23 +198,11 @@ function LeadProfilePage() {
       map.set(k, list);
     }
     return map;
-  }, [eventsQ.data, eventsQuery]);
-
-  // 2c. Tracking links priekš komunikācijām, kur ir clicked notikumi
-  const linksQuery = useMemo(() => {
-    if (commIds.length === 0) return null;
-    const list = commIds.map((id) => String(id)).join(",");
-    return `communication_id=in.(${list})&limit=2000`;
-  }, [commIds]);
-
-  const linksQ = usePublicTable(
-    "tracking_links",
-    linksQuery ?? "communication_id=eq.__none__&limit=1",
-  );
+  }, [eventsQ.data, hasComms]);
 
   const linkTypesByComm = useMemo(() => {
     const map = new Map<string, string[]>();
-    if (!linksQuery) return map;
+    if (!hasComms) return map;
     const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
     for (const link of rows) {
       const k = String(link.communication_id ?? "");
@@ -218,7 +218,7 @@ function LeadProfilePage() {
       map.set(k, list);
     }
     return map;
-  }, [linksQ.data, linksQuery]);
+  }, [linksQ.data, hasComms]);
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
@@ -412,10 +412,10 @@ function LeadProfilePage() {
             </h2>
             <CommunicationsTable
               comms={comms}
-              loading={commsQ.isLoading}
+              loading={commsQ.isLoading || commsQ.isFetching}
               error={commsError}
               eventsByComm={eventsByComm}
-              eventsLoading={eventsQ.isLoading && commIds.length > 0}
+              eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
               linkTypesByComm={linkTypesByComm}
             />
           </section>
@@ -476,7 +476,7 @@ function CommunicationsTable({
   if (!comms || comms.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-        Nav komunikācijas
+        Nav komunikāciju ierakstu.
       </div>
     );
   }
