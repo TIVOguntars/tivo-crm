@@ -288,6 +288,41 @@ function LeadProfilePage() {
     pick(profile, "situation_notes", "situācijas_piezīmes", "notes"),
   );
 
+  // Engagement / reaction
+  const lastEvent = fmt(
+    pick(engagement ?? undefined, "last_event_type", "last_event"),
+  );
+  const lastEventAt = fmtDate(
+    pick(engagement ?? undefined, "last_event_at", "last_activity_at"),
+  );
+  const reactionRaw = pick(
+    engagement ?? undefined,
+    "has_reaction",
+    "reacted",
+    "positive_reactions",
+  );
+  const reaction =
+    reactionRaw == null
+      ? NA
+      : typeof reactionRaw === "number"
+        ? reactionRaw > 0
+          ? "Jā"
+          : "Nē"
+        : fmtBool(reactionRaw);
+  const reactionType = fmt(
+    pick(engagement ?? undefined, "last_reaction_type", "reaction_type"),
+  );
+
+  // Tehniski
+  const syncedAt = fmtDate(pick(profile, "synced_at", "updated_at"));
+  const metaRaw = profile?.metadata;
+  const metaStr =
+    metaRaw && typeof metaRaw === "object"
+      ? JSON.stringify(metaRaw, null, 2)
+      : metaRaw == null
+        ? NA
+        : String(metaRaw);
+
   return (
     <>
       <div className="mb-4">
@@ -312,7 +347,9 @@ function LeadProfilePage() {
 
       {profile && (
         <div className="space-y-4">
-          {/* 1. Augšējā josla */}
+          {/* === VIENMĒR REDZAMS === */}
+
+          {/* 1. Header */}
           <Section title="Pārskats">
             <Grid>
               <Field label="Vārds Uzvārds" value={fullName} emphasize />
@@ -328,92 +365,136 @@ function LeadProfilePage() {
             </Grid>
           </Section>
 
-          {/* 2. Kontakti */}
-          <Section title="Kontakti">
+          {/* 2. Nākamā darbība */}
+          <Section title="Nākamā darbība">
             <Grid>
-              <Field label="Email" value={email} mono />
-              <Field label="Telefons" value={phone} mono />
-              <Field label="Valsts" value={country} />
-              <Field label="Avots" value={source} />
-              <Field label="Detalizēts avots" value={fmt(sourceDetailed)} />
-              <Field label="B2B" value={b2b} />
-            </Grid>
-          </Section>
-
-          {/* 3. Objekts / projekts */}
-          <Section title="Objekts / projekts">
-            <Grid>
-              <Field label="Objekts" value={objekts} />
-              <Field label="m²" value={m2} />
-              <Field label="Summa" value={summa} />
-              <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
-              <Field label="Forma · Zeme" value={formaZeme} />
-              <Field label="Forma · Projekts" value={formaProjekts} />
-              <Field
-                label="Forma · Ziņa no Lead"
-                value={formaZinaNoLead}
-                wide
-              />
-            </Grid>
-          </Section>
-
-          {/* 4. Darba informācija */}
-          <Section title="Darba informācija">
-            <Grid>
-              <Field label="Nākamā darbība" value={nextActionTr} />
+              <Field label="Nākamā darbība" value={nextActionTr} emphasize />
               <Field label="Termiņš" value={termins} />
-              <Field label="Pēdējās saziņas datums" value={lastContact} />
-              <Field label="Automatizācija" value={automatizacija} />
-              <Field
-                label="Automatizācijas datums"
-                value={automatizacijasDatums}
-              />
-              <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
-              <Field
-                label="Situācijas piezīmes"
-                value={situacijasPiezimes}
-                wide
-              />
             </Grid>
-            {engagementQ.data?.error && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Engagement dati nav pieejami: {engagementQ.data.error}
-              </p>
-            )}
-            {engagement && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <MiniStat
-                  label="Engagement events"
-                  value={fmt(
-                    pick(
-                      engagement,
-                      "engagement_events",
-                      "events_count",
-                      "total_events",
-                    ),
-                  )}
-                />
-                <MiniStat
-                  label="Pozitīvas reakcijas"
-                  value={fmt(
-                    pick(
-                      engagement,
-                      "positive_reactions",
-                      "positive_count",
-                    ),
-                  )}
-                />
-                <MiniStat
-                  label="Pēdējais notikums"
-                  value={fmtDate(
-                    pick(engagement, "last_event_at", "last_activity_at"),
-                  )}
-                />
-              </div>
-            )}
           </Section>
 
-          {/* 5. Komunikācijas */}
+          {/* 3. Darbības (placeholder) */}
+          <Section title="Darbības">
+            <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+              Darbību panelis tiks pievienots drīzumā.
+            </div>
+          </Section>
+
+          {/* === CILNES === */}
+          <Tabs defaultValue="parskats" className="w-full">
+            <TabsList>
+              <TabsTrigger value="parskats">Pārskats</TabsTrigger>
+              <TabsTrigger value="projekts">Projekts</TabsTrigger>
+              <TabsTrigger value="darbs">Darbs</TabsTrigger>
+              <TabsTrigger value="tehniski">Tehniski</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="parskats" className="mt-3">
+              <Section title="Pārskats">
+                <Grid>
+                  <Field label="Email" value={email} mono />
+                  <Field label="Telefons" value={phone} mono />
+                  <Field label="Valsts" value={country} />
+                  <Field label="Avots" value={source} />
+                  <Field label="B2B" value={b2b} />
+                  <Field label="Pēdējais notikums" value={lastEvent} />
+                  <Field label="Reakcija" value={reaction} />
+                  <Field label="Reakcijas tips" value={reactionType} />
+                  <Field label="Pēdējās saziņas datums" value={lastContact} />
+                </Grid>
+                {sourceDetailed != null && sourceDetailed !== "" && (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Detalizēts avots: {fmt(sourceDetailed)}
+                  </div>
+                )}
+                {engagementQ.data?.error && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Engagement dati nav pieejami: {engagementQ.data.error}
+                  </p>
+                )}
+                {engagement && (
+                  <div className="mt-3">
+                    <MiniStat
+                      label="Pēdējā aktivitāte"
+                      value={lastEventAt}
+                    />
+                  </div>
+                )}
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="projekts" className="mt-3">
+              <Section title="Projekts">
+                <Grid>
+                  <Field label="Objekts" value={objekts} />
+                  <Field label="m²" value={m2} />
+                  <Field label="Summa" value={summa} />
+                  <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
+                  <Field label="Forma · Zeme" value={formaZeme} />
+                  <Field label="Forma · Projekts" value={formaProjekts} />
+                  <Field
+                    label="Forma · Ziņa no Lead"
+                    value={formaZinaNoLead}
+                    wide
+                  />
+                </Grid>
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="darbs" className="mt-3">
+              <Section title="Darbs">
+                <Grid>
+                  <Field label="Atbildīgais" value={owner} />
+                  <Field label="PPV" value={ppv} />
+                  <Field label="Automatizācija" value={automatizacija} />
+                  <Field
+                    label="Automatizācijas datums"
+                    value={automatizacijasDatums}
+                  />
+                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
+                  <Field label="Tagi" value={fmt(tags)} />
+                  <Field label="Reitings" value={rating} />
+                  <Field
+                    label="Situācijas piezīmes"
+                    value={situacijasPiezimes}
+                    wide
+                  />
+                </Grid>
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="tehniski" className="mt-3">
+              <Section title="Tehniski">
+                <Grid>
+                  <Field label="lead_id" value={leadId} mono />
+                  <Field label="synced_at" value={syncedAt} />
+                  <Field
+                    label="Komunikāciju skaits"
+                    value={String(comms.length)}
+                  />
+                  <Field
+                    label="Notikumu skaits"
+                    value={String(
+                      Array.from(eventsByComm.values()).reduce(
+                        (sum, arr) => sum + arr.length,
+                        0,
+                      ),
+                    )}
+                  />
+                </Grid>
+                <div className="mt-3">
+                  <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    metadata
+                  </div>
+                  <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/30 p-3 text-xs text-foreground">
+                    {metaStr}
+                  </pre>
+                </div>
+              </Section>
+            </TabsContent>
+          </Tabs>
+
+          {/* === Komunikācijas (ārpus cilnēm) === */}
           <Section title="Komunikācijas">
             <CommunicationsTimeline
               comms={comms}
