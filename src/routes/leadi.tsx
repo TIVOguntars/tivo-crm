@@ -98,8 +98,8 @@ function LeadiPage() {
                 .map((t) => t.trim())
                 .filter(Boolean);
         const lower = rowTags.map((t) => t.toLowerCase());
-        const hit = selectedTags.some((t) => lower.includes(t.toLowerCase()));
-        if (!hit) return false;
+        const hasAll = selectedTags.every((t) => lower.includes(t.toLowerCase()));
+        if (!hasAll) return false;
       }
       if (needle) {
         return SEARCH_KEYS.some((k) => {
