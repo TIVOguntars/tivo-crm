@@ -794,6 +794,7 @@ function CommunicationsTimeline({
   eventsByComm,
   trackingLinksByComm,
   eventsLoading,
+  onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
@@ -801,6 +802,7 @@ function CommunicationsTimeline({
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   trackingLinksByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
+  onOpenEmail?: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
