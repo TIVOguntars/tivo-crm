@@ -1,8 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, Mail, MessageSquare, Phone, MessageCircle, Send } from "lucide-react";
+import {
+  Eye,
+  Mail,
+  MessageSquare,
+  Phone,
+  MessageCircle,
+  Send,
+  Search,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
@@ -24,6 +32,8 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "time_since_last_activity", label: "Aktivitāte", widthClass: "w-[10%] min-w-[100px]" },
   { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
 ];
+
+const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
 
 function formatCell(value: unknown): string {
   if (value == null) return "";
@@ -126,6 +136,19 @@ function DarbaRindaPage() {
 
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return rows;
+    const needle = q.trim().toLowerCase();
+    return rows.filter((r) =>
+      SEARCH_KEYS.some((k) => {
+        const v = r[k];
+        return v == null ? false : String(v).toLowerCase().includes(needle);
+      }),
+    );
+  }, [rows, q]);
+
   const { p100, p80, pGte80 } = useMemo(() => {
     let p100 = 0;
     let p80 = 0;
@@ -147,7 +170,17 @@ function DarbaRindaPage() {
       <PageHeader
         title="Darba rinda"
         description="Prioritārie leadi no analytics.lead_priority_queue"
-      />
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Meklēt pēc vārda, e-pasta vai telefona..."
+            className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+          />
+        </div>
+      </PageHeader>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <StatCard
@@ -192,7 +225,7 @@ function DarbaRindaPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, i) => {
+                  {filtered.map((row, i) => {
                     const score = Number(row.priority_score);
                     const highlight =
                       score === 100
@@ -250,7 +283,7 @@ function DarbaRindaPage() {
               </table>
             </div>
             <div className="border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-              Rāda {rows.length} ierakstus, sakārtotus pēc prioritātes
+              Rāda {filtered.length} no {rows.length} ierakstiem, sakārtotus pēc prioritātes
             </div>
           </div>
         )
