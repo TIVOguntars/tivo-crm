@@ -8,6 +8,7 @@ import {
   Phone,
   Send,
   Sparkles,
+  Flame,
   Activity,
   ThumbsUp,
   Clock,
@@ -167,16 +168,37 @@ function LeadProfilePage() {
               <ErrorState message={nextActionError} />
             ) : nextActionQ.isLoading ? (
               <LoadingState />
-            ) : (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-6">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="mt-1 h-7 w-7 flex-shrink-0 text-primary" />
-                  <div className="text-3xl font-semibold leading-snug text-foreground">
-                    {nextAction}
+            ) : (() => {
+              const urgent =
+                nextAction.trim().toLowerCase() ===
+                "sazināties nekavējoties";
+              return (
+                <div
+                  className={
+                    urgent
+                      ? "rounded-lg border-2 border-destructive/60 bg-destructive/10 p-6 shadow-[0_0_0_4px_color-mix(in_oklab,var(--destructive)_10%,transparent)]"
+                      : "rounded-lg border border-primary/30 bg-primary/5 p-6"
+                  }
+                >
+                  <div className="flex items-start gap-3">
+                    {urgent ? (
+                      <Flame className="mt-1 h-8 w-8 flex-shrink-0 animate-pulse text-destructive" />
+                    ) : (
+                      <Sparkles className="mt-1 h-7 w-7 flex-shrink-0 text-primary" />
+                    )}
+                    <div
+                      className={
+                        urgent
+                          ? "text-3xl font-bold uppercase leading-snug tracking-wide text-destructive"
+                          : "text-3xl font-semibold leading-snug text-foreground"
+                      }
+                    >
+                      {nextAction}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </section>
 
           {/* 2. Darbības */}
