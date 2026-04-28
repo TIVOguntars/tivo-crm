@@ -188,30 +188,17 @@ function LeadProfilePage() {
     unknown
   > | null;
 
-  // Resolve the actual public.leads.id used in public.communications.lead_id.
-  // Prefer leads_overview.lead_id, fall back to profile.id, then URL param.
-  const commLeadId = String(
-    (profile?.lead_id as string | undefined) ??
-      (profile?.id as string | undefined) ??
-      leadId,
-  );
+  // currentLead.lead_id MUST come from analytics.leads_overview.lead_id
+  // (which equals public.leads.id). No fallbacks.
+  const currentLeadId = (profile?.lead_id as string | undefined) ?? null;
 
-  // Debug: log resolved IDs so we can compare against communications.lead_id
-  if (typeof window !== "undefined") {
-    // eslint-disable-next-line no-console
-    console.log("[LeadProfile] currentLead debug", {
-      urlLeadId: leadId,
-      "profile.id": profile?.id,
-      "profile.lead_id": profile?.lead_id,
-      commLeadId,
-    });
-  }
-
-  // Komunikācijas — filtrējam pēc public.leads.id
+  // Komunikācijas — strikti pēc public.leads.id
   const commsQ = usePublicTable(
     "communications",
-    `lead_id=eq.${encodeURIComponent(commLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`,
-    { fresh: true, enabled: !!commLeadId },
+    currentLeadId
+      ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
+      : "",
+    { fresh: true, enabled: !!currentLeadId },
   );
 
   const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<
