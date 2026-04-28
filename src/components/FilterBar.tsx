@@ -151,7 +151,7 @@ export function FilterBar() {
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="border-b border-border bg-card/50">
+    <div className="sticky top-14 z-20 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
         <MultiSelectFilter
           label="PPV"
