@@ -196,7 +196,7 @@ function LeadProfilePage() {
   const commsQ = usePublicTable(
     "communications",
     currentLeadId
-      ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
+      ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info,automation_step,template_key,reference_code&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
       : "",
     { fresh: true, enabled: !!currentLeadId },
   );
@@ -519,7 +519,6 @@ function LeadProfilePage() {
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
-              onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
         </div>
