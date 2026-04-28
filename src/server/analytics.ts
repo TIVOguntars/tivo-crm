@@ -16,6 +16,11 @@ const VIEWS = [
   "lead_engagement_summary",
   "filter_options",
   "lead_priority_queue",
+  "lead_status_auto_preview",
+  "lead_communications",
+  "lead_communication_events",
+  "communications",
+  "communication_events",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
