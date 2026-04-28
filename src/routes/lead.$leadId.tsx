@@ -188,30 +188,17 @@ function LeadProfilePage() {
     unknown
   > | null;
 
-  // Resolve the actual public.leads.id used in public.communications.lead_id.
-  // Prefer leads_overview.lead_id, fall back to profile.id, then URL param.
-  const commLeadId = String(
-    (profile?.lead_id as string | undefined) ??
-      (profile?.id as string | undefined) ??
-      leadId,
-  );
+  // currentLead.lead_id MUST come from analytics.leads_overview.lead_id
+  // (which equals public.leads.id). No fallbacks.
+  const currentLeadId = (profile?.lead_id as string | undefined) ?? null;
 
-  // Debug: log resolved IDs so we can compare against communications.lead_id
-  if (typeof window !== "undefined") {
-    // eslint-disable-next-line no-console
-    console.log("[LeadProfile] currentLead debug", {
-      urlLeadId: leadId,
-      "profile.id": profile?.id,
-      "profile.lead_id": profile?.lead_id,
-      commLeadId,
-    });
-  }
-
-  // Komunikācijas — filtrējam pēc public.leads.id
+  // Komunikācijas — strikti pēc public.leads.id
   const commsQ = usePublicTable(
     "communications",
-    `lead_id=eq.${encodeURIComponent(commLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`,
-    { fresh: true, enabled: !!commLeadId },
+    currentLeadId
+      ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
+      : "",
+    { fresh: true, enabled: !!currentLeadId },
   );
 
   const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<
@@ -498,6 +485,16 @@ function LeadProfilePage() {
 
           {/* === Komunikācijas (ārpus cilnēm) === */}
           <Section title="Komunikācijas">
+            <div className="mb-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[11px] text-foreground">
+              <div>
+                <span className="text-muted-foreground">currentLead.lead_id: </span>
+                {currentLeadId ?? "—"}
+              </div>
+              <div>
+                <span className="text-muted-foreground">communications[0].lead_id: </span>
+                {comms[0] ? String(comms[0].lead_id ?? "—") : "—"}
+              </div>
+            </div>
             <CommunicationsTimeline
               comms={comms}
               loading={commsQ.isLoading}
