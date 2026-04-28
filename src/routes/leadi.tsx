@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
+import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { resolveDateRange } from "@/lib/filters";
@@ -121,7 +122,9 @@ function LeadiPage() {
       <PageHeader
         title="Leadi"
         description={`Pēdējie ${rows.length} leadi no analytics.leads_overview`}
-      />
+      >
+        <SearchInput />
+      </PageHeader>
 
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && isLoading && <LoadingState />}
