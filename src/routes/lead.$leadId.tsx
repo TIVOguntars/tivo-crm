@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Children, isValidElement, useMemo, useState } from "react";
+import { Children, Fragment, isValidElement, useMemo, useState } from "react";
 import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
@@ -843,7 +843,7 @@ function CommunicationsTimeline({
             const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
 
             return (
-              <>
+              <Fragment key={commId || i}>
                 <tr key={`${commId || i}-row`} className="border-b border-border/60 align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
                   <td className="px-3 py-2"><ChannelBadge value={tx(CHANNEL_LV, c.channel)} /></td>
@@ -880,7 +880,7 @@ function CommunicationsTimeline({
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>
