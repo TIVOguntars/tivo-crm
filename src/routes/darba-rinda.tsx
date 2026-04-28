@@ -154,16 +154,22 @@ function DarbaRindaPage() {
 
   const q = search.q ?? "";
 
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    copy.sort((a, b) => effectivePriority(b) - effectivePriority(a));
+    return copy;
+  }, [rows]);
+
   const filtered = useMemo(() => {
-    if (!q.trim()) return rows;
+    if (!q.trim()) return sorted;
     const needle = q.trim().toLowerCase();
-    return rows.filter((r) =>
+    return sorted.filter((r) =>
       SEARCH_KEYS.some((k) => {
         const v = r[k];
         return v == null ? false : String(v).toLowerCase().includes(needle);
       }),
     );
-  }, [rows, q]);
+  }, [sorted, q]);
 
   const { p100, p80, pGte80 } = useMemo(() => {
     let p100 = 0;
@@ -232,7 +238,7 @@ function DarbaRindaPage() {
                 </thead>
                 <tbody>
                   {filtered.map((row, i) => {
-                    const score = Number(row.priority_score);
+                    const score = effectivePriority(row);
                     const highlight =
                       score === 100
                         ? "bg-destructive/5"
@@ -251,6 +257,8 @@ function DarbaRindaPage() {
                             content = <ActionButtons row={row} />;
                           } else if (c.key === "time_since_last_activity") {
                             content = formatActivityInterval(row[c.key]);
+                          } else if (isScore) {
+                            content = String(effectivePriority(row));
                           } else {
                             const text = formatCell(row[c.key]);
                             content =
