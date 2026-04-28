@@ -65,6 +65,12 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
+  // 1c. Prioritāte no lead_priority_queue
+  const priorityQ = useAnalyticsView(
+    "lead_priority_queue",
+    `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
+  );
+
   // 2. Komunikācijas — mēģinām pa pirmo, kas atbild
   const commsQ = useAnalyticsView(
     "lead_communications",
@@ -96,7 +102,12 @@ function LeadProfilePage() {
   const phone = fmt(profile?.phone_raw ?? profile?.phone);
   const currentStatus = fmt(profile?.current_status);
   const suggestedStatus = fmt(profile?.suggested_status);
-  const priorityScore = profile?.priority_score;
+  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const priorityScore =
+    priorityRow?.priority_score ?? profile?.priority_score;
   const nextActionRow = (nextActionQ.data?.rows?.[0] ?? null) as Record<
     string,
     unknown
