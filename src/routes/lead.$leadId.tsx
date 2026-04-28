@@ -596,17 +596,19 @@ function Field({
   mono,
   emphasize,
   wide,
+  alwaysShow,
 }: {
   label: string;
   value: unknown;
   mono?: boolean;
   emphasize?: boolean;
   wide?: boolean;
+  alwaysShow?: boolean;
 }) {
-  if (isEmptyValue(value)) return null;
-  const display =
-    typeof value === "string" ? value : fmt(value);
-  const shown = prettifyText(display);
+  const empty = isEmptyValue(value);
+  if (empty && !alwaysShow) return null;
+  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
+  const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <div
       className={`flex items-baseline gap-2 text-sm ${
@@ -638,14 +640,17 @@ function InlineField({
   label,
   value,
   emphasize,
+  alwaysShow,
 }: {
   label: string;
   value: unknown;
   emphasize?: boolean;
+  alwaysShow?: boolean;
 }) {
-  if (isEmptyValue(value)) return null;
-  const display = typeof value === "string" ? value : fmt(value);
-  const shown = prettifyText(display);
+  const empty = isEmptyValue(value);
+  if (empty && !alwaysShow) return null;
+  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
+  const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <span className="inline-flex items-baseline gap-1.5 text-sm">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
