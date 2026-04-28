@@ -202,7 +202,7 @@ function LeadProfilePage() {
 
   const linkTypesByComm = useMemo(() => {
     const map = new Map<string, string[]>();
-    if (!linksQuery) return map;
+    if (!hasComms) return map;
     const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
     for (const link of rows) {
       const k = String(link.communication_id ?? "");
@@ -218,7 +218,7 @@ function LeadProfilePage() {
       map.set(k, list);
     }
     return map;
-  }, [linksQ.data, linksQuery]);
+  }, [linksQ.data, hasComms]);
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
