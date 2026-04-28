@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -42,6 +42,14 @@ const ZERO_PRIORITY_STATUSES = new Set([
   "Nekvalificējas",
   "Līgums",
 ]);
+
+const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) => boolean }[] = [
+  { key: "urgent", label: "Steidzami / PPV", hint: "priority ≥ 90", test: (s) => s >= 90 },
+  { key: "high", label: "Augsta prioritāte", hint: "70 ≤ priority < 90", test: (s) => s >= 70 && s < 90 },
+  { key: "medium", label: "Vidēja prioritāte", hint: "40 ≤ priority < 70", test: (s) => s >= 40 && s < 70 },
+  { key: "low", label: "Zema prioritāte", hint: "0 < priority < 40", test: (s) => s > 0 && s < 40 },
+  { key: "none", label: "Nav darbību", hint: "priority = 0", test: (s) => s === 0 },
+];
 
 function effectivePriority(row: Record<string, unknown>): number {
   const status = row.current_status == null ? "" : String(row.current_status);
@@ -172,32 +180,25 @@ function DarbaRindaPage() {
   }, [sorted, q]);
 
   const groups = useMemo(() => {
-    const defs: { key: string; label: string; test: (s: number) => boolean }[] = [
-      { key: "urgent", label: "Steidzami / PPV", test: (s) => s >= 90 },
-      { key: "high", label: "Augsta prioritāte", test: (s) => s >= 70 && s < 90 },
-      { key: "medium", label: "Vidēja prioritāte", test: (s) => s >= 40 && s < 70 },
-      { key: "low", label: "Zema prioritāte", test: (s) => s > 0 && s < 40 },
-      { key: "none", label: "Nav darbību", test: (s) => s === 0 },
-    ];
-    return defs.map((d) => ({
+    return GROUP_DEFS.map((d) => ({
       ...d,
       rows: filtered.filter((r) => d.test(effectivePriority(r))),
     }));
   }, [filtered]);
 
-  const { p100, p80, pGte80 } = useMemo(() => {
-    let p100 = 0;
-    let p80 = 0;
-    let pGte80 = 0;
-    for (const r of rows) {
-      const score = Number(r.priority_score);
-      if (!Number.isFinite(score)) continue;
-      if (score === 100) p100 += 1;
-      if (score === 80) p80 += 1;
-      if (score >= 80) pGte80 += 1;
-    }
-    return { p100, p80, pGte80 };
-  }, [rows]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const groupRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+
+  const scrollToGroup = useCallback((key: string) => {
+    const container = scrollContainerRef.current;
+    const row = groupRefs.current[key];
+    if (!container || !row) return;
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const headerOffset = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const delta = rowRect.top - containerRect.top - headerOffset;
+    container.scrollBy({ top: delta, behavior: "smooth" });
+  }, []);
 
   const errorMsg = (error as Error | null)?.message || data?.error;
 
@@ -208,22 +209,16 @@ function DarbaRindaPage() {
         description="Prioritārie leadi no analytics.lead_priority_queue"
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Prioritāte = 100"
-          value={p100}
-          hint="Augstākā steidzamība"
-        />
-        <StatCard
-          label="Prioritāte = 80"
-          value={p80}
-          hint="Augsta steidzamība"
-        />
-        <StatCard
-          label="Prioritāte ≥ 80"
-          value={pGte80}
-          hint="Visi prioritārie kopā"
-        />
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {groups.map((g) => (
+          <StatCard
+            key={g.key}
+            label={g.label}
+            value={g.rows.length}
+            hint={g.hint}
+            onClick={g.rows.length > 0 ? () => scrollToGroup(g.key) : undefined}
+          />
+        ))}
       </div>
 
       {errorMsg && <ErrorState message={errorMsg} />}
@@ -234,7 +229,7 @@ function DarbaRindaPage() {
           <EmptyState />
         ) : (
           <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" style={{ maxHeight: "calc(100vh - 380px)" }}>
-            <div className="flex-1 overflow-auto">
+            <div ref={scrollContainerRef} className="flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-sm">
                   <tr>
@@ -252,7 +247,12 @@ function DarbaRindaPage() {
                 </thead>
                 <tbody>
                   {groups.map((g) => (
-                    <GroupRows key={g.key} label={g.label} rows={g.rows} />
+                    <GroupRows
+                      key={g.key}
+                      label={g.label}
+                      rows={g.rows}
+                      headerRef={(el) => { groupRefs.current[g.key] = el; }}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -267,10 +267,18 @@ function DarbaRindaPage() {
   );
 }
 
-function GroupRows({ label, rows }: { label: string; rows: Array<Record<string, unknown>> }) {
+function GroupRows({
+  label,
+  rows,
+  headerRef,
+}: {
+  label: string;
+  rows: Array<Record<string, unknown>>;
+  headerRef?: (el: HTMLTableRowElement | null) => void;
+}) {
   return (
     <>
-      <tr className="border-t border-border bg-secondary/40">
+      <tr ref={headerRef} className="border-t border-border bg-secondary/40">
         <td
           colSpan={COLUMNS.length}
           className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground"
