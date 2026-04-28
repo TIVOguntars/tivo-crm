@@ -147,7 +147,7 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
 }
 
 function DarbaRindaPage() {
-  const search = useSearch({ strict: false }) as { q?: string };
+  const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
   const query = useMemo(
     () => "order=priority_score.desc.nullslast&limit=1000",
     [],
