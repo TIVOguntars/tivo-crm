@@ -418,7 +418,8 @@ function CommunicationsTable({
 function ChannelBadge({ value }: { value: string }) {
   const v = value.toLowerCase();
   let cls = "bg-muted text-muted-foreground";
-  if (v.includes("email")) cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  if (v.includes("email") || v.includes("e-past") || v.includes("pasts"))
+    cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
   else if (v.includes("sms"))
     cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   else if (v.includes("call") || v.includes("zvan"))
