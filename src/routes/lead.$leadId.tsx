@@ -1,21 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Mail,
-  MessageSquare,
-  Phone,
-  Send,
-  Sparkles,
-  Flame,
-  Activity,
-  ThumbsUp,
-  Clock,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,22 +18,32 @@ export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
 });
 
+/* -------------------------- helpers -------------------------- */
+
+const NA = "Nav datu";
+
 function fmt(value: unknown): string {
-  if (value == null) return "—";
-  if (Array.isArray(value)) return value.join(", ");
+  if (value == null) return NA;
+  if (Array.isArray(value)) {
+    const arr = value
+      .map((v) => (v == null ? "" : String(v)))
+      .filter((s) => s.trim() !== "");
+    return arr.length === 0 ? NA : arr.join(", ");
+  }
   if (typeof value === "object") {
     try {
-      return JSON.stringify(value);
+      const s = JSON.stringify(value);
+      return s === "{}" || s === "[]" ? NA : s;
     } catch {
       return String(value);
     }
   }
-  const s = String(value);
-  return s === "" ? "—" : s;
+  const s = String(value).trim();
+  return s === "" ? NA : s;
 }
 
 function fmtDate(value: unknown): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return NA;
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString("lv-LV", {
@@ -56,6 +53,44 @@ function fmtDate(value: unknown): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function fmtDateOnly(value: unknown): string {
+  if (value == null || value === "") return NA;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString("lv-LV", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function fmtBool(value: unknown): string {
+  if (value == null || value === "") return NA;
+  if (typeof value === "boolean") return value ? "Jā" : "Nē";
+  const s = String(value).trim().toLowerCase();
+  if (["true", "t", "1", "yes", "ja", "jā"].includes(s)) return "Jā";
+  if (["false", "f", "0", "no", "ne", "nē"].includes(s)) return "Nē";
+  return String(value);
+}
+
+/** Look up a field in row OR row.metadata (if metadata is an object). */
+function pick(
+  row: Record<string, unknown> | null | undefined,
+  ...keys: string[]
+): unknown {
+  if (!row) return undefined;
+  const meta =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : null;
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+    if (meta && meta[k] !== undefined && meta[k] !== null && meta[k] !== "")
+      return meta[k];
+  }
+  return undefined;
 }
 
 const NEXT_ACTION_LV: Record<string, string> = {
@@ -71,11 +106,12 @@ const CHANNEL_LV: Record<string, string> = {
   email: "E-pasts",
   sms: "SMS",
   call: "Zvans",
+  whatsapp: "WhatsApp",
 };
 
 const DIRECTION_LV: Record<string, string> = {
-  outbound: "Nosūtīts",
-  inbound: "Saņemts",
+  outbound: "Izejošs",
+  inbound: "Ienākošs",
 };
 
 const COMM_STATUS_LV: Record<string, string> = {
@@ -85,83 +121,65 @@ const COMM_STATUS_LV: Record<string, string> = {
   clicked: "Klikšķis",
   replied: "Atbilde",
   reply: "Atbilde",
+  inbound_received: "Saņemts",
+  bounced: "Atgriezts",
+  complained: "Sūdzība",
+  failed: "Neizdevās",
 };
 
-const LINK_TYPE_LV: Record<string, string> = {
-  cta: "CTA poga",
-  ppv_email: "PPV e-pasts",
-  ppv_phone: "Telefons",
-  website: "Mājaslapa",
-};
-
-function translateLinkType(value: unknown): string {
-  const raw = fmt(value);
-  if (raw === "—") return raw;
-  return LINK_TYPE_LV[raw.trim().toLowerCase()] ?? raw;
+function tx(map: Record<string, string>, value: unknown): string {
+  const raw = value == null ? "" : String(value).trim().toLowerCase();
+  if (!raw) return NA;
+  return map[raw] ?? String(value);
 }
 
-function translateNextAction(value: unknown): string {
-  const raw = fmt(value);
-  if (raw === "—") return raw;
-  return NEXT_ACTION_LV[raw.trim().toLowerCase()] ?? raw;
-}
-
-function translateChannel(value: unknown): string {
-  const raw = fmt(value);
-  if (raw === "—") return raw;
-  return CHANNEL_LV[raw.trim().toLowerCase()] ?? raw;
-}
-
-function translateDirection(value: unknown): string {
-  const raw = fmt(value);
-  if (raw === "—") return raw;
-  return DIRECTION_LV[raw.trim().toLowerCase()] ?? raw;
-}
-
-function translateCommStatus(value: unknown): string {
-  const raw = fmt(value);
-  if (raw === "—") return raw;
-  return COMM_STATUS_LV[raw.trim().toLowerCase()] ?? raw;
-}
+/* -------------------------- page -------------------------- */
 
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
+  const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(null);
 
-  const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(
-    null,
-  );
-
-  // 1. Pamatprofils no lead_status_auto_preview
-  const profileQ = useAnalyticsView(
-    "lead_status_auto_preview",
+  // Galvenie lead dati
+  const overviewQ = useAnalyticsView(
+    "leads_overview",
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 1b. Nākamā darbība no atsevišķa skata
-  const nextActionQ = useAnalyticsView(
-    "lead_next_action",
+  // Engagement kopsavilkums (var nebūt pieejams – kļūdu apstrādājam mīksti)
+  const engagementQ = useAnalyticsView(
+    "lead_engagement_summary",
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 1c. Prioritāte no lead_priority_queue
+  // Prioritāte
   const priorityQ = useAnalyticsView(
     "lead_priority_queue",
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 2. Komunikācijas no public.communications tabulas (vienmēr svaigi, bez cache)
+  // Komunikācijas
   const commsQ = usePublicTable(
     "communications",
-    `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc&limit=200`,
+    `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc.nullslast&limit=200`,
     { fresh: true },
   );
 
-  const profile = (profileQ.data?.rows?.[0] ?? null) as Record<
+  const profile = (overviewQ.data?.rows?.[0] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<
     string,
     unknown
   > | null;
 
-  // Tikai "fetched" rezultāti — nekādi vecie/cache dati no iepriekšējiem pieprasījumiem
+  const profileError =
+    (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
+
   const commsFetched = !commsQ.isLoading && commsQ.isFetched;
   const comms = commsFetched
     ? ((commsQ.data?.rows ?? []) as Array<Record<string, unknown>>)
@@ -169,7 +187,6 @@ function LeadProfilePage() {
   const commsError =
     (commsQ.error as Error | null)?.message || commsQ.data?.error;
 
-  // 2b. Events un tracking_links — TIKAI ja ir reālas komunikācijas šim lead
   const commIds = useMemo(
     () =>
       comms
@@ -177,21 +194,11 @@ function LeadProfilePage() {
         .filter((v): v is string | number => v != null),
     [comms],
   );
-
   const hasComms = commIds.length > 0;
   const eventsQueryStr = hasComms
     ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&order=event_timestamp.asc&limit=2000`
     : "";
-  const linksQueryStr = hasComms
-    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&limit=2000`
-    : "";
-
   const eventsQ = usePublicTable("communication_events", eventsQueryStr, {
-    enabled: hasComms,
-    fresh: true,
-  });
-
-  const linksQ = usePublicTable("tracking_links", linksQueryStr, {
     enabled: hasComms,
     fresh: true,
   });
@@ -210,52 +217,75 @@ function LeadProfilePage() {
     return map;
   }, [eventsQ.data, hasComms]);
 
-  const linkTypeById = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!hasComms) return map;
-    const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
-    for (const link of rows) {
-      const id = String(link.id ?? "");
-      if (!id) continue;
-      const meta = link.metadata as Record<string, unknown> | null | undefined;
-      const linkType =
-        meta && typeof meta === "object"
-          ? (meta as Record<string, unknown>).link_type
-          : null;
-      if (linkType == null) continue;
-      map.set(id, String(linkType));
-    }
-    return map;
-  }, [linksQ.data, hasComms]);
+  /* ------ lauku izvilkšana ------ */
 
-  const profileError =
-    (profileQ.error as Error | null)?.message || profileQ.data?.error;
+  const fullName = fmt(pick(profile, "full_name", "name"));
+  const status = fmt(pick(profile, "status", "current_status"));
+  const rating = fmt(pick(profile, "rating"));
+  const priority =
+    pick(priorityRow, "priority_score") ?? pick(profile, "priority_score");
+  const tags = pick(profile, "tags");
+  const ppv = fmt(pick(profile, "ppv_vards", "ppv", "ppv_name"));
+  const owner = fmt(pick(profile, "owner", "owner_name"));
 
-  const comingSoon = () => toast("Drīzumā");
+  const email = fmt(pick(profile, "email"));
+  const phone = fmt(pick(profile, "phone_raw", "phone"));
+  const country = fmt(pick(profile, "country"));
+  const source = fmt(pick(profile, "source"));
+  const sourceDetailed = pick(profile, "source_detailed");
+  const b2b = fmtBool(pick(profile, "is_b2b", "b2b"));
 
-  const fullName = fmt(profile?.full_name);
-  const email = fmt(profile?.email);
-  const phone = fmt(profile?.phone_raw ?? profile?.phone);
-  const currentStatus = fmt(profile?.current_status);
-  const suggestedStatus = fmt(profile?.suggested_status);
-  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<
-    string,
-    unknown
-  > | null;
-  const priorityScore =
-    priorityRow?.priority_score ?? profile?.priority_score;
-  const nextActionRow = (nextActionQ.data?.rows?.[0] ?? null) as Record<
-    string,
-    unknown
-  > | null;
-  const nextAction = translateNextAction(
-    nextActionRow?.next_action ?? profile?.next_action,
+  // Objekts / projekts (lielākoties no metadata vai Smartsheet)
+  const objekts = fmt(pick(profile, "object", "objekts", "object_name"));
+  const m2 = fmt(pick(profile, "m2", "square_meters", "area_m2", "area"));
+  const summa = fmt(pick(profile, "amount", "summa", "price", "value"));
+  const planotaBuvnieciba = fmtDateOnly(
+    pick(
+      profile,
+      "construction_date",
+      "planned_construction",
+      "planota_buvnieciba",
+    ),
   );
-  const nextActionError =
-    (nextActionQ.error as Error | null)?.message || nextActionQ.data?.error;
-  const engagementEvents = profile?.engagement_events;
-  const positiveReactions = profile?.positive_reactions;
-  const lastEventAt = profile?.last_event_at;
+  const formaZeme = fmt(
+    pick(profile, "form_land", "forma_zeme", "land_form"),
+  );
+  const formaProjekts = fmt(
+    pick(profile, "form_project", "forma_projekts", "project_form"),
+  );
+  const formaZinaNoLead = fmt(
+    pick(
+      profile,
+      "form_message",
+      "forma_zina",
+      "forma_message",
+      "lead_message",
+      "message",
+    ),
+  );
+
+  // Darba info
+  const nextAction = fmt(pick(profile, "next_action"));
+  const nextActionTr =
+    nextAction === NA
+      ? NA
+      : NEXT_ACTION_LV[nextAction.trim().toLowerCase()] ?? nextAction;
+  const termins = fmtDate(pick(profile, "next_action_due_date", "due_date"));
+  const lastContact = fmtDate(
+    pick(profile, "last_contact_date", "last_contact_at"),
+  );
+  const automatizacija = fmt(
+    pick(profile, "automation", "automation_name", "automation_status"),
+  );
+  const automatizacijasDatums = fmtDate(
+    pick(profile, "automation_date", "automation_at"),
+  );
+  const atcelsanasIemesls = fmt(
+    pick(profile, "cancel_reason", "atcelšanas_iemesls", "cancellation_reason"),
+  );
+  const situacijasPiezimes = fmt(
+    pick(profile, "situation_notes", "situācijas_piezīmes", "notes"),
+  );
 
   return (
     <>
@@ -274,192 +304,185 @@ function LeadProfilePage() {
       />
 
       {profileError && <ErrorState message={profileError} />}
-      {!profileError && profileQ.isLoading && <LoadingState />}
-      {!profileError && !profileQ.isLoading && !profile && (
+      {!profileError && overviewQ.isLoading && <LoadingState />}
+      {!profileError && !overviewQ.isLoading && !profile && (
         <EmptyState label="Profils nav atrasts" />
       )}
 
       {profile && (
-        <>
-          {/* Augšējā info kartiņa */}
-          <div className="mb-6 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoRow label="Vārds" value={fullName} />
-              <InfoRow label="Email" value={email} mono />
-              <InfoRow label="Telefons" value={phone} mono />
-              <InfoRow label="Pašreizējais statuss" value={currentStatus} />
-              <InfoRow label="Ieteiktais statuss" value={suggestedStatus} />
-              <InfoRow
-                label="Prioritāte"
-                value={
-                  priorityScore != null && priorityScore !== ""
-                    ? String(priorityScore)
-                    : "—"
-                }
+        <div className="space-y-4">
+          {/* 1. Augšējā josla */}
+          <Section title="Pārskats">
+            <Grid>
+              <Field label="Vārds Uzvārds" value={fullName} emphasize />
+              <Field label="Statuss" value={status} />
+              <Field
+                label="Reitings · Prioritāte"
+                value={`${rating} · ${priority != null && priority !== "" ? String(priority) : NA}`}
                 emphasize
               />
-            </div>
-          </div>
+              <Field label="Tagi" value={fmt(tags)} />
+              <Field label="PPV" value={ppv} />
+              <Field label="Atbildīgais" value={owner} />
+            </Grid>
+          </Section>
 
-          {/* 1. Nākamā darbība */}
-          <section className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Nākamā darbība
-            </h2>
-            {nextActionError ? (
-              <ErrorState message={nextActionError} />
-            ) : nextActionQ.isLoading ? (
-              <LoadingState />
-            ) : (() => {
-              const urgent =
-                nextAction.trim().toLowerCase() ===
-                "sazināties nekavējoties";
-              return (
-                <div
-                  className={
-                    urgent
-                      ? "rounded-lg border-2 border-destructive/60 bg-destructive/10 p-6 shadow-[0_0_0_4px_color-mix(in_oklab,var(--destructive)_10%,transparent)]"
-                      : "rounded-lg border border-primary/30 bg-primary/5 p-6"
-                  }
-                >
-                  <div className="flex items-start gap-3">
-                    {urgent ? (
-                      <Flame className="mt-1 h-8 w-8 flex-shrink-0 animate-pulse text-destructive" />
-                    ) : (
-                      <Sparkles className="mt-1 h-7 w-7 flex-shrink-0 text-primary" />
-                    )}
-                    <div
-                      className={
-                        urgent
-                          ? "text-3xl font-bold uppercase leading-snug tracking-wide text-destructive"
-                          : "text-3xl font-semibold leading-snug text-foreground"
-                      }
-                    >
-                      {nextAction}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </section>
+          {/* 2. Kontakti */}
+          <Section title="Kontakti">
+            <Grid>
+              <Field label="Email" value={email} mono />
+              <Field label="Telefons" value={phone} mono />
+              <Field label="Valsts" value={country} />
+              <Field label="Avots" value={source} />
+              <Field label="Detalizēts avots" value={fmt(sourceDetailed)} />
+              <Field label="B2B" value={b2b} />
+            </Grid>
+          </Section>
 
-          {/* 2. Darbības */}
-          <section className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Darbības
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={comingSoon}>
-                <Mail className="mr-2 h-4 w-4" />
-                Sūtīt e-pastu
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                SMS
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <Send className="mr-2 h-4 w-4" />
-                WhatsApp
-              </Button>
-              <Button variant="outline" onClick={comingSoon}>
-                <Phone className="mr-2 h-4 w-4" />
-                Zvanīt
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Šobrīd pogas ir tikai UI — komunikāciju sūtīšana drīzumā.
-            </p>
-          </section>
-
-          {/* 3. Aktivitāte */}
-          <section className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Aktivitāte
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <StatCard
-                label="Engagement events"
-                value={
-                  engagementEvents != null ? Number(engagementEvents) || 0 : 0
-                }
-                hint="Aktivitāšu skaits"
+          {/* 3. Objekts / projekts */}
+          <Section title="Objekts / projekts">
+            <Grid>
+              <Field label="Objekts" value={objekts} />
+              <Field label="m²" value={m2} />
+              <Field label="Summa" value={summa} />
+              <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
+              <Field label="Forma · Zeme" value={formaZeme} />
+              <Field label="Forma · Projekts" value={formaProjekts} />
+              <Field
+                label="Forma · Ziņa no Lead"
+                value={formaZinaNoLead}
+                wide
               />
-              <StatCard
-                label="Pozitīvas reakcijas"
-                value={
-                  positiveReactions != null
-                    ? Number(positiveReactions) || 0
-                    : 0
-                }
-                hint="Atvēršanas, klikšķi u.c."
-              />
-              <StatCard
-                label="Pēdējais notikums"
-                value={fmtDate(lastEventAt)}
-                hint="last_event_at"
-              />
-            </div>
+            </Grid>
+          </Section>
 
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Activity className="h-3.5 w-3.5" /> Engagement
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <ThumbsUp className="h-3.5 w-3.5" /> Pozitīvas
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" /> Pēdējais
-              </span>
-            </div>
-          </section>
+          {/* 4. Darba informācija */}
+          <Section title="Darba informācija">
+            <Grid>
+              <Field label="Nākamā darbība" value={nextActionTr} />
+              <Field label="Termiņš" value={termins} />
+              <Field label="Pēdējās saziņas datums" value={lastContact} />
+              <Field label="Automatizācija" value={automatizacija} />
+              <Field
+                label="Automatizācijas datums"
+                value={automatizacijasDatums}
+              />
+              <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
+              <Field
+                label="Situācijas piezīmes"
+                value={situacijasPiezimes}
+                wide
+              />
+            </Grid>
+            {engagementQ.data?.error && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Engagement dati nav pieejami: {engagementQ.data.error}
+              </p>
+            )}
+            {engagement && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <MiniStat
+                  label="Engagement events"
+                  value={fmt(
+                    pick(
+                      engagement,
+                      "engagement_events",
+                      "events_count",
+                      "total_events",
+                    ),
+                  )}
+                />
+                <MiniStat
+                  label="Pozitīvas reakcijas"
+                  value={fmt(
+                    pick(
+                      engagement,
+                      "positive_reactions",
+                      "positive_count",
+                    ),
+                  )}
+                />
+                <MiniStat
+                  label="Pēdējais notikums"
+                  value={fmtDate(
+                    pick(engagement, "last_event_at", "last_activity_at"),
+                  )}
+                />
+              </div>
+            )}
+          </Section>
 
-          {/* 4. Komunikāciju vēsture */}
-          <section className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Komunikāciju vēsture
-            </h2>
-            <CommunicationsTable
+          {/* 5. Komunikāciju vēsture */}
+          <Section title="Komunikāciju vēsture">
+            <CommunicationsList
               comms={comms}
-              loading={commsQ.isLoading || commsQ.isFetching}
+              loading={commsQ.isLoading}
               error={commsError}
               eventsByComm={eventsByComm}
-              eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
-              linkTypeById={linkTypeById}
+              eventsLoading={hasComms && eventsQ.isLoading}
               onOpenEmail={(c) => setOpenComm(c)}
             />
-          </section>
-        </>
+          </Section>
+        </div>
       )}
 
-      <EmailPreviewDialog
-        comm={openComm}
-        onClose={() => setOpenComm(null)}
-      />
+      <EmailPreviewDialog comm={openComm} onClose={() => setOpenComm(null)} />
     </>
   );
 }
 
-function InfoRow({
+/* -------------------------- layout primitives -------------------------- */
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      {children}
+    </div>
+  );
+}
+
+function Field({
   label,
   value,
   mono,
   emphasize,
+  wide,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   emphasize?: boolean;
+  wide?: boolean;
 }) {
+  const isEmpty = value === NA;
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className={`flex flex-col gap-0.5 ${wide ? "sm:col-span-2 lg:col-span-3" : ""}`}>
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span
         className={[
-          "text-foreground",
-          mono ? "font-mono text-sm" : "text-base",
-          emphasize ? "text-xl font-semibold tabular-nums" : "",
+          isEmpty ? "text-muted-foreground italic" : "text-foreground",
+          mono ? "font-mono text-sm" : "text-sm",
+          emphasize ? "text-base font-semibold" : "",
+          wide ? "whitespace-pre-wrap break-words" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -470,13 +493,25 @@ function InfoRow({
   );
 }
 
-function CommunicationsTable({
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm font-medium text-foreground">{value}</div>
+    </div>
+  );
+}
+
+/* -------------------------- communications -------------------------- */
+
+function CommunicationsList({
   comms,
   loading,
   error,
   eventsByComm,
   eventsLoading,
-  linkTypeById,
   onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
@@ -484,123 +519,129 @@ function CommunicationsTable({
   error?: string | null;
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
-  linkTypeById: Map<string, string>;
   onOpenEmail: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
   if (!comms || comms.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
         Nav komunikāciju ierakstu.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Datums</th>
-              <th className="px-3 py-2 text-left font-medium">Kanāls</th>
-              <th className="px-3 py-2 text-left font-medium">Virziens</th>
-              <th className="px-3 py-2 text-left font-medium">Statuss</th>
-              <th className="px-3 py-2 text-left font-medium">E-pasta solis</th>
-              <th className="px-3 py-2 text-left font-medium">Temats</th>
-            </tr>
-          </thead>
-          <tbody>
-            {comms.map((c, i) => {
-              const date = c.sent_at;
-              const channel = translateChannel(c.channel);
-              const direction = translateDirection(c.direction);
-              const status = translateCommStatus(c.current_status ?? c.status);
-              const subject = c.subject;
-              const automationStep = c.automation_step;
-              const commId = String(c.id ?? c.communication_id ?? "");
-              const events = commId ? eventsByComm.get(commId) ?? [] : [];
-              return (
-                <Fragment key={i}>
-                  <tr className="border-t border-border hover:bg-secondary/30">
-                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                      {fmtDate(date)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <ChannelBadge value={fmt(channel)} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                      {direction}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                      {status}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                      {fmt(automationStep)}
-                    </td>
-                    <td className="px-3 py-2 text-foreground">
-                      <button
-                        type="button"
-                        onClick={() => onOpenEmail(c)}
-                        className="text-left text-primary underline-offset-2 hover:underline"
-                        title="Skatīt nosūtīto e-pastu"
-                      >
-                        {fmt(subject)}
-                      </button>
+    <div className="overflow-hidden rounded-md border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium">Datums</th>
+            <th className="px-3 py-2 text-left font-medium">Kanāls</th>
+            <th className="px-3 py-2 text-left font-medium">Virziens</th>
+            <th className="px-3 py-2 text-left font-medium">Statuss</th>
+            <th className="px-3 py-2 text-left font-medium">No</th>
+            <th className="px-3 py-2 text-left font-medium">Uz</th>
+            <th className="px-3 py-2 text-left font-medium">Temats / saturs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {comms.map((c, i) => {
+            const sentAt = c.sent_at ?? c.received_at;
+            const channel = tx(CHANNEL_LV, c.channel);
+            const direction = tx(DIRECTION_LV, c.direction);
+            const status = tx(
+              COMM_STATUS_LV,
+              c.current_status ?? c.status,
+            );
+            const subject = c.subject;
+            const fromAddr = c.from_address;
+            const toAddr = c.to_address;
+            const html = readHtml(c);
+            const text = readText(c);
+            const hasBody = !!html || !!text;
+            const commId = String(c.id ?? c.communication_id ?? "");
+            const events = commId ? eventsByComm.get(commId) ?? [] : [];
+            const attachmentsInfo = c.attachments_info;
+            return (
+              <Fragment key={i}>
+                <tr className="border-t border-border align-top hover:bg-secondary/30">
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                    {fmtDate(sentAt)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <ChannelBadge value={channel} />
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                    {direction}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                    {status}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-foreground">
+                    {fmt(fromAddr)}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-foreground">
+                    {fmt(toAddr)}
+                  </td>
+                  <td className="px-3 py-2 text-foreground">
+                    <div className="flex flex-col gap-1">
+                      <span>{fmt(subject)}</span>
+                      {hasBody && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenEmail(c)}
+                          className="self-start text-xs text-primary underline-offset-2 hover:underline"
+                        >
+                          Atvērt e-pastu
+                        </button>
+                      )}
+                      {attachmentsInfo != null && attachmentsInfo !== "" && (
+                        <span className="text-xs text-muted-foreground">
+                          Pielikumi: {fmt(attachmentsInfo)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {(events.length > 0 || eventsLoading) && (
+                  <tr className="bg-muted/20">
+                    <td colSpan={7} className="px-3 pb-3 pt-1">
+                      {eventsLoading && events.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">
+                          Ielādē notikumus...
+                        </div>
+                      ) : (
+                        <div className="ml-2 border-l-2 border-border pl-3">
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Notikumi ({events.length})
+                          </div>
+                          <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                            {events.map((ev, j) => (
+                              <li
+                                key={j}
+                                className="flex items-center gap-2 text-xs"
+                              >
+                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
+                                <span className="font-medium text-foreground">
+                                  {tx(COMM_STATUS_LV, ev.event_type)}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {fmtDate(ev.event_timestamp)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </td>
                   </tr>
-                  {(events.length > 0 || eventsLoading) && (
-                    <tr className="bg-muted/20">
-                      <td colSpan={6} className="px-3 pb-3 pt-1">
-                        {eventsLoading && events.length === 0 ? (
-                          <div className="text-xs text-muted-foreground">
-                            Ielādē notikumus...
-                          </div>
-                        ) : (
-                          <div className="ml-4 border-l-2 border-border pl-3">
-                            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Notikumi ({events.length})
-                            </div>
-                            <ul className="space-y-1">
-                              {events.map((ev, j) => {
-                                const isClicked =
-                                  String(ev.event_type ?? "")
-                                    .trim()
-                                    .toLowerCase() === "clicked";
-                                const trackingLinkId = ev.tracking_link_id
-                                  ? String(ev.tracking_link_id)
-                                  : "";
-                                const linkType = trackingLinkId
-                                  ? linkTypeById.get(trackingLinkId)
-                                  : undefined;
-                                return (
-                                  <li
-                                    key={j}
-                                    className="flex flex-wrap items-center gap-2 text-xs"
-                                  >
-                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
-                                    <span className="font-medium text-foreground">
-                                      {translateCommStatus(ev.event_type)}
-                                    </span>
-                                    <span className="text-muted-foreground">
-                                      {fmtDate(ev.event_timestamp)}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -608,11 +649,11 @@ function CommunicationsTable({
 function ChannelBadge({ value }: { value: string }) {
   const v = value.toLowerCase();
   let cls = "bg-muted text-muted-foreground";
-  if (v.includes("email") || v.includes("e-past") || v.includes("pasts"))
+  if (v.includes("e-past") || v.includes("email") || v.includes("pasts"))
     cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
   else if (v.includes("sms"))
     cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  else if (v.includes("call") || v.includes("zvan"))
+  else if (v.includes("zvan") || v.includes("call"))
     cls = "bg-amber-500/10 text-amber-700 dark:text-amber-300";
   else if (v.includes("whats"))
     cls = "bg-green-500/10 text-green-700 dark:text-green-300";
@@ -625,6 +666,40 @@ function ChannelBadge({ value }: { value: string }) {
   );
 }
 
+function readHtml(c: Record<string, unknown>): string {
+  const direct = c.html_body;
+  if (typeof direct === "string" && direct.trim() !== "") return direct;
+  const meta = c.metadata as Record<string, unknown> | null | undefined;
+  if (meta && typeof meta === "object") {
+    const payload = (meta as Record<string, unknown>).resend_payload as
+      | Record<string, unknown>
+      | undefined;
+    if (payload && typeof payload === "object") {
+      const h = (payload as Record<string, unknown>).html;
+      if (typeof h === "string" && h.trim() !== "") return h;
+    }
+  }
+  return "";
+}
+
+function readText(c: Record<string, unknown>): string {
+  const direct = c.text_body;
+  if (typeof direct === "string" && direct.trim() !== "") return direct;
+  const meta = c.metadata as Record<string, unknown> | null | undefined;
+  if (meta && typeof meta === "object") {
+    const payload = (meta as Record<string, unknown>).resend_payload as
+      | Record<string, unknown>
+      | undefined;
+    if (payload && typeof payload === "object") {
+      const t = (payload as Record<string, unknown>).text;
+      if (typeof t === "string" && t.trim() !== "") return t;
+    }
+  }
+  return "";
+}
+
+/* -------------------------- email modal -------------------------- */
+
 function EmailPreviewDialog({
   comm,
   onClose,
@@ -633,28 +708,16 @@ function EmailPreviewDialog({
   onClose: () => void;
 }) {
   const open = !!comm;
-  const subject = comm ? fmt(comm.subject) : "—";
-  const automationStep = comm ? fmt(comm.automation_step) : "—";
-  const sentAt = comm ? fmtDate(comm.sent_at) : "—";
-
-  const html = useMemo(() => {
-    if (!comm) return "";
-    const meta = comm.metadata as Record<string, unknown> | null | undefined;
-    if (!meta || typeof meta !== "object") return "";
-    const payload = (meta as Record<string, unknown>).resend_payload as
-      | Record<string, unknown>
-      | null
-      | undefined;
-    if (!payload || typeof payload !== "object") return "";
-    const h = (payload as Record<string, unknown>).html;
-    return typeof h === "string" ? h : "";
-  }, [comm]);
+  const subject = comm ? fmt(comm.subject) : NA;
+  const sentAt = comm ? fmtDate(comm.sent_at ?? comm.received_at) : NA;
+  const html = useMemo(() => (comm ? readHtml(comm) : ""), [comm]);
+  const text = useMemo(() => (comm ? readText(comm) : ""), [comm]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nosūtītais e-pasts</DialogTitle>
+          <DialogTitle>E-pasta saturs</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
           <div className="grid grid-cols-[120px_1fr] gap-2">
@@ -665,13 +728,7 @@ function EmailPreviewDialog({
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              E-pasta solis
-            </span>
-            <span className="text-foreground">{automationStep}</span>
-          </div>
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Nosūtīts
+              Datums
             </span>
             <span className="text-foreground">{sentAt}</span>
           </div>
@@ -685,6 +742,10 @@ function EmailPreviewDialog({
               srcDoc={html}
               className="h-[60vh] w-full"
             />
+          ) : text ? (
+            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
+              {text}
+            </pre>
           ) : (
             <div className="p-6 text-sm text-muted-foreground">
               E-pasta saturs nav saglabāts.
