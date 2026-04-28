@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -9,7 +9,6 @@ import {
   Phone,
   MessageCircle,
   Send,
-  Search,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -124,6 +123,7 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
 }
 
 function DarbaRindaPage() {
+  const search = Route.useSearch();
   const query = useMemo(
     () => "order=priority_score.desc.nullslast&limit=1000",
     [],
@@ -136,7 +136,7 @@ function DarbaRindaPage() {
 
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
-  const [q, setQ] = useState("");
+  const q = search.q ?? "";
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -170,17 +170,7 @@ function DarbaRindaPage() {
       <PageHeader
         title="Darba rinda"
         description="Prioritārie leadi no analytics.lead_priority_queue"
-      >
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Meklēt pēc vārda, e-pasta vai telefona..."
-            className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
-          />
-        </div>
-      </PageHeader>
+      />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <StatCard
@@ -207,10 +197,10 @@ function DarbaRindaPage() {
         rows.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-            <div className="overflow-x-auto">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" style={{ maxHeight: "calc(100vh - 380px)" }}>
+            <div className="flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-sm">
                   <tr>
                     {COLUMNS.map((c) => (
                       <th
