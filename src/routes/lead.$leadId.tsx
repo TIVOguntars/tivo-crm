@@ -81,6 +81,19 @@ const COMM_STATUS_LV: Record<string, string> = {
   reply: "Atbilde",
 };
 
+const LINK_TYPE_LV: Record<string, string> = {
+  cta: "CTA poga",
+  ppv_email: "PPV e-pasts",
+  ppv_phone: "Telefons",
+  website: "Mājaslapa",
+};
+
+function translateLinkType(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return LINK_TYPE_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
 function translateNextAction(value: unknown): string {
   const raw = fmt(value);
   if (raw === "—") return raw;
@@ -174,6 +187,38 @@ function LeadProfilePage() {
     }
     return map;
   }, [eventsQ.data, eventsQuery]);
+
+  // 2c. Tracking links priekš komunikācijām, kur ir clicked notikumi
+  const linksQuery = useMemo(() => {
+    if (commIds.length === 0) return null;
+    const list = commIds.map((id) => String(id)).join(",");
+    return `communication_id=in.(${list})&limit=2000`;
+  }, [commIds]);
+
+  const linksQ = usePublicTable(
+    "tracking_links",
+    linksQuery ?? "communication_id=eq.__none__&limit=1",
+  );
+
+  const linkTypesByComm = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!linksQuery) return map;
+    const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const link of rows) {
+      const k = String(link.communication_id ?? "");
+      if (!k) continue;
+      const meta = link.metadata as Record<string, unknown> | null | undefined;
+      const linkType =
+        meta && typeof meta === "object"
+          ? (meta as Record<string, unknown>).link_type
+          : null;
+      if (linkType == null) continue;
+      const list = map.get(k) ?? [];
+      list.push(String(linkType));
+      map.set(k, list);
+    }
+    return map;
+  }, [linksQ.data, linksQuery]);
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
