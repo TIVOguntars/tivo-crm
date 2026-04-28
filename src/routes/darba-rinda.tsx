@@ -14,15 +14,15 @@ export const Route = createFileRoute("/darba-rinda")({
   component: DarbaRindaPage,
 });
 
-const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean }[] = [
-  { key: "full_name", label: "Vārds", widthClass: "w-[220px] max-w-[220px]", wrap: true },
-  { key: "email", label: "Email", widthClass: "w-[240px] max-w-[240px]", wrap: true },
-  { key: "phone_raw", label: "Telefons", widthClass: "w-[160px]" },
-  { key: "current_status", label: "Statuss" },
-  { key: "suggested_status", label: "Ieteiktais statuss" },
-  { key: "priority_score", label: "Prioritāte" },
-  { key: "time_since_last_activity", label: "Laiks kopš aktivitātes" },
-  { key: "__actions", label: "Darbības", widthClass: "w-[280px]" },
+const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean; align?: "left" | "right" | "center" }[] = [
+  { key: "full_name", label: "Vārds", widthClass: "w-[16%] min-w-[140px]", wrap: true },
+  { key: "email", label: "Email", widthClass: "w-[20%] min-w-[180px]", wrap: true },
+  { key: "phone_raw", label: "Telefons", widthClass: "w-[11%] min-w-[120px]" },
+  { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
+  { key: "suggested_status", label: "Ieteiktais", widthClass: "w-[11%] min-w-[110px]" },
+  { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
+  { key: "time_since_last_activity", label: "Aktivitāte", widthClass: "w-[10%] min-w-[100px]" },
+  { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
 ];
 
 function formatCell(value: unknown): string {
@@ -84,31 +84,30 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-nowrap items-center gap-0.5">
       <Button
         size="sm"
         variant="outline"
-        className="h-7 px-2"
+        className="h-6 px-1.5"
         onClick={handleViewProfile}
         title="Skatīt profilu"
       >
-        <Eye className="h-3.5 w-3.5" />
-        <span className="ml-1 hidden xl:inline">Profils</span>
+        <Eye className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={comingSoon} title="E-pasts">
-        <Mail className="h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="E-pasts">
+        <Mail className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={comingSoon} title="SMS">
-        <MessageSquare className="h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="SMS">
+        <MessageSquare className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={comingSoon} title="WhatsApp">
-        <Send className="h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="WhatsApp">
+        <Send className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={comingSoon} title="Zvans">
-        <Phone className="h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Zvans">
+        <Phone className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={comingSoon} title="Messenger">
-        <MessageCircle className="h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Messenger">
+        <MessageCircle className="h-3 w-3" />
       </Button>
     </div>
   );
@@ -177,15 +176,15 @@ function DarbaRindaPage() {
         ) : (
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     {COLUMNS.map((c) => (
                       <th
                         key={c.key}
-                        className={`px-4 py-2 text-left font-medium tracking-wide ${
-                          c.wrap ? "" : "whitespace-nowrap"
-                        } ${c.widthClass ?? ""}`}
+                        className={`px-2 py-2 font-medium tracking-wide ${
+                          c.align === "right" ? "text-right" : "text-left"
+                        } ${c.wrap ? "" : "whitespace-nowrap"} ${c.widthClass ?? ""}`}
                       >
                         {c.label}
                       </th>
@@ -225,13 +224,20 @@ function DarbaRindaPage() {
                           return (
                             <td
                               key={c.key}
-                              className={`px-4 py-2 text-foreground ${
+                              className={`px-2 py-2 text-foreground ${
+                                c.align === "right" ? "text-right" : "text-left"
+                              } ${
                                 c.wrap
                                   ? "whitespace-normal break-words"
-                                  : "whitespace-nowrap"
+                                  : "truncate"
                               } ${c.widthClass ?? ""} ${
                                 isScore ? "font-semibold tabular-nums" : ""
                               }`}
+                              title={
+                                c.key !== "__actions" && !c.wrap
+                                  ? formatCell(row[c.key])
+                                  : undefined
+                              }
                             >
                               {content}
                             </td>
