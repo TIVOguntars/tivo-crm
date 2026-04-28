@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useMemo } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
@@ -80,7 +79,7 @@ function LeadiPage() {
   }, [from, to, search.countries, search.sources, search.owners, search.ppvs]);
 
   const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
-  const [q, setQ] = useState("");
+  const q = search.q ?? "";
 
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
@@ -102,17 +101,7 @@ function LeadiPage() {
       <PageHeader
         title="Leadi"
         description={`Pēdējie ${rows.length} leadi no analytics.leads_overview`}
-      >
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Meklēt pēc vārda, e-pasta vai telefona..."
-            className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
-          />
-        </div>
-      </PageHeader>
+      />
 
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && isLoading && <LoadingState />}
@@ -121,10 +110,10 @@ function LeadiPage() {
         rows.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-            <div className="overflow-x-auto">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" style={{ maxHeight: "calc(100vh - 260px)" }}>
+            <div className="flex-1 overflow-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-sm">
                   <tr>
                     {VISIBLE_COLUMNS.map((c) => (
                       <th
