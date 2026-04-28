@@ -186,7 +186,7 @@ function LeadProfilePage() {
   // Komunikācijas
   const commsQ = usePublicTable(
     "communications",
-    `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc.nullslast&limit=200`,
+    `lead_id=eq.${encodeURIComponent(leadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`,
     { fresh: true },
   );
 
@@ -710,10 +710,14 @@ function CommunicationsTimeline({
     );
   }
 
-  // Sort newest -> oldest by sent_at / received_at for timeline ordering.
+  // Sort newest -> oldest by coalesce(sent_at, received_at, created_at)
   const sorted = [...comms].sort((a, b) => {
-    const ta = new Date(String(a.sent_at ?? a.received_at ?? 0)).getTime() || 0;
-    const tb = new Date(String(b.sent_at ?? b.received_at ?? 0)).getTime() || 0;
+    const ta =
+      new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() ||
+      0;
+    const tb =
+      new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() ||
+      0;
     return tb - ta;
   });
 
