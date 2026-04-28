@@ -52,6 +52,33 @@ function fmtDate(value: unknown): string {
   });
 }
 
+const NEXT_ACTION_LV: Record<string, string> = {
+  "contact immediately": "Sazināties nekavējoties",
+  "warm follow-up": "Veikt atkārtotu kontaktu",
+  "warm followup": "Veikt atkārtotu kontaktu",
+  "start outreach": "Uzsākt komunikāciju",
+  "try another channel": "Izmantot citu kanālu",
+  "no action": "Nav darbību",
+};
+
+const CHANNEL_LV: Record<string, string> = {
+  email: "E-pasts",
+  sms: "SMS",
+  call: "Zvans",
+};
+
+function translateNextAction(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return NEXT_ACTION_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
+function translateChannel(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return CHANNEL_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
 
@@ -108,7 +135,9 @@ function LeadProfilePage() {
     string,
     unknown
   > | null;
-  const nextAction = fmt(nextActionRow?.next_action ?? profile?.next_action);
+  const nextAction = translateNextAction(
+    nextActionRow?.next_action ?? profile?.next_action,
+  );
   const nextActionError =
     (nextActionQ.error as Error | null)?.message || nextActionQ.data?.error;
   const engagementEvents = profile?.engagement_events;
@@ -354,7 +383,7 @@ function CommunicationsTable({
           <tbody>
             {comms.map((c, i) => {
               const date = c.sent_at;
-              const channel = c.channel;
+              const channel = translateChannel(c.channel);
               const direction = c.direction;
               const status = c.current_status ?? c.status;
               const subject = c.subject;
@@ -389,7 +418,8 @@ function CommunicationsTable({
 function ChannelBadge({ value }: { value: string }) {
   const v = value.toLowerCase();
   let cls = "bg-muted text-muted-foreground";
-  if (v.includes("email")) cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  if (v.includes("email") || v.includes("e-past") || v.includes("pasts"))
+    cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
   else if (v.includes("sms"))
     cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   else if (v.includes("call") || v.includes("zvan"))
