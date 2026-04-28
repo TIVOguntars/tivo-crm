@@ -519,6 +519,7 @@ function LeadProfilePage() {
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
+              onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
         </div>
@@ -793,6 +794,7 @@ function CommunicationsTimeline({
   eventsByComm,
   trackingLinksByComm,
   eventsLoading,
+  onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
@@ -800,6 +802,7 @@ function CommunicationsTimeline({
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   trackingLinksByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
+  onOpenEmail?: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -846,7 +849,26 @@ function CommunicationsTimeline({
               <Fragment key={commId || i}>
                 <tr key={`${commId || i}-row`} className="border-b border-border/60 align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
-                  <td className="px-3 py-2"><ChannelBadge value={tx(CHANNEL_LV, c.channel)} /></td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const ch = String(c.channel ?? "").toLowerCase();
+                      const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
+                      const badge = <ChannelBadge value={tx(CHANNEL_LV, c.channel)} />;
+                      if (isEmail && onOpenEmail) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => onOpenEmail(c)}
+                            className="cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                            title="Atvērt e-pastu"
+                          >
+                            {badge}
+                          </button>
+                        );
+                      }
+                      return badge;
+                    })()}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(DIRECTION_LV, c.direction)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(COMM_STATUS_LV, c.current_status ?? c.status)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
