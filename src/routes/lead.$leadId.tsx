@@ -150,6 +150,12 @@ function tx(map: Record<string, string>, value: unknown): string {
   return map[raw] ?? String(value);
 }
 
+function txOpt(map: Record<string, string>, value: unknown): string {
+  const raw = value == null ? "" : String(value).trim().toLowerCase();
+  if (!raw) return "";
+  return map[raw] ?? String(value);
+}
+
 /* -------------------------- page -------------------------- */
 
 function LeadProfilePage() {
