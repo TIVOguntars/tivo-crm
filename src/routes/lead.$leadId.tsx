@@ -242,78 +242,62 @@ function LeadProfilePage() {
 
   /* ------ lauku izvilkšana ------ */
 
-  const fullName = fmt(pick(profile, "full_name", "name"));
-  const status = fmt(pick(profile, "status", "current_status"));
-  const rating = fmt(pick(profile, "rating"));
+  const fullNameRaw = pick(profile, "full_name", "name");
+  const fullName = fullNameRaw ? String(fullNameRaw) : `Lead #${leadId}`;
+  const status = pick(profile, "status", "current_status");
+  const rating = pick(profile, "rating");
   const priority =
     pick(priorityRow, "priority_score") ?? pick(profile, "priority_score");
-  const tags = pick(profile, "tags");
-  const ppv = fmt(pick(profile, "ppv_vards", "ppv", "ppv_name"));
-  const owner = fmt(pick(profile, "owner", "owner_name"));
+  const tagsRaw = pick(profile, "tags");
+  const tagsStr = isEmptyValue(tagsRaw) ? "" : fmt(tagsRaw);
+  const ppv = pick(profile, "ppv_vards", "ppv", "ppv_name");
+  const owner = pick(profile, "owner", "owner_name");
 
-  const email = fmt(pick(profile, "email"));
-  const phone = fmt(pick(profile, "phone_raw", "phone"));
-  const country = fmt(pick(profile, "country"));
-  const source = fmt(pick(profile, "source"));
+  const email = pick(profile, "email");
+  const phone = pick(profile, "phone_raw", "phone");
+  const country = pick(profile, "country");
+  const source = pick(profile, "source");
   const sourceDetailed = pick(profile, "source_detailed");
-  const b2b = fmtBool(pick(profile, "is_b2b", "b2b"));
+  const b2bRaw = pick(profile, "is_b2b", "b2b");
+  const b2b = b2bRaw == null ? "" : fmtBool(b2bRaw);
 
-  // Objekts / projekts (lielākoties no metadata vai Smartsheet)
-  const objekts = fmt(pick(profile, "object", "objekts", "object_name"));
-  const m2 = fmt(pick(profile, "m2", "square_meters", "area_m2", "area"));
-  const summa = fmt(pick(profile, "amount", "summa", "price", "value"));
+  // Objekts / projekts
+  const objekts = pick(profile, "object", "objekts", "object_name");
+  const m2 = pick(profile, "m2", "square_meters", "area_m2", "area");
+  const summa = pick(profile, "amount", "summa", "price", "value");
   const planotaBuvnieciba = fmtDateOnly(
-    pick(
-      profile,
-      "construction_date",
-      "planned_construction",
-      "planota_buvnieciba",
-    ),
+    pick(profile, "construction_date", "planned_construction", "planota_buvnieciba"),
   );
-  const formaZeme = fmt(
-    pick(profile, "form_land", "forma_zeme", "land_form"),
-  );
-  const formaProjekts = fmt(
-    pick(profile, "form_project", "forma_projekts", "project_form"),
-  );
-  const formaZinaNoLead = fmt(
-    pick(
-      profile,
-      "form_message",
-      "forma_zina",
-      "forma_message",
-      "lead_message",
-      "message",
-    ),
+  const formaZeme = pick(profile, "form_land", "forma_zeme", "land_form");
+  const formaProjekts = pick(profile, "form_project", "forma_projekts", "project_form");
+  const formaZinaNoLead = pick(
+    profile,
+    "form_message",
+    "forma_zina",
+    "forma_message",
+    "lead_message",
+    "message",
   );
 
   // Darba info
-  const nextAction = fmt(pick(profile, "next_action"));
-  const nextActionTr =
-    nextAction === NA
-      ? NA
-      : NEXT_ACTION_LV[nextAction.trim().toLowerCase()] ?? nextAction;
+  const nextActionRaw = pick(profile, "next_action");
+  const nextActionTr = nextActionRaw
+    ? NEXT_ACTION_LV[String(nextActionRaw).trim().toLowerCase()] ?? String(nextActionRaw)
+    : "";
   const termins = fmtDate(pick(profile, "next_action_due_date", "due_date"));
-  const lastContact = fmtDate(
-    pick(profile, "last_contact_date", "last_contact_at"),
+  const lastContact = fmtDate(pick(profile, "last_contact_date", "last_contact_at"));
+  const automatizacija = pick(profile, "automation", "automation_name", "automation_status");
+  const automatizacijasDatums = fmtDate(pick(profile, "automation_date", "automation_at"));
+  const atcelsanasIemesls = pick(
+    profile,
+    "cancel_reason",
+    "atcelšanas_iemesls",
+    "cancellation_reason",
   );
-  const automatizacija = fmt(
-    pick(profile, "automation", "automation_name", "automation_status"),
-  );
-  const automatizacijasDatums = fmtDate(
-    pick(profile, "automation_date", "automation_at"),
-  );
-  const atcelsanasIemesls = fmt(
-    pick(profile, "cancel_reason", "atcelšanas_iemesls", "cancellation_reason"),
-  );
-  const situacijasPiezimes = fmt(
-    pick(profile, "situation_notes", "situācijas_piezīmes", "notes"),
-  );
+  const situacijasPiezimes = pick(profile, "situation_notes", "situācijas_piezīmes", "notes");
 
   // Engagement / reaction
-  const lastEvent = fmt(
-    pick(engagement ?? undefined, "last_event_type", "last_event"),
-  );
+  const lastEvent = pick(engagement ?? undefined, "last_event_type", "last_event");
   const lastEventAt = fmtDate(
     pick(engagement ?? undefined, "last_event_at", "last_activity_at"),
   );
@@ -325,15 +309,13 @@ function LeadProfilePage() {
   );
   const reaction =
     reactionRaw == null
-      ? NA
+      ? ""
       : typeof reactionRaw === "number"
         ? reactionRaw > 0
           ? "Jā"
           : "Nē"
         : fmtBool(reactionRaw);
-  const reactionType = fmt(
-    pick(engagement ?? undefined, "last_reaction_type", "reaction_type"),
-  );
+  const reactionType = pick(engagement ?? undefined, "last_reaction_type", "reaction_type");
 
   // Tehniski
   const syncedAt = fmtDate(pick(profile, "synced_at", "updated_at"));
@@ -347,7 +329,7 @@ function LeadProfilePage() {
 
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-2">
         <Button asChild variant="ghost" size="sm" className="h-8 px-2">
           <Link to="/darba-rinda">
             <ArrowLeft className="mr-1 h-4 w-4" />
@@ -356,11 +338,6 @@ function LeadProfilePage() {
         </Button>
       </div>
 
-      <PageHeader
-        title={profile ? fullName : `Lead #${leadId}`}
-        description={`Lead ID: ${leadId}`}
-      />
-
       {profileError && <ErrorState message={profileError} />}
       {!profileError && overviewQ.isLoading && <LoadingState />}
       {!profileError && !overviewQ.isLoading && !profile && (
@@ -368,85 +345,73 @@ function LeadProfilePage() {
       )}
 
       {profile && (
-        <div className="space-y-4">
-          {/* === VIENMĒR REDZAMS === */}
-
-          {/* 1. Header */}
-          <Section title="Pārskats">
-            <Grid>
-              <Field label="Vārds Uzvārds" value={fullName} emphasize />
-              <Field label="Statuss" value={status} />
-              <Field
+        <div className="space-y-3">
+          {/* === Header — kompakta rinda === */}
+          <header className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+              <h1 className="text-base font-semibold text-foreground">{fullName}</h1>
+              <InlineField label="Statuss" value={status} />
+              <InlineField
                 label="Reitings · Prioritāte"
-                value={`${rating} · ${priority != null && priority !== "" ? String(priority) : NA}`}
-                emphasize
+                value={
+                  isEmptyValue(rating) && isEmptyValue(priority)
+                    ? ""
+                    : `${isEmptyValue(rating) ? "—" : String(rating)} · ${
+                        isEmptyValue(priority) ? "—" : String(priority)
+                      }`
+                }
               />
-              <Field label="Tagi" value={fmt(tags)} />
-              <Field label="PPV" value={ppv} />
-              <Field label="Atbildīgais" value={owner} />
-            </Grid>
-          </Section>
-
-          {/* 2. Nākamā darbība */}
-          <Section title="Nākamā darbība">
-            <Grid>
-              <Field label="Nākamā darbība" value={nextActionTr} emphasize />
-              <Field label="Termiņš" value={termins} />
-            </Grid>
-          </Section>
-
-          {/* 3. Darbības (placeholder) */}
-          <Section title="Darbības">
-            <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-              Darbību panelis tiks pievienots drīzumā.
+              <InlineField label="Tagi" value={tagsStr} />
+              <InlineField label="PPV" value={ppv} />
+              <InlineField label="Atbildīgais" value={owner} />
+              <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                {leadId}
+              </span>
             </div>
-          </Section>
+          </header>
+
+          {/* === Nākamā darbība === */}
+          <CompactSection title="Nākamā darbība">
+            <InlineField label="Darbība" value={nextActionTr} emphasize />
+            <InlineField label="Termiņš" value={termins} />
+          </CompactSection>
+
+          {/* === Darbības (placeholder) === */}
+          <CompactSection title="Darbības">
+            <span className="text-xs text-muted-foreground">
+              Darbību panelis tiks pievienots drīzumā.
+            </span>
+          </CompactSection>
 
           {/* === CILNES === */}
           <Tabs defaultValue="parskats" className="w-full">
-            <TabsList>
-              <TabsTrigger value="parskats">Pārskats</TabsTrigger>
-              <TabsTrigger value="projekts">Projekts</TabsTrigger>
-              <TabsTrigger value="darbs">Darbs</TabsTrigger>
-              <TabsTrigger value="tehniski">Tehniski</TabsTrigger>
+            <TabsList className="h-8">
+              <TabsTrigger value="parskats" className="text-xs">Pārskats</TabsTrigger>
+              <TabsTrigger value="projekts" className="text-xs">Projekts</TabsTrigger>
+              <TabsTrigger value="darbs" className="text-xs">Darbs</TabsTrigger>
+              <TabsTrigger value="tehniski" className="text-xs">Tehniski</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="parskats" className="mt-3">
+            <TabsContent value="parskats" className="mt-2">
               <Section title="Pārskats">
                 <Grid>
                   <Field label="Email" value={email} mono />
                   <Field label="Telefons" value={phone} mono />
                   <Field label="Valsts" value={country} />
                   <Field label="Avots" value={source} />
+                  <Field label="Detalizēts avots" value={sourceDetailed} />
                   <Field label="B2B" value={b2b} />
                   <Field label="Pēdējais notikums" value={lastEvent} />
+                  <Field label="Pēdējā aktivitāte" value={lastEventAt} />
                   <Field label="Reakcija" value={reaction} />
                   <Field label="Reakcijas tips" value={reactionType} />
                   <Field label="Pēdējās saziņas datums" value={lastContact} />
                 </Grid>
-                {sourceDetailed != null && sourceDetailed !== "" && (
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Detalizēts avots: {fmt(sourceDetailed)}
-                  </div>
-                )}
-                {engagementQ.data?.error && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Engagement dati nav pieejami: {engagementQ.data.error}
-                  </p>
-                )}
-                {engagement && (
-                  <div className="mt-3">
-                    <MiniStat
-                      label="Pēdējā aktivitāte"
-                      value={lastEventAt}
-                    />
-                  </div>
-                )}
               </Section>
             </TabsContent>
 
-            <TabsContent value="projekts" className="mt-3">
-              <Section title="Projekts">
+            <TabsContent value="projekts" className="mt-2">
+              <Section title="Projekts" emptyLabel="Nav projekta informācijas">
                 <Grid>
                   <Field label="Objekts" value={objekts} />
                   <Field label="m²" value={m2} />
@@ -454,46 +419,32 @@ function LeadProfilePage() {
                   <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
                   <Field label="Forma · Zeme" value={formaZeme} />
                   <Field label="Forma · Projekts" value={formaProjekts} />
-                  <Field
-                    label="Forma · Ziņa no Lead"
-                    value={formaZinaNoLead}
-                    wide
-                  />
+                  <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
                 </Grid>
               </Section>
             </TabsContent>
 
-            <TabsContent value="darbs" className="mt-3">
+            <TabsContent value="darbs" className="mt-2">
               <Section title="Darbs">
                 <Grid>
                   <Field label="Atbildīgais" value={owner} />
                   <Field label="PPV" value={ppv} />
                   <Field label="Automatizācija" value={automatizacija} />
-                  <Field
-                    label="Automatizācijas datums"
-                    value={automatizacijasDatums}
-                  />
+                  <Field label="Automatizācijas datums" value={automatizacijasDatums} />
                   <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
-                  <Field label="Tagi" value={fmt(tags)} />
+                  <Field label="Tagi" value={tagsStr} />
                   <Field label="Reitings" value={rating} />
-                  <Field
-                    label="Situācijas piezīmes"
-                    value={situacijasPiezimes}
-                    wide
-                  />
+                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide />
                 </Grid>
               </Section>
             </TabsContent>
 
-            <TabsContent value="tehniski" className="mt-3">
+            <TabsContent value="tehniski" className="mt-2">
               <Section title="Tehniski">
                 <Grid>
                   <Field label="lead_id" value={leadId} mono />
                   <Field label="synced_at" value={syncedAt} />
-                  <Field
-                    label="Komunikāciju skaits"
-                    value={String(comms.length)}
-                  />
+                  <Field label="Komunikāciju skaits" value={String(comms.length)} />
                   <Field
                     label="Notikumu skaits"
                     value={String(
@@ -504,11 +455,11 @@ function LeadProfilePage() {
                     )}
                   />
                 </Grid>
-                <div className="mt-3">
+                <div className="mt-2">
                   <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                     metadata
                   </div>
-                  <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/30 p-3 text-xs text-foreground">
+                  <pre className="max-h-72 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-[11px] leading-snug text-foreground">
                     {metaStr}
                   </pre>
                 </div>
