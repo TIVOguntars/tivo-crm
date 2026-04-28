@@ -91,6 +91,10 @@ function fmtBool(value: unknown): string {
   return String(value);
 }
 
+function prettifyText(s: string): string {
+  return s.includes("_") ? s.replace(/_/g, " ") : s;
+}
+
 /** Look up a field in row OR row.metadata (if metadata is an object). */
 function pick(
   row: Record<string, unknown> | null | undefined,
