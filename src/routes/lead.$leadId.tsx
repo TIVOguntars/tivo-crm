@@ -508,17 +508,7 @@ function LeadProfilePage() {
           </Tabs>
 
           {/* === Komunikācijas (ārpus cilnēm) === */}
-          <Section title="Komunikācijas">
-            <div className="mb-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[11px] text-foreground">
-              <div>
-                <span className="text-muted-foreground">currentLead.lead_id: </span>
-                {currentLeadId ?? "—"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">communications[0].lead_id: </span>
-                {comms[0] ? String(comms[0].lead_id ?? "—") : "—"}
-              </div>
-            </div>
+          <Section title="Komunikāciju vēsture">
             <CommunicationsTimeline
               comms={comms}
               loading={commsQ.isLoading}
