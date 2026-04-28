@@ -488,7 +488,51 @@ function LeadProfilePage() {
 
 /* -------------------------- layout primitives -------------------------- */
 
+/** Recursively check whether a React subtree contains any visible Field. */
+function hasAnyField(children: React.ReactNode): boolean {
+  let found = false;
+  Children.forEach(children, (child) => {
+    if (found) return;
+    if (!isValidElement(child)) return;
+    const t = child.type as unknown as { displayName?: string; name?: string };
+    const name = t?.displayName || t?.name;
+    if (name === "Field") {
+      found = true;
+      return;
+    }
+    const sub = (child.props as { children?: React.ReactNode })?.children;
+    if (sub && hasAnyField(sub)) found = true;
+  });
+  return found;
+}
+
 function Section({
+  title,
+  children,
+  emptyLabel,
+}: {
+  title: string;
+  children: React.ReactNode;
+  emptyLabel?: string;
+}) {
+  const empty = !hasAnyField(children);
+  return (
+    <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {empty ? (
+        <div className="text-xs italic text-muted-foreground">
+          {emptyLabel ?? NA}
+        </div>
+      ) : (
+        children
+      )}
+    </section>
+  );
+}
+
+function CompactSection({
   title,
   children,
 }: {
@@ -496,18 +540,20 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
-      {children}
+    <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </span>
+        {children}
+      </div>
     </section>
   );
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
       {children}
     </div>
   );
@@ -521,30 +567,63 @@ function Field({
   wide,
 }: {
   label: string;
-  value: string;
+  value: unknown;
   mono?: boolean;
   emphasize?: boolean;
   wide?: boolean;
 }) {
-  const isEmpty = value === NA;
+  if (isEmptyValue(value)) return null;
+  const display =
+    typeof value === "string" ? value : fmt(value);
   return (
-    <div className={`flex flex-col gap-0.5 ${wide ? "sm:col-span-2 lg:col-span-3" : ""}`}>
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+    <div
+      className={`flex items-baseline gap-2 text-sm ${
+        wide ? "sm:col-span-2 lg:col-span-3" : ""
+      }`}
+    >
+      <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span
         className={[
-          isEmpty ? "text-muted-foreground italic" : "text-foreground",
-          mono ? "font-mono text-sm" : "text-sm",
-          emphasize ? "text-base font-semibold" : "",
-          wide ? "whitespace-pre-wrap break-words" : "",
+          "min-w-0 text-foreground",
+          mono ? "font-mono text-xs" : "",
+          emphasize ? "font-semibold" : "",
+          wide ? "whitespace-pre-wrap break-words" : "truncate",
         ]
           .filter(Boolean)
           .join(" ")}
+        title={wide ? undefined : display}
       >
-        {value}
+        {display}
       </span>
     </div>
+  );
+}
+Field.displayName = "Field";
+
+function InlineField({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: unknown;
+  emphasize?: boolean;
+}) {
+  if (isEmptyValue(value)) return null;
+  const display = typeof value === "string" ? value : fmt(value);
+  return (
+    <span className="inline-flex items-baseline gap-1.5 text-sm">
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={`text-foreground ${emphasize ? "font-semibold" : ""}`}
+      >
+        {display}
+      </span>
+    </span>
   );
 }
 
