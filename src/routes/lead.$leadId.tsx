@@ -559,14 +559,6 @@ function CommunicationsTable({
                                     <span className="text-muted-foreground">
                                       {fmtDate(ev.event_timestamp)}
                                     </span>
-                                    {isClicked && linkType && (
-                                      <span
-                                        className="ml-1 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-                                        title="Klikšķa tips"
-                                      >
-                                        {translateLinkType(linkType)}
-                                      </span>
-                                    )}
                                   </li>
                                 );
                               })}
