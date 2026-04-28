@@ -894,6 +894,42 @@ function readText(c: Record<string, unknown>): string {
   return "";
 }
 
+function formatAttachments(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) {
+    const names = value
+      .map((item) => {
+        if (item == null) return "";
+        if (typeof item === "string") return item;
+        if (typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          const name =
+            o.filename ?? o.name ?? o.file_name ?? o.title ?? o.path;
+          if (name != null && String(name).trim() !== "") return String(name);
+          try {
+            return JSON.stringify(o);
+          } catch {
+            return "";
+          }
+        }
+        return String(item);
+      })
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
+    return names.join(", ");
+  }
+  if (typeof value === "object") {
+    try {
+      const s = JSON.stringify(value);
+      return s === "{}" || s === "[]" || s === "null" ? "" : s;
+    } catch {
+      return "";
+    }
+  }
+  const s = String(value).trim();
+  return s;
+}
+
 /* -------------------------- email modal -------------------------- */
 
 function EmailPreviewDialog({
