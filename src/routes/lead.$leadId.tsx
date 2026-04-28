@@ -115,7 +115,7 @@ function LeadProfilePage() {
       {profileError && <ErrorState message={profileError} />}
       {!profileError && profileQ.isLoading && <LoadingState />}
       {!profileError && !profileQ.isLoading && !profile && (
-        <EmptyState message="Profils nav atrasts" />
+        <EmptyState label="Profils nav atrasts" />
       )}
 
       {profile && (
