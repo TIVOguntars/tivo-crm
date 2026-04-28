@@ -508,7 +508,10 @@ function LeadProfilePage() {
           </Tabs>
 
           {/* === Komunikācijas (ārpus cilnēm) === */}
-          <Section title="Komunikāciju vēsture">
+          <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Komunikāciju vēsture
+            </h2>
             <CommunicationsTimeline
               comms={comms}
               loading={commsQ.isLoading}
@@ -518,7 +521,7 @@ function LeadProfilePage() {
               eventsLoading={hasComms && eventsQ.isLoading}
               onOpenEmail={(c) => setOpenComm(c)}
             />
-          </Section>
+          </section>
         </div>
       )}
 
