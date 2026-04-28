@@ -626,17 +626,6 @@ function InlineField({
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-sm font-medium text-foreground">{value}</div>
-    </div>
-  );
-}
-
 /* -------------------------- communications timeline -------------------------- */
 
 const EVENT_DOT_CLS: Record<string, string> = {
