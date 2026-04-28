@@ -412,10 +412,10 @@ function LeadProfilePage() {
             </h2>
             <CommunicationsTable
               comms={comms}
-              loading={commsQ.isLoading}
+              loading={commsQ.isLoading || commsQ.isFetching}
               error={commsError}
               eventsByComm={eventsByComm}
-              eventsLoading={eventsQ.isLoading && commIds.length > 0}
+              eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
               linkTypesByComm={linkTypesByComm}
             />
           </section>
@@ -476,7 +476,7 @@ function CommunicationsTable({
   if (!comms || comms.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-        Nav komunikācijas
+        Nav komunikāciju ierakstu.
       </div>
     );
   }
