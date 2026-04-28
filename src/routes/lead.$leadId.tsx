@@ -52,6 +52,33 @@ function fmtDate(value: unknown): string {
   });
 }
 
+const NEXT_ACTION_LV: Record<string, string> = {
+  "contact immediately": "Sazināties nekavējoties",
+  "warm follow-up": "Veikt atkārtotu kontaktu",
+  "warm followup": "Veikt atkārtotu kontaktu",
+  "start outreach": "Uzsākt komunikāciju",
+  "try another channel": "Izmantot citu kanālu",
+  "no action": "Nav darbību",
+};
+
+const CHANNEL_LV: Record<string, string> = {
+  email: "E-pasts",
+  sms: "SMS",
+  call: "Zvans",
+};
+
+function translateNextAction(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return NEXT_ACTION_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
+function translateChannel(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return CHANNEL_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
 
