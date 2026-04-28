@@ -171,6 +171,20 @@ function DarbaRindaPage() {
     );
   }, [sorted, q]);
 
+  const groups = useMemo(() => {
+    const defs: { key: string; label: string; test: (s: number) => boolean }[] = [
+      { key: "urgent", label: "Steidzami / PPV", test: (s) => s >= 90 },
+      { key: "high", label: "Augsta prioritāte", test: (s) => s >= 70 && s < 90 },
+      { key: "medium", label: "Vidēja prioritāte", test: (s) => s >= 40 && s < 70 },
+      { key: "low", label: "Zema prioritāte", test: (s) => s > 0 && s < 40 },
+      { key: "none", label: "Nav darbību", test: (s) => s === 0 },
+    ];
+    return defs.map((d) => ({
+      ...d,
+      rows: filtered.filter((r) => d.test(effectivePriority(r))),
+    }));
+  }, [filtered]);
+
   const { p100, p80, pGte80 } = useMemo(() => {
     let p100 = 0;
     let p80 = 0;
@@ -237,62 +251,9 @@ function DarbaRindaPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => {
-                    const score = effectivePriority(row);
-                    const highlight =
-                      score === 100
-                        ? "bg-destructive/5"
-                        : score >= 80
-                          ? "bg-amber-500/5"
-                          : "";
-                    return (
-                      <tr
-                        key={i}
-                        className={`border-t border-border hover:bg-secondary/30 ${highlight}`}
-                      >
-                        {COLUMNS.map((c) => {
-                          const isScore = c.key === "priority_score";
-                          let content: ReactNode;
-                          if (c.key === "__actions") {
-                            content = <ActionButtons row={row} />;
-                          } else if (c.key === "time_since_last_activity") {
-                            content = formatActivityInterval(row[c.key]);
-                          } else if (isScore) {
-                            content = String(effectivePriority(row));
-                          } else {
-                            const text = formatCell(row[c.key]);
-                            content =
-                              text === "" ? (
-                                <span className="text-muted-foreground">—</span>
-                              ) : (
-                                text
-                              );
-                          }
-                          return (
-                            <td
-                              key={c.key}
-                              className={`px-2 py-2 text-foreground ${
-                                c.align === "right" ? "text-right" : "text-left"
-                              } ${
-                                c.wrap
-                                  ? "whitespace-normal break-words"
-                                  : "truncate"
-                              } ${c.widthClass ?? ""} ${
-                                isScore ? "font-semibold tabular-nums" : ""
-                              }`}
-                              title={
-                                c.key !== "__actions" && !c.wrap
-                                  ? formatCell(row[c.key])
-                                  : undefined
-                              }
-                            >
-                              {content}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                  {groups.map((g) => (
+                    <GroupRows key={g.key} label={g.label} rows={g.rows} />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -301,6 +262,89 @@ function DarbaRindaPage() {
             </div>
           </div>
         )
+      )}
+    </>
+  );
+}
+
+function GroupRows({ label, rows }: { label: string; rows: Array<Record<string, unknown>> }) {
+  return (
+    <>
+      <tr className="border-t border-border bg-secondary/40">
+        <td
+          colSpan={COLUMNS.length}
+          className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground"
+        >
+          {label}{" "}
+          <span className="ml-1 text-muted-foreground normal-case">({rows.length})</span>
+        </td>
+      </tr>
+      {rows.length === 0 ? (
+        <tr className="border-t border-border">
+          <td
+            colSpan={COLUMNS.length}
+            className="px-3 py-3 text-center text-xs text-muted-foreground"
+          >
+            Nav ierakstu
+          </td>
+        </tr>
+      ) : (
+        rows.map((row, i) => {
+          const score = effectivePriority(row);
+          const highlight =
+            score === 100
+              ? "bg-destructive/5"
+              : score >= 80
+                ? "bg-amber-500/5"
+                : "";
+          return (
+            <tr
+              key={i}
+              className={`border-t border-border hover:bg-secondary/30 ${highlight}`}
+            >
+              {COLUMNS.map((c) => {
+                const isScore = c.key === "priority_score";
+                let content: ReactNode;
+                if (c.key === "__actions") {
+                  content = <ActionButtons row={row} />;
+                } else if (c.key === "time_since_last_activity") {
+                  content = formatActivityInterval(row[c.key]);
+                } else if (isScore) {
+                  content = String(effectivePriority(row));
+                } else {
+                  const text = formatCell(row[c.key]);
+                  content =
+                    text === "" ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      text
+                    );
+                }
+                return (
+                  <td
+                    key={c.key}
+                    className={`px-2 py-2 text-foreground ${
+                      c.align === "right" ? "text-right" : "text-left"
+                    } ${
+                      c.wrap
+                        ? "whitespace-normal break-words"
+                        : "truncate"
+                    } ${c.widthClass ?? ""} ${
+                      isScore ? "font-semibold tabular-nums" : ""
+                    }`}
+                    title={
+                      c.key !== "__actions" && !c.wrap
+                        ? formatCell(row[c.key])
+                        : undefined
+                    }
+                  >
+                    {content}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })
       )}
     </>
   );
