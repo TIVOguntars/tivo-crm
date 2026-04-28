@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { Eye, Mail, MessageSquare, Phone, MessageCircle, Send } from "lucide-react";
@@ -207,7 +208,7 @@ function DarbaRindaPage() {
                       >
                         {COLUMNS.map((c) => {
                           const isScore = c.key === "priority_score";
-                          let content: React.ReactNode;
+                          let content: ReactNode;
                           if (c.key === "__actions") {
                             content = <ActionButtons row={row} />;
                           } else if (c.key === "time_since_last_activity") {
