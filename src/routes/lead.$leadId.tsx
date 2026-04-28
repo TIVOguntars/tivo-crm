@@ -642,7 +642,7 @@ function InlineField({
         {label}
       </span>
       <span
-        className={`text-foreground ${emphasize ? "font-semibold" : ""}`}
+        className="font-semibold text-foreground"
       >
         {display}
       </span>
