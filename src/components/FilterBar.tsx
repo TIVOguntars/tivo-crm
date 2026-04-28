@@ -64,13 +64,13 @@ export function FilterBar() {
   const setRange = (range: DateRangePreset) => {
     navigate({
       to: ".",
-      search: (prev: FiltersSearch) => ({
+      search: ((prev: FiltersSearch) => ({
         ...(prev as FiltersSearch),
         range,
         // clear custom dates when leaving custom
         from: range === "custom" ? (prev as FiltersSearch).from : undefined,
         to: range === "custom" ? (prev as FiltersSearch).to : undefined,
-      }),
+      })) as never,
       replace: true,
     });
   };
@@ -78,12 +78,12 @@ export function FilterBar() {
   const setCustomDates = (next: { from?: string; to?: string }) => {
     navigate({
       to: ".",
-      search: (prev: FiltersSearch) => ({
+      search: ((prev: FiltersSearch) => ({
         ...(prev as FiltersSearch),
         range: "custom",
         from: next.from,
         to: next.to,
-      }),
+      })) as never,
       replace: true,
     });
   };
@@ -94,14 +94,14 @@ export function FilterBar() {
   ) => {
     navigate({
       to: ".",
-      search: (prev: FiltersSearch) => {
+      search: ((prev: FiltersSearch) => {
         const p = prev as FiltersSearch;
         const cur = p[key] ?? [];
         const next = cur.includes(value)
           ? cur.filter((v) => v !== value)
           : [...cur, value];
         return { ...p, [key]: next };
-      },
+      }) as never,
       replace: true,
     });
   };
@@ -109,7 +109,7 @@ export function FilterBar() {
   const clearMulti = (key: "countries" | "sources" | "owners" | "ppvs") => {
     navigate({
       to: ".",
-      search: (prev: FiltersSearch) => ({ ...(prev as FiltersSearch), [key]: [] }),
+      search: ((prev: FiltersSearch) => ({ ...(prev as FiltersSearch), [key]: [] })) as never,
       replace: true,
     });
   };
