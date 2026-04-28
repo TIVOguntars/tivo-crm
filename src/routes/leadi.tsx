@@ -98,8 +98,11 @@ function LeadiPage() {
                 .map((t) => t.trim())
                 .filter(Boolean);
         const lower = rowTags.map((t) => t.toLowerCase());
-        const hasAll = selectedTags.every((t) => lower.includes(t.toLowerCase()));
-        if (!hasAll) return false;
+        const sel = selectedTags.map((t) => t.toLowerCase());
+        // EXACT SET match: same length, every selected tag present.
+        if (lower.length !== sel.length) return false;
+        const exact = sel.every((t) => lower.includes(t));
+        if (!exact) return false;
       }
       if (needle) {
         return SEARCH_KEYS.some((k) => {
