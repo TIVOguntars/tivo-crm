@@ -17,6 +17,7 @@ const VIEWS = [
   "filter_options",
   "lead_priority_queue",
   "lead_status_auto_preview",
+  "lead_next_action",
   "lead_communications",
   "lead_communication_events",
   "communications",
