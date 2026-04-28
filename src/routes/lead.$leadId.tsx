@@ -213,9 +213,15 @@ function LeadProfilePage() {
   const profileError =
     (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
 
-  const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+  // Tolerant to both shapes: { rows: [...] } (server fn) or [...] (raw array)
+  const comms = (
+    Array.isArray(commsQ.data)
+      ? commsQ.data
+      : (commsQ.data?.rows ?? [])
+  ) as Array<Record<string, unknown>>;
   const commsError =
-    (commsQ.error as Error | null)?.message || commsQ.data?.error;
+    (commsQ.error as Error | null)?.message ||
+    (Array.isArray(commsQ.data) ? null : commsQ.data?.error);
 
   const commIds = useMemo(
     () =>
