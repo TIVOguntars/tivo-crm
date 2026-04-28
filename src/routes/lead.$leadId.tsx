@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Children, isValidElement, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -367,36 +367,44 @@ function LeadProfilePage() {
                 {leadId}
               </span>
             </div>
+            {(!isEmptyValue(email) || !isEmptyValue(phone) || !isEmptyValue(country)) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border/60 pt-1.5">
+                <InlineField label="Email" value={email} />
+                <InlineField label="Telefons" value={phone} />
+                <InlineField label="Valsts" value={country} />
+              </div>
+            )}
           </header>
 
           {/* === Nākamā darbība === */}
-          <CompactSection title="Nākamā darbība">
-            <InlineField label="Darbība" value={nextActionTr} emphasize />
-            <InlineField label="Termiņš" value={termins} />
-          </CompactSection>
-
-          {/* === Darbības (placeholder) === */}
-          <CompactSection title="Darbības">
-            <span className="text-xs text-muted-foreground">
-              Darbību panelis tiks pievienots drīzumā.
-            </span>
-          </CompactSection>
+          <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Nākamā darbība
+              </span>
+              <InlineField label="Darbība" value={nextActionTr} emphasize />
+              <InlineField label="Termiņš" value={termins} />
+              <div className="ml-auto flex items-center gap-1">
+                <ActionIconButton title="E-pasts" icon={Mail} />
+                <ActionIconButton title="SMS" icon={MessageSquare} />
+                <ActionIconButton title="Telegram" icon={Send} />
+                <ActionIconButton title="Zvans" icon={Phone} />
+                <ActionIconButton title="WhatsApp" icon={MessageCircle} />
+              </div>
+            </div>
+          </section>
 
           {/* === CILNES === */}
           <Tabs defaultValue="parskats" className="w-full">
             <TabsList className="h-8">
               <TabsTrigger value="parskats" className="text-xs">Pārskats</TabsTrigger>
               <TabsTrigger value="projekts" className="text-xs">Projekts</TabsTrigger>
-              <TabsTrigger value="darbs" className="text-xs">Darbs</TabsTrigger>
               <TabsTrigger value="tehniski" className="text-xs">Tehniski</TabsTrigger>
             </TabsList>
 
             <TabsContent value="parskats" className="mt-2">
               <Section title="Pārskats">
                 <Grid>
-                  <Field label="Email" value={email} mono />
-                  <Field label="Telefons" value={phone} mono />
-                  <Field label="Valsts" value={country} />
                   <Field label="Avots" value={source} />
                   <Field label="Detalizēts avots" value={sourceDetailed} />
                   <Field label="B2B" value={b2b} />
@@ -405,6 +413,14 @@ function LeadProfilePage() {
                   <Field label="Reakcija" value={reaction} />
                   <Field label="Reakcijas tips" value={reactionType} />
                   <Field label="Pēdējās saziņas datums" value={lastContact} />
+                  <Field label="Atbildīgais" value={owner} />
+                  <Field label="PPV" value={ppv} />
+                  <Field label="Automatizācija" value={automatizacija} />
+                  <Field label="Automatizācijas datums" value={automatizacijasDatums} />
+                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
+                  <Field label="Tagi" value={tagsStr} />
+                  <Field label="Reitings" value={rating} />
+                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide />
                 </Grid>
               </Section>
             </TabsContent>
@@ -419,21 +435,6 @@ function LeadProfilePage() {
                   <Field label="Forma · Zeme" value={formaZeme} />
                   <Field label="Forma · Projekts" value={formaProjekts} />
                   <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
-                </Grid>
-              </Section>
-            </TabsContent>
-
-            <TabsContent value="darbs" className="mt-2">
-              <Section title="Darbs">
-                <Grid>
-                  <Field label="Atbildīgais" value={owner} />
-                  <Field label="PPV" value={ppv} />
-                  <Field label="Automatizācija" value={automatizacija} />
-                  <Field label="Automatizācijas datums" value={automatizacijasDatums} />
-                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
-                  <Field label="Tagi" value={tagsStr} />
-                  <Field label="Reitings" value={rating} />
-                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide />
                 </Grid>
               </Section>
             </TabsContent>
