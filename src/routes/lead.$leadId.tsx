@@ -78,6 +78,7 @@ const COMM_STATUS_LV: Record<string, string> = {
   opened: "Atvērts",
   clicked: "Klikšķis",
   replied: "Atbilde",
+  reply: "Atbilde",
 };
 
 function translateNextAction(value: unknown): string {
@@ -139,6 +140,40 @@ function LeadProfilePage() {
   const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
   const commsError =
     (commsQ.error as Error | null)?.message || commsQ.data?.error;
+
+  // 2b. Visi communication_events priekš šī lead komunikācijām
+  const commIds = useMemo(
+    () =>
+      comms
+        .map((c) => c.id ?? c.communication_id)
+        .filter((v): v is string | number => v != null),
+    [comms],
+  );
+
+  const eventsQuery = useMemo(() => {
+    if (commIds.length === 0) return null;
+    const list = commIds.map((id) => String(id)).join(",");
+    return `communication_id=in.(${list})&order=event_timestamp.asc&limit=2000`;
+  }, [commIds]);
+
+  const eventsQ = usePublicTable(
+    "communication_events",
+    eventsQuery ?? "communication_id=eq.__none__&limit=1",
+  );
+
+  const eventsByComm = useMemo(() => {
+    const map = new Map<string, Array<Record<string, unknown>>>();
+    if (!eventsQuery) return map;
+    const rows = (eventsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const ev of rows) {
+      const k = String(ev.communication_id ?? "");
+      if (!k) continue;
+      const list = map.get(k) ?? [];
+      list.push(ev);
+      map.set(k, list);
+    }
+    return map;
+  }, [eventsQ.data, eventsQuery]);
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
