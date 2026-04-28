@@ -261,22 +261,12 @@ function LeadProfilePage() {
   const b2b = b2bRaw == null ? "" : fmtBool(b2bRaw);
 
   // Objekts / projekts
-  const objekts = pick(profile, "object", "objekts", "object_name");
-  const m2 = pick(profile, "m2", "square_meters", "area_m2", "area");
-  const summa = pick(profile, "amount", "summa", "price", "value");
-  const planotaBuvnieciba = fmtDateOnly(
-    pick(profile, "construction_date", "planned_construction", "planota_buvnieciba"),
-  );
-  const formaZeme = pick(profile, "form_land", "forma_zeme", "land_form");
-  const formaProjekts = pick(profile, "form_project", "forma_projekts", "project_form");
-  const formaZinaNoLead = pick(
-    profile,
-    "form_message",
-    "forma_zina",
-    "forma_message",
-    "lead_message",
-    "message",
-  );
+  const m2 = pick(profile, "platiba_m2");
+  const summa = pick(profile, "summa");
+  const planotaBuvniecibaText = pick(profile, "planota_buvnieciba_text");
+  const formaZeme = pick(profile, "forma_zeme");
+  const formaProjekts = pick(profile, "forma_projekts");
+  const formaZinaNoLead = pick(profile, "forma_zina_no_lead");
 
   // Darba info
   const nextActionRaw = pick(profile, "next_action");
@@ -428,10 +418,9 @@ function LeadProfilePage() {
             <TabsContent value="projekts" className="mt-2">
               <Section title="Projekts" emptyLabel="Nav projekta informācijas">
                 <Grid>
-                  <Field label="Objekts" value={objekts} />
                   <Field label="m²" value={m2} />
                   <Field label="Summa" value={summa} />
-                  <Field label="Plānota būvniecība" value={planotaBuvnieciba} />
+                  <Field label="Plānota būvniecība" value={planotaBuvniecibaText} />
                   <Field label="Forma · Zeme" value={formaZeme} />
                   <Field label="Forma · Projekts" value={formaProjekts} />
                   <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
