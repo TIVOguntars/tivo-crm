@@ -362,7 +362,6 @@ function LeadProfilePage() {
               />
               <InlineField label="Tagi" value={tagsStr} />
               <InlineField label="PPV" value={ppv} />
-              <InlineField label="Atbildīgais" value={owner} />
               <span className="ml-auto font-mono text-[11px] text-muted-foreground">
                 {leadId}
               </span>
@@ -611,7 +610,7 @@ function Field({
         className={[
           "min-w-0 text-foreground",
           mono ? "font-mono text-xs" : "",
-          emphasize ? "font-semibold" : "",
+          "font-semibold",
           wide ? "whitespace-pre-wrap break-words" : "truncate",
         ]
           .filter(Boolean)
@@ -642,7 +641,7 @@ function InlineField({
         {label}
       </span>
       <span
-        className={`text-foreground ${emphasize ? "font-semibold" : ""}`}
+        className="font-semibold text-foreground"
       >
         {display}
       </span>
