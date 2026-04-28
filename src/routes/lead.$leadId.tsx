@@ -127,6 +127,10 @@ function translateCommStatus(value: unknown): string {
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
 
+  const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(
+    null,
+  );
+
   // 1. Pamatprofils no lead_status_auto_preview
   const profileQ = useAnalyticsView(
     "lead_status_auto_preview",
@@ -421,10 +425,16 @@ function LeadProfilePage() {
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
               linkTypeById={linkTypeById}
+              onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
         </>
       )}
+
+      <EmailPreviewDialog
+        comm={openComm}
+        onClose={() => setOpenComm(null)}
+      />
     </>
   );
 }
