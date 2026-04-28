@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Filter, MessageSquare, Users } from "lucide-react";
+import { BarChart3, Filter, MessageSquare, Users, ListChecks } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
 
 const items = [
@@ -7,6 +7,7 @@ const items = [
   { to: "/funnel", label: "Funnel", icon: Filter, exact: false },
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false },
   { to: "/leadi", label: "Leadi", icon: Users, exact: false },
+  { to: "/darba-rinda", label: "Darba rinda", icon: ListChecks, exact: false },
 ] as const;
 
 export function TopNav() {

@@ -15,6 +15,7 @@ const VIEWS = [
   "channel_performance_summary",
   "lead_engagement_summary",
   "filter_options",
+  "lead_priority_queue",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
