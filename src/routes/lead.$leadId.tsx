@@ -590,6 +590,7 @@ function Field({
   if (isEmptyValue(value)) return null;
   const display =
     typeof value === "string" ? value : fmt(value);
+  const shown = prettifyText(display);
   return (
     <div
       className={`flex items-baseline gap-2 text-sm ${
@@ -608,9 +609,9 @@ function Field({
         ]
           .filter(Boolean)
           .join(" ")}
-        title={wide ? undefined : display}
+        title={wide ? undefined : shown}
       >
-        {display}
+        {shown}
       </span>
     </div>
   );
@@ -628,6 +629,7 @@ function InlineField({
 }) {
   if (isEmptyValue(value)) return null;
   const display = typeof value === "string" ? value : fmt(value);
+  const shown = prettifyText(display);
   return (
     <span className="inline-flex items-baseline gap-1.5 text-sm">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -636,7 +638,7 @@ function InlineField({
       <span
         className="font-semibold text-foreground"
       >
-        {display}
+        {shown}
       </span>
     </span>
   );
