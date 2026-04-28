@@ -299,15 +299,18 @@ function InfoRow({
 function CommunicationsTable({
   comms,
   loading,
+  error,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
+  error?: string | null;
 }) {
+  if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
   if (!comms || comms.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-        Nav komunikāciju ierakstu.
+        Nav komunikācijas
       </div>
     );
   }
@@ -327,16 +330,11 @@ function CommunicationsTable({
           </thead>
           <tbody>
             {comms.map((c, i) => {
-              const date =
-                c.created_at ??
-                c.event_at ??
-                c.occurred_at ??
-                c.sent_at ??
-                c.timestamp;
-              const channel = c.channel ?? c.type ?? c.kind;
-              const direction = c.direction ?? c.way;
-              const status = c.status ?? c.state ?? c.result;
-              const subject = c.subject ?? c.title ?? c.summary;
+              const date = c.sent_at;
+              const channel = c.channel;
+              const direction = c.direction;
+              const status = c.current_status ?? c.status;
+              const subject = c.subject;
               return (
                 <tr
                   key={i}
