@@ -519,6 +519,7 @@ function LeadProfilePage() {
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
+              onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
         </div>
