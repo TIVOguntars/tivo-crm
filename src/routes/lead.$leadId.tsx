@@ -18,6 +18,7 @@ import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { usePublicTable } from "@/hooks/usePublicTable";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -71,8 +72,8 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  // 2. Komunikācijas no `communications` tabulas
-  const commsQ = useAnalyticsView(
+  // 2. Komunikācijas no public.communications tabulas
+  const commsQ = usePublicTable(
     "communications",
     `lead_id=eq.${encodeURIComponent(leadId)}&order=sent_at.desc&limit=200`,
   );
