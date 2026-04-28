@@ -81,6 +81,19 @@ const COMM_STATUS_LV: Record<string, string> = {
   reply: "Atbilde",
 };
 
+const LINK_TYPE_LV: Record<string, string> = {
+  cta: "CTA poga",
+  ppv_email: "PPV e-pasts",
+  ppv_phone: "Telefons",
+  website: "Mājaslapa",
+};
+
+function translateLinkType(value: unknown): string {
+  const raw = fmt(value);
+  if (raw === "—") return raw;
+  return LINK_TYPE_LV[raw.trim().toLowerCase()] ?? raw;
+}
+
 function translateNextAction(value: unknown): string {
   const raw = fmt(value);
   if (raw === "—") return raw;
@@ -174,6 +187,38 @@ function LeadProfilePage() {
     }
     return map;
   }, [eventsQ.data, eventsQuery]);
+
+  // 2c. Tracking links priekš komunikācijām, kur ir clicked notikumi
+  const linksQuery = useMemo(() => {
+    if (commIds.length === 0) return null;
+    const list = commIds.map((id) => String(id)).join(",");
+    return `communication_id=in.(${list})&limit=2000`;
+  }, [commIds]);
+
+  const linksQ = usePublicTable(
+    "tracking_links",
+    linksQuery ?? "communication_id=eq.__none__&limit=1",
+  );
+
+  const linkTypesByComm = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!linksQuery) return map;
+    const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const link of rows) {
+      const k = String(link.communication_id ?? "");
+      if (!k) continue;
+      const meta = link.metadata as Record<string, unknown> | null | undefined;
+      const linkType =
+        meta && typeof meta === "object"
+          ? (meta as Record<string, unknown>).link_type
+          : null;
+      if (linkType == null) continue;
+      const list = map.get(k) ?? [];
+      list.push(String(linkType));
+      map.set(k, list);
+    }
+    return map;
+  }, [linksQ.data, linksQuery]);
 
   const profileError =
     (profileQ.error as Error | null)?.message || profileQ.data?.error;
@@ -371,6 +416,7 @@ function LeadProfilePage() {
               error={commsError}
               eventsByComm={eventsByComm}
               eventsLoading={eventsQ.isLoading && commIds.length > 0}
+              linkTypesByComm={linkTypesByComm}
             />
           </section>
         </>
@@ -416,12 +462,14 @@ function CommunicationsTable({
   error,
   eventsByComm,
   eventsLoading,
+  linkTypesByComm,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
   error?: string | null;
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
+  linkTypesByComm: Map<string, string[]>;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -443,7 +491,8 @@ function CommunicationsTable({
               <th className="px-3 py-2 text-left font-medium">Kanāls</th>
               <th className="px-3 py-2 text-left font-medium">Virziens</th>
               <th className="px-3 py-2 text-left font-medium">Statuss</th>
-              <th className="px-3 py-2 text-left font-medium">Tēma</th>
+              <th className="px-3 py-2 text-left font-medium">E-pasta solis</th>
+              <th className="px-3 py-2 text-left font-medium">Temats</th>
             </tr>
           </thead>
           <tbody>
@@ -453,8 +502,10 @@ function CommunicationsTable({
               const direction = translateDirection(c.direction);
               const status = translateCommStatus(c.current_status ?? c.status);
               const subject = c.subject;
+              const automationStep = c.automation_step;
               const commId = String(c.id ?? c.communication_id ?? "");
               const events = commId ? eventsByComm.get(commId) ?? [] : [];
+              const linkTypes = commId ? linkTypesByComm.get(commId) ?? [] : [];
               return (
                 <Fragment key={i}>
                   <tr className="border-t border-border hover:bg-secondary/30">
@@ -470,11 +521,14 @@ function CommunicationsTable({
                     <td className="whitespace-nowrap px-3 py-2 text-foreground">
                       {status}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                      {fmt(automationStep)}
+                    </td>
                     <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
                   </tr>
                   {(events.length > 0 || eventsLoading) && (
                     <tr className="bg-muted/20">
-                      <td colSpan={5} className="px-3 pb-3 pt-1">
+                      <td colSpan={6} className="px-3 pb-3 pt-1">
                         {eventsLoading && events.length === 0 ? (
                           <div className="text-xs text-muted-foreground">
                             Ielādē notikumus...
@@ -485,20 +539,39 @@ function CommunicationsTable({
                               Notikumi ({events.length})
                             </div>
                             <ul className="space-y-1">
-                              {events.map((ev, j) => (
-                                <li
-                                  key={j}
-                                  className="flex items-center gap-2 text-xs"
-                                >
-                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
-                                  <span className="font-medium text-foreground">
-                                    {translateCommStatus(ev.event_type)}
-                                  </span>
-                                  <span className="text-muted-foreground">
-                                    {fmtDate(ev.event_timestamp)}
-                                  </span>
-                                </li>
-                              ))}
+                              {events.map((ev, j) => {
+                                const isClicked =
+                                  String(ev.event_type ?? "")
+                                    .trim()
+                                    .toLowerCase() === "clicked";
+                                return (
+                                  <li
+                                    key={j}
+                                    className="flex flex-wrap items-center gap-2 text-xs"
+                                  >
+                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
+                                    <span className="font-medium text-foreground">
+                                      {translateCommStatus(ev.event_type)}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {fmtDate(ev.event_timestamp)}
+                                    </span>
+                                    {isClicked && linkTypes.length > 0 && (
+                                      <span className="ml-1 inline-flex flex-wrap gap-1">
+                                        {linkTypes.map((lt, k) => (
+                                          <span
+                                            key={k}
+                                            className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                                            title="Klikšķa tips"
+                                          >
+                                            {translateLinkType(lt)}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    )}
+                                  </li>
+                                );
+                              })}
                             </ul>
                           </div>
                         )}
