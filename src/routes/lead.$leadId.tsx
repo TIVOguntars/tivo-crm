@@ -369,6 +369,8 @@ function LeadProfilePage() {
               comms={comms}
               loading={commsQ.isLoading}
               error={commsError}
+              eventsByComm={eventsByComm}
+              eventsLoading={eventsQ.isLoading && commIds.length > 0}
             />
           </section>
         </>
@@ -412,10 +414,14 @@ function CommunicationsTable({
   comms,
   loading,
   error,
+  eventsByComm,
+  eventsLoading,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
   error?: string | null;
+  eventsByComm: Map<string, Array<Record<string, unknown>>>;
+  eventsLoading: boolean;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -447,25 +453,59 @@ function CommunicationsTable({
               const direction = translateDirection(c.direction);
               const status = translateCommStatus(c.current_status ?? c.status);
               const subject = c.subject;
+              const commId = String(c.id ?? c.communication_id ?? "");
+              const events = commId ? eventsByComm.get(commId) ?? [] : [];
               return (
-                <tr
-                  key={i}
-                  className="border-t border-border hover:bg-secondary/30"
-                >
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {fmtDate(date)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <ChannelBadge value={fmt(channel)} />
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {direction}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {status}
-                  </td>
-                  <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
-                </tr>
+                <Fragment key={i}>
+                  <tr className="border-t border-border hover:bg-secondary/30">
+                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                      {fmtDate(date)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <ChannelBadge value={fmt(channel)} />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                      {direction}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                      {status}
+                    </td>
+                    <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
+                  </tr>
+                  {(events.length > 0 || eventsLoading) && (
+                    <tr className="bg-muted/20">
+                      <td colSpan={5} className="px-3 pb-3 pt-1">
+                        {eventsLoading && events.length === 0 ? (
+                          <div className="text-xs text-muted-foreground">
+                            Ielādē notikumus...
+                          </div>
+                        ) : (
+                          <div className="ml-4 border-l-2 border-border pl-3">
+                            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Notikumi ({events.length})
+                            </div>
+                            <ul className="space-y-1">
+                              {events.map((ev, j) => (
+                                <li
+                                  key={j}
+                                  className="flex items-center gap-2 text-xs"
+                                >
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
+                                  <span className="font-medium text-foreground">
+                                    {translateCommStatus(ev.event_type)}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {fmtDate(ev.event_timestamp)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
