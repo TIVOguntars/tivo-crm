@@ -15,6 +15,7 @@ export const filtersSearchSchema = z.object({
   sources: fallback(z.array(z.string()), []).default([]),
   owners: fallback(z.array(z.string()), []).default([]),
   ppvs: fallback(z.array(z.string()), []).default([]),
+  tags: fallback(z.array(z.string()), []).default([]),
   q: fallback(z.string().optional(), undefined),
 });
 
