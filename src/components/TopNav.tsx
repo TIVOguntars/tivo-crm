@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Filter, MessageSquare, Users, ListChecks } from "lucide-react";
+import { BarChart3, Filter, MessageSquare, Users } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
 
 const items = [
