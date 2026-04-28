@@ -214,7 +214,6 @@ function LeadProfilePage() {
     (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
 
   const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
-  const commsLoading = commsQ.isLoading || (!!currentLeadId && !commsQ.isFetched);
   const commsError =
     (commsQ.error as Error | null)?.message || commsQ.data?.error;
 
@@ -495,7 +494,7 @@ function LeadProfilePage() {
             </div>
             <CommunicationsTimeline
               comms={comms}
-              loading={commsLoading}
+              loading={commsQ.isLoading}
               error={commsError}
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && eventsQ.isLoading}
