@@ -611,7 +611,7 @@ function Field({
         className={[
           "min-w-0 text-foreground",
           mono ? "font-mono text-xs" : "",
-          emphasize ? "font-semibold" : "",
+          "font-semibold",
           wide ? "whitespace-pre-wrap break-words" : "truncate",
         ]
           .filter(Boolean)
