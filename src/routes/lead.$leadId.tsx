@@ -551,6 +551,28 @@ function CompactSection({
   );
 }
 
+function ActionIconButton({
+  title,
+  icon: Icon,
+  onClick,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function Grid({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
