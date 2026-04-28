@@ -200,22 +200,20 @@ function LeadProfilePage() {
     return map;
   }, [eventsQ.data, hasComms]);
 
-  const linkTypesByComm = useMemo(() => {
-    const map = new Map<string, string[]>();
+  const linkTypeById = useMemo(() => {
+    const map = new Map<string, string>();
     if (!hasComms) return map;
     const rows = (linksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
     for (const link of rows) {
-      const k = String(link.communication_id ?? "");
-      if (!k) continue;
+      const id = String(link.id ?? "");
+      if (!id) continue;
       const meta = link.metadata as Record<string, unknown> | null | undefined;
       const linkType =
         meta && typeof meta === "object"
           ? (meta as Record<string, unknown>).link_type
           : null;
       if (linkType == null) continue;
-      const list = map.get(k) ?? [];
-      list.push(String(linkType));
-      map.set(k, list);
+      map.set(id, String(linkType));
     }
     return map;
   }, [linksQ.data, hasComms]);
