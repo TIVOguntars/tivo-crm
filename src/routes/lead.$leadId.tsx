@@ -624,3 +624,74 @@ function ChannelBadge({ value }: { value: string }) {
     </span>
   );
 }
+
+function EmailPreviewDialog({
+  comm,
+  onClose,
+}: {
+  comm: Record<string, unknown> | null;
+  onClose: () => void;
+}) {
+  const open = !!comm;
+  const subject = comm ? fmt(comm.subject) : "—";
+  const automationStep = comm ? fmt(comm.automation_step) : "—";
+  const sentAt = comm ? fmtDate(comm.sent_at) : "—";
+
+  const html = useMemo(() => {
+    if (!comm) return "";
+    const meta = comm.metadata as Record<string, unknown> | null | undefined;
+    if (!meta || typeof meta !== "object") return "";
+    const payload = (meta as Record<string, unknown>).resend_payload as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    if (!payload || typeof payload !== "object") return "";
+    const h = (payload as Record<string, unknown>).html;
+    return typeof h === "string" ? h : "";
+  }, [comm]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Nosūtītais e-pasts</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Temats
+            </span>
+            <span className="text-foreground">{subject}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              E-pasta solis
+            </span>
+            <span className="text-foreground">{automationStep}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Nosūtīts
+            </span>
+            <span className="text-foreground">{sentAt}</span>
+          </div>
+        </div>
+
+        <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
+          {html ? (
+            <iframe
+              title="E-pasta saturs"
+              sandbox=""
+              srcDoc={html}
+              className="h-[60vh] w-full"
+            />
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">
+              E-pasta saturs nav saglabāts.
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
