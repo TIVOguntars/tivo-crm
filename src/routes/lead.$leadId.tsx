@@ -734,6 +734,7 @@ function CommunicationsTimeline({
         const hasBody = !!html || !!text;
         const commId = String(c.id ?? c.communication_id ?? "");
         const events = commId ? eventsByComm.get(commId) ?? [] : [];
+        const attachmentsText = formatAttachments(c.attachments_info);
 
         return (
           <li key={i} className="relative">
@@ -790,6 +791,13 @@ function CommunicationsTimeline({
                   >
                     Atvērt e-pastu
                   </button>
+                </div>
+              )}
+
+              {attachmentsText && (
+                <div className="mt-2 text-xs">
+                  <span className="text-muted-foreground">Pielikumi: </span>
+                  <span className="text-foreground">{attachmentsText}</span>
                 </div>
               )}
 
