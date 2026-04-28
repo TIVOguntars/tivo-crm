@@ -370,14 +370,14 @@ function LeadProfilePage() {
           </header>
 
           {/* === Nākamā darbība === */}
-          <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
+          <section className="rounded-lg border-2 border-primary/40 bg-primary/5 px-4 py-2.5 shadow-sm ring-1 ring-primary/10">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                 Nākamā darbība
               </span>
-              <InlineField label="Darbība" value={nextActionTr} emphasize />
-              <InlineField label="Atbildīgais" value={owner} />
-              <InlineField label="Termiņš" value={termins} />
+              <InlineField label="Darbība" value={nextActionTr} alwaysShow />
+              <InlineField label="Atbildīgais" value={owner} alwaysShow />
+              <InlineField label="Termiņš" value={termins} alwaysShow />
               <div className="ml-auto flex items-center gap-1">
                 <ActionIconButton title="E-pasts" icon={Mail} />
                 <ActionIconButton title="SMS" icon={MessageSquare} />
@@ -399,37 +399,53 @@ function LeadProfilePage() {
             <TabsContent value="parskats" className="mt-2">
               <Section title="Pārskats">
                 <Grid>
-                  <Field label="Avots" value={source} />
-                  <Field label="Detalizēts avots" value={sourceDetailed} />
-                  <Field label="B2B" value={b2b} />
-                  <Field label="Pēdējais notikums" value={lastEvent} />
-                  <Field label="Pēdējā aktivitāte" value={lastEventAt} />
-                  <Field label="Reakcija" value={reaction} />
-                  <Field label="Reakcijas tips" value={reactionType} />
-                  <Field label="Pēdējās saziņas datums" value={lastContact} />
-                  <Field label="Atbildīgais" value={owner} />
-                  <Field label="PPV" value={ppv} />
-                  <Field label="Automatizācija" value={automatizacija} />
-                  <Field label="Automatizācijas datums" value={automatizacijasDatums} />
-                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
-                  <Field label="Tagi" value={tagsStr} />
-                  <Field label="Reitings" value={rating} />
-                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide />
+                  <Field label="Avots" value={source} alwaysShow />
+                  <Field label="Detalizēts avots" value={sourceDetailed} alwaysShow />
+                  <Field label="B2B" value={b2b} alwaysShow />
+                  <Field label="Pēdējais notikums" value={lastEvent} alwaysShow />
+                  <Field label="Pēdējā aktivitāte" value={lastEventAt} alwaysShow />
+                  <Field label="Reakcija" value={reaction} alwaysShow />
+                  <Field label="Reakcijas tips" value={reactionType} alwaysShow />
+                  <Field label="Pēdējās saziņas datums" value={lastContact} alwaysShow />
+                  <Field label="Automatizācija" value={automatizacija} alwaysShow />
+                  <Field label="Automatizācijas datums" value={automatizacijasDatums} alwaysShow />
+                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} alwaysShow />
+                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide alwaysShow />
                 </Grid>
               </Section>
             </TabsContent>
 
             <TabsContent value="projekts" className="mt-2">
-              <Section title="Projekts" emptyLabel="Nav projekta informācijas">
-                <Grid>
-                  <Field label="m²" value={m2} />
-                  <Field label="Summa" value={summa} />
-                  <Field label="Plānota būvniecība" value={planotaBuvniecibaText} />
-                  <Field label="Forma · Zeme" value={formaZeme} />
-                  <Field label="Forma · Projekts" value={formaProjekts} />
-                  <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
-                </Grid>
-              </Section>
+              {(() => {
+                const allEmpty =
+                  isEmptyValue(m2) &&
+                  isEmptyValue(summa) &&
+                  isEmptyValue(planotaBuvniecibaText) &&
+                  isEmptyValue(formaZeme) &&
+                  isEmptyValue(formaProjekts) &&
+                  isEmptyValue(formaZinaNoLead);
+                return (
+                  <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                    <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Projekts
+                    </h2>
+                    {allEmpty ? (
+                      <div className="text-xs italic text-muted-foreground">
+                        Nav projekta informācijas
+                      </div>
+                    ) : (
+                      <Grid>
+                        <Field label="m²" value={m2} alwaysShow />
+                        <Field label="Summa" value={summa} alwaysShow />
+                        <Field label="Plānota būvniecība" value={planotaBuvniecibaText} alwaysShow />
+                        <Field label="Forma · Zeme" value={formaZeme} alwaysShow />
+                        <Field label="Forma · Projekts" value={formaProjekts} alwaysShow />
+                        <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide alwaysShow />
+                      </Grid>
+                    )}
+                  </section>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="tehniski" className="mt-2">
