@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Children, isValidElement, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -23,6 +23,22 @@ export const Route = createFileRoute("/lead/$leadId")({
 
 const NA = "Nav datu";
 
+function isEmptyValue(value: unknown): boolean {
+  if (value == null) return true;
+  if (Array.isArray(value)) {
+    return value.every((v) => v == null || String(v).trim() === "");
+  }
+  if (typeof value === "object") {
+    try {
+      const s = JSON.stringify(value);
+      return s === "{}" || s === "[]" || s === "null";
+    } catch {
+      return false;
+    }
+  }
+  return String(value).trim() === "";
+}
+
 function fmt(value: unknown): string {
   if (value == null) return NA;
   if (Array.isArray(value)) {
@@ -44,7 +60,7 @@ function fmt(value: unknown): string {
 }
 
 function fmtDate(value: unknown): string {
-  if (value == null || value === "") return NA;
+  if (value == null || value === "") return "";
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString("lv-LV", {
@@ -57,7 +73,7 @@ function fmtDate(value: unknown): string {
 }
 
 function fmtDateOnly(value: unknown): string {
-  if (value == null || value === "") return NA;
+  if (value == null || value === "") return "";
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleDateString("lv-LV", {
@@ -68,7 +84,7 @@ function fmtDateOnly(value: unknown): string {
 }
 
 function fmtBool(value: unknown): string {
-  if (value == null || value === "") return NA;
+  if (value == null || value === "") return "";
   if (typeof value === "boolean") return value ? "Jā" : "Nē";
   const s = String(value).trim().toLowerCase();
   if (["true", "t", "1", "yes", "ja", "jā"].includes(s)) return "Jā";
