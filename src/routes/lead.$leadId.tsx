@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -18,6 +18,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { usePublicTable } from "@/hooks/usePublicTable";
 
@@ -120,6 +126,10 @@ function translateCommStatus(value: unknown): string {
 
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
+
+  const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(
+    null,
+  );
 
   // 1. Pamatprofils no lead_status_auto_preview
   const profileQ = useAnalyticsView(
@@ -415,10 +425,16 @@ function LeadProfilePage() {
               eventsByComm={eventsByComm}
               eventsLoading={hasComms && (eventsQ.isLoading || eventsQ.isFetching)}
               linkTypeById={linkTypeById}
+              onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
         </>
       )}
+
+      <EmailPreviewDialog
+        comm={openComm}
+        onClose={() => setOpenComm(null)}
+      />
     </>
   );
 }
@@ -461,6 +477,7 @@ function CommunicationsTable({
   eventsByComm,
   eventsLoading,
   linkTypeById,
+  onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
@@ -468,6 +485,7 @@ function CommunicationsTable({
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
   linkTypeById: Map<string, string>;
+  onOpenEmail: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
@@ -521,7 +539,16 @@ function CommunicationsTable({
                     <td className="whitespace-nowrap px-3 py-2 text-foreground">
                       {fmt(automationStep)}
                     </td>
-                    <td className="px-3 py-2 text-foreground">{fmt(subject)}</td>
+                    <td className="px-3 py-2 text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => onOpenEmail(c)}
+                        className="text-left text-primary underline-offset-2 hover:underline"
+                        title="Skatīt nosūtīto e-pastu"
+                      >
+                        {fmt(subject)}
+                      </button>
+                    </td>
                   </tr>
                   {(events.length > 0 || eventsLoading) && (
                     <tr className="bg-muted/20">
@@ -595,5 +622,76 @@ function ChannelBadge({ value }: { value: string }) {
     >
       {value}
     </span>
+  );
+}
+
+function EmailPreviewDialog({
+  comm,
+  onClose,
+}: {
+  comm: Record<string, unknown> | null;
+  onClose: () => void;
+}) {
+  const open = !!comm;
+  const subject = comm ? fmt(comm.subject) : "—";
+  const automationStep = comm ? fmt(comm.automation_step) : "—";
+  const sentAt = comm ? fmtDate(comm.sent_at) : "—";
+
+  const html = useMemo(() => {
+    if (!comm) return "";
+    const meta = comm.metadata as Record<string, unknown> | null | undefined;
+    if (!meta || typeof meta !== "object") return "";
+    const payload = (meta as Record<string, unknown>).resend_payload as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    if (!payload || typeof payload !== "object") return "";
+    const h = (payload as Record<string, unknown>).html;
+    return typeof h === "string" ? h : "";
+  }, [comm]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Nosūtītais e-pasts</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Temats
+            </span>
+            <span className="text-foreground">{subject}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              E-pasta solis
+            </span>
+            <span className="text-foreground">{automationStep}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Nosūtīts
+            </span>
+            <span className="text-foreground">{sentAt}</span>
+          </div>
+        </div>
+
+        <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
+          {html ? (
+            <iframe
+              title="E-pasta saturs"
+              sandbox=""
+              srcDoc={html}
+              className="h-[60vh] w-full"
+            />
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">
+              E-pasta saturs nav saglabāts.
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
