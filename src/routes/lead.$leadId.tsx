@@ -370,14 +370,14 @@ function LeadProfilePage() {
           </header>
 
           {/* === Nākamā darbība === */}
-          <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
+          <section className="rounded-lg border-2 border-primary/40 bg-primary/5 px-4 py-2.5 shadow-sm ring-1 ring-primary/10">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                 Nākamā darbība
               </span>
-              <InlineField label="Darbība" value={nextActionTr} emphasize />
-              <InlineField label="Atbildīgais" value={owner} />
-              <InlineField label="Termiņš" value={termins} />
+              <InlineField label="Darbība" value={nextActionTr} alwaysShow />
+              <InlineField label="Atbildīgais" value={owner} alwaysShow />
+              <InlineField label="Termiņš" value={termins} alwaysShow />
               <div className="ml-auto flex items-center gap-1">
                 <ActionIconButton title="E-pasts" icon={Mail} />
                 <ActionIconButton title="SMS" icon={MessageSquare} />
@@ -399,37 +399,53 @@ function LeadProfilePage() {
             <TabsContent value="parskats" className="mt-2">
               <Section title="Pārskats">
                 <Grid>
-                  <Field label="Avots" value={source} />
-                  <Field label="Detalizēts avots" value={sourceDetailed} />
-                  <Field label="B2B" value={b2b} />
-                  <Field label="Pēdējais notikums" value={lastEvent} />
-                  <Field label="Pēdējā aktivitāte" value={lastEventAt} />
-                  <Field label="Reakcija" value={reaction} />
-                  <Field label="Reakcijas tips" value={reactionType} />
-                  <Field label="Pēdējās saziņas datums" value={lastContact} />
-                  <Field label="Atbildīgais" value={owner} />
-                  <Field label="PPV" value={ppv} />
-                  <Field label="Automatizācija" value={automatizacija} />
-                  <Field label="Automatizācijas datums" value={automatizacijasDatums} />
-                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} />
-                  <Field label="Tagi" value={tagsStr} />
-                  <Field label="Reitings" value={rating} />
-                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide />
+                  <Field label="Avots" value={source} alwaysShow />
+                  <Field label="Detalizēts avots" value={sourceDetailed} alwaysShow />
+                  <Field label="B2B" value={b2b} alwaysShow />
+                  <Field label="Pēdējais notikums" value={lastEvent} alwaysShow />
+                  <Field label="Pēdējā aktivitāte" value={lastEventAt} alwaysShow />
+                  <Field label="Reakcija" value={reaction} alwaysShow />
+                  <Field label="Reakcijas tips" value={reactionType} alwaysShow />
+                  <Field label="Pēdējās saziņas datums" value={lastContact} alwaysShow />
+                  <Field label="Automatizācija" value={automatizacija} alwaysShow />
+                  <Field label="Automatizācijas datums" value={automatizacijasDatums} alwaysShow />
+                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} alwaysShow />
+                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide alwaysShow />
                 </Grid>
               </Section>
             </TabsContent>
 
             <TabsContent value="projekts" className="mt-2">
-              <Section title="Projekts" emptyLabel="Nav projekta informācijas">
-                <Grid>
-                  <Field label="m²" value={m2} />
-                  <Field label="Summa" value={summa} />
-                  <Field label="Plānota būvniecība" value={planotaBuvniecibaText} />
-                  <Field label="Forma · Zeme" value={formaZeme} />
-                  <Field label="Forma · Projekts" value={formaProjekts} />
-                  <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide />
-                </Grid>
-              </Section>
+              {(() => {
+                const allEmpty =
+                  isEmptyValue(m2) &&
+                  isEmptyValue(summa) &&
+                  isEmptyValue(planotaBuvniecibaText) &&
+                  isEmptyValue(formaZeme) &&
+                  isEmptyValue(formaProjekts) &&
+                  isEmptyValue(formaZinaNoLead);
+                return (
+                  <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                    <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Projekts
+                    </h2>
+                    {allEmpty ? (
+                      <div className="text-xs italic text-muted-foreground">
+                        Nav projekta informācijas
+                      </div>
+                    ) : (
+                      <Grid>
+                        <Field label="m²" value={m2} alwaysShow />
+                        <Field label="Summa" value={summa} alwaysShow />
+                        <Field label="Plānota būvniecība" value={planotaBuvniecibaText} alwaysShow />
+                        <Field label="Forma · Zeme" value={formaZeme} alwaysShow />
+                        <Field label="Forma · Projekts" value={formaProjekts} alwaysShow />
+                        <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide alwaysShow />
+                      </Grid>
+                    )}
+                  </section>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="tehniski" className="mt-2">
@@ -580,17 +596,19 @@ function Field({
   mono,
   emphasize,
   wide,
+  alwaysShow,
 }: {
   label: string;
   value: unknown;
   mono?: boolean;
   emphasize?: boolean;
   wide?: boolean;
+  alwaysShow?: boolean;
 }) {
-  if (isEmptyValue(value)) return null;
-  const display =
-    typeof value === "string" ? value : fmt(value);
-  const shown = prettifyText(display);
+  const empty = isEmptyValue(value);
+  if (empty && !alwaysShow) return null;
+  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
+  const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <div
       className={`flex items-baseline gap-2 text-sm ${
@@ -622,14 +640,17 @@ function InlineField({
   label,
   value,
   emphasize,
+  alwaysShow,
 }: {
   label: string;
   value: unknown;
   emphasize?: boolean;
+  alwaysShow?: boolean;
 }) {
-  if (isEmptyValue(value)) return null;
-  const display = typeof value === "string" ? value : fmt(value);
-  const shown = prettifyText(display);
+  const empty = isEmptyValue(value);
+  if (empty && !alwaysShow) return null;
+  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
+  const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <span className="inline-flex items-baseline gap-1.5 text-sm">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -684,7 +705,7 @@ function CommunicationsTimeline({
   if (!comms || comms.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-        Nav komunikāciju ierakstu.
+        Komunikāciju vēl nav
       </div>
     );
   }
@@ -713,6 +734,7 @@ function CommunicationsTimeline({
         const hasBody = !!html || !!text;
         const commId = String(c.id ?? c.communication_id ?? "");
         const events = commId ? eventsByComm.get(commId) ?? [] : [];
+        const attachmentsText = formatAttachments(c.attachments_info);
 
         return (
           <li key={i} className="relative">
@@ -769,6 +791,13 @@ function CommunicationsTimeline({
                   >
                     Atvērt e-pastu
                   </button>
+                </div>
+              )}
+
+              {attachmentsText && (
+                <div className="mt-2 text-xs">
+                  <span className="text-muted-foreground">Pielikumi: </span>
+                  <span className="text-foreground">{attachmentsText}</span>
                 </div>
               )}
 
@@ -863,6 +892,42 @@ function readText(c: Record<string, unknown>): string {
     }
   }
   return "";
+}
+
+function formatAttachments(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) {
+    const names = value
+      .map((item) => {
+        if (item == null) return "";
+        if (typeof item === "string") return item;
+        if (typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          const name =
+            o.filename ?? o.name ?? o.file_name ?? o.title ?? o.path;
+          if (name != null && String(name).trim() !== "") return String(name);
+          try {
+            return JSON.stringify(o);
+          } catch {
+            return "";
+          }
+        }
+        return String(item);
+      })
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
+    return names.join(", ");
+  }
+  if (typeof value === "object") {
+    try {
+      const s = JSON.stringify(value);
+      return s === "{}" || s === "[]" || s === "null" ? "" : s;
+    } catch {
+      return "";
+    }
+  }
+  const s = String(value).trim();
+  return s;
 }
 
 /* -------------------------- email modal -------------------------- */
