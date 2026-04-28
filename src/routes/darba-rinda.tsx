@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
@@ -72,15 +72,15 @@ function formatActivityInterval(value: unknown): string {
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
   const leadId = row.lead_id ?? row.id;
+  const navigate = useNavigate();
   const comingSoon = () => toast("Drīzumā");
 
   const handleViewProfile = () => {
     if (leadId == null) {
-      toast("Drīzumā");
+      toast("Lead ID nav pieejams");
       return;
     }
-    // TODO: navigate to lead profile route once it exists
-    toast(`Drīzumā: Lead profils #${leadId}`);
+    navigate({ to: "/lead/$leadId", params: { leadId: String(leadId) } });
   };
 
   return (
