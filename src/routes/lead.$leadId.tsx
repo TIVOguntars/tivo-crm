@@ -778,6 +778,14 @@ function clickTagsForEvent(
   return Array.from(new Set(labels)).filter(Boolean);
 }
 
+function ClickTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+      {children}
+    </span>
+  );
+}
+
 function CommunicationsTimeline({
   comms,
   loading,
@@ -815,127 +823,69 @@ function CommunicationsTimeline({
   });
 
   return (
-    <ol className="relative space-y-4 border-l-2 border-border pl-6">
-      {sorted.map((c, i) => {
-        const sentAt = c.sent_at ?? c.received_at;
-        const directionRaw = String(c.direction ?? "").trim().toLowerCase();
-        const isInbound = directionRaw === "inbound";
-        const channel = tx(CHANNEL_LV, c.channel);
-        const direction = tx(DIRECTION_LV, c.direction);
-        const status = tx(COMM_STATUS_LV, c.current_status ?? c.status);
-        const subject = c.subject;
-        const fromAddr = c.from_address;
-        const toAddr = c.to_address;
-        const html = readHtml(c);
-        const text = readText(c);
-        const hasBody = !!html || !!text;
-        const commId = String(c.id ?? c.communication_id ?? "");
-        const events = commId ? eventsByComm.get(commId) ?? [] : [];
-        const attachmentsText = formatAttachments(c.attachments_info);
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="min-w-[980px] w-full border-collapse text-left text-xs">
+        <thead className="bg-muted/40 text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="px-3 py-2 font-medium uppercase">Datums</th>
+            <th className="px-3 py-2 font-medium uppercase">Kanāls</th>
+            <th className="px-3 py-2 font-medium uppercase">Virziens</th>
+            <th className="px-3 py-2 font-medium uppercase">Statuss</th>
+            <th className="px-3 py-2 font-medium uppercase">E-pasta solis</th>
+            <th className="px-3 py-2 font-medium uppercase">Temats</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((c, i) => {
+            const sentAt = c.sent_at ?? c.received_at ?? c.created_at;
+            const commId = String(c.id ?? c.communication_id ?? "");
+            const events = commId ? eventsByComm.get(commId) ?? [] : [];
+            const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
 
-        return (
-          <li key={i} className="relative">
-            <span
-              className={`absolute -left-[31px] top-2 flex h-4 w-4 items-center justify-center rounded-full border-2 border-card ${
-                isInbound ? "bg-primary" : "bg-blue-500"
-              }`}
-            />
-            <div className="rounded-md border border-border bg-card/50 p-3 hover:bg-secondary/30">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <ChannelBadge value={channel} />
-                <span
-                  className={`inline-flex items-center rounded px-2 py-0.5 font-medium ${
-                    isInbound
-                      ? "bg-primary/10 text-primary"
-                      : "bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                  }`}
-                >
-                  {direction}
-                </span>
-                <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
-                  {status}
-                </span>
-                <span className="ml-auto text-muted-foreground">
-                  {fmtDate(sentAt)}
-                </span>
-              </div>
-
-              <div className="mt-2 text-sm font-medium text-foreground">
-                {fmt(subject)}
-              </div>
-
-              <div className="mt-1 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
-                <div>
-                  <span className="text-muted-foreground">No: </span>
-                  <span className="font-mono text-foreground">
-                    {fmt(fromAddr)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Uz: </span>
-                  <span className="font-mono text-foreground">
-                    {fmt(toAddr)}
-                  </span>
-                </div>
-              </div>
-
-              {hasBody && (
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    onClick={() => onOpenEmail(c)}
-                    className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-secondary"
-                  >
-                    Atvērt e-pastu
-                  </button>
-                </div>
-              )}
-
-              {attachmentsText && (
-                <div className="mt-2 text-xs">
-                  <span className="text-muted-foreground">Pielikumi: </span>
-                  <span className="text-foreground">{attachmentsText}</span>
-                </div>
-              )}
-
-              {(events.length > 0 || eventsLoading) && (
-                <div className="mt-3 border-t border-border pt-2">
-                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Notikumi ({events.length})
-                  </div>
-                  {eventsLoading && events.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">
-                      Ielādē notikumus...
-                    </div>
-                  ) : (
-                    <ol className="relative space-y-1.5 border-l border-border pl-4">
-                      {events.map((ev, j) => (
-                        <li
-                          key={j}
-                          className="relative flex flex-wrap items-center gap-2 text-xs"
-                        >
-                          <span
-                            className={`absolute -left-[19px] top-1.5 h-2 w-2 rounded-full ${eventDotCls(
-                              ev.event_type,
-                            )}`}
-                          />
-                          <span className="font-medium text-foreground">
-                            {tx(COMM_STATUS_LV, ev.event_type)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {fmtDate(ev.event_timestamp)}
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+            return (
+              <>
+                <tr key={`${commId || i}-row`} className="border-b border-border/60 align-top">
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
+                  <td className="px-3 py-2"><ChannelBadge value={tx(CHANNEL_LV, c.channel)} /></td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(DIRECTION_LV, c.direction)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(COMM_STATUS_LV, c.current_status ?? c.status)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
+                  <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
+                </tr>
+                {(events.length > 0 || eventsLoading) && (
+                  <tr key={`${commId || i}-events`} className="border-b border-border/60">
+                    <td colSpan={6} className="px-7 pb-3 pt-0">
+                      <div className="border-l border-border pl-3">
+                        <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
+                          Notikumi ({events.length})
+                        </div>
+                        {eventsLoading && events.length === 0 ? (
+                          <div className="text-xs text-muted-foreground">Ielādē notikumus...</div>
+                        ) : (
+                          <ol className="space-y-1">
+                            {events.map((ev, j) => {
+                              const tags = clickTagsForEvent(ev, links);
+                              return (
+                                <li key={j} className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`} />
+                                  <span className="font-semibold text-foreground">{tx(COMM_STATUS_LV, ev.event_type)}</span>
+                                  <span className="text-muted-foreground">{fmtDate(ev.event_timestamp)}</span>
+                                  {tags.map((tag) => <ClickTag key={tag}>{tag}</ClickTag>)}
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
