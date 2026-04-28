@@ -719,20 +719,79 @@ function eventDotCls(eventType: unknown): string {
   return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
 }
 
+const CLICK_TAG_LV: Record<string, string> = {
+  cta: "CTA poga",
+  ppv_email: "PPV e-pasts",
+  ppv_phone: "Telefons",
+  phone: "Telefons",
+  website: "Mājaslapa",
+  homepage: "Mājaslapa",
+};
+
+function metaValue(row: Record<string, unknown>, key: string): unknown {
+  const meta = row.metadata;
+  return meta && typeof meta === "object" && !Array.isArray(meta)
+    ? (meta as Record<string, unknown>)[key]
+    : undefined;
+}
+
+function emailStep(c: Record<string, unknown>): string {
+  const value = c.automation_step ?? c.template_key ?? c.content_ref ?? metaValue(c, "automation_step");
+  return value == null || String(value).trim() === "" ? "" : String(value);
+}
+
+function subjectText(c: Record<string, unknown>): string {
+  const value = c.subject ?? metaValue(c, "email_subject");
+  return value == null || String(value).trim() === "" ? NA : String(value);
+}
+
+function eventLinkKey(ev: Record<string, unknown>): string {
+  const raw = ev.raw_payload;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const key = (raw as Record<string, unknown>).link_key;
+    if (key != null && String(key).trim() !== "") return String(key);
+  }
+  return String(ev.tracking_link_id ?? "");
+}
+
+function linkTypeLabel(link: Record<string, unknown>): string {
+  const type = String(metaValue(link, "link_type") ?? "").trim().toLowerCase();
+  if (CLICK_TAG_LV[type]) return CLICK_TAG_LV[type];
+  const url = String(link.destination_url ?? link.original_url ?? "").toLowerCase();
+  if (url.startsWith("tel:")) return "Telefons";
+  if (url.startsWith("mailto:")) return "PPV e-pasts";
+  if (url.includes("tivohouses")) return "Mājaslapa";
+  return "CTA poga";
+}
+
+function clickTagsForEvent(
+  ev: Record<string, unknown>,
+  links: Array<Record<string, unknown>>,
+): string[] {
+  if (String(ev.event_type ?? "").trim().toLowerCase() !== "clicked") return [];
+  const key = eventLinkKey(ev);
+  const matched = links.find(
+    (link) =>
+      String(link.link_key ?? link.tracking_code ?? link.id ?? "") === key,
+  );
+  const labels = matched ? [linkTypeLabel(matched)] : links.map(linkTypeLabel);
+  return Array.from(new Set(labels)).filter(Boolean);
+}
+
 function CommunicationsTimeline({
   comms,
   loading,
   error,
   eventsByComm,
+  trackingLinksByComm,
   eventsLoading,
-  onOpenEmail,
 }: {
   comms: Array<Record<string, unknown>>;
   loading: boolean;
   error?: string | null;
   eventsByComm: Map<string, Array<Record<string, unknown>>>;
+  trackingLinksByComm: Map<string, Array<Record<string, unknown>>>;
   eventsLoading: boolean;
-  onOpenEmail: (c: Record<string, unknown>) => void;
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
