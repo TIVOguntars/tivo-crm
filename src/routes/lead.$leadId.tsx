@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -412,9 +412,9 @@ function LeadProfilePage() {
             )}
           </Section>
 
-          {/* 5. Komunikāciju vēsture */}
-          <Section title="Komunikāciju vēsture">
-            <CommunicationsList
+          {/* 5. Komunikācijas */}
+          <Section title="Komunikācijas">
+            <CommunicationsTimeline
               comms={comms}
               loading={commsQ.isLoading}
               error={commsError}
@@ -504,9 +504,27 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* -------------------------- communications -------------------------- */
+/* -------------------------- communications timeline -------------------------- */
 
-function CommunicationsList({
+const EVENT_DOT_CLS: Record<string, string> = {
+  sent: "bg-blue-500",
+  delivered: "bg-emerald-500",
+  opened: "bg-sky-500",
+  clicked: "bg-violet-500",
+  replied: "bg-primary",
+  reply: "bg-primary",
+  inbound_received: "bg-primary",
+  bounced: "bg-amber-500",
+  complained: "bg-amber-600",
+  failed: "bg-destructive",
+};
+
+function eventDotCls(eventType: unknown): string {
+  const k = String(eventType ?? "").trim().toLowerCase();
+  return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
+}
+
+function CommunicationsTimeline({
   comms,
   loading,
   error,
@@ -531,118 +549,127 @@ function CommunicationsList({
     );
   }
 
+  // Sort newest -> oldest by sent_at / received_at for timeline ordering.
+  const sorted = [...comms].sort((a, b) => {
+    const ta = new Date(String(a.sent_at ?? a.received_at ?? 0)).getTime() || 0;
+    const tb = new Date(String(b.sent_at ?? b.received_at ?? 0)).getTime() || 0;
+    return tb - ta;
+  });
+
   return (
-    <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left font-medium">Datums</th>
-            <th className="px-3 py-2 text-left font-medium">Kanāls</th>
-            <th className="px-3 py-2 text-left font-medium">Virziens</th>
-            <th className="px-3 py-2 text-left font-medium">Statuss</th>
-            <th className="px-3 py-2 text-left font-medium">No</th>
-            <th className="px-3 py-2 text-left font-medium">Uz</th>
-            <th className="px-3 py-2 text-left font-medium">Temats / saturs</th>
-          </tr>
-        </thead>
-        <tbody>
-          {comms.map((c, i) => {
-            const sentAt = c.sent_at ?? c.received_at;
-            const channel = tx(CHANNEL_LV, c.channel);
-            const direction = tx(DIRECTION_LV, c.direction);
-            const status = tx(
-              COMM_STATUS_LV,
-              c.current_status ?? c.status,
-            );
-            const subject = c.subject;
-            const fromAddr = c.from_address;
-            const toAddr = c.to_address;
-            const html = readHtml(c);
-            const text = readText(c);
-            const hasBody = !!html || !!text;
-            const commId = String(c.id ?? c.communication_id ?? "");
-            const events = commId ? eventsByComm.get(commId) ?? [] : [];
-            const attachmentsInfo = c.attachments_info;
-            return (
-              <Fragment key={i}>
-                <tr className="border-t border-border align-top hover:bg-secondary/30">
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {fmtDate(sentAt)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <ChannelBadge value={channel} />
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {direction}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {status}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-foreground">
+    <ol className="relative space-y-4 border-l-2 border-border pl-6">
+      {sorted.map((c, i) => {
+        const sentAt = c.sent_at ?? c.received_at;
+        const directionRaw = String(c.direction ?? "").trim().toLowerCase();
+        const isInbound = directionRaw === "inbound";
+        const channel = tx(CHANNEL_LV, c.channel);
+        const direction = tx(DIRECTION_LV, c.direction);
+        const status = tx(COMM_STATUS_LV, c.current_status ?? c.status);
+        const subject = c.subject;
+        const fromAddr = c.from_address;
+        const toAddr = c.to_address;
+        const html = readHtml(c);
+        const text = readText(c);
+        const hasBody = !!html || !!text;
+        const commId = String(c.id ?? c.communication_id ?? "");
+        const events = commId ? eventsByComm.get(commId) ?? [] : [];
+
+        return (
+          <li key={i} className="relative">
+            <span
+              className={`absolute -left-[31px] top-2 flex h-4 w-4 items-center justify-center rounded-full border-2 border-card ${
+                isInbound ? "bg-primary" : "bg-blue-500"
+              }`}
+            />
+            <div className="rounded-md border border-border bg-card/50 p-3 hover:bg-secondary/30">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <ChannelBadge value={channel} />
+                <span
+                  className={`inline-flex items-center rounded px-2 py-0.5 font-medium ${
+                    isInbound
+                      ? "bg-primary/10 text-primary"
+                      : "bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                  }`}
+                >
+                  {direction}
+                </span>
+                <span className="rounded bg-muted px-2 py-0.5 text-muted-foreground">
+                  {status}
+                </span>
+                <span className="ml-auto text-muted-foreground">
+                  {fmtDate(sentAt)}
+                </span>
+              </div>
+
+              <div className="mt-2 text-sm font-medium text-foreground">
+                {fmt(subject)}
+              </div>
+
+              <div className="mt-1 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
+                <div>
+                  <span className="text-muted-foreground">No: </span>
+                  <span className="font-mono text-foreground">
                     {fmt(fromAddr)}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-foreground">
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Uz: </span>
+                  <span className="font-mono text-foreground">
                     {fmt(toAddr)}
-                  </td>
-                  <td className="px-3 py-2 text-foreground">
-                    <div className="flex flex-col gap-1">
-                      <span>{fmt(subject)}</span>
-                      {hasBody && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenEmail(c)}
-                          className="self-start text-xs text-primary underline-offset-2 hover:underline"
-                        >
-                          Atvērt e-pastu
-                        </button>
-                      )}
-                      {attachmentsInfo != null && attachmentsInfo !== "" && (
-                        <span className="text-xs text-muted-foreground">
-                          Pielikumi: {fmt(attachmentsInfo)}
-                        </span>
-                      )}
+                  </span>
+                </div>
+              </div>
+
+              {hasBody && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => onOpenEmail(c)}
+                    className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-secondary"
+                  >
+                    Atvērt e-pastu
+                  </button>
+                </div>
+              )}
+
+              {(events.length > 0 || eventsLoading) && (
+                <div className="mt-3 border-t border-border pt-2">
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Notikumi ({events.length})
+                  </div>
+                  {eventsLoading && events.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Ielādē notikumus...
                     </div>
-                  </td>
-                </tr>
-                {(events.length > 0 || eventsLoading) && (
-                  <tr className="bg-muted/20">
-                    <td colSpan={7} className="px-3 pb-3 pt-1">
-                      {eventsLoading && events.length === 0 ? (
-                        <div className="text-xs text-muted-foreground">
-                          Ielādē notikumus...
-                        </div>
-                      ) : (
-                        <div className="ml-2 border-l-2 border-border pl-3">
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Notikumi ({events.length})
-                          </div>
-                          <ul className="flex flex-wrap gap-x-4 gap-y-1">
-                            {events.map((ev, j) => (
-                              <li
-                                key={j}
-                                className="flex items-center gap-2 text-xs"
-                              >
-                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" />
-                                <span className="font-medium text-foreground">
-                                  {tx(COMM_STATUS_LV, ev.event_type)}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {fmtDate(ev.event_timestamp)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  ) : (
+                    <ol className="relative space-y-1.5 border-l border-border pl-4">
+                      {events.map((ev, j) => (
+                        <li
+                          key={j}
+                          className="relative flex flex-wrap items-center gap-2 text-xs"
+                        >
+                          <span
+                            className={`absolute -left-[19px] top-1.5 h-2 w-2 rounded-full ${eventDotCls(
+                              ev.event_type,
+                            )}`}
+                          />
+                          <span className="font-medium text-foreground">
+                            {tx(COMM_STATUS_LV, ev.event_type)}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {fmtDate(ev.event_timestamp)}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
