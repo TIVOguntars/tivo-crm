@@ -25,6 +25,7 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "full_name", label: "Vārds", widthClass: "w-[16%] min-w-[140px]", wrap: true },
   { key: "email", label: "Email", widthClass: "w-[20%] min-w-[180px]", wrap: true },
   { key: "phone_raw", label: "Telefons", widthClass: "w-[11%] min-w-[120px]" },
+  { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
   { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
   { key: "suggested_status", label: "Ieteiktais", widthClass: "w-[11%] min-w-[110px]" },
   { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
@@ -33,6 +34,21 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
 ];
 
 const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
+
+const ZERO_PRIORITY_STATUSES = new Set([
+  "Atcelts",
+  "Atlikts",
+  "Pabeigts",
+  "Nekvalificējas",
+  "Līgums",
+]);
+
+function effectivePriority(row: Record<string, unknown>): number {
+  const status = row.current_status == null ? "" : String(row.current_status);
+  if (ZERO_PRIORITY_STATUSES.has(status)) return 0;
+  const score = Number(row.priority_score);
+  return Number.isFinite(score) ? score : 0;
+}
 
 function formatCell(value: unknown): string {
   if (value == null) return "";
@@ -138,16 +154,22 @@ function DarbaRindaPage() {
 
   const q = search.q ?? "";
 
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    copy.sort((a, b) => effectivePriority(b) - effectivePriority(a));
+    return copy;
+  }, [rows]);
+
   const filtered = useMemo(() => {
-    if (!q.trim()) return rows;
+    if (!q.trim()) return sorted;
     const needle = q.trim().toLowerCase();
-    return rows.filter((r) =>
+    return sorted.filter((r) =>
       SEARCH_KEYS.some((k) => {
         const v = r[k];
         return v == null ? false : String(v).toLowerCase().includes(needle);
       }),
     );
-  }, [rows, q]);
+  }, [sorted, q]);
 
   const { p100, p80, pGte80 } = useMemo(() => {
     let p100 = 0;
@@ -216,7 +238,7 @@ function DarbaRindaPage() {
                 </thead>
                 <tbody>
                   {filtered.map((row, i) => {
-                    const score = Number(row.priority_score);
+                    const score = effectivePriority(row);
                     const highlight =
                       score === 100
                         ? "bg-destructive/5"
@@ -235,6 +257,8 @@ function DarbaRindaPage() {
                             content = <ActionButtons row={row} />;
                           } else if (c.key === "time_since_last_activity") {
                             content = formatActivityInterval(row[c.key]);
+                          } else if (isScore) {
+                            content = String(effectivePriority(row));
                           } else {
                             const text = formatCell(row[c.key]);
                             content =
