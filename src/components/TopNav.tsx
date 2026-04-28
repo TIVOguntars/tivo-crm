@@ -6,8 +6,7 @@ const items = [
   { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
   { to: "/funnel", label: "Funnel", icon: Filter, exact: false },
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false },
-  { to: "/leadi", label: "Leadi", icon: Users, exact: false },
-  { to: "/darba-rinda", label: "Darba rinda", icon: ListChecks, exact: false },
+  { to: "/darba-rinda", label: "Leadi", icon: Users, exact: false },
 ] as const;
 
 export function TopNav() {
