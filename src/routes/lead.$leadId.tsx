@@ -705,7 +705,7 @@ function CommunicationsTimeline({
   if (!comms || comms.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-        Nav komunikāciju ierakstu.
+        Komunikāciju vēl nav
       </div>
     );
   }
