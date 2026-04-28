@@ -135,7 +135,9 @@ function LeadProfilePage() {
     string,
     unknown
   > | null;
-  const nextAction = fmt(nextActionRow?.next_action ?? profile?.next_action);
+  const nextAction = translateNextAction(
+    nextActionRow?.next_action ?? profile?.next_action,
+  );
   const nextActionError =
     (nextActionQ.error as Error | null)?.message || nextActionQ.data?.error;
   const engagementEvents = profile?.engagement_events;
@@ -381,7 +383,7 @@ function CommunicationsTable({
           <tbody>
             {comms.map((c, i) => {
               const date = c.sent_at;
-              const channel = c.channel;
+              const channel = translateChannel(c.channel);
               const direction = c.direction;
               const status = c.current_status ?? c.status;
               const subject = c.subject;
