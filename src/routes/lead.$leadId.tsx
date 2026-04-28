@@ -59,6 +59,12 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
+  // 1b. Nākamā darbība no atsevišķa skata
+  const nextActionQ = useAnalyticsView(
+    "lead_next_action",
+    `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
+  );
+
   // 2. Komunikācijas — mēģinām pa pirmo, kas atbild
   const commsQ = useAnalyticsView(
     "lead_communications",
@@ -91,7 +97,13 @@ function LeadProfilePage() {
   const currentStatus = fmt(profile?.current_status);
   const suggestedStatus = fmt(profile?.suggested_status);
   const priorityScore = profile?.priority_score;
-  const nextAction = fmt(profile?.next_action);
+  const nextActionRow = (nextActionQ.data?.rows?.[0] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const nextAction = fmt(nextActionRow?.next_action ?? profile?.next_action);
+  const nextActionError =
+    (nextActionQ.error as Error | null)?.message || nextActionQ.data?.error;
   const engagementEvents = profile?.engagement_events;
   const positiveReactions = profile?.positive_reactions;
   const lastEventAt = profile?.last_event_at;
@@ -145,14 +157,20 @@ function LeadProfilePage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Nākamā darbība
             </h2>
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-6">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-1 h-6 w-6 flex-shrink-0 text-primary" />
-                <div className="text-2xl font-semibold leading-snug text-foreground">
-                  {nextAction}
+            {nextActionError ? (
+              <ErrorState message={nextActionError} />
+            ) : nextActionQ.isLoading ? (
+              <LoadingState />
+            ) : (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-6">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-1 h-7 w-7 flex-shrink-0 text-primary" />
+                  <div className="text-3xl font-semibold leading-snug text-foreground">
+                    {nextAction}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* 2. Aktivitāte */}
