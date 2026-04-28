@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Calendar as CalendarIcon, ChevronDown, X, Search } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, X } from "lucide-react";
 
 // touch: re-resolve module
 
@@ -156,17 +156,6 @@ export function FilterBar() {
         tags: [],
         q: undefined,
       }),
-      replace: true,
-    });
-  };
-
-  const setQ = (value: string) => {
-    navigate({
-      to: ".",
-      search: ((prev: FiltersSearch) => ({
-        ...(prev as FiltersSearch),
-        q: value ? value : undefined,
-      })) as never,
       replace: true,
     });
   };
