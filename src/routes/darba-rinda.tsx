@@ -256,6 +256,9 @@ function DarbaRindaPage() {
           r.last_event_type == null ? "" : String(r.last_event_type),
         last_event_group:
           r.last_event_group == null ? "" : String(r.last_event_group),
+        has_reply: Boolean(r.has_reply),
+        first_outbound_at:
+          r.first_outbound_at == null ? null : String(r.first_outbound_at),
       });
     }
     return map;
