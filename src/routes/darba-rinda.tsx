@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -16,6 +16,8 @@ import { StatCard } from "@/components/StatCard";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/darba-rinda")({
@@ -42,6 +44,12 @@ const ZERO_PRIORITY_STATUSES = new Set([
   "Pabeigts",
   "Nekvalificējas",
   "Līgums",
+]);
+
+const INACTIVE_STATUSES = new Set([
+  "Nesasniedzams",
+  "Nekvalificējas",
+  "Atcelts",
 ]);
 
 const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) => boolean }[] = [
@@ -268,6 +276,8 @@ function DarbaRindaPage() {
 
   const q = search.q ?? "";
 
+  const [activeOnly, setActiveOnly] = useState(true);
+
   const sorted = useMemo(() => {
     const copy = [...rows];
     copy.sort((a, b) => effectivePriority(b) - effectivePriority(a));
@@ -278,6 +288,10 @@ function DarbaRindaPage() {
     const selectedTags = (search.tags ?? []) as string[];
     const needle = q.trim().toLowerCase();
     return sorted.filter((r) => {
+      if (activeOnly) {
+        const status = r.current_status == null ? "" : String(r.current_status);
+        if (INACTIVE_STATUSES.has(status)) return false;
+      }
       if (selectedTags.length > 0) {
         const v = r.tags;
         const rowTags: string[] = Array.isArray(v)
@@ -303,7 +317,7 @@ function DarbaRindaPage() {
       }
       return true;
     });
-  }, [sorted, q, search.tags]);
+  }, [sorted, q, search.tags, activeOnly]);
 
   const groups = useMemo(() => {
     return GROUP_DEFS.map((d) => ({
@@ -347,6 +361,20 @@ function DarbaRindaPage() {
             onClick={g.rows.length > 0 ? () => scrollToGroup(g.key) : undefined}
           />
         ))}
+      </div>
+
+      <div className="mb-3 flex items-center gap-2">
+        <Switch
+          id="active-only"
+          checked={activeOnly}
+          onCheckedChange={setActiveOnly}
+        />
+        <Label htmlFor="active-only" className="text-sm cursor-pointer">
+          Tikai aktīvie leadi
+        </Label>
+        <span className="text-xs text-muted-foreground">
+          Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
+        </span>
       </div>
 
       {errorMsg && <ErrorState message={errorMsg} />}
