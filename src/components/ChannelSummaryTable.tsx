@@ -15,11 +15,10 @@ function fmtInt(n: number): string {
 }
 
 function fmtPct(v: unknown): string {
+  if (v == null || v === "") return "—";
   const n = num(v);
-  if (!Number.isFinite(n) || n === 0) return "—";
-  // RPC may return 0–1 fraction or 0–100 already; normalize.
-  const pct = n <= 1 ? n * 100 : n;
-  return `${pct.toFixed(1)}%`;
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(1)}%`;
 }
 
 export function ChannelSummaryTable({ search }: { search: FiltersSearch }) {
