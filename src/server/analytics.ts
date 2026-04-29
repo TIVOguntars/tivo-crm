@@ -63,18 +63,25 @@ function getEnv() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnalyticsRow = Record<string, any>;
 
-async function queryView(view: AnalyticsView, query: string): Promise<AnalyticsRow[]> {
+async function queryView(
+  view: AnalyticsView,
+  query: string,
+  withCount = false,
+): Promise<{ rows: AnalyticsRow[]; total: number | null }> {
   const { url, key } = getEnv();
   const endpoint = `${url}/rest/v1/${view}${query ? `?${query}` : ""}`;
 
+  const headers: Record<string, string> = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Accept-Profile": "analytics",
+    Accept: "application/json",
+  };
+  if (withCount) headers.Prefer = "count=exact";
+
   const res = await fetch(endpoint, {
     method: "GET",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Accept-Profile": "analytics",
-      Accept: "application/json",
-    },
+    headers,
   });
 
   if (!res.ok) {
@@ -84,7 +91,16 @@ async function queryView(view: AnalyticsView, query: string): Promise<AnalyticsR
     );
   }
 
-  return (await res.json()) as AnalyticsRow[];
+  const rows = (await res.json()) as AnalyticsRow[];
+  let total: number | null = null;
+  if (withCount) {
+    const cr = res.headers.get("content-range"); // e.g. "0-99/590"
+    if (cr) {
+      const m = cr.match(/\/(\d+|\*)$/);
+      if (m && m[1] !== "*") total = Number(m[1]);
+    }
+  }
+  return { rows, total };
 }
 
 async function callRpc(
@@ -142,21 +158,31 @@ function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
 }
 
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
-  .inputValidator((input: { view: AnalyticsView; query?: string }) => {
+  .inputValidator(
+    (input: { view: AnalyticsView; query?: string; withCount?: boolean }) => {
     if (!VIEWS.includes(input.view)) {
       throw new Error(`Nezināms skats: ${input.view}`);
     }
-    return { view: input.view, query: input.query ?? "" };
-  })
+      return {
+        view: input.view,
+        query: input.query ?? "",
+        withCount: !!input.withCount,
+      };
+    },
+  )
   .handler(async ({ data }) => {
     try {
-      const rows = await queryView(data.view, data.query);
-      return { rows, error: null as string | null };
+      const { rows, total } = await queryView(
+        data.view,
+        data.query,
+        data.withCount,
+      );
+      return { rows, total, error: null as string | null };
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Nezināma kļūda";
       console.error("[analytics]", message);
-      return { rows: [] as AnalyticsRow[], error: message };
+      return { rows: [] as AnalyticsRow[], total: null, error: message };
     }
   });
 
