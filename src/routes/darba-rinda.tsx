@@ -454,9 +454,6 @@ function DarbaRindaPage() {
   }, [sorted, q, search.tags, activeOnly]);
 
   const groups = useMemo(() => {
-    const DAY = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-
     const result: { key: string; label: string; hint: string; rows: Array<Record<string, unknown>> }[] = [];
 
     for (const d of GROUP_DEFS) {
