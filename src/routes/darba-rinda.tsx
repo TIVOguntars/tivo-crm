@@ -430,8 +430,31 @@ function GroupRows({
                 let content: ReactNode;
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
-                } else if (c.key === "time_since_last_activity") {
-                  content = formatActivityInterval(row[c.key]);
+                } else if (c.key === "__last_activity") {
+                  const id = row.lead_id == null ? "" : String(row.lead_id);
+                  const eng = id ? engagementById.get(id) : undefined;
+                  const ts = parseTs(eng?.last_event_at ?? row.last_event_at);
+                  if (ts == null && !eng) {
+                    content = (
+                      <span className="text-muted-foreground">—</span>
+                    );
+                  } else {
+                    const label = describeEvent(
+                      eng?.last_channel ?? "",
+                      eng?.last_event_type ?? "",
+                      eng?.last_event_group ?? "",
+                    );
+                    content = (
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium text-foreground">
+                          {label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelative(ts)}
+                        </span>
+                      </div>
+                    );
+                  }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
                 } else {
@@ -456,7 +479,7 @@ function GroupRows({
                       isScore ? "font-semibold tabular-nums" : ""
                     }`}
                     title={
-                      c.key !== "__actions" && !c.wrap
+                      c.key !== "__actions" && c.key !== "__last_activity" && !c.wrap
                         ? formatCell(row[c.key])
                         : undefined
                     }
