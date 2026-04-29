@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
+import { StatCard, type StatCardTone } from "@/components/StatCard";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -517,16 +517,17 @@ function DarbaRindaPage() {
     hint: string;
     total: number | null;
     loading: boolean;
+    tone: StatCardTone;
   };
   const KPI_CARDS: KpiCard[] = [
-    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: urgentCount.data ?? null, loading: urgentCount.isLoading },
-    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: offersCount.data ?? null, loading: offersCount.isLoading },
-    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: verifyCount.data ?? null, loading: verifyCount.isLoading },
-    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"], loading: !bucketAgg },
-    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"], loading: !bucketAgg },
-    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"], loading: !bucketAgg },
-    { key: "contact", label: "Sazināties", hint: "priority = 60", total: contactCount.data ?? null, loading: contactCount.isLoading },
-    { key: "none", label: "Nav darbību", hint: "priority = 0", total: noneCount.data ?? null, loading: noneCount.isLoading },
+    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: urgentCount.data ?? null, loading: urgentCount.isLoading, tone: "red" },
+    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: offersCount.data ?? null, loading: offersCount.isLoading, tone: "purple" },
+    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: verifyCount.data ?? null, loading: verifyCount.isLoading, tone: "orange" },
+    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"], loading: !bucketAgg, tone: "yellow" },
+    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"], loading: !bucketAgg, tone: "amber" },
+    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"], loading: !bucketAgg, tone: "gray" },
+    { key: "contact", label: "Sazināties", hint: "priority = 60", total: contactCount.data ?? null, loading: contactCount.isLoading, tone: "blue" },
+    { key: "none", label: "Nav darbību", hint: "priority = 0", total: noneCount.data ?? null, loading: noneCount.isLoading, tone: "gray" },
   ];
 
   // ---------- Virtualized infinite-scroll table ----------
@@ -587,6 +588,7 @@ function DarbaRindaPage() {
               hint={c.hint}
               onClick={handleClick}
               active={isActive}
+              tone={c.tone}
             />
           );
         })}
