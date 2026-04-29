@@ -471,6 +471,29 @@ function GroupRows({
                       </div>
                     );
                   }
+                } else if (c.key === "__next_step") {
+                  const id = row.lead_id == null ? "" : String(row.lead_id);
+                  const eng = id ? engagementById.get(id) : undefined;
+                  const status =
+                    row.current_status == null ? "" : String(row.current_status);
+                  const step = computeNextStep(status, eng);
+                  if (step === "—") {
+                    content = <span className="text-muted-foreground">—</span>;
+                  } else {
+                    const tone =
+                      step === "Atbildēt"
+                        ? "bg-destructive/15 text-destructive"
+                        : step === "Follow-up"
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                          : "bg-secondary text-secondary-foreground";
+                    content = (
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
+                      >
+                        {step}
+                      </span>
+                    );
+                  }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
                 } else {
@@ -495,7 +518,10 @@ function GroupRows({
                       isScore ? "font-semibold tabular-nums" : ""
                     }`}
                     title={
-                      c.key !== "__actions" && c.key !== "__last_activity" && !c.wrap
+                      c.key !== "__actions" &&
+                      c.key !== "__last_activity" &&
+                      c.key !== "__next_step" &&
+                      !c.wrap
                         ? formatCell(row[c.key])
                         : undefined
                     }
