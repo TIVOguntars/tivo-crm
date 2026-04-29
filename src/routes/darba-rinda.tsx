@@ -395,6 +395,33 @@ function DarbaRindaPage() {
     query,
   );
 
+  // Separate aggregated query for follow-up KPI cards.
+  // Equivalent SQL:
+  //   SELECT follow_up_bucket, count(*)
+  //   FROM analytics.lead_priority_queue
+  //   GROUP BY follow_up_bucket;
+  // Always reflects the FULL dataset — never filtered, grouped, or paginated by the UI.
+  const { data: bucketAgg } = useAnalyticsView(
+    "lead_priority_queue",
+    "select=follow_up_bucket,count",
+  );
+
+  const followupCounts = useMemo(() => {
+    const map: Record<string, number> = {
+      "Šodien jāseko": 0,
+      "Kavēts follow-up": 0,
+      "Vecie leadi": 0,
+    };
+    const aggRows = (bucketAgg?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const r of aggRows) {
+      const bucket =
+        r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
+      const count = Number(r.count) || 0;
+      if (bucket in map) map[bucket] = count;
+    }
+    return map;
+  }, [bucketAgg]);
+
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const q = search.q ?? "";
