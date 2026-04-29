@@ -207,7 +207,7 @@ function computeNextStep(
       lastTs != null &&
       now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
     ) {
-      return "Follow-up";
+      return "Sekot (Follow-up)";
     }
   }
 
