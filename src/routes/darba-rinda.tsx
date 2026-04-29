@@ -387,15 +387,86 @@ function NextStepButton({
 
 function DarbaRindaPage() {
   const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
-  const query = useMemo(
-    () => "order=priority.desc.nullslast&limit=1000",
-    [],
-  );
 
-  const { data, isLoading, error } = useAnalyticsView(
-    "lead_priority_queue",
-    query,
-  );
+  const q = (search.q ?? "").trim();
+  const selectedTags = (search.tags ?? []) as string[];
+
+  const [activeOnly, setActiveOnly] = useState(true);
+  // KPI card filter: drives server-side query (no client-side group filtering).
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+
+  // Build the PostgREST query string from current filters. Server-side only.
+  // Sorting: priority desc, last_activity_at desc (both nulls last).
+  const baseQuery = useMemo(() => {
+    const parts: string[] = [
+      "order=priority.desc.nullslast,last_activity_at.desc.nullslast",
+    ];
+
+    // KPI filter -> server filter
+    if (kpiFilter === "urgent") parts.push("priority=eq.100");
+    else if (kpiFilter === "offers") parts.push("priority=eq.90");
+    else if (kpiFilter === "verify") parts.push("priority=eq.80");
+    else if (kpiFilter === "contact") parts.push("priority=eq.60");
+    else if (kpiFilter === "none") parts.push("priority=eq.0");
+    else if (kpiFilter === "followup_today")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Šodien jāseko")}`,
+      );
+    else if (kpiFilter === "followup_overdue")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Kavēts follow-up")}`,
+      );
+    else if (kpiFilter === "followup_old")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Vecie leadi")}`,
+      );
+
+    // "Tikai aktīvie leadi" -> exclude inactive statuses
+    if (activeOnly) {
+      parts.push(
+        `status=not.in.(${[...INACTIVE_STATUSES]
+          .map((s) => encodeURIComponent(s))
+          .join(",")})`,
+      );
+    }
+
+    // Free-text search across name/email/phone (server-side ilike)
+    if (q) {
+      const needle = `*${q.replace(/[(),]/g, "")}*`;
+      const enc = encodeURIComponent(needle);
+      parts.push(
+        `or=(full_name.ilike.${enc},email.ilike.${enc},phone.ilike.${enc})`,
+      );
+    }
+
+    // Tags (text column, comma-separated). Use ilike per selected tag.
+    for (const t of selectedTags) {
+      const enc = encodeURIComponent(`*${t}*`);
+      parts.push(`tags=ilike.${enc}`);
+    }
+
+    return parts.join("&");
+  }, [kpiFilter, activeOnly, q, selectedTags]);
+
+  const {
+    data,
+    error,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteAnalyticsView("lead_priority_queue", baseQuery, 100);
+
+  // Flatten loaded pages into a single ordered list.
+  const rows = useMemo(() => {
+    const out: Array<Record<string, unknown>> = [];
+    for (const p of data?.pages ?? []) {
+      for (const r of p.rows) out.push(r as Record<string, unknown>);
+    }
+    return out;
+  }, [data]);
+
+  const total = data?.pages?.[0]?.total ?? null;
 
   // Follow-up KPI cards source: dedicated RPC analytics.get_follow_up_counts.
   // ALWAYS reflects the full dataset — independent of UI filters,
@@ -422,191 +493,47 @@ function DarbaRindaPage() {
     return map;
   }, [bucketAgg]);
 
-  const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
+  // KPI card definitions (display + total + filter key)
+  const KPI_CARDS: { key: string; label: string; hint: string; total: number | null }[] = [
+    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: null },
+    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: null },
+    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: null },
+    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"] },
+    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"] },
+    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"] },
+    { key: "contact", label: "Sazināties", hint: "priority = 60", total: null },
+    { key: "none", label: "Nav darbību", hint: "priority = 0", total: null },
+  ];
 
-  const q = search.q ?? "";
+  // ---------- Virtualized infinite-scroll table ----------
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [activeOnly, setActiveOnly] = useState(true);
-  const [pageSize, setPageSize] = useState<50 | 100 | 200>(100);
-  const [page, setPage] = useState(1);
-  // KPI card filter: when set, table shows ONLY rows matching this group key
-  // and pagination is disabled (full filtered dataset).
-  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 56,
+    overscan: 8,
+  });
 
-  const sorted = useMemo(() => {
-    const copy = [...rows];
-    copy.sort((a, b) => {
-      const pa = effectivePriority(a);
-      const pb = effectivePriority(b);
-      if (pb !== pa) return pb - pa;
-      // Then by last_activity_at desc, nulls last
-      const ta = parseTs(a.last_activity_at);
-      const tb = parseTs(b.last_activity_at);
-      if (ta == null && tb == null) return 0;
-      if (ta == null) return 1;
-      if (tb == null) return -1;
-      return tb - ta;
-    });
-    return copy;
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    const selectedTags = (search.tags ?? []) as string[];
-    const needle = q.trim().toLowerCase();
-    return sorted.filter((r) => {
-      if (activeOnly) {
-        const status = r.status == null ? "" : String(r.status);
-        if (INACTIVE_STATUSES.has(status)) return false;
-      }
-      if (selectedTags.length > 0) {
-        const v = r.tags;
-        const rowTags: string[] = Array.isArray(v)
-          ? v.map((t) => String(t).trim()).filter(Boolean)
-          : v == null
-            ? []
-            : String(v)
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean);
-        const lower = rowTags.map((t) => t.toLowerCase());
-        const sel = selectedTags.map((t) => t.toLowerCase());
-        // EXACT SET match: same length, every selected tag present.
-        if (lower.length !== sel.length) return false;
-        const exact = sel.every((t) => lower.includes(t));
-        if (!exact) return false;
-      }
-      if (needle) {
-        return SEARCH_KEYS.some((k) => {
-          const v = r[k];
-          return v == null ? false : String(v).toLowerCase().includes(needle);
-        });
-      }
-      return true;
-    });
-  }, [sorted, q, search.tags, activeOnly]);
-
-  const groups = useMemo(() => {
-    const result: { key: string; label: string; hint: string; rows: Array<Record<string, unknown>> }[] = [];
-
-    for (const d of GROUP_DEFS) {
-      const matched = filtered.filter((r) => d.test(effectivePriority(r)));
-
-      if (d.key === "followup") {
-        // Split priority=70 group by follow_up_bucket from analytics.lead_priority_queue.
-        // Frontend MUST NOT recompute buckets — read directly from the row.
-        const today: Array<Record<string, unknown>> = [];
-        const overdue: Array<Record<string, unknown>> = [];
-        const old: Array<Record<string, unknown>> = [];
-        const other: Array<Record<string, unknown>> = [];
-
-        for (const r of matched) {
-          const bucket =
-            r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
-          if (bucket === "Šodien jāseko") today.push(r);
-          else if (bucket === "Kavēts follow-up") overdue.push(r);
-          else if (bucket === "Vecie leadi") old.push(r);
-          else other.push(r);
-        }
-
-        const byOldest = (a: Record<string, unknown>, b: Record<string, unknown>) => {
-          const ta = parseTs(a.last_outbound_at) ?? Number.POSITIVE_INFINITY;
-          const tb = parseTs(b.last_outbound_at) ?? Number.POSITIVE_INFINITY;
-          return ta - tb; // oldest first
-        };
-
-        today.sort(byOldest);
-        overdue.sort(byOldest);
-        old.sort(byOldest);
-        other.sort(byOldest);
-
-        result.push({
-          key: "followup_today",
-          label: "Šodien jāseko",
-          hint: 'follow_up_bucket = "Šodien jāseko"',
-          rows: today,
-        });
-        result.push({
-          key: "followup_overdue",
-          label: "Kavēts follow-up",
-          hint: 'follow_up_bucket = "Kavēts follow-up"',
-          rows: overdue,
-        });
-        result.push({
-          key: "followup_old",
-          label: "Vecie leadi",
-          hint: 'follow_up_bucket = "Vecie leadi"',
-          rows: [...old, ...other],
-        });
-      } else {
-        result.push({ key: d.key, label: d.label, hint: d.hint, rows: matched });
-      }
+  // Trigger fetchNextPage when within ~3 rows of the bottom of the rendered list.
+  useEffect(() => {
+    const items = virtualizer.getVirtualItems();
+    if (!items.length) return;
+    const lastIdx = items[items.length - 1].index;
+    if (lastIdx >= rows.length - 3 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
+  }, [
+    virtualizer.getVirtualItems(),
+    rows.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    virtualizer,
+  ]);
 
-    return result;
-  }, [filtered]);
-
-  // When a KPI card filter is active, restrict the visible groups to that one.
-  // KPI card numbers themselves are NOT recalculated from this — they stay
-  // bound to the full dataset (followupCounts) or full `groups` array.
-  const visibleGroups = useMemo(
-    () => (kpiFilter ? groups.filter((g) => g.key === kpiFilter) : groups),
-    [groups, kpiFilter],
-  );
-
-  // Total visible records across all groups (KPI counts use groups directly — these
-  // already reflect the full filtered set, NOT the current page).
-  const totalVisible = useMemo(
-    () => visibleGroups.reduce((acc, g) => acc + g.rows.length, 0),
-    [visibleGroups],
-  );
-  // When a KPI filter is active, show ALL filtered leads (no pagination).
-  const effectivePageSize = kpiFilter ? Math.max(totalVisible, 1) : pageSize;
-  const pageCount = Math.max(1, Math.ceil(totalVisible / effectivePageSize));
-
-  // Clamp page when filters/pageSize change.
-  const safePage = Math.min(Math.max(1, page), pageCount);
-  if (safePage !== page) {
-    // Defer to avoid setState-in-render warning.
-    queueMicrotask(() => setPage(safePage));
-  }
-
-  const startIdx = (safePage - 1) * effectivePageSize; // 0-based
-  const endIdx = startIdx + effectivePageSize; // exclusive
-
-  // Slice rows across groups while preserving the global ordering.
-  const pagedGroups = useMemo(() => {
-    let cursor = 0;
-    return visibleGroups.map((g) => {
-      const groupStart = cursor;
-      const groupEnd = cursor + g.rows.length;
-      cursor = groupEnd;
-      const sliceFrom = Math.max(0, startIdx - groupStart);
-      const sliceTo = Math.max(0, Math.min(g.rows.length, endIdx - groupStart));
-      return {
-        ...g,
-        rows: sliceFrom < sliceTo ? g.rows.slice(sliceFrom, sliceTo) : [],
-      };
-    });
-  }, [visibleGroups, startIdx, endIdx]);
-
-  const rangeFrom = totalVisible === 0 ? 0 : startIdx + 1;
-  const rangeTo = Math.min(endIdx, totalVisible);
-
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const groupRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-
-  const scrollToGroup = useCallback((key: string) => {
-    const container = scrollContainerRef.current;
-    const row = groupRefs.current[key];
-    if (!container || !row) return;
-    const containerRect = container.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const headerOffset = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-    const delta = rowRect.top - containerRect.top - headerOffset;
-    container.scrollBy({ top: delta, behavior: "smooth" });
-  }, []);
-
-  const errorMsg = (error as Error | null)?.message || data?.error;
+  const errorMsg =
+    (error as Error | null)?.message || data?.pages?.[0]?.error || null;
 
   return (
     <>
