@@ -396,16 +396,10 @@ function DarbaRindaPage() {
     query,
   );
 
-  // Separate aggregated query for follow-up KPI cards.
-  // Equivalent SQL:
-  //   SELECT follow_up_bucket, count(*)
-  //   FROM analytics.lead_priority_queue
-  //   GROUP BY follow_up_bucket;
-  // Always reflects the FULL dataset — never filtered, grouped, or paginated by the UI.
-  const { data: bucketAgg } = useAnalyticsView(
-    "lead_priority_queue",
-    "select=follow_up_bucket,count",
-  );
+  // Follow-up KPI cards source: dedicated RPC analytics.get_follow_up_counts.
+  // ALWAYS reflects the full dataset — independent of UI filters,
+  // "Tikai aktīvie leadi" toggle, pagination, or table grouping.
+  const { data: bucketAgg } = useAnalyticsRpc("get_follow_up_counts", {});
 
   const followupCounts = useMemo(() => {
     const map: Record<string, number> = {
@@ -415,9 +409,12 @@ function DarbaRindaPage() {
     };
     const aggRows = (bucketAgg?.rows ?? []) as Array<Record<string, unknown>>;
     for (const r of aggRows) {
+      // Accept either { follow_up_bucket, count } or { bucket, count } shapes.
       const bucket =
-        r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
-      const count = Number(r.count) || 0;
+        (r.follow_up_bucket ?? r.bucket ?? "") == null
+          ? ""
+          : String(r.follow_up_bucket ?? r.bucket ?? "").trim();
+      const count = Number(r.count ?? r.total ?? 0) || 0;
       if (bucket in map) map[bucket] = count;
     }
     return map;
