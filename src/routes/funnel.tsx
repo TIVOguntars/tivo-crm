@@ -19,11 +19,16 @@ function num(v: unknown): number {
 
 const MAIN_STAGES = [
   "Jauns",
+  "Nesasniedzams",
   "Piesaistīšana",
   "Kvalificēts",
   "Pieprasījums",
   "Piedāvājums",
   "Līgums",
+  "Pabeigts",
+  "Atlikts",
+  "Atcelts",
+  "Nekvalificējas",
 ];
 const REACHED_STAGES = [
   "Piesaistīšana",
@@ -94,9 +99,21 @@ function FunnelPage() {
     const total = mapped.reduce((acc, s) => acc + s.count, 0);
 
     const byName = new Map(mapped.map((s) => [s.stage, s]));
-    const main = MAIN_STAGES.map(
-      (name, i) => byName.get(name) ?? { stage: name, count: 0, order: i },
-    );
+    // Show all statuses returned by the RPC, ordered by status_order.
+    // Include known statuses even when missing (count 0) so layout stays stable.
+    const knownOrder = new Map(MAIN_STAGES.map((n, i) => [n, i]));
+    const merged = new Map<string, Stage>();
+    MAIN_STAGES.forEach((name, i) => {
+      merged.set(name, { stage: name, count: 0, order: i });
+    });
+    mapped.forEach((s) => {
+      merged.set(s.stage, {
+        stage: s.stage,
+        count: s.count,
+        order: s.order || knownOrder.get(s.stage) || 999,
+      });
+    });
+    const main = Array.from(merged.values()).sort((a, b) => a.order - b.order);
 
     const get = (name: string) => byName.get(name)?.count ?? 0;
     const newCount = get("Jauns");
@@ -135,10 +152,10 @@ function FunnelPage() {
           <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
             <div className="mb-4">
               <h2 className="text-sm font-semibold text-foreground">
-                Galvenā piltuve
+                Statusu sadalījums aktīvajiem leadiem
               </h2>
               <p className="text-xs text-muted-foreground">
-                Procesa posmi · kopā {fmt(total)} leadi
+                Šis skats rāda leadus, kuriem izvēlētajā periodā bija komunikācijas aktivitāte. Kopā {fmt(total)} leadi.
               </p>
             </div>
             <StageList stages={mainStages} total={total} max={mainMax} />
