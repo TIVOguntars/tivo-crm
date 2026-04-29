@@ -18,6 +18,7 @@ import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
+import { LeadStatusByDay } from "@/components/LeadStatusByDay";
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -162,6 +163,10 @@ function PārskatsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="mt-4">
+            <LeadStatusByDay search={search} />
           </div>
         </>
       )}
