@@ -47,16 +47,14 @@ type Stage = { stage: string; count: number; order: number };
 function StageList({
   stages,
   total,
-  max,
 }: {
   stages: Stage[];
   total: number;
-  max: number;
 }) {
   return (
     <div className="space-y-3">
       {stages.map((s, i) => {
-        const barPct = max > 0 ? (s.count / max) * 100 : 0;
+        const barPct = total > 0 ? (s.count / total) * 100 : 0;
         const sharePct =
           total > 0 ? ((s.count / total) * 100).toFixed(1) : null;
         return (
@@ -73,7 +71,7 @@ function StageList({
             <div className="h-3 overflow-hidden rounded-full bg-secondary">
               <div
                 className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.max(barPct, 2)}%` }}
+                style={{ width: `${barPct}%` }}
               />
             </div>
           </div>
@@ -136,7 +134,6 @@ function FunnelPage() {
   const acquisitionError =
     (acquisitionQuery.error as Error | null)?.message ||
     acquisitionQuery.data?.error;
-  const acqMax = Math.max(1, ...acquisitionStages.map((s) => s.count));
 
   const pct = (n: number) =>
     reach.pool > 0 ? ((n / reach.pool) * 100).toFixed(1) : "0.0";
@@ -178,7 +175,6 @@ function FunnelPage() {
             <StageList
               stages={acquisitionStages}
               total={acquisitionTotal}
-              max={acqMax}
             />
           </div>
         )}
