@@ -617,14 +617,31 @@ function GroupRows({
                 } else if (c.key === "phone") {
                   const text = formatCell(row.phone);
                   // Phone null/empty: show empty (not "—")
-                  content = text === "" ? "" : text;
+                  content =
+                    text === "" ? (
+                      ""
+                    ) : (
+                      <a
+                        href={`tel:${text.replace(/\s+/g, "")}`}
+                        className="text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {text}
+                      </a>
+                    );
                 } else if (c.key === "status") {
                   const text = formatCell(row.status);
                   content =
                     text === "" ? (
-                      <span className="text-muted-foreground">Nav statusa</span>
+                      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                        Nav statusa
+                      </span>
                     ) : (
-                      text
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
+                      >
+                        {text}
+                      </span>
                     );
                 } else {
                   const text = formatCell(row[c.key]);
