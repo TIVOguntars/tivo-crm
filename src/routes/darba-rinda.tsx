@@ -276,6 +276,8 @@ function DarbaRindaPage() {
 
   const q = search.q ?? "";
 
+  const [activeOnly, setActiveOnly] = useState(true);
+
   const sorted = useMemo(() => {
     const copy = [...rows];
     copy.sort((a, b) => effectivePriority(b) - effectivePriority(a));
@@ -286,6 +288,10 @@ function DarbaRindaPage() {
     const selectedTags = (search.tags ?? []) as string[];
     const needle = q.trim().toLowerCase();
     return sorted.filter((r) => {
+      if (activeOnly) {
+        const status = r.current_status == null ? "" : String(r.current_status);
+        if (INACTIVE_STATUSES.has(status)) return false;
+      }
       if (selectedTags.length > 0) {
         const v = r.tags;
         const rowTags: string[] = Array.isArray(v)
@@ -311,7 +317,7 @@ function DarbaRindaPage() {
       }
       return true;
     });
-  }, [sorted, q, search.tags]);
+  }, [sorted, q, search.tags, activeOnly]);
 
   const groups = useMemo(() => {
     return GROUP_DEFS.map((d) => ({
