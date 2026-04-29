@@ -34,6 +34,7 @@ const RPC_FUNCTIONS = [
   "get_communication_funnel",
   "get_status_changes_daily",
   "get_funnel_conversion_daily",
+  "get_follow_up_counts",
 ] as const;
 
 export type AnalyticsRpc = (typeof RPC_FUNCTIONS)[number];
@@ -173,7 +174,10 @@ export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const rows = await callRpc(data.fn, normalizeFilters(data.filters));
+      const hasFilters =
+        data.filters && Object.keys(data.filters).length > 0;
+      const body = hasFilters ? normalizeFilters(data.filters) : {};
+      const rows = await callRpc(data.fn, body);
       return { rows, error: null as string | null };
     } catch (err) {
       const message =
