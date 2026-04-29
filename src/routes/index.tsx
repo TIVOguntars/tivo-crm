@@ -42,16 +42,10 @@ function PārskatsPage() {
 
   const kpiRow = (kpi.data?.rows ?? [])[0] ?? {};
 
-  const channelTotals = useMemo<{
-    verified: number;
-    unverified: number;
-    delivered: number;
-    failed: number;
-    engagement: number;
-    reply: number;
-  }>(() => {
+  const channelTotals = useMemo(() => {
     const rows = (channels.data?.rows ?? []) as Array<Record<string, unknown>>;
-    return rows.reduce(
+    const init = { verified: 0, unverified: 0, delivered: 0, failed: 0, engagement: 0, reply: 0 };
+    return rows.reduce<typeof init>(
       (acc, r) => ({
         verified: acc.verified + num(r.verified_outbound_count),
         unverified: acc.unverified + num(r.unverified_outbound_count),
@@ -60,7 +54,7 @@ function PārskatsPage() {
         engagement: acc.engagement + num(r.engagement_count),
         reply: acc.reply + num(r.reply_count),
       }),
-      { verified: 0, unverified: 0, delivered: 0, failed: 0, engagement: 0, reply: 0 },
+      init,
     );
   }, [channels.data]);
 
