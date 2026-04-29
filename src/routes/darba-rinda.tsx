@@ -23,15 +23,15 @@ export const Route = createFileRoute("/darba-rinda")({
 });
 
 const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean; align?: "left" | "right" | "center" }[] = [
-  { key: "full_name", label: "Vārds", widthClass: "w-[16%] min-w-[140px]", wrap: true },
-  { key: "email", label: "Email", widthClass: "w-[20%] min-w-[180px]", wrap: true },
-  { key: "phone_raw", label: "Telefons", widthClass: "w-[11%] min-w-[120px]" },
-  { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
-  { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
-  { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
-  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[14%] min-w-[150px]", wrap: true },
-  { key: "__next_step", label: "Nākamais solis", widthClass: "w-[12%] min-w-[130px]", wrap: true },
-  { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
+  { key: "full_name", label: "Vārds", widthClass: "w-[14%] min-w-[140px]", wrap: true },
+  { key: "email", label: "Email", widthClass: "w-[17%] min-w-[180px]", wrap: true },
+  { key: "phone_raw", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
+  { key: "tags", label: "Tagi", widthClass: "w-[10%] min-w-[110px]", wrap: true },
+  { key: "current_status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
+  { key: "priority_score", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
+  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[12%] min-w-[140px]", wrap: true },
+  { key: "__next_step", label: "Nākamais solis", widthClass: "w-[10%] min-w-[120px]", wrap: true },
+  { key: "__actions", label: "Darbības", widthClass: "w-[13%] min-w-[170px]" },
 ];
 
 const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
