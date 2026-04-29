@@ -33,16 +33,16 @@ export const Route = createFileRoute("/darba-rinda")({
 const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean; align?: "left" | "right" | "center" }[] = [
   { key: "full_name", label: "Vārds", widthClass: "w-[14%] min-w-[140px]", wrap: true },
   { key: "email", label: "Email", widthClass: "w-[17%] min-w-[180px]", wrap: true },
-  { key: "phone_raw", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
+  { key: "phone", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
   { key: "tags", label: "Tagi", widthClass: "w-[10%] min-w-[110px]", wrap: true },
-  { key: "current_status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
+  { key: "status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
   { key: "priority", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
   { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[12%] min-w-[140px]", wrap: true },
   { key: "__next_step", label: "Nākamais solis", widthClass: "w-[10%] min-w-[120px]", wrap: true },
   { key: "__actions", label: "Darbības", widthClass: "w-[13%] min-w-[170px]" },
 ];
 
-const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
+const SEARCH_KEYS = ["full_name", "email", "phone"] as const;
 
 const ZERO_PRIORITY_STATUSES = new Set([
   "Atcelts",
@@ -68,7 +68,7 @@ const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) 
 ];
 
 function effectivePriority(row: Record<string, unknown>): number {
-  const status = row.current_status == null ? "" : String(row.current_status);
+  const status = row.status == null ? "" : String(row.status);
   if (ZERO_PRIORITY_STATUSES.has(status)) return 0;
   const score = Number(row.priority);
   return Number.isFinite(score) ? score : 0;
@@ -283,7 +283,7 @@ function DarbaRindaPage() {
     const needle = q.trim().toLowerCase();
     return sorted.filter((r) => {
       if (activeOnly) {
-        const status = r.current_status == null ? "" : String(r.current_status);
+        const status = r.status == null ? "" : String(r.status);
         if (INACTIVE_STATUSES.has(status)) return false;
       }
       if (selectedTags.length > 0) {
@@ -614,6 +614,18 @@ function GroupRows({
                   }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
+                } else if (c.key === "phone") {
+                  const text = formatCell(row.phone);
+                  // Phone null/empty: show empty (not "—")
+                  content = text === "" ? "" : text;
+                } else if (c.key === "status") {
+                  const text = formatCell(row.status);
+                  content =
+                    text === "" ? (
+                      <span className="text-muted-foreground">Nav statusa</span>
+                    ) : (
+                      text
+                    );
                 } else {
                   const text = formatCell(row[c.key]);
                   content =
