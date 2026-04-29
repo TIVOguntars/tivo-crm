@@ -24,7 +24,7 @@ interface QueueLead {
   email: string;
   phone: string;
   status: string;
-  priority_score: number;
+  priority: number;
   last_event_at: string | null;
   last_event_group: string | null;
   has_reply: boolean;
@@ -295,10 +295,10 @@ function SectionTable({
                     <td className="px-3 py-2 text-right">
                       <span
                         className={`inline-block rounded px-2 py-0.5 text-xs font-semibold tabular-nums ${priorityBadgeClass(
-                          lead.priority_score,
+                          lead.priority,
                         )}`}
                       >
-                        {lead.priority_score}
+                        {lead.priority}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -328,7 +328,7 @@ function LeadiPage() {
 
   const priority = useAnalyticsView(
     "lead_priority_queue",
-    "order=priority_score.desc.nullslast&limit=2000",
+    "order=priority.desc.nullslast&limit=2000",
   );
   const engagement = useAnalyticsView(
     "lead_engagement_summary",
@@ -392,14 +392,14 @@ function LeadiPage() {
         const eng = engById.get(id);
         const ov = ovById.get(id);
         const status = s(r.current_status);
-        const score = Number(r.priority_score);
+        const score = Number(r.priority);
         return {
           lead_id: id,
           full_name: s(r.full_name),
           email: s(r.email),
           phone: s(r.phone_raw ?? r.phone_e164),
           status,
-          priority_score: effectivePriority(status, score),
+          priority: effectivePriority(status, score),
           last_event_at: eng ? (s(eng.last_event_at) || null) : (s(r.last_event_at) || null),
           last_event_group: eng ? (s(eng.last_event_group) || null) : null,
           has_reply: Boolean(eng?.has_reply),
@@ -457,8 +457,8 @@ function LeadiPage() {
       );
 
     const highPriority = filtered
-      .filter((l) => l.priority_score >= HIGH_PRIORITY_THRESHOLD)
-      .sort((a, b) => b.priority_score - a.priority_score);
+      .filter((l) => l.priority >= HIGH_PRIORITY_THRESHOLD)
+      .sort((a, b) => b.priority - a.priority);
 
     return { replied, followUp, highPriority };
   }, [filtered]);

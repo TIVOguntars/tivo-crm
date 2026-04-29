@@ -281,7 +281,7 @@ function LeadProfilePage() {
   const status = pick(profile, "status", "current_status");
   const rating = pick(profile, "rating");
   const priority =
-    pick(priorityRow, "priority_score") ?? pick(profile, "priority_score");
+    pick(priorityRow, "priority") ?? pick(profile, "priority");
   const tagsRaw = pick(profile, "tags");
   const tagsStr = isEmptyValue(tagsRaw) ? "" : fmt(tagsRaw);
   const ppv = pick(profile, "ppv_vards", "ppv", "ppv_name");

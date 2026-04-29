@@ -36,7 +36,7 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "phone_raw", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
   { key: "tags", label: "Tagi", widthClass: "w-[10%] min-w-[110px]", wrap: true },
   { key: "current_status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
-  { key: "priority_score", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
+  { key: "priority", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
   { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[12%] min-w-[140px]", wrap: true },
   { key: "__next_step", label: "Nākamais solis", widthClass: "w-[10%] min-w-[120px]", wrap: true },
   { key: "__actions", label: "Darbības", widthClass: "w-[13%] min-w-[170px]" },
@@ -69,7 +69,7 @@ const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) 
 function effectivePriority(row: Record<string, unknown>): number {
   const status = row.current_status == null ? "" : String(row.current_status);
   if (ZERO_PRIORITY_STATUSES.has(status)) return 0;
-  const score = Number(row.priority_score);
+  const score = Number(row.priority);
   return Number.isFinite(score) ? score : 0;
 }
 
@@ -236,7 +236,7 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
 function DarbaRindaPage() {
   const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
   const query = useMemo(
-    () => "order=priority_score.desc.nullslast&limit=1000",
+    () => "order=priority.desc.nullslast&limit=1000",
     [],
   );
 
@@ -451,7 +451,7 @@ function GroupRows({
               className={`border-t border-border hover:bg-secondary/30 ${highlight}`}
             >
               {COLUMNS.map((c) => {
-                const isScore = c.key === "priority_score";
+                const isScore = c.key === "priority";
                 let content: ReactNode;
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
