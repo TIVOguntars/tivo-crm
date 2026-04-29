@@ -140,17 +140,30 @@ function parseTs(v: unknown): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+/**
+ * Latvian relative time. Uses correct singular/plural per Latvian rules:
+ *   1, 21, 31… → singular ("1 minūti", "1 stundu", "1 dienu")
+ *   else       → plural ("2 minūtēm", "5 stundām", "10 dienām")
+ */
+function plural(n: number, singular: string, plural: string): string {
+  // Latvian: numbers ending in 1 (but not 11) take singular form.
+  const last = n % 10;
+  const last2 = n % 100;
+  const isSingular = last === 1 && last2 !== 11;
+  return isSingular ? singular : plural;
+}
+
 function formatRelative(ts: number | null): string {
   if (ts == null) return "—";
   const diff = Date.now() - ts;
   if (diff < 0) return new Date(ts).toLocaleDateString("lv-LV");
   const min = Math.floor(diff / 60_000);
   if (min < 1) return "tikko";
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return `pirms ${min} ${plural(min, "minūtes", "minūtēm")}`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `pirms ${h} ${plural(h, "stundas", "stundām")}`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} days ago`;
+  if (d < 30) return `pirms ${d} ${plural(d, "dienas", "dienām")}`;
   return new Date(ts).toLocaleDateString("lv-LV");
 }
 
