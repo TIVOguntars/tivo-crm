@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 
 export const Route = createFileRoute("/darba-rinda")({
   component: DarbaRindaPage,
