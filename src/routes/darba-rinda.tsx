@@ -207,8 +207,14 @@ function nextActionLabel(raw: string): string {
   if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
     return "Atbildēt";
   }
-  if (lower === "offer" || lower === "piedāvājums" || lower === "send_offer") {
-    return "Sūtīt piedāvājumu";
+  if (
+    lower === "offer" ||
+    lower === "piedāvājums" ||
+    lower === "send_offer" ||
+    lower === "follow_offer" ||
+    lower === "sekot piedāvājumam"
+  ) {
+    return "Sekot piedāvājumam";
   }
   if (lower === "verify_contact" || lower === "verify" || lower === "check_contact") {
     return "Pārbaudīt kontaktu";
@@ -217,6 +223,45 @@ function nextActionLabel(raw: string): string {
     return "Sazināties";
   }
   return v;
+}
+
+/**
+ * Resolve the primary CTA for a given next_action label:
+ *  - target hash on the lead profile (which section to focus)
+ *  - mailto compose for follow-up
+ *  - visual variant
+ */
+type NextStepCta = {
+  variant: "primary" | "default" | "outline";
+  /** hash to append to /lead/$leadId, or null for no hash */
+  focus: string | null;
+  /** if set, opens mailto: instead of navigating */
+  mailto?: { subject: string; body: string };
+};
+
+function ctaForStep(step: string): NextStepCta {
+  switch (step) {
+    case "Atbildēt":
+      return { variant: "primary", focus: "communication" };
+    case "Sekot piedāvājumam":
+      return { variant: "default", focus: "offer" };
+    case "Sekot (Follow-up)":
+      return {
+        variant: "default",
+        focus: "communication",
+        mailto: {
+          subject: "Sveiki! Atgādinājums par mūsu piedāvājumu",
+          body:
+            "Sveiki!\n\nGribēju pārliecināties, vai esat saņēmuši mūsu iepriekšējo ziņu un vai jums ir kādi jautājumi par piedāvājumu.\n\nGaidu jūsu atbildi!\n\nAr cieņu,",
+        },
+      };
+    case "Pārbaudīt kontaktu":
+      return { variant: "default", focus: "contact" };
+    case "Sazināties":
+      return { variant: "default", focus: "communication" };
+    default:
+      return { variant: "outline", focus: null };
+  }
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
@@ -233,29 +278,29 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
   };
 
   return (
-    <div className="flex flex-nowrap items-center gap-0.5">
+    <div className="flex flex-nowrap items-center gap-0.5 opacity-60 hover:opacity-100 transition-opacity">
       <Button
         size="sm"
-        variant="outline"
-        className="h-6 px-1.5"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-muted-foreground"
         onClick={handleViewProfile}
         title="Skatīt profilu"
       >
         <Eye className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="E-pasts">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="E-pasts">
         <Mail className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="SMS">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="SMS">
         <MessageSquare className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="WhatsApp">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="WhatsApp">
         <Send className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Zvans">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Zvans">
         <Phone className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Messenger">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Messenger">
         <MessageCircle className="h-3 w-3" />
       </Button>
     </div>
