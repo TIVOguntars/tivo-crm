@@ -82,25 +82,6 @@ function effectivePriority(row: Record<string, unknown>): number {
   return Number.isFinite(score) ? score : 0;
 }
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "Jauns":
-      return "bg-blue-500/15 text-blue-700 dark:text-blue-400";
-    case "Piesaistīšana":
-      return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400";
-    case "Piedāvājums":
-      return "bg-purple-500/15 text-purple-700 dark:text-purple-400";
-    case "Līgums":
-      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
-    case "Atcelts":
-      return "bg-destructive/15 text-destructive";
-    case "Nekvalificējas":
-      return "bg-muted text-muted-foreground";
-    default:
-      return "bg-secondary text-secondary-foreground";
-  }
-}
-
 function formatCell(value: unknown): string {
   if (value == null) return "";
   if (Array.isArray(value)) return value.join(", ");
@@ -723,16 +704,20 @@ function renderCell(c: (typeof COLUMNS)[number], row: Record<string, unknown>): 
   }
   if (c.key === "status") {
     const text = formatCell(row.status);
+    // Color is ALWAYS derived from priority — never from status text.
+    // Status only controls the label.
+    const tone = priorityTone(effectivePriority(row));
+    const toneClass = PRIORITY_BADGE[tone];
     if (text === "") {
       return (
-        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+        <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${toneClass}`}>
           Nav statusa
         </span>
       );
     }
     return (
       <span
-        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
+        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${toneClass}`}
       >
         {text}
       </span>
