@@ -10,10 +10,10 @@ import {
   Legend,
 } from "recharts";
 
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import type { FiltersSearch } from "@/lib/filters";
-import { resolveDateRange } from "@/lib/filters";
+import { buildAnalyticsFilters } from "@/lib/filters";
 
 const STATUS_COLORS: Record<string, string> = {
   Jauns: "oklch(0.65 0.18 255)",
@@ -43,36 +43,11 @@ function colorFor(status: string, idx: number): string {
 }
 
 export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
-  const { from, to } = useMemo(() => resolveDateRange(search), [search]);
-
-  const query = useMemo(() => {
-    const parts: string[] = [
-      "select=lead_created_date,status",
-      "order=lead_created_date.asc.nullslast",
-      "limit=5000",
-    ];
-    if (from) parts.push(`lead_created_date=gte.${from}`);
-    if (to) parts.push(`lead_created_date=lte.${to}`);
-    if (search.countries.length > 0)
-      parts.push(
-        `country=in.(${search.countries.map(encodeURIComponent).join(",")})`,
-      );
-    if (search.sources.length > 0)
-      parts.push(
-        `source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
-      );
-    if (search.owners.length > 0)
-      parts.push(
-        `owner=in.(${search.owners.map(encodeURIComponent).join(",")})`,
-      );
-    if (search.ppvs.length > 0)
-      parts.push(
-        `ppv_vards=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
-      );
-    return parts.join("&");
-  }, [from, to, search.countries, search.sources, search.owners, search.ppvs]);
-
-  const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
+  const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  const { data, isLoading, error } = useAnalyticsRpc(
+    "get_status_changes_daily",
+    filters,
+  );
 
   const { chartData, statuses } = useMemo(() => {
     const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
@@ -80,12 +55,13 @@ export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
     const statusSet = new Set<string>();
 
     for (const r of rows) {
-      const date = r.lead_created_date ? String(r.lead_created_date) : null;
+      const date = r.date ? String(r.date) : null;
       if (!date) continue;
       const status = r.status ? String(r.status) : "—";
+      const count = Number(r.lead_count ?? 0);
       statusSet.add(status);
       const bucket = byDate.get(date) ?? {};
-      bucket[status] = (bucket[status] ?? 0) + 1;
+      bucket[status] = (bucket[status] ?? 0) + (Number.isFinite(count) ? count : 0);
       byDate.set(date, bucket);
     }
 
@@ -101,17 +77,19 @@ export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
     return { chartData, statuses };
   }, [data]);
 
+  const apiError = data?.error ?? null;
+
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <h2 className="mb-1 text-sm font-semibold text-foreground">
         Leadu statusi pa dienām
       </h2>
       <p className="mb-4 text-xs text-muted-foreground">
-        Kā mainās leadu statusi laikā (pēc izveides datuma).
+        Statusu izmaiņas laikā (pēc statusa maiņas datuma).
       </p>
 
-      {error ? (
-        <ErrorState message={String(error)} />
+      {error || apiError ? (
+        <ErrorState message={String(apiError ?? error)} />
       ) : isLoading ? (
         <LoadingState />
       ) : chartData.length === 0 ? (
