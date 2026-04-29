@@ -30,6 +30,7 @@ const RPC_FUNCTIONS = [
   "get_kpi_summary",
   "get_daily_activity",
   "get_funnel",
+  "get_acquisition_funnel",
   "get_channel_summary",
 ] as const;
 
