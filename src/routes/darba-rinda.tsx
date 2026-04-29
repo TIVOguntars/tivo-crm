@@ -748,6 +748,7 @@ function DarbaRindaPage() {
                       setPageSize(Number(e.target.value) as 50 | 100 | 200);
                       setPage(1);
                     }}
+                    disabled={!!kpiFilter}
                     className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value={50}>50</option>
@@ -762,7 +763,7 @@ function DarbaRindaPage() {
                   variant="outline"
                   className="h-7 px-2"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage <= 1}
+                  disabled={safePage <= 1 || !!kpiFilter}
                 >
                   Iepriekšējā
                 </Button>
@@ -777,7 +778,7 @@ function DarbaRindaPage() {
                   variant="outline"
                   className="h-7 px-2"
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={safePage >= pageCount}
+                  disabled={safePage >= pageCount || !!kpiFilter}
                 >
                   Nākamā
                 </Button>
