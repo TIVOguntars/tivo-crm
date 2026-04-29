@@ -44,6 +44,7 @@ export interface AnalyticsFilters {
   p_sources?: string[] | null;
   p_owners?: string[] | null;
   p_ppvs?: string[] | null;
+  p_channels?: string[] | null;
 }
 
 function getEnv() {
@@ -117,7 +118,7 @@ async function callRpc(
 }
 
 function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
-  return {
+  const out: Record<string, unknown> = {
     p_from: input.p_from ?? null,
     p_to: input.p_to ?? null,
     p_countries:
@@ -131,6 +132,12 @@ function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
     p_ppvs:
       input.p_ppvs && input.p_ppvs.length > 0 ? input.p_ppvs : null,
   };
+  if (input.p_channels !== undefined) {
+    out.p_channels =
+      input.p_channels && input.p_channels.length > 0 ? input.p_channels : null;
+  }
+  return out;
+}
 }
 
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
