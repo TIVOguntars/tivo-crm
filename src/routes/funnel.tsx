@@ -161,7 +161,7 @@ function FunnelPage() {
     reach.pool > 0 ? ((n / reach.pool) * 100).toFixed(1) : "0.0";
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Funnel"
         description="Konversijas piltuves posmi un to attiecības."
@@ -269,7 +269,7 @@ function FunnelPage() {
       <ReachabilityBreakdown search={search} />
 
       <UnreachableBreakdown search={search} />
-    </>
+    </div>
   );
 }
 
