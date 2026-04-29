@@ -207,8 +207,14 @@ function nextActionLabel(raw: string): string {
   if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
     return "Atbildēt";
   }
-  if (lower === "offer" || lower === "piedāvājums" || lower === "send_offer") {
-    return "Sūtīt piedāvājumu";
+  if (
+    lower === "offer" ||
+    lower === "piedāvājums" ||
+    lower === "send_offer" ||
+    lower === "follow_offer" ||
+    lower === "sekot piedāvājumam"
+  ) {
+    return "Sekot piedāvājumam";
   }
   if (lower === "verify_contact" || lower === "verify" || lower === "check_contact") {
     return "Pārbaudīt kontaktu";
@@ -217,6 +223,45 @@ function nextActionLabel(raw: string): string {
     return "Sazināties";
   }
   return v;
+}
+
+/**
+ * Resolve the primary CTA for a given next_action label:
+ *  - target hash on the lead profile (which section to focus)
+ *  - mailto compose for follow-up
+ *  - visual variant
+ */
+type NextStepCta = {
+  variant: "primary" | "default" | "outline";
+  /** hash to append to /lead/$leadId, or null for no hash */
+  focus: string | null;
+  /** if set, opens mailto: instead of navigating */
+  mailto?: { subject: string; body: string };
+};
+
+function ctaForStep(step: string): NextStepCta {
+  switch (step) {
+    case "Atbildēt":
+      return { variant: "primary", focus: "communication" };
+    case "Sekot piedāvājumam":
+      return { variant: "default", focus: "offer" };
+    case "Sekot (Follow-up)":
+      return {
+        variant: "default",
+        focus: "communication",
+        mailto: {
+          subject: "Sveiki! Atgādinājums par mūsu piedāvājumu",
+          body:
+            "Sveiki!\n\nGribēju pārliecināties, vai esat saņēmuši mūsu iepriekšējo ziņu un vai jums ir kādi jautājumi par piedāvājumu.\n\nGaidu jūsu atbildi!\n\nAr cieņu,",
+        },
+      };
+    case "Pārbaudīt kontaktu":
+      return { variant: "default", focus: "contact" };
+    case "Sazināties":
+      return { variant: "default", focus: "communication" };
+    default:
+      return { variant: "outline", focus: null };
+  }
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
@@ -233,31 +278,107 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
   };
 
   return (
-    <div className="flex flex-nowrap items-center gap-0.5">
+    <div className="flex flex-nowrap items-center gap-0.5 opacity-60 hover:opacity-100 transition-opacity">
       <Button
         size="sm"
-        variant="outline"
-        className="h-6 px-1.5"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-muted-foreground"
         onClick={handleViewProfile}
         title="Skatīt profilu"
       >
         <Eye className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="E-pasts">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="E-pasts">
         <Mail className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="SMS">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="SMS">
         <MessageSquare className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="WhatsApp">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="WhatsApp">
         <Send className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Zvans">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Zvans">
         <Phone className="h-3 w-3" />
       </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={comingSoon} title="Messenger">
+      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Messenger">
         <MessageCircle className="h-3 w-3" />
       </Button>
+    </div>
+  );
+}
+
+function NextStepButton({
+  row,
+  step,
+  reason,
+}: {
+  row: Record<string, unknown>;
+  step: string;
+  reason: string;
+}) {
+  const navigate = useNavigate();
+  const leadId = row.lead_id ?? row.id;
+  const cta = ctaForStep(step);
+
+  const handleClick = () => {
+    if (cta.mailto) {
+      const email = row.email == null ? "" : String(row.email).trim();
+      if (!email) {
+        toast("Šim leadam nav e-pasta");
+        return;
+      }
+      const params = new URLSearchParams({
+        subject: cta.mailto.subject,
+        body: cta.mailto.body,
+      });
+      window.location.href = `mailto:${email}?${params.toString()}`;
+      return;
+    }
+    if (leadId == null) {
+      toast("Lead ID nav pieejams");
+      return;
+    }
+    navigate({
+      to: "/lead/$leadId",
+      params: { leadId: String(leadId) },
+      hash: cta.focus ?? undefined,
+    });
+  };
+
+  const variantClass =
+    cta.variant === "primary"
+      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+      : cta.variant === "default"
+        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+        : "bg-transparent text-muted-foreground hover:bg-secondary/40 border border-border";
+
+  const button = (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold transition-colors w-full ${variantClass}`}
+    >
+      {step}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col gap-0.5 leading-tight">
+      {reason ? (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="top">{reason}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        button
+      )}
+      {reason && (
+        <span className="text-[10px] text-muted-foreground line-clamp-2">
+          {reason}
+        </span>
+      )}
     </div>
   );
 }
@@ -596,39 +717,12 @@ function GroupRows({
                       </span>
                     );
                   } else {
-                    const tone =
-                      step === "Atbildēt"
-                        ? "bg-destructive/15 text-destructive"
-                        : step === "Sekot (Follow-up)"
-                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                          : "bg-secondary text-secondary-foreground";
-                    const badge = (
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
-                      >
-                        {step}
-                      </span>
-                    );
                     content = (
-                      <div className="flex flex-col gap-0.5 leading-tight">
-                        {reason ? (
-                          <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>{badge}</TooltipTrigger>
-                              <TooltipContent side="top">
-                                {reason}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          badge
-                        )}
-                        {reason && (
-                          <span className="text-[10px] text-muted-foreground line-clamp-2">
-                            {reason}
-                          </span>
-                        )}
-                      </div>
+                      <NextStepButton
+                        row={row}
+                        step={step}
+                        reason={reason}
+                      />
                     );
                   }
                 } else if (isScore) {
