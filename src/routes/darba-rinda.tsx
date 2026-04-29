@@ -454,41 +454,26 @@ function DarbaRindaPage() {
   }, [sorted, q, search.tags, activeOnly]);
 
   const groups = useMemo(() => {
-    const DAY = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-
     const result: { key: string; label: string; hint: string; rows: Array<Record<string, unknown>> }[] = [];
 
     for (const d of GROUP_DEFS) {
       const matched = filtered.filter((r) => d.test(effectivePriority(r)));
 
       if (d.key === "followup") {
-        // Split Follow-up by last_outbound_at age (oldest first inside each).
-        const ageDays = (r: Record<string, unknown>): number | null => {
-          const ts = parseTs(r.last_outbound_at);
-          if (ts == null) return null;
-          return (now - ts) / DAY;
-        };
-
+        // Split priority=70 group by follow_up_bucket from analytics.lead_priority_queue.
+        // Frontend MUST NOT recompute buckets — read directly from the row.
         const today: Array<Record<string, unknown>> = [];
         const overdue: Array<Record<string, unknown>> = [];
         const old: Array<Record<string, unknown>> = [];
-        const noDate: Array<Record<string, unknown>> = [];
+        const other: Array<Record<string, unknown>> = [];
 
         for (const r of matched) {
-          const a = ageDays(r);
-          if (a == null) {
-            noDate.push(r);
-          } else if (a > 14) {
-            old.push(r);
-          } else if (a > 5) {
-            overdue.push(r);
-          } else if (a >= 3) {
-            today.push(r);
-          } else {
-            // <3 days — keep visible under "today" bucket so nothing is lost
-            today.push(r);
-          }
+          const bucket =
+            r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
+          if (bucket === "Šodien jāseko") today.push(r);
+          else if (bucket === "Kavēts follow-up") overdue.push(r);
+          else if (bucket === "Vecie leadi") old.push(r);
+          else other.push(r);
         }
 
         const byOldest = (a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -500,25 +485,25 @@ function DarbaRindaPage() {
         today.sort(byOldest);
         overdue.sort(byOldest);
         old.sort(byOldest);
-        noDate.sort(byOldest);
+        other.sort(byOldest);
 
         result.push({
           key: "followup_today",
           label: "Šodien jāseko",
-          hint: "last_outbound_at 3–5 d atpakaļ",
+          hint: 'follow_up_bucket = "Šodien jāseko"',
           rows: today,
         });
         result.push({
           key: "followup_overdue",
           label: "Kavēts follow-up",
-          hint: "last_outbound_at 6–14 d atpakaļ",
+          hint: 'follow_up_bucket = "Kavēts follow-up"',
           rows: overdue,
         });
         result.push({
           key: "followup_old",
           label: "Vecie leadi",
-          hint: "last_outbound_at > 14 d",
-          rows: [...old, ...noDate],
+          hint: 'follow_up_bucket = "Vecie leadi"',
+          rows: [...old, ...other],
         });
       } else {
         result.push({ key: d.key, label: d.label, hint: d.hint, rows: matched });
