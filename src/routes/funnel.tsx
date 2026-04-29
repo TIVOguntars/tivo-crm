@@ -7,6 +7,7 @@ import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import { ReachabilityBreakdown } from "@/components/ReachabilityBreakdown";
 import { UnreachableBreakdown } from "@/components/UnreachableBreakdown";
+import { CommunicationFunnel } from "@/components/CommunicationFunnel";
 
 export const Route = createFileRoute("/funnel")({
   component: FunnelPage,
@@ -217,6 +218,8 @@ function FunnelPage() {
       <ReachabilityBreakdown search={search} />
 
       <UnreachableBreakdown search={search} />
+
+      <CommunicationFunnel search={search} />
     </div>
   );
 }
