@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -16,6 +16,8 @@ import { StatCard } from "@/components/StatCard";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/darba-rinda")({
