@@ -32,6 +32,7 @@ const RPC_FUNCTIONS = [
   "get_funnel",
   "get_acquisition_funnel",
   "get_channel_summary",
+  "get_communication_funnel",
 ] as const;
 
 export type AnalyticsRpc = (typeof RPC_FUNCTIONS)[number];
