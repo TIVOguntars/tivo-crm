@@ -29,9 +29,12 @@ import {
 } from "@/lib/filters";
 
 const RANGE_LABELS: Record<DateRangePreset, string> = {
+  all: "Visi dati",
   today: "Šodien",
+  yesterday: "Vakar",
   "7d": "Pēdējās 7 dienas",
   "30d": "Pēdējās 30 dienas",
+  this_month: "Šis mēnesis",
   custom: "Pielāgots",
 };
 
@@ -146,7 +149,7 @@ export function FilterBar() {
     navigate({
       to: ".",
       search: () => ({
-        range: "30d" as const,
+        range: "all" as const,
         from: undefined,
         to: undefined,
         countries: [],
@@ -161,7 +164,7 @@ export function FilterBar() {
   };
 
   const hasActiveFilters =
-    search.range !== "30d" ||
+    search.range !== "all" ||
     (search.countries?.length ?? 0) > 0 ||
     (search.sources?.length ?? 0) > 0 ||
     (search.owners?.length ?? 0) > 0 ||
