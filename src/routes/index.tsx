@@ -19,6 +19,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import { LeadStatusByDay } from "@/components/LeadStatusByDay";
+import { FunnelConversionDaily } from "@/components/FunnelConversionDaily";
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -167,6 +168,10 @@ function PārskatsPage() {
 
           <div className="mt-4">
             <LeadStatusByDay search={search} />
+          </div>
+
+          <div className="mt-4">
+            <FunnelConversionDaily search={search} />
           </div>
         </>
       )}
