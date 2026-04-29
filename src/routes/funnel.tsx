@@ -7,7 +7,6 @@ import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import { ReachabilityBreakdown } from "@/components/ReachabilityBreakdown";
 import { UnreachableBreakdown } from "@/components/UnreachableBreakdown";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/funnel")({
   component: FunnelPage,
@@ -90,7 +89,7 @@ function FunnelPage() {
   const activeQuery = useAnalyticsRpc("get_funnel", filters);
   const acquisitionQuery = useAnalyticsRpc("get_acquisition_funnel", filters);
 
-  const { mainStages, reach, total } = useMemo(() => {
+  const { reach } = useMemo(() => {
     const rows = activeQuery.data?.rows ?? [];
     const mapped: Stage[] = rows.map((r) => ({
       stage: String(r.status ?? "—"),
@@ -98,11 +97,25 @@ function FunnelPage() {
       order: num(r.status_order),
     }));
 
-    const total = mapped.reduce((acc, s) => acc + s.count, 0);
-
     const byName = new Map(mapped.map((s) => [s.stage, s]));
-    // Show all statuses returned by the RPC, ordered by status_order.
-    // Include known statuses even when missing (count 0) so layout stays stable.
+    const get = (name: string) => byName.get(name)?.count ?? 0;
+    const newCount = get("Jauns");
+    const notReached = get("Nesasniedzams");
+    const reached = REACHED_STAGES.reduce((acc, n) => acc + get(n), 0);
+    const pool = reached + notReached + newCount;
+
+    return {
+      reach: { newCount, notReached, reached, pool },
+    };
+  }, [activeQuery.data]);
+
+  const acquisitionStages = useMemo(() => {
+    const rows = acquisitionQuery.data?.rows ?? [];
+    const mapped: Stage[] = rows.map((r) => ({
+      stage: String(r.status ?? "—"),
+      count: num(r.lead_count),
+      order: num(r.status_order),
+    }));
     const knownOrder = new Map(MAIN_STAGES.map((n, i) => [n, i]));
     const merged = new Map<string, Stage>();
     MAIN_STAGES.forEach((name, i) => {
@@ -115,46 +128,14 @@ function FunnelPage() {
         order: s.order || knownOrder.get(s.stage) || 999,
       });
     });
-    const main = Array.from(merged.values()).sort((a, b) => a.order - b.order);
-
-    const get = (name: string) => byName.get(name)?.count ?? 0;
-    const newCount = get("Jauns");
-    const notReached = get("Nesasniedzams");
-    const reached = REACHED_STAGES.reduce((acc, n) => acc + get(n), 0);
-    const pool = reached + notReached + newCount;
-
-    return {
-      mainStages: main,
-      reach: { newCount, notReached, reached, pool },
-      total,
-    };
-  }, [activeQuery.data]);
-
-  const acquisitionStages = useMemo(() => {
-    const rows = acquisitionQuery.data?.rows ?? [];
-    const mapped: Stage[] = rows.map((r) => ({
-      stage: String(r.status ?? "—"),
-      count: num(r.lead_count),
-      order: num(r.status_order),
-    }));
-    const knownOrder = new Map(MAIN_STAGES.map((n, i) => [n, i]));
-    return mapped.sort(
-      (a, b) =>
-        (a.order || knownOrder.get(a.stage) || 999) -
-        (b.order || knownOrder.get(b.stage) || 999),
-    );
+    return Array.from(merged.values()).sort((a, b) => a.order - b.order);
   }, [acquisitionQuery.data]);
 
   const acquisitionTotal = acquisitionStages.reduce((acc, s) => acc + s.count, 0);
 
-  const activeError =
-    (activeQuery.error as Error | null)?.message || activeQuery.data?.error;
   const acquisitionError =
     (acquisitionQuery.error as Error | null)?.message ||
     acquisitionQuery.data?.error;
-  const hasActive = (activeQuery.data?.rows?.length ?? 0) > 0;
-  const hasAcquisition = (acquisitionQuery.data?.rows?.length ?? 0) > 0;
-  const mainMax = Math.max(1, ...mainStages.map((s) => s.count));
   const acqMax = Math.max(1, ...acquisitionStages.map((s) => s.count));
 
   const pct = (n: number) =>
@@ -167,70 +148,41 @@ function FunnelPage() {
         description="Konversijas piltuves posmi un to attiecības."
       />
 
-      <Tabs defaultValue="active" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="active">Aktīvie leadi</TabsTrigger>
-          <TabsTrigger value="acquisition">Jaunie leadi</TabsTrigger>
-        </TabsList>
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Funnel</h2>
+          <p className="text-xs text-muted-foreground">
+            Šis skats rāda leadus, kas ienākuši izvēlētajā periodā, un kāds ir to pašreizējais statuss.
+          </p>
+        </div>
 
-        <TabsContent value="active" className="space-y-6">
-          {activeError && <ErrorState message={activeError} />}
-          {!activeError && activeQuery.isLoading && <LoadingState />}
-          {!activeError && !activeQuery.isLoading && !hasActive && <EmptyState />}
-          {!activeError && !activeQuery.isLoading && hasActive && (
-            <>
-              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
-                <div className="mb-4">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Statusu sadalījums aktīvajiem leadiem
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Šis skats rāda leadus, kuriem izvēlētajā periodā bija komunikācijas aktivitāte. Kopā {fmt(total)} leadi.
-                  </p>
-                </div>
-                <StageList stages={mainStages} total={total} max={mainMax} />
-              </section>
-
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="acquisition" className="space-y-6">
-          {acquisitionError && <ErrorState message={acquisitionError} />}
-          {!acquisitionError && acquisitionQuery.isLoading && <LoadingState />}
-          {!acquisitionError && !acquisitionQuery.isLoading && !hasAcquisition && (
-            <EmptyState />
-          )}
-          {!acquisitionError && !acquisitionQuery.isLoading && hasAcquisition && (
-            <>
-              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Jauni leadi periodā
-                </p>
-                <p className="mt-2 text-3xl font-semibold tabular-nums text-foreground">
+        {acquisitionError && <ErrorState message={acquisitionError} />}
+        {!acquisitionError && acquisitionQuery.isLoading && <LoadingState />}
+        {!acquisitionError && !acquisitionQuery.isLoading && acquisitionTotal === 0 && (
+          <EmptyState />
+        )}
+        {!acquisitionError && !acquisitionQuery.isLoading && acquisitionTotal > 0 && (
+          <div className="space-y-3">
+            <div>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="font-semibold text-foreground">Ienākuši periodā</span>
+                <span className="tabular-nums text-foreground">
                   {fmt(acquisitionTotal)}
-                </p>
-              </section>
-
-              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
-                <div className="mb-4">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Jauno leadu rezultāts
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Šis skats rāda leadus, kas ienākuši izvēlētajā periodā, un kāds ir to pašreizējais statuss.
-                  </p>
-                </div>
-                <StageList
-                  stages={acquisitionStages}
-                  total={acquisitionTotal}
-                  max={acqMax}
-                />
-              </section>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+                  <span className="ml-2 text-xs text-muted-foreground">(100%)</span>
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full bg-primary" style={{ width: "100%" }} />
+              </div>
+            </div>
+            <StageList
+              stages={acquisitionStages}
+              total={acquisitionTotal}
+              max={acqMax}
+            />
+          </div>
+        )}
+      </section>
 
       <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
         <div className="mb-4">
