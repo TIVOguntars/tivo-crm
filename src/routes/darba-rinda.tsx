@@ -753,7 +753,7 @@ function VirtualLeadList({
 }: {
   rows: Array<Record<string, unknown>>;
   scrollRef: React.RefObject<HTMLDivElement | null>;
-  virtualizer: ReturnType<typeof useVirtualizer>;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   total: number | null;
