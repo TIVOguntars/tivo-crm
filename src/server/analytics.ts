@@ -138,7 +138,6 @@ function normalizeFilters(input: AnalyticsFilters): Record<string, unknown> {
   }
   return out;
 }
-}
 
 export const fetchAnalyticsView = createServerFn({ method: "GET" })
   .inputValidator((input: { view: AnalyticsView; query?: string }) => {
