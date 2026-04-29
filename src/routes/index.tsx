@@ -164,6 +164,10 @@ function PārskatsPage() {
               )}
             </div>
           </div>
+
+          <div className="mt-4">
+            <LeadStatusByDay search={search} />
+          </div>
         </>
       )}
     </>
