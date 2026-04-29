@@ -82,40 +82,55 @@ function formatCell(value: unknown): string {
 
 /* ----- Last activity formatting ----- */
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  reply: "Atbilde",
-  sent: "Nosūtīts",
-  delivered: "Piegādāts",
-  open: "Atvērts",
-  click: "Klikšķis",
-  bounce: "Bounce",
-  failed: "Neizdevās",
-  call: "Zvans",
-  call_connected: "Zvans (atbildēts)",
-  call_missed: "Zvans (neatbildēts)",
-  message: "Ziņa",
-  note: "Piezīme",
-};
-
-const CHANNEL_LABELS: Record<string, string> = {
-  email: "E-pasts",
+// "Saņemts/Nosūtīts/etc." + channel name in nominative.
+const CHANNEL_NOMINATIVE: Record<string, string> = {
+  email: "e-pasts",
   sms: "SMS",
-  whatsapp: "WhatsApp",
-  call: "Zvans",
-  messenger: "Messenger",
+  whatsapp: "WhatsApp ziņa",
+  call: "zvans",
+  messenger: "Messenger ziņa",
 };
 
 function describeEvent(channel: string, type: string, group: string): string {
   const t = type.toLowerCase();
   const ch = channel.toLowerCase();
   const g = group.toLowerCase();
-  if (g === "reply" || t === "reply" || t === "replied") return "Atbilde";
-  const typeLabel = EVENT_TYPE_LABELS[t];
-  const channelLabel = CHANNEL_LABELS[ch];
-  if (channelLabel && typeLabel) return `${channelLabel} · ${typeLabel}`;
-  if (channelLabel) return channelLabel;
-  if (typeLabel) return typeLabel;
-  if (g) return g;
+
+  // Reply (any channel)
+  if (g === "reply" || t === "reply" || t === "replied") {
+    return "Saņemta atbilde";
+  }
+
+  const channelName = CHANNEL_NOMINATIVE[ch];
+
+  // Outbound / send
+  if (t === "sent" || g === "outbound_attempt") {
+    if (channelName) return `Nosūtīts ${channelName}`;
+    return "Nosūtīta ziņa";
+  }
+  if (t === "delivered") {
+    if (channelName) return `Piegādāts ${channelName}`;
+    return "Piegādāta ziņa";
+  }
+  if (t === "failed" || t === "bounce") {
+    if (channelName) return `Neizdevās ${channelName}`;
+    return "Neizdevās piegādāt";
+  }
+  if (t === "open") {
+    if (channelName) return `Atvērts ${channelName}`;
+    return "Atvērta ziņa";
+  }
+  if (t === "click") return "Klikšķis uz saites";
+
+  // Calls
+  if (ch === "call" || t.startsWith("call")) {
+    if (t === "call_connected") return "Atbildēts zvans";
+    if (t === "call_missed") return "Neatbildēts zvans";
+    return "Zvans";
+  }
+
+  if (channelName) return channelName.charAt(0).toUpperCase() + channelName.slice(1);
+  if (g) return "Aktivitāte";
   return "Aktivitāte";
 }
 
