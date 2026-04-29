@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Filter, MessageSquare, Users } from "lucide-react";
+import { BarChart3, Filter, Inbox, MessageSquare, Users } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
 
 const items = [
   { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
   { to: "/funnel", label: "Funnel", icon: Filter, exact: false },
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false },
+  { to: "/ienakosas-zinas", label: "Ienākošās ziņas", icon: Inbox, exact: false },
   { to: "/darba-rinda", label: "Leadi", icon: Users, exact: false },
 ] as const;
 
