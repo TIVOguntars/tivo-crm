@@ -314,10 +314,78 @@ function DarbaRindaPage() {
   }, [sorted, q, search.tags, activeOnly]);
 
   const groups = useMemo(() => {
-    return GROUP_DEFS.map((d) => ({
-      ...d,
-      rows: filtered.filter((r) => d.test(effectivePriority(r))),
-    }));
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const result: { key: string; label: string; hint: string; rows: Array<Record<string, unknown>> }[] = [];
+
+    for (const d of GROUP_DEFS) {
+      const matched = filtered.filter((r) => d.test(effectivePriority(r)));
+
+      if (d.key === "followup") {
+        // Split Follow-up by last_outbound_at age (oldest first inside each).
+        const ageDays = (r: Record<string, unknown>): number | null => {
+          const ts = parseTs(r.last_outbound_at);
+          if (ts == null) return null;
+          return (now - ts) / DAY;
+        };
+
+        const today: Array<Record<string, unknown>> = [];
+        const overdue: Array<Record<string, unknown>> = [];
+        const old: Array<Record<string, unknown>> = [];
+        const noDate: Array<Record<string, unknown>> = [];
+
+        for (const r of matched) {
+          const a = ageDays(r);
+          if (a == null) {
+            noDate.push(r);
+          } else if (a > 14) {
+            old.push(r);
+          } else if (a > 5) {
+            overdue.push(r);
+          } else if (a >= 3) {
+            today.push(r);
+          } else {
+            // <3 days — keep visible under "today" bucket so nothing is lost
+            today.push(r);
+          }
+        }
+
+        const byOldest = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const ta = parseTs(a.last_outbound_at) ?? Number.POSITIVE_INFINITY;
+          const tb = parseTs(b.last_outbound_at) ?? Number.POSITIVE_INFINITY;
+          return ta - tb; // oldest first
+        };
+
+        today.sort(byOldest);
+        overdue.sort(byOldest);
+        old.sort(byOldest);
+        noDate.sort(byOldest);
+
+        result.push({
+          key: "followup_today",
+          label: "Šodien jāseko",
+          hint: "last_outbound_at 3–5 d atpakaļ",
+          rows: today,
+        });
+        result.push({
+          key: "followup_overdue",
+          label: "Kavēts follow-up",
+          hint: "last_outbound_at 6–14 d atpakaļ",
+          rows: overdue,
+        });
+        result.push({
+          key: "followup_old",
+          label: "Vecie leadi",
+          hint: "last_outbound_at > 14 d",
+          rows: [...old, ...noDate],
+        });
+      } else {
+        result.push({ key: d.key, label: d.label, hint: d.hint, rows: matched });
+      }
+    }
+
+    return result;
   }, [filtered]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -345,7 +413,7 @@ function DarbaRindaPage() {
         <SearchInput />
       </PageHeader>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {groups.map((g) => (
           <StatCard
             key={g.key}
