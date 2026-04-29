@@ -50,22 +50,35 @@ export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
   );
 
   const { chartData, statuses } = useMemo(() => {
-    const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
+    // RPC returns an array of { date, status, lead_count }. Be tolerant if
+    // the response is wrapped (e.g. [{ data: [...] }] or { data: [...] }).
+    let rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
+    if (
+      rows.length === 1 &&
+      rows[0] &&
+      typeof rows[0] === "object" &&
+      Array.isArray((rows[0] as Record<string, unknown>).data)
+    ) {
+      rows = (rows[0] as { data: Array<Record<string, unknown>> }).data;
+    }
+
     const byDate = new Map<string, Record<string, number>>();
     const statusSet = new Set<string>();
 
     for (const r of rows) {
-      const date = r.date ? String(r.date) : null;
-      if (!date) continue;
+      const rawDate = r.date ?? r.day ?? r.bucket ?? null;
+      if (!rawDate) continue;
+      // Normalize to YYYY-MM-DD (handles ISO timestamps too).
+      const date = String(rawDate).slice(0, 10);
       const status = r.status ? String(r.status) : "—";
-      const count = Number(r.lead_count ?? 0);
+      const count = Number(r.lead_count ?? r.count ?? 0);
       statusSet.add(status);
       const bucket = byDate.get(date) ?? {};
       bucket[status] = (bucket[status] ?? 0) + (Number.isFinite(count) ? count : 0);
       byDate.set(date, bucket);
     }
 
-    const statuses = Array.from(statusSet).sort();
+    const statuses = Array.from(statusSet);
     const chartData = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, counts]) => {
