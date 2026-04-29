@@ -18,6 +18,12 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/darba-rinda")({
@@ -167,55 +173,21 @@ function formatRelative(ts: number | null): string {
   return new Date(ts).toLocaleDateString("lv-LV");
 }
 
-interface EngagementInfo {
-  last_event_at: string | null;
-  last_channel: string;
-  last_event_type: string;
-  last_event_group: string;
-  has_reply: boolean;
-  first_outbound_at: string | null;
-}
-
-const RECENT_REPLY_DAYS = 7;
-const FOLLOWUP_DAYS = 3;
-
 /**
- * Rule-based next step for a lead. NOT AI.
- * Order matters: reply > follow-up > status-driven defaults.
+ * Map raw next_action string from analytics.lead_priority_queue
+ * to a user-facing Latvian label. Frontend MUST NOT recompute logic.
  */
-function computeNextStep(
-  status: string,
-  eng: EngagementInfo | undefined,
-): string {
-  const now = Date.now();
-
-  // 1. Recent reply → must answer
-  if (eng?.has_reply) {
-    const lastTs = parseTs(eng.last_event_at);
-    if (
-      lastTs != null &&
-      now - lastTs <= RECENT_REPLY_DAYS * 24 * 60 * 60 * 1000
-    ) {
-      return "Atbildēt";
-    }
+function nextActionLabel(raw: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  const lower = v.toLowerCase();
+  if (lower === "follow-up" || lower === "follow_up" || lower === "followup") {
+    return "Sekot (Follow-up)";
   }
-
-  // 2. No reply, last outbound > 3d → follow up
-  if (eng && !eng.has_reply && eng.first_outbound_at) {
-    const lastTs = parseTs(eng.last_event_at);
-    if (
-      lastTs != null &&
-      now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
-    ) {
-      return "Sekot (Follow-up)";
-    }
+  if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
+    return "Atbildēt";
   }
-
-  // 3. Status-driven defaults
-  if (status === "Piedāvājums") return "Sekot piedāvājumam";
-  if (status === "Jauns") return "Sazināties";
-
-  return "—";
+  return v;
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
