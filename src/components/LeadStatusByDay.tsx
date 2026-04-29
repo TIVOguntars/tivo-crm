@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +14,17 @@ import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import type { FiltersSearch } from "@/lib/filters";
 import { buildAnalyticsFilters } from "@/lib/filters";
+
+const MAIN_STATUSES = [
+  "Jauns",
+  "Piesaistīšana",
+  "Kvalificēts",
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+] as const;
+
+type Mode = "main" | "all";
 
 const STATUS_COLORS: Record<string, string> = {
   Jauns: "oklch(0.65 0.18 255)",
@@ -48,6 +59,7 @@ export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
     "get_status_changes_daily",
     filters,
   );
+  const [mode, setMode] = useState<Mode>("main");
 
   const { chartData, statuses } = useMemo(() => {
     // RPC returns an array of { date, status, lead_count }. Be tolerant if
@@ -78,28 +90,60 @@ export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
       byDate.set(date, bucket);
     }
 
-    const statuses = Array.from(statusSet);
+    const statuses =
+      mode === "main"
+        ? MAIN_STATUSES.filter((s) => statusSet.has(s))
+        : Array.from(statusSet);
     const chartData = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, counts]) => {
         const row: Record<string, string | number> = { date };
         for (const s of statuses) row[s] = counts[s] ?? 0;
         return row;
-      });
+      })
+      .filter((row) => statuses.some((s) => Number(row[s]) > 0));
 
     return { chartData, statuses };
-  }, [data]);
+  }, [data, mode]);
 
   const apiError = data?.error ?? null;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <h2 className="mb-1 text-sm font-semibold text-foreground">
-        Leadu statusi pa dienām
-      </h2>
-      <p className="mb-4 text-xs text-muted-foreground">
-        Statusu izmaiņas laikā (pēc statusa maiņas datuma).
-      </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">
+            Leadu statusi pa dienām
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Statusu izmaiņas laikā (pēc statusa maiņas datuma).
+          </p>
+        </div>
+        <div className="inline-flex rounded-md border border-border bg-muted p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode("main")}
+            className={`rounded px-3 py-1 transition-colors ${
+              mode === "main"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Galvenie statusi
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("all")}
+            className={`rounded px-3 py-1 transition-colors ${
+              mode === "all"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Visi statusi
+          </button>
+        </div>
+      </div>
 
       {error || apiError ? (
         <ErrorState message={String(apiError ?? error)} />
