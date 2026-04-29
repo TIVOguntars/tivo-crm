@@ -241,6 +241,19 @@ export function FilterBar() {
           </Button>
         )}
       </div>
+      <div className="mx-auto flex max-w-7xl flex-col gap-0.5 px-4 pb-3 sm:px-6">
+        <div className="text-xs text-foreground">
+          <span className="text-muted-foreground">Periods: </span>
+          <span className="font-medium">
+            {search.range === "custom"
+              ? `${formatDate(from)} → ${formatDate(to)}`
+              : RANGE_LABELS[search.range]}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          Dati tiek rādīti tikai par izvēlēto periodu.
+        </div>
+      </div>
     </div>
     </TooltipProvider>
   );
