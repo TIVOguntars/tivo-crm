@@ -30,6 +30,7 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
   { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
   { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[14%] min-w-[150px]", wrap: true },
+  { key: "__next_step", label: "Nākamais solis", widthClass: "w-[12%] min-w-[130px]", wrap: true },
   { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
 ];
 
