@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import {
   Eye,
@@ -24,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 
 export const Route = createFileRoute("/darba-rinda")({
@@ -386,15 +387,86 @@ function NextStepButton({
 
 function DarbaRindaPage() {
   const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
-  const query = useMemo(
-    () => "order=priority.desc.nullslast&limit=1000",
-    [],
-  );
 
-  const { data, isLoading, error } = useAnalyticsView(
-    "lead_priority_queue",
-    query,
-  );
+  const q = (search.q ?? "").trim();
+  const selectedTags = (search.tags ?? []) as string[];
+
+  const [activeOnly, setActiveOnly] = useState(true);
+  // KPI card filter: drives server-side query (no client-side group filtering).
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+
+  // Build the PostgREST query string from current filters. Server-side only.
+  // Sorting: priority desc, last_activity_at desc (both nulls last).
+  const baseQuery = useMemo(() => {
+    const parts: string[] = [
+      "order=priority.desc.nullslast,last_activity_at.desc.nullslast",
+    ];
+
+    // KPI filter -> server filter
+    if (kpiFilter === "urgent") parts.push("priority=eq.100");
+    else if (kpiFilter === "offers") parts.push("priority=eq.90");
+    else if (kpiFilter === "verify") parts.push("priority=eq.80");
+    else if (kpiFilter === "contact") parts.push("priority=eq.60");
+    else if (kpiFilter === "none") parts.push("priority=eq.0");
+    else if (kpiFilter === "followup_today")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Šodien jāseko")}`,
+      );
+    else if (kpiFilter === "followup_overdue")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Kavēts follow-up")}`,
+      );
+    else if (kpiFilter === "followup_old")
+      parts.push(
+        `follow_up_bucket=eq.${encodeURIComponent("Vecie leadi")}`,
+      );
+
+    // "Tikai aktīvie leadi" -> exclude inactive statuses
+    if (activeOnly) {
+      parts.push(
+        `status=not.in.(${[...INACTIVE_STATUSES]
+          .map((s) => encodeURIComponent(s))
+          .join(",")})`,
+      );
+    }
+
+    // Free-text search across name/email/phone (server-side ilike)
+    if (q) {
+      const needle = `*${q.replace(/[(),]/g, "")}*`;
+      const enc = encodeURIComponent(needle);
+      parts.push(
+        `or=(full_name.ilike.${enc},email.ilike.${enc},phone.ilike.${enc})`,
+      );
+    }
+
+    // Tags (text column, comma-separated). Use ilike per selected tag.
+    for (const t of selectedTags) {
+      const enc = encodeURIComponent(`*${t}*`);
+      parts.push(`tags=ilike.${enc}`);
+    }
+
+    return parts.join("&");
+  }, [kpiFilter, activeOnly, q, selectedTags]);
+
+  const {
+    data,
+    error,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteAnalyticsView("lead_priority_queue", baseQuery, 100);
+
+  // Flatten loaded pages into a single ordered list.
+  const rows = useMemo(() => {
+    const out: Array<Record<string, unknown>> = [];
+    for (const p of data?.pages ?? []) {
+      for (const r of p.rows) out.push(r as Record<string, unknown>);
+    }
+    return out;
+  }, [data]);
+
+  const total = data?.pages?.[0]?.total ?? null;
 
   // Follow-up KPI cards source: dedicated RPC analytics.get_follow_up_counts.
   // ALWAYS reflects the full dataset — independent of UI filters,
@@ -421,191 +493,47 @@ function DarbaRindaPage() {
     return map;
   }, [bucketAgg]);
 
-  const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
+  // KPI card definitions (display + total + filter key)
+  const KPI_CARDS: { key: string; label: string; hint: string; total: number | null }[] = [
+    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: null },
+    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: null },
+    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: null },
+    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"] },
+    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"] },
+    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"] },
+    { key: "contact", label: "Sazināties", hint: "priority = 60", total: null },
+    { key: "none", label: "Nav darbību", hint: "priority = 0", total: null },
+  ];
 
-  const q = search.q ?? "";
+  // ---------- Virtualized infinite-scroll table ----------
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [activeOnly, setActiveOnly] = useState(true);
-  const [pageSize, setPageSize] = useState<50 | 100 | 200>(100);
-  const [page, setPage] = useState(1);
-  // KPI card filter: when set, table shows ONLY rows matching this group key
-  // and pagination is disabled (full filtered dataset).
-  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 56,
+    overscan: 8,
+  });
 
-  const sorted = useMemo(() => {
-    const copy = [...rows];
-    copy.sort((a, b) => {
-      const pa = effectivePriority(a);
-      const pb = effectivePriority(b);
-      if (pb !== pa) return pb - pa;
-      // Then by last_activity_at desc, nulls last
-      const ta = parseTs(a.last_activity_at);
-      const tb = parseTs(b.last_activity_at);
-      if (ta == null && tb == null) return 0;
-      if (ta == null) return 1;
-      if (tb == null) return -1;
-      return tb - ta;
-    });
-    return copy;
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    const selectedTags = (search.tags ?? []) as string[];
-    const needle = q.trim().toLowerCase();
-    return sorted.filter((r) => {
-      if (activeOnly) {
-        const status = r.status == null ? "" : String(r.status);
-        if (INACTIVE_STATUSES.has(status)) return false;
-      }
-      if (selectedTags.length > 0) {
-        const v = r.tags;
-        const rowTags: string[] = Array.isArray(v)
-          ? v.map((t) => String(t).trim()).filter(Boolean)
-          : v == null
-            ? []
-            : String(v)
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean);
-        const lower = rowTags.map((t) => t.toLowerCase());
-        const sel = selectedTags.map((t) => t.toLowerCase());
-        // EXACT SET match: same length, every selected tag present.
-        if (lower.length !== sel.length) return false;
-        const exact = sel.every((t) => lower.includes(t));
-        if (!exact) return false;
-      }
-      if (needle) {
-        return SEARCH_KEYS.some((k) => {
-          const v = r[k];
-          return v == null ? false : String(v).toLowerCase().includes(needle);
-        });
-      }
-      return true;
-    });
-  }, [sorted, q, search.tags, activeOnly]);
-
-  const groups = useMemo(() => {
-    const result: { key: string; label: string; hint: string; rows: Array<Record<string, unknown>> }[] = [];
-
-    for (const d of GROUP_DEFS) {
-      const matched = filtered.filter((r) => d.test(effectivePriority(r)));
-
-      if (d.key === "followup") {
-        // Split priority=70 group by follow_up_bucket from analytics.lead_priority_queue.
-        // Frontend MUST NOT recompute buckets — read directly from the row.
-        const today: Array<Record<string, unknown>> = [];
-        const overdue: Array<Record<string, unknown>> = [];
-        const old: Array<Record<string, unknown>> = [];
-        const other: Array<Record<string, unknown>> = [];
-
-        for (const r of matched) {
-          const bucket =
-            r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
-          if (bucket === "Šodien jāseko") today.push(r);
-          else if (bucket === "Kavēts follow-up") overdue.push(r);
-          else if (bucket === "Vecie leadi") old.push(r);
-          else other.push(r);
-        }
-
-        const byOldest = (a: Record<string, unknown>, b: Record<string, unknown>) => {
-          const ta = parseTs(a.last_outbound_at) ?? Number.POSITIVE_INFINITY;
-          const tb = parseTs(b.last_outbound_at) ?? Number.POSITIVE_INFINITY;
-          return ta - tb; // oldest first
-        };
-
-        today.sort(byOldest);
-        overdue.sort(byOldest);
-        old.sort(byOldest);
-        other.sort(byOldest);
-
-        result.push({
-          key: "followup_today",
-          label: "Šodien jāseko",
-          hint: 'follow_up_bucket = "Šodien jāseko"',
-          rows: today,
-        });
-        result.push({
-          key: "followup_overdue",
-          label: "Kavēts follow-up",
-          hint: 'follow_up_bucket = "Kavēts follow-up"',
-          rows: overdue,
-        });
-        result.push({
-          key: "followup_old",
-          label: "Vecie leadi",
-          hint: 'follow_up_bucket = "Vecie leadi"',
-          rows: [...old, ...other],
-        });
-      } else {
-        result.push({ key: d.key, label: d.label, hint: d.hint, rows: matched });
-      }
+  // Trigger fetchNextPage when within ~3 rows of the bottom of the rendered list.
+  useEffect(() => {
+    const items = virtualizer.getVirtualItems();
+    if (!items.length) return;
+    const lastIdx = items[items.length - 1].index;
+    if (lastIdx >= rows.length - 3 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
+  }, [
+    virtualizer.getVirtualItems(),
+    rows.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    virtualizer,
+  ]);
 
-    return result;
-  }, [filtered]);
-
-  // When a KPI card filter is active, restrict the visible groups to that one.
-  // KPI card numbers themselves are NOT recalculated from this — they stay
-  // bound to the full dataset (followupCounts) or full `groups` array.
-  const visibleGroups = useMemo(
-    () => (kpiFilter ? groups.filter((g) => g.key === kpiFilter) : groups),
-    [groups, kpiFilter],
-  );
-
-  // Total visible records across all groups (KPI counts use groups directly — these
-  // already reflect the full filtered set, NOT the current page).
-  const totalVisible = useMemo(
-    () => visibleGroups.reduce((acc, g) => acc + g.rows.length, 0),
-    [visibleGroups],
-  );
-  // When a KPI filter is active, show ALL filtered leads (no pagination).
-  const effectivePageSize = kpiFilter ? Math.max(totalVisible, 1) : pageSize;
-  const pageCount = Math.max(1, Math.ceil(totalVisible / effectivePageSize));
-
-  // Clamp page when filters/pageSize change.
-  const safePage = Math.min(Math.max(1, page), pageCount);
-  if (safePage !== page) {
-    // Defer to avoid setState-in-render warning.
-    queueMicrotask(() => setPage(safePage));
-  }
-
-  const startIdx = (safePage - 1) * effectivePageSize; // 0-based
-  const endIdx = startIdx + effectivePageSize; // exclusive
-
-  // Slice rows across groups while preserving the global ordering.
-  const pagedGroups = useMemo(() => {
-    let cursor = 0;
-    return visibleGroups.map((g) => {
-      const groupStart = cursor;
-      const groupEnd = cursor + g.rows.length;
-      cursor = groupEnd;
-      const sliceFrom = Math.max(0, startIdx - groupStart);
-      const sliceTo = Math.max(0, Math.min(g.rows.length, endIdx - groupStart));
-      return {
-        ...g,
-        rows: sliceFrom < sliceTo ? g.rows.slice(sliceFrom, sliceTo) : [],
-      };
-    });
-  }, [visibleGroups, startIdx, endIdx]);
-
-  const rangeFrom = totalVisible === 0 ? 0 : startIdx + 1;
-  const rangeTo = Math.min(endIdx, totalVisible);
-
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const groupRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-
-  const scrollToGroup = useCallback((key: string) => {
-    const container = scrollContainerRef.current;
-    const row = groupRefs.current[key];
-    if (!container || !row) return;
-    const containerRect = container.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const headerOffset = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-    const delta = rowRect.top - containerRect.top - headerOffset;
-    container.scrollBy({ top: delta, behavior: "smooth" });
-  }, []);
-
-  const errorMsg = (error as Error | null)?.message || data?.error;
+  const errorMsg =
+    (error as Error | null)?.message || data?.pages?.[0]?.error || null;
 
   return (
     <>
@@ -617,38 +545,22 @@ function DarbaRindaPage() {
       </PageHeader>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        {groups.map((g) => {
-          // Follow-up cards MUST come from the dedicated aggregated query
-          // against analytics.lead_priority_queue (full dataset),
-          // not from filtered/paginated UI data.
-          let value: number = g.rows.length;
-          if (g.key === "followup_today") value = followupCounts["Šodien jāseko"];
-          else if (g.key === "followup_overdue") value = followupCounts["Kavēts follow-up"];
-          else if (g.key === "followup_old") value = followupCounts["Vecie leadi"];
-          // Only these KPI keys act as table filters per spec.
-          const filterableKeys = new Set([
-            "urgent",
-            "offers",
-            "followup_today",
-            "followup_overdue",
-            "followup_old",
-          ]);
-          const isFilterable = filterableKeys.has(g.key) && value > 0;
-          const isActive = kpiFilter === g.key;
-          const handleClick = isFilterable
-            ? () => {
-                setKpiFilter(isActive ? null : g.key);
-                setPage(1);
-              }
-            : g.rows.length > 0
-              ? () => scrollToGroup(g.key)
-              : undefined;
+        {KPI_CARDS.map((c) => {
+          // KPI counts are NEVER derived from the (paginated) table — they come
+          // either from the dedicated RPC (follow-up buckets) or from a
+          // server-side count query keyed on the card's own filter (priority).
+          const isActive = kpiFilter === c.key;
+          const handleClick = () => {
+            setKpiFilter(isActive ? null : c.key);
+            // Reset scroll to top when filter changes.
+            scrollRef.current?.scrollTo({ top: 0 });
+          };
           return (
             <StatCard
-              key={g.key}
-              label={g.label}
-              value={value}
-              hint={g.hint}
+              key={c.key}
+              label={c.label}
+              value={c.total ?? "—"}
+              hint={c.hint}
               onClick={handleClick}
               active={isActive}
             />
@@ -668,27 +580,37 @@ function DarbaRindaPage() {
         <span className="text-xs text-muted-foreground">
           Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
         </span>
-        {kpiFilter && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              Aktīvs filtrs:{" "}
-              <span className="font-medium text-foreground">
-                {groups.find((g) => g.key === kpiFilter)?.label ?? kpiFilter}
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Kopā:{" "}
+            <span className="font-medium text-foreground">
+              {total ?? "—"}
+            </span>{" "}
+            leadi
+          </span>
+          {kpiFilter && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Aktīvs filtrs:{" "}
+                <span className="font-medium text-foreground">
+                  {KPI_CARDS.find((c) => c.key === kpiFilter)?.label ??
+                    kpiFilter}
+                </span>
               </span>
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2"
-              onClick={() => {
-                setKpiFilter(null);
-                setPage(1);
-              }}
-            >
-              Atiestatīt filtrus
-            </Button>
-          </div>
-        )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2"
+                onClick={() => {
+                  setKpiFilter(null);
+                  scrollRef.current?.scrollTo({ top: 0 });
+                }}
+              >
+                Atiestatīt filtrus
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {errorMsg && <ErrorState message={errorMsg} />}
@@ -698,268 +620,206 @@ function DarbaRindaPage() {
         rows.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" style={{ maxHeight: "calc(100vh - 380px)" }}>
-            <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-sm">
-                  <tr>
-                    {COLUMNS.map((c) => (
-                      <th
-                        key={c.key}
-                        className={`px-2 py-2 font-medium tracking-wide ${
-                          c.align === "right" ? "text-right" : "text-left"
-                        } ${c.wrap ? "" : "whitespace-nowrap"} ${c.widthClass ?? ""}`}
-                      >
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedGroups.map((g) => (
-                    <GroupRows
-                      key={g.key}
-                      label={g.label}
-                      rows={g.rows}
-                      headerRef={(el) => { groupRefs.current[g.key] = el; }}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <span>
-                  Rāda{" "}
-                  <span className="font-medium text-foreground tabular-nums">
-                    {rangeFrom}–{rangeTo}
-                  </span>{" "}
-                  no{" "}
-                  <span className="font-medium text-foreground tabular-nums">
-                    {totalVisible}
-                  </span>{" "}
-                  ierakstiem
-                </span>
-                <label className="flex items-center gap-1.5">
-                  <span>Rindas lapā:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value) as 50 | 100 | 200);
-                      setPage(1);
-                    }}
-                    disabled={!!kpiFilter}
-                    className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                  </select>
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage <= 1 || !!kpiFilter}
-                >
-                  Iepriekšējā
-                </Button>
-                <span className="tabular-nums">
-                  Lapa{" "}
-                  <span className="font-medium text-foreground">{safePage}</span>{" "}
-                  no{" "}
-                  <span className="font-medium text-foreground">{pageCount}</span>
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2"
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={safePage >= pageCount || !!kpiFilter}
-                >
-                  Nākamā
-                </Button>
-              </div>
-            </div>
-          </div>
+          <VirtualLeadList
+            rows={rows}
+            scrollRef={scrollRef}
+            virtualizer={virtualizer}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={!!hasNextPage}
+            total={total}
+          />
         )
       )}
     </>
   );
 }
 
-function GroupRows({
-  label,
-  rows,
-  headerRef,
-}: {
-  label: string;
-  rows: Array<Record<string, unknown>>;
-  headerRef?: (el: HTMLTableRowElement | null) => void;
-}) {
+// Grid template matching the original COLUMNS widths.
+// Each column maps to one fr based on its previous percentage,
+// with min-width preserved via `minmax()`.
+const GRID_TEMPLATE =
+  "minmax(140px,14fr) minmax(180px,17fr) minmax(120px,10fr) minmax(110px,10fr) minmax(110px,9fr) minmax(60px,5fr) minmax(140px,12fr) minmax(120px,10fr) minmax(170px,13fr)";
+
+function renderCell(c: (typeof COLUMNS)[number], row: Record<string, unknown>): ReactNode {
+  if (c.key === "__actions") return <ActionButtons row={row} />;
+  if (c.key === "__last_activity") {
+    const ts = parseTs(row.last_activity_at);
+    const channel = row.last_channel == null ? "" : String(row.last_channel);
+    const evType = row.last_event_type == null ? "" : String(row.last_event_type);
+    const evGroup = row.last_event_group == null ? "" : String(row.last_event_group);
+    if (ts == null && !channel && !evType && !evGroup) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    const label = describeEvent(channel, evType, evGroup);
+    return (
+      <div className="flex flex-col leading-tight">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">{formatRelative(ts)}</span>
+      </div>
+    );
+  }
+  if (c.key === "__next_step") {
+    const raw = row.next_action == null ? "" : String(row.next_action);
+    const reason =
+      row.next_action_reason == null ? "" : String(row.next_action_reason);
+    const step = nextActionLabel(raw);
+    if (!step) {
+      return <span className="text-xs text-muted-foreground">Nav darbību</span>;
+    }
+    return <NextStepButton row={row} step={step} reason={reason} />;
+  }
+  if (c.key === "priority") return String(effectivePriority(row));
+  if (c.key === "phone") {
+    const text = formatCell(row.phone);
+    if (text === "") return "";
+    return (
+      <a
+        href={`tel:${text.replace(/\s+/g, "")}`}
+        className="text-primary hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {text}
+      </a>
+    );
+  }
+  if (c.key === "status") {
+    const text = formatCell(row.status);
+    if (text === "") {
+      return (
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+          Nav statusa
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
+      >
+        {text}
+      </span>
+    );
+  }
+  const text = formatCell(row[c.key]);
+  return text === "" ? <span className="text-muted-foreground">—</span> : text;
+}
+
+function LeadRow({ row }: { row: Record<string, unknown> }) {
+  const score = effectivePriority(row);
+  const highlight =
+    score === 100
+      ? "bg-destructive/5"
+      : score >= 80
+        ? "bg-amber-500/5"
+        : "";
   return (
-    <>
-      <tr ref={headerRef} className="border-t border-border bg-secondary/40">
-        <td
-          colSpan={COLUMNS.length}
-          className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground"
-        >
-          {label}{" "}
-          <span className="ml-1 text-muted-foreground normal-case">({rows.length})</span>
-        </td>
-      </tr>
-      {rows.length === 0 ? (
-        <tr className="border-t border-border">
-          <td
-            colSpan={COLUMNS.length}
-            className="px-3 py-3 text-center text-xs text-muted-foreground"
+    <div
+      className={`grid items-center border-t border-border text-sm hover:bg-secondary/30 ${highlight}`}
+      style={{ gridTemplateColumns: GRID_TEMPLATE }}
+    >
+      {COLUMNS.map((c) => {
+        const isScore = c.key === "priority";
+        return (
+          <div
+            key={c.key}
+            className={`px-2 py-2 text-foreground ${
+              c.align === "right" ? "text-right" : "text-left"
+            } ${c.wrap ? "whitespace-normal break-words" : "truncate"} ${
+              isScore ? "font-semibold tabular-nums" : ""
+            }`}
+            title={
+              c.key !== "__actions" &&
+              c.key !== "__last_activity" &&
+              c.key !== "__next_step" &&
+              !c.wrap
+                ? formatCell(row[c.key])
+                : undefined
+            }
           >
-            Nav ierakstu
-          </td>
-        </tr>
-      ) : (
-        rows.map((row, i) => {
-          const score = effectivePriority(row);
-          const highlight =
-            score === 100
-              ? "bg-destructive/5"
-              : score >= 80
-                ? "bg-amber-500/5"
-                : "";
-          return (
-            <tr
-              key={i}
-              className={`border-t border-border hover:bg-secondary/30 ${highlight}`}
-            >
-              {COLUMNS.map((c) => {
-                const isScore = c.key === "priority";
-                let content: ReactNode;
-                if (c.key === "__actions") {
-                  content = <ActionButtons row={row} />;
-                } else if (c.key === "__last_activity") {
-                  const ts = parseTs(row.last_activity_at);
-                  const channel =
-                    row.last_channel == null ? "" : String(row.last_channel);
-                  const evType =
-                    row.last_event_type == null
-                      ? ""
-                      : String(row.last_event_type);
-                  const evGroup =
-                    row.last_event_group == null
-                      ? ""
-                      : String(row.last_event_group);
-                  if (ts == null && !channel && !evType && !evGroup) {
-                    content = (
-                      <span className="text-muted-foreground">—</span>
-                    );
-                  } else {
-                    const label = describeEvent(channel, evType, evGroup);
-                    content = (
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-medium text-foreground">
-                          {label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatRelative(ts)}
-                        </span>
-                      </div>
-                    );
-                  }
-                } else if (c.key === "__next_step") {
-                  const raw =
-                    row.next_action == null ? "" : String(row.next_action);
-                  const reason =
-                    row.next_action_reason == null
-                      ? ""
-                      : String(row.next_action_reason);
-                  const step = nextActionLabel(raw);
-                  if (!step) {
-                    content = (
-                      <span className="text-xs text-muted-foreground">
-                        Nav darbību
-                      </span>
-                    );
-                  } else {
-                    content = (
-                      <NextStepButton
-                        row={row}
-                        step={step}
-                        reason={reason}
-                      />
-                    );
-                  }
-                } else if (isScore) {
-                  content = String(effectivePriority(row));
-                } else if (c.key === "phone") {
-                  const text = formatCell(row.phone);
-                  // Phone null/empty: show empty (not "—")
-                  content =
-                    text === "" ? (
-                      ""
-                    ) : (
-                      <a
-                        href={`tel:${text.replace(/\s+/g, "")}`}
-                        className="text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {text}
-                      </a>
-                    );
-                } else if (c.key === "status") {
-                  const text = formatCell(row.status);
-                  content =
-                    text === "" ? (
-                      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                        Nav statusa
-                      </span>
-                    ) : (
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
-                      >
-                        {text}
-                      </span>
-                    );
-                } else {
-                  const text = formatCell(row[c.key]);
-                  content =
-                    text === "" ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      text
-                    );
-                }
-                return (
-                  <td
-                    key={c.key}
-                    className={`px-2 py-2 text-foreground ${
-                      c.align === "right" ? "text-right" : "text-left"
-                    } ${
-                      c.wrap
-                        ? "whitespace-normal break-words"
-                        : "truncate"
-                    } ${c.widthClass ?? ""} ${
-                      isScore ? "font-semibold tabular-nums" : ""
-                    }`}
-                    title={
-                      c.key !== "__actions" &&
-                      c.key !== "__last_activity" &&
-                      c.key !== "__next_step" &&
-                      !c.wrap
-                        ? formatCell(row[c.key])
-                        : undefined
-                    }
-                  >
-                    {content}
-                  </td>
-                );
-              })}
-            </tr>
-          );
-        })
-      )}
-    </>
+            {renderCell(c, row)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VirtualLeadList({
+  rows,
+  scrollRef,
+  virtualizer,
+  isFetchingNextPage,
+  hasNextPage,
+  total,
+}: {
+  rows: Array<Record<string, unknown>>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean;
+  total: number | null;
+}) {
+  const items = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+
+  return (
+    <div
+      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+      style={{ maxHeight: "calc(100vh - 380px)" }}
+    >
+      {/* Sticky column header */}
+      <div
+        className="grid border-b border-border bg-muted text-xs uppercase text-muted-foreground"
+        style={{ gridTemplateColumns: GRID_TEMPLATE }}
+      >
+        {COLUMNS.map((c) => (
+          <div
+            key={c.key}
+            className={`px-2 py-2 font-medium tracking-wide ${
+              c.align === "right" ? "text-right" : "text-left"
+            } ${c.wrap ? "" : "whitespace-nowrap"}`}
+          >
+            {c.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Virtualized scroll body */}
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <div style={{ height: totalSize, position: "relative" }}>
+          {items.map((vi) => {
+            const row = rows[vi.index];
+            if (!row) return null;
+            return (
+              <div
+                key={vi.key}
+                ref={virtualizer.measureElement}
+                data-index={vi.index}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${vi.start}px)`,
+                }}
+              >
+                <LeadRow row={row} />
+              </div>
+            );
+          })}
+        </div>
+        {/* Bottom loading / end-of-list indicator */}
+        <div className="flex items-center justify-center px-4 py-3 text-xs text-muted-foreground">
+          {isFetchingNextPage ? (
+            <span>Ielādē vēl...</span>
+          ) : hasNextPage ? (
+            <span>Ritini, lai ielādētu vairāk</span>
+          ) : total != null ? (
+            <span>
+              Visi {total} leadi ielādēti
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
