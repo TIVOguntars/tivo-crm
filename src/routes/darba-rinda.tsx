@@ -634,175 +634,192 @@ function DarbaRindaPage() {
   );
 }
 
-function GroupRows({
-  label,
-  rows,
-  headerRef,
-}: {
-  label: string;
-  rows: Array<Record<string, unknown>>;
-  headerRef?: (el: HTMLTableRowElement | null) => void;
-}) {
+// Grid template matching the original COLUMNS widths.
+// Each column maps to one fr based on its previous percentage,
+// with min-width preserved via `minmax()`.
+const GRID_TEMPLATE =
+  "minmax(140px,14fr) minmax(180px,17fr) minmax(120px,10fr) minmax(110px,10fr) minmax(110px,9fr) minmax(60px,5fr) minmax(140px,12fr) minmax(120px,10fr) minmax(170px,13fr)";
+
+function renderCell(c: (typeof COLUMNS)[number], row: Record<string, unknown>): ReactNode {
+  if (c.key === "__actions") return <ActionButtons row={row} />;
+  if (c.key === "__last_activity") {
+    const ts = parseTs(row.last_activity_at);
+    const channel = row.last_channel == null ? "" : String(row.last_channel);
+    const evType = row.last_event_type == null ? "" : String(row.last_event_type);
+    const evGroup = row.last_event_group == null ? "" : String(row.last_event_group);
+    if (ts == null && !channel && !evType && !evGroup) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    const label = describeEvent(channel, evType, evGroup);
+    return (
+      <div className="flex flex-col leading-tight">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">{formatRelative(ts)}</span>
+      </div>
+    );
+  }
+  if (c.key === "__next_step") {
+    const raw = row.next_action == null ? "" : String(row.next_action);
+    const reason =
+      row.next_action_reason == null ? "" : String(row.next_action_reason);
+    const step = nextActionLabel(raw);
+    if (!step) {
+      return <span className="text-xs text-muted-foreground">Nav darbību</span>;
+    }
+    return <NextStepButton row={row} step={step} reason={reason} />;
+  }
+  if (c.key === "priority") return String(effectivePriority(row));
+  if (c.key === "phone") {
+    const text = formatCell(row.phone);
+    if (text === "") return "";
+    return (
+      <a
+        href={`tel:${text.replace(/\s+/g, "")}`}
+        className="text-primary hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {text}
+      </a>
+    );
+  }
+  if (c.key === "status") {
+    const text = formatCell(row.status);
+    if (text === "") {
+      return (
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+          Nav statusa
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
+      >
+        {text}
+      </span>
+    );
+  }
+  const text = formatCell(row[c.key]);
+  return text === "" ? <span className="text-muted-foreground">—</span> : text;
+}
+
+function LeadRow({ row }: { row: Record<string, unknown> }) {
+  const score = effectivePriority(row);
+  const highlight =
+    score === 100
+      ? "bg-destructive/5"
+      : score >= 80
+        ? "bg-amber-500/5"
+        : "";
   return (
-    <>
-      <tr ref={headerRef} className="border-t border-border bg-secondary/40">
-        <td
-          colSpan={COLUMNS.length}
-          className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground"
-        >
-          {label}{" "}
-          <span className="ml-1 text-muted-foreground normal-case">({rows.length})</span>
-        </td>
-      </tr>
-      {rows.length === 0 ? (
-        <tr className="border-t border-border">
-          <td
-            colSpan={COLUMNS.length}
-            className="px-3 py-3 text-center text-xs text-muted-foreground"
+    <div
+      className={`grid items-center border-t border-border text-sm hover:bg-secondary/30 ${highlight}`}
+      style={{ gridTemplateColumns: GRID_TEMPLATE }}
+    >
+      {COLUMNS.map((c) => {
+        const isScore = c.key === "priority";
+        return (
+          <div
+            key={c.key}
+            className={`px-2 py-2 text-foreground ${
+              c.align === "right" ? "text-right" : "text-left"
+            } ${c.wrap ? "whitespace-normal break-words" : "truncate"} ${
+              isScore ? "font-semibold tabular-nums" : ""
+            }`}
+            title={
+              c.key !== "__actions" &&
+              c.key !== "__last_activity" &&
+              c.key !== "__next_step" &&
+              !c.wrap
+                ? formatCell(row[c.key])
+                : undefined
+            }
           >
-            Nav ierakstu
-          </td>
-        </tr>
-      ) : (
-        rows.map((row, i) => {
-          const score = effectivePriority(row);
-          const highlight =
-            score === 100
-              ? "bg-destructive/5"
-              : score >= 80
-                ? "bg-amber-500/5"
-                : "";
-          return (
-            <tr
-              key={i}
-              className={`border-t border-border hover:bg-secondary/30 ${highlight}`}
-            >
-              {COLUMNS.map((c) => {
-                const isScore = c.key === "priority";
-                let content: ReactNode;
-                if (c.key === "__actions") {
-                  content = <ActionButtons row={row} />;
-                } else if (c.key === "__last_activity") {
-                  const ts = parseTs(row.last_activity_at);
-                  const channel =
-                    row.last_channel == null ? "" : String(row.last_channel);
-                  const evType =
-                    row.last_event_type == null
-                      ? ""
-                      : String(row.last_event_type);
-                  const evGroup =
-                    row.last_event_group == null
-                      ? ""
-                      : String(row.last_event_group);
-                  if (ts == null && !channel && !evType && !evGroup) {
-                    content = (
-                      <span className="text-muted-foreground">—</span>
-                    );
-                  } else {
-                    const label = describeEvent(channel, evType, evGroup);
-                    content = (
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-medium text-foreground">
-                          {label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatRelative(ts)}
-                        </span>
-                      </div>
-                    );
-                  }
-                } else if (c.key === "__next_step") {
-                  const raw =
-                    row.next_action == null ? "" : String(row.next_action);
-                  const reason =
-                    row.next_action_reason == null
-                      ? ""
-                      : String(row.next_action_reason);
-                  const step = nextActionLabel(raw);
-                  if (!step) {
-                    content = (
-                      <span className="text-xs text-muted-foreground">
-                        Nav darbību
-                      </span>
-                    );
-                  } else {
-                    content = (
-                      <NextStepButton
-                        row={row}
-                        step={step}
-                        reason={reason}
-                      />
-                    );
-                  }
-                } else if (isScore) {
-                  content = String(effectivePriority(row));
-                } else if (c.key === "phone") {
-                  const text = formatCell(row.phone);
-                  // Phone null/empty: show empty (not "—")
-                  content =
-                    text === "" ? (
-                      ""
-                    ) : (
-                      <a
-                        href={`tel:${text.replace(/\s+/g, "")}`}
-                        className="text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {text}
-                      </a>
-                    );
-                } else if (c.key === "status") {
-                  const text = formatCell(row.status);
-                  content =
-                    text === "" ? (
-                      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                        Nav statusa
-                      </span>
-                    ) : (
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(text)}`}
-                      >
-                        {text}
-                      </span>
-                    );
-                } else {
-                  const text = formatCell(row[c.key]);
-                  content =
-                    text === "" ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      text
-                    );
-                }
-                return (
-                  <td
-                    key={c.key}
-                    className={`px-2 py-2 text-foreground ${
-                      c.align === "right" ? "text-right" : "text-left"
-                    } ${
-                      c.wrap
-                        ? "whitespace-normal break-words"
-                        : "truncate"
-                    } ${c.widthClass ?? ""} ${
-                      isScore ? "font-semibold tabular-nums" : ""
-                    }`}
-                    title={
-                      c.key !== "__actions" &&
-                      c.key !== "__last_activity" &&
-                      c.key !== "__next_step" &&
-                      !c.wrap
-                        ? formatCell(row[c.key])
-                        : undefined
-                    }
-                  >
-                    {content}
-                  </td>
-                );
-              })}
-            </tr>
-          );
-        })
-      )}
-    </>
+            {renderCell(c, row)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VirtualLeadList({
+  rows,
+  scrollRef,
+  virtualizer,
+  isFetchingNextPage,
+  hasNextPage,
+  total,
+}: {
+  rows: Array<Record<string, unknown>>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  virtualizer: ReturnType<typeof useVirtualizer>;
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean;
+  total: number | null;
+}) {
+  const items = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+
+  return (
+    <div
+      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+      style={{ maxHeight: "calc(100vh - 380px)" }}
+    >
+      {/* Sticky column header */}
+      <div
+        className="grid border-b border-border bg-muted text-xs uppercase text-muted-foreground"
+        style={{ gridTemplateColumns: GRID_TEMPLATE }}
+      >
+        {COLUMNS.map((c) => (
+          <div
+            key={c.key}
+            className={`px-2 py-2 font-medium tracking-wide ${
+              c.align === "right" ? "text-right" : "text-left"
+            } ${c.wrap ? "" : "whitespace-nowrap"}`}
+          >
+            {c.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Virtualized scroll body */}
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <div style={{ height: totalSize, position: "relative" }}>
+          {items.map((vi) => {
+            const row = rows[vi.index];
+            if (!row) return null;
+            return (
+              <div
+                key={vi.key}
+                ref={virtualizer.measureElement}
+                data-index={vi.index}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${vi.start}px)`,
+                }}
+              >
+                <LeadRow row={row} />
+              </div>
+            );
+          })}
+        </div>
+        {/* Bottom loading / end-of-list indicator */}
+        <div className="flex items-center justify-center px-4 py-3 text-xs text-muted-foreground">
+          {isFetchingNextPage ? (
+            <span>Ielādē vēl...</span>
+          ) : hasNextPage ? (
+            <span>Ritini, lai ielādētu vairāk</span>
+          ) : total != null ? (
+            <span>
+              Visi {total} leadi ielādēti
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
