@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
+import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
 import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,6 +25,11 @@ const LeadiRoute = LeadiRouteImport.update({
 const KomunikacijasRoute = KomunikacijasRouteImport.update({
   id: '/komunikacijas',
   path: '/komunikacijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IenakosasZinasRoute = IenakosasZinasRouteImport.update({
+  id: '/ienakosas-zinas',
+  path: '/ienakosas-zinas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FunnelRoute = FunnelRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
+  '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
+  '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
+  '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/darba-rinda'
     | '/funnel'
+    | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
     | '/lead/$leadId'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/darba-rinda'
     | '/funnel'
+    | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
     | '/lead/$leadId'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/darba-rinda'
     | '/funnel'
+    | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
     | '/lead/$leadId'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DarbaRindaRoute: typeof DarbaRindaRoute
   FunnelRoute: typeof FunnelRoute
+  IenakosasZinasRoute: typeof IenakosasZinasRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
@@ -122,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/komunikacijas'
       fullPath: '/komunikacijas'
       preLoaderRoute: typeof KomunikacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ienakosas-zinas': {
+      id: '/ienakosas-zinas'
+      path: '/ienakosas-zinas'
+      fullPath: '/ienakosas-zinas'
+      preLoaderRoute: typeof IenakosasZinasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/funnel': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DarbaRindaRoute: DarbaRindaRoute,
   FunnelRoute: FunnelRoute,
+  IenakosasZinasRoute: IenakosasZinasRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
