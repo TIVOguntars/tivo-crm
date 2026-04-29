@@ -191,44 +191,6 @@ function FunnelPage() {
                 <StageList stages={mainStages} total={total} max={mainMax} />
               </section>
 
-              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-foreground">
-                Sasniedzamība
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Kontaktu bāze: {fmt(reach.pool)} (Jauns + sasniegti +
-                nesasniedzami)
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <ReachCard
-                label="Sasniegti"
-                count={reach.reached}
-                percent={pct(reach.reached)}
-                hint="Piesaistīšana → Līgums"
-                tone="success"
-              />
-              <ReachCard
-                label="Nesasniedzami"
-                count={reach.notReached}
-                percent={pct(reach.notReached)}
-                hint="Status: Nesasniedzams"
-                tone="danger"
-              />
-              <ReachCard
-                label="Jauni bez rezultāta"
-                count={reach.newCount}
-                percent={pct(reach.newCount)}
-                hint="Status: Jauns"
-                tone="muted"
-              />
-            </div>
-          </section>
-
-          <ReachabilityBreakdown search={search} />
-
-          <UnreachableBreakdown search={search} />
             </>
           )}
         </TabsContent>
@@ -269,6 +231,44 @@ function FunnelPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-foreground">
+            Sasniedzamība
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Kontaktu bāze: {fmt(reach.pool)} (Jauns + sasniegti + nesasniedzami)
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <ReachCard
+            label="Sasniegti"
+            count={reach.reached}
+            percent={pct(reach.reached)}
+            hint="Piesaistīšana → Līgums"
+            tone="success"
+          />
+          <ReachCard
+            label="Nesasniedzami"
+            count={reach.notReached}
+            percent={pct(reach.notReached)}
+            hint="Status: Nesasniedzams"
+            tone="danger"
+          />
+          <ReachCard
+            label="Jauni bez rezultāta"
+            count={reach.newCount}
+            percent={pct(reach.newCount)}
+            hint="Status: Jauns"
+            tone="muted"
+          />
+        </div>
+      </section>
+
+      <ReachabilityBreakdown search={search} />
+
+      <UnreachableBreakdown search={search} />
     </>
   );
 }
