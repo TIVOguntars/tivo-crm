@@ -414,7 +414,8 @@ function DarbaRindaPage() {
         (r.follow_up_bucket ?? r.bucket ?? "") == null
           ? ""
           : String(r.follow_up_bucket ?? r.bucket ?? "").trim();
-      const count = Number(r.count ?? r.total ?? 0) || 0;
+      const count =
+        Number(r.lead_count ?? r.count ?? r.total ?? 0) || 0;
       if (bucket in map) map[bucket] = count;
     }
     return map;
