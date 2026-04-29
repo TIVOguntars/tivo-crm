@@ -29,7 +29,7 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
   { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
   { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
-  { key: "time_since_last_activity", label: "Aktivitāte", widthClass: "w-[10%] min-w-[100px]" },
+  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[14%] min-w-[150px]", wrap: true },
   { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
 ];
 
@@ -71,36 +71,70 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
-function formatActivityInterval(value: unknown): string {
-  if (value == null) return "—";
-  // Postgres interval may come as ISO string "P1DT02:30:00" or "1 day 02:30:00" or "02:30:00"
-  // Or as object { days, hours, minutes, seconds }
-  let days = 0;
-  let hours = 0;
-  let minutes = 0;
+/* ----- Last activity formatting ----- */
 
-  if (typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    days = Number(v.days ?? 0) || 0;
-    hours = Number(v.hours ?? 0) || 0;
-    minutes = Number(v.minutes ?? 0) || 0;
-  } else {
-    const s = String(value).trim();
-    if (!s) return "—";
-    // Match e.g. "1 day 02:30:00", "2 days 14:05:09", "00:42:11"
-    const dayMatch = s.match(/(\d+)\s*days?/i);
-    if (dayMatch) days = Number(dayMatch[1]);
-    const timeMatch = s.match(/(\d{1,3}):(\d{2})(?::(\d{2}))?/);
-    if (timeMatch) {
-      hours = Number(timeMatch[1]);
-      minutes = Number(timeMatch[2]);
-    }
-  }
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  reply: "Atbilde",
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  open: "Atvērts",
+  click: "Klikšķis",
+  bounce: "Bounce",
+  failed: "Neizdevās",
+  call: "Zvans",
+  call_connected: "Zvans (atbildēts)",
+  call_missed: "Zvans (neatbildēts)",
+  message: "Ziņa",
+  note: "Piezīme",
+};
 
-  const hh = String(hours).padStart(2, "0");
-  const mm = String(minutes).padStart(2, "0");
-  if (days > 0) return `${days} days ${hh}:${mm}`;
-  return `${hh}:${mm}`;
+const CHANNEL_LABELS: Record<string, string> = {
+  email: "E-pasts",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  call: "Zvans",
+  messenger: "Messenger",
+};
+
+function describeEvent(channel: string, type: string, group: string): string {
+  const t = type.toLowerCase();
+  const ch = channel.toLowerCase();
+  const g = group.toLowerCase();
+  if (g === "reply" || t === "reply" || t === "replied") return "Atbilde";
+  const typeLabel = EVENT_TYPE_LABELS[t];
+  const channelLabel = CHANNEL_LABELS[ch];
+  if (channelLabel && typeLabel) return `${channelLabel} · ${typeLabel}`;
+  if (channelLabel) return channelLabel;
+  if (typeLabel) return typeLabel;
+  if (g) return g;
+  return "Aktivitāte";
+}
+
+function parseTs(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const t = new Date(String(v)).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function formatRelative(ts: number | null): string {
+  if (ts == null) return "—";
+  const diff = Date.now() - ts;
+  if (diff < 0) return new Date(ts).toLocaleDateString("lv-LV");
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "tikko";
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} days ago`;
+  return new Date(ts).toLocaleDateString("lv-LV");
+}
+
+interface EngagementInfo {
+  last_event_at: string | null;
+  last_channel: string;
+  last_event_type: string;
+  last_event_group: string;
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
@@ -157,6 +191,30 @@ function DarbaRindaPage() {
     "lead_priority_queue",
     query,
   );
+
+  const engagement = useAnalyticsView(
+    "lead_engagement_summary",
+    "limit=5000",
+  );
+
+  const engagementById = useMemo(() => {
+    const map = new Map<string, EngagementInfo>();
+    const erows = (engagement.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const r of erows) {
+      const id = r.lead_id == null ? "" : String(r.lead_id);
+      if (!id) continue;
+      map.set(id, {
+        last_event_at:
+          r.last_event_at == null ? null : String(r.last_event_at),
+        last_channel: r.last_channel == null ? "" : String(r.last_channel),
+        last_event_type:
+          r.last_event_type == null ? "" : String(r.last_event_type),
+        last_event_group:
+          r.last_event_group == null ? "" : String(r.last_event_group),
+      });
+    }
+    return map;
+  }, [engagement.data]);
 
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
@@ -273,6 +331,7 @@ function DarbaRindaPage() {
                       key={g.key}
                       label={g.label}
                       rows={g.rows}
+                      engagementById={engagementById}
                       headerRef={(el) => { groupRefs.current[g.key] = el; }}
                     />
                   ))}
@@ -292,10 +351,12 @@ function DarbaRindaPage() {
 function GroupRows({
   label,
   rows,
+  engagementById,
   headerRef,
 }: {
   label: string;
   rows: Array<Record<string, unknown>>;
+  engagementById: Map<string, EngagementInfo>;
   headerRef?: (el: HTMLTableRowElement | null) => void;
 }) {
   return (
@@ -337,8 +398,31 @@ function GroupRows({
                 let content: ReactNode;
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
-                } else if (c.key === "time_since_last_activity") {
-                  content = formatActivityInterval(row[c.key]);
+                } else if (c.key === "__last_activity") {
+                  const id = row.lead_id == null ? "" : String(row.lead_id);
+                  const eng = id ? engagementById.get(id) : undefined;
+                  const ts = parseTs(eng?.last_event_at ?? row.last_event_at);
+                  if (ts == null && !eng) {
+                    content = (
+                      <span className="text-muted-foreground">—</span>
+                    );
+                  } else {
+                    const label = describeEvent(
+                      eng?.last_channel ?? "",
+                      eng?.last_event_type ?? "",
+                      eng?.last_event_group ?? "",
+                    );
+                    content = (
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium text-foreground">
+                          {label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelative(ts)}
+                        </span>
+                      </div>
+                    );
+                  }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
                 } else {
@@ -363,7 +447,7 @@ function GroupRows({
                       isScore ? "font-semibold tabular-nums" : ""
                     }`}
                     title={
-                      c.key !== "__actions" && !c.wrap
+                      c.key !== "__actions" && c.key !== "__last_activity" && !c.wrap
                         ? formatCell(row[c.key])
                         : undefined
                     }
