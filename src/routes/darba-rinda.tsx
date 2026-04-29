@@ -515,6 +515,43 @@ function DarbaRindaPage() {
     return result;
   }, [filtered]);
 
+  // Total visible records across all groups (KPI counts use groups directly — these
+  // already reflect the full filtered set, NOT the current page).
+  const totalVisible = useMemo(
+    () => groups.reduce((acc, g) => acc + g.rows.length, 0),
+    [groups],
+  );
+  const pageCount = Math.max(1, Math.ceil(totalVisible / pageSize));
+
+  // Clamp page when filters/pageSize change.
+  const safePage = Math.min(Math.max(1, page), pageCount);
+  if (safePage !== page) {
+    // Defer to avoid setState-in-render warning.
+    queueMicrotask(() => setPage(safePage));
+  }
+
+  const startIdx = (safePage - 1) * pageSize; // 0-based
+  const endIdx = startIdx + pageSize; // exclusive
+
+  // Slice rows across groups while preserving the global ordering.
+  const pagedGroups = useMemo(() => {
+    let cursor = 0;
+    return groups.map((g) => {
+      const groupStart = cursor;
+      const groupEnd = cursor + g.rows.length;
+      cursor = groupEnd;
+      const sliceFrom = Math.max(0, startIdx - groupStart);
+      const sliceTo = Math.max(0, Math.min(g.rows.length, endIdx - groupStart));
+      return {
+        ...g,
+        rows: sliceFrom < sliceTo ? g.rows.slice(sliceFrom, sliceTo) : [],
+      };
+    });
+  }, [groups, startIdx, endIdx]);
+
+  const rangeFrom = totalVisible === 0 ? 0 : startIdx + 1;
+  const rangeTo = Math.min(endIdx, totalVisible);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
