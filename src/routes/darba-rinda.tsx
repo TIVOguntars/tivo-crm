@@ -363,6 +363,7 @@ function DarbaRindaPage() {
                       key={g.key}
                       label={g.label}
                       rows={g.rows}
+                      engagementById={engagementById}
                       headerRef={(el) => { groupRefs.current[g.key] = el; }}
                     />
                   ))}
@@ -382,10 +383,12 @@ function DarbaRindaPage() {
 function GroupRows({
   label,
   rows,
+  engagementById,
   headerRef,
 }: {
   label: string;
   rows: Array<Record<string, unknown>>;
+  engagementById: Map<string, EngagementInfo>;
   headerRef?: (el: HTMLTableRowElement | null) => void;
 }) {
   return (
