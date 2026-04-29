@@ -395,6 +395,33 @@ function DarbaRindaPage() {
     query,
   );
 
+  // Separate aggregated query for follow-up KPI cards.
+  // Equivalent SQL:
+  //   SELECT follow_up_bucket, count(*)
+  //   FROM analytics.lead_priority_queue
+  //   GROUP BY follow_up_bucket;
+  // Always reflects the FULL dataset — never filtered, grouped, or paginated by the UI.
+  const { data: bucketAgg } = useAnalyticsView(
+    "lead_priority_queue",
+    "select=follow_up_bucket,count",
+  );
+
+  const followupCounts = useMemo(() => {
+    const map: Record<string, number> = {
+      "Šodien jāseko": 0,
+      "Kavēts follow-up": 0,
+      "Vecie leadi": 0,
+    };
+    const aggRows = (bucketAgg?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const r of aggRows) {
+      const bucket =
+        r.follow_up_bucket == null ? "" : String(r.follow_up_bucket).trim();
+      const count = Number(r.count) || 0;
+      if (bucket in map) map[bucket] = count;
+    }
+    return map;
+  }, [bucketAgg]);
+
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const q = search.q ?? "";
@@ -578,15 +605,24 @@ function DarbaRindaPage() {
       </PageHeader>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        {groups.map((g) => (
-          <StatCard
-            key={g.key}
-            label={g.label}
-            value={g.rows.length}
-            hint={g.hint}
-            onClick={g.rows.length > 0 ? () => scrollToGroup(g.key) : undefined}
-          />
-        ))}
+        {groups.map((g) => {
+          // Follow-up cards MUST come from the dedicated aggregated query
+          // against analytics.lead_priority_queue (full dataset),
+          // not from filtered/paginated UI data.
+          let value: number = g.rows.length;
+          if (g.key === "followup_today") value = followupCounts["Šodien jāseko"];
+          else if (g.key === "followup_overdue") value = followupCounts["Kavēts follow-up"];
+          else if (g.key === "followup_old") value = followupCounts["Vecie leadi"];
+          return (
+            <StatCard
+              key={g.key}
+              label={g.label}
+              value={value}
+              hint={g.hint}
+              onClick={g.rows.length > 0 ? () => scrollToGroup(g.key) : undefined}
+            />
+          );
+        })}
       </div>
 
       <div className="mb-3 flex items-center gap-2">
