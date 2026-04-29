@@ -23,14 +23,15 @@ export const Route = createFileRoute("/darba-rinda")({
 });
 
 const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean; align?: "left" | "right" | "center" }[] = [
-  { key: "full_name", label: "Vārds", widthClass: "w-[16%] min-w-[140px]", wrap: true },
-  { key: "email", label: "Email", widthClass: "w-[20%] min-w-[180px]", wrap: true },
-  { key: "phone_raw", label: "Telefons", widthClass: "w-[11%] min-w-[120px]" },
-  { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
-  { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
-  { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
-  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[14%] min-w-[150px]", wrap: true },
-  { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
+  { key: "full_name", label: "Vārds", widthClass: "w-[14%] min-w-[140px]", wrap: true },
+  { key: "email", label: "Email", widthClass: "w-[17%] min-w-[180px]", wrap: true },
+  { key: "phone_raw", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
+  { key: "tags", label: "Tagi", widthClass: "w-[10%] min-w-[110px]", wrap: true },
+  { key: "current_status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
+  { key: "priority_score", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
+  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[12%] min-w-[140px]", wrap: true },
+  { key: "__next_step", label: "Nākamais solis", widthClass: "w-[10%] min-w-[120px]", wrap: true },
+  { key: "__actions", label: "Darbības", widthClass: "w-[13%] min-w-[170px]" },
 ];
 
 const SEARCH_KEYS = ["full_name", "email", "phone_raw"] as const;
@@ -135,6 +136,50 @@ interface EngagementInfo {
   last_channel: string;
   last_event_type: string;
   last_event_group: string;
+  has_reply: boolean;
+  first_outbound_at: string | null;
+}
+
+const RECENT_REPLY_DAYS = 7;
+const FOLLOWUP_DAYS = 3;
+
+/**
+ * Rule-based next step for a lead. NOT AI.
+ * Order matters: reply > follow-up > status-driven defaults.
+ */
+function computeNextStep(
+  status: string,
+  eng: EngagementInfo | undefined,
+): string {
+  const now = Date.now();
+
+  // 1. Recent reply → must answer
+  if (eng?.has_reply) {
+    const lastTs = parseTs(eng.last_event_at);
+    if (
+      lastTs != null &&
+      now - lastTs <= RECENT_REPLY_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      return "Atbildēt";
+    }
+  }
+
+  // 2. No reply, last outbound > 3d → follow up
+  if (eng && !eng.has_reply && eng.first_outbound_at) {
+    const lastTs = parseTs(eng.last_event_at);
+    if (
+      lastTs != null &&
+      now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      return "Follow-up";
+    }
+  }
+
+  // 3. Status-driven defaults
+  if (status === "Piedāvājums") return "Sekot piedāvājumam";
+  if (status === "Jauns") return "Sazināties";
+
+  return "—";
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
@@ -211,6 +256,9 @@ function DarbaRindaPage() {
           r.last_event_type == null ? "" : String(r.last_event_type),
         last_event_group:
           r.last_event_group == null ? "" : String(r.last_event_group),
+        has_reply: Boolean(r.has_reply),
+        first_outbound_at:
+          r.first_outbound_at == null ? null : String(r.first_outbound_at),
       });
     }
     return map;
@@ -423,6 +471,29 @@ function GroupRows({
                       </div>
                     );
                   }
+                } else if (c.key === "__next_step") {
+                  const id = row.lead_id == null ? "" : String(row.lead_id);
+                  const eng = id ? engagementById.get(id) : undefined;
+                  const status =
+                    row.current_status == null ? "" : String(row.current_status);
+                  const step = computeNextStep(status, eng);
+                  if (step === "—") {
+                    content = <span className="text-muted-foreground">—</span>;
+                  } else {
+                    const tone =
+                      step === "Atbildēt"
+                        ? "bg-destructive/15 text-destructive"
+                        : step === "Follow-up"
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                          : "bg-secondary text-secondary-foreground";
+                    content = (
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
+                      >
+                        {step}
+                      </span>
+                    );
+                  }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
                 } else {
@@ -447,7 +518,10 @@ function GroupRows({
                       isScore ? "font-semibold tabular-nums" : ""
                     }`}
                     title={
-                      c.key !== "__actions" && c.key !== "__last_activity" && !c.wrap
+                      c.key !== "__actions" &&
+                      c.key !== "__last_activity" &&
+                      c.key !== "__next_step" &&
+                      !c.wrap
                         ? formatCell(row[c.key])
                         : undefined
                     }
