@@ -8,8 +8,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  BarChart,
-  Bar,
   Legend,
 } from "recharts";
 
@@ -19,6 +17,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import { LeadStatusByDay } from "@/components/LeadStatusByDay";
+import { ChannelSummaryTable } from "@/components/ChannelSummaryTable";
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -39,7 +38,6 @@ function PārskatsPage() {
 
   const kpi = useAnalyticsRpc("get_kpi_summary", filters);
   const daily = useAnalyticsRpc("get_daily_activity", filters);
-  const channels = useAnalyticsRpc("get_channel_summary", filters);
 
   const kpiRow = (kpi.data?.rows ?? [])[0] ?? {};
 
@@ -54,17 +52,8 @@ function PārskatsPage() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [daily.data]);
 
-  const channelChart = useMemo(() => {
-    const rows = channels.data?.rows ?? [];
-    return rows.map((r) => ({
-      channel: String(r.channel ?? "—"),
-      outbound: num(r.outbound_count),
-      reply: num(r.reply_count),
-    }));
-  }, [channels.data]);
-
-  const error = kpi.data?.error || channels.data?.error || daily.data?.error;
-  const loading = kpi.isLoading || channels.isLoading || daily.isLoading;
+  const error = kpi.data?.error || daily.data?.error;
+  const loading = kpi.isLoading || daily.isLoading;
 
   return (
     <>
@@ -89,7 +78,7 @@ function PārskatsPage() {
             <StatCard label="Atbildes" value={fmt(num(kpiRow.reply_count))} />
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-4">
             <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
               <h2 className="mb-4 text-sm font-semibold text-foreground">
                 Aktivitāte pa dienām
@@ -133,36 +122,10 @@ function PārskatsPage() {
                 </div>
               )}
             </div>
+          </div>
 
-            <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Kanāli
-              </h2>
-              {channelChart.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={channelChart}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                      <XAxis dataKey="channel" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip
-                        contentStyle={{
-                          background: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="outbound" name="Nosūtīti" fill="oklch(0.55 0.18 255)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="reply" name="Atbildes" fill="oklch(0.6 0.118 184.704)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
+          <div className="mt-4">
+            <ChannelSummaryTable search={search} />
           </div>
 
           <div className="mt-4">
