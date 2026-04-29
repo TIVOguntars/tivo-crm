@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
+import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
 
 export const Route = createFileRoute("/darba-rinda")({
   component: DarbaRindaPage,
@@ -493,16 +494,39 @@ function DarbaRindaPage() {
     return map;
   }, [bucketAgg]);
 
-  // KPI card definitions (display + total + filter key)
-  const KPI_CARDS: { key: string; label: string; hint: string; total: number | null }[] = [
-    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: null },
-    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: null },
-    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: null },
-    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"] },
-    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"] },
-    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"] },
-    { key: "contact", label: "Sazināties", hint: "priority = 60", total: null },
-    { key: "none", label: "Nav darbību", hint: "priority = 0", total: null },
+  // Independent server-side count queries per priority KPI card.
+  // These reflect the FULL analytics.lead_priority_queue dataset and are
+  // NOT affected by the table's filters / activeOnly / search / pagination.
+  const urgentCount = useAnalyticsCount("lead_priority_queue", "priority=eq.100");
+  const offersCount = useAnalyticsCount("lead_priority_queue", "priority=eq.90");
+  const verifyCount = useAnalyticsCount("lead_priority_queue", "priority=eq.80");
+  const contactCount = useAnalyticsCount("lead_priority_queue", "priority=eq.60");
+  const noneCount = useAnalyticsCount("lead_priority_queue", "priority=eq.0");
+
+  // Exact total for the CURRENT server-side filter (KPI + activeOnly + search + tags).
+  // Drives the "Kopā: X leadi" indicator. Independent from the loaded page count.
+  const filteredTotalQ = useAnalyticsCount("lead_priority_queue", baseQuery);
+
+  // KPI card definitions (display + total + loading + filter key).
+  // `total` is `null` only while the underlying count query is loading,
+  // so the UI can show a skeleton. A successful query returning 0 still
+  // renders "0" — never a dash.
+  type KpiCard = {
+    key: string;
+    label: string;
+    hint: string;
+    total: number | null;
+    loading: boolean;
+  };
+  const KPI_CARDS: KpiCard[] = [
+    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: urgentCount.data ?? null, loading: urgentCount.isLoading },
+    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: offersCount.data ?? null, loading: offersCount.isLoading },
+    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: verifyCount.data ?? null, loading: verifyCount.isLoading },
+    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"], loading: !bucketAgg },
+    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"], loading: !bucketAgg },
+    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"], loading: !bucketAgg },
+    { key: "contact", label: "Sazināties", hint: "priority = 60", total: contactCount.data ?? null, loading: contactCount.isLoading },
+    { key: "none", label: "Nav darbību", hint: "priority = 0", total: noneCount.data ?? null, loading: noneCount.isLoading },
   ];
 
   // ---------- Virtualized infinite-scroll table ----------
@@ -559,7 +583,7 @@ function DarbaRindaPage() {
             <StatCard
               key={c.key}
               label={c.label}
-              value={c.total ?? "—"}
+              value={c.loading && c.total == null ? "…" : (c.total ?? 0)}
               hint={c.hint}
               onClick={handleClick}
               active={isActive}
@@ -584,9 +608,19 @@ function DarbaRindaPage() {
           <span className="text-xs text-muted-foreground tabular-nums">
             Kopā:{" "}
             <span className="font-medium text-foreground">
-              {total ?? "—"}
+              {filteredTotalQ.isLoading && filteredTotalQ.data == null
+                ? "…"
+                : (filteredTotalQ.data ?? total ?? 0)}
             </span>{" "}
             leadi
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Ielādēti:{" "}
+            <span className="font-medium text-foreground">{rows.length}</span>
+            {" "}no{" "}
+            <span className="font-medium text-foreground">
+              {filteredTotalQ.data ?? total ?? rows.length}
+            </span>
           </span>
           {kpiFilter && (
             <div className="flex items-center gap-2">
