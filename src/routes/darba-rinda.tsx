@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
+import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
 
 export const Route = createFileRoute("/darba-rinda")({
   component: DarbaRindaPage,
