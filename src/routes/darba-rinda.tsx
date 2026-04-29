@@ -82,40 +82,55 @@ function formatCell(value: unknown): string {
 
 /* ----- Last activity formatting ----- */
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  reply: "Atbilde",
-  sent: "Nosūtīts",
-  delivered: "Piegādāts",
-  open: "Atvērts",
-  click: "Klikšķis",
-  bounce: "Bounce",
-  failed: "Neizdevās",
-  call: "Zvans",
-  call_connected: "Zvans (atbildēts)",
-  call_missed: "Zvans (neatbildēts)",
-  message: "Ziņa",
-  note: "Piezīme",
-};
-
-const CHANNEL_LABELS: Record<string, string> = {
-  email: "E-pasts",
+// "Saņemts/Nosūtīts/etc." + channel name in nominative.
+const CHANNEL_NOMINATIVE: Record<string, string> = {
+  email: "e-pasts",
   sms: "SMS",
-  whatsapp: "WhatsApp",
-  call: "Zvans",
-  messenger: "Messenger",
+  whatsapp: "WhatsApp ziņa",
+  call: "zvans",
+  messenger: "Messenger ziņa",
 };
 
 function describeEvent(channel: string, type: string, group: string): string {
   const t = type.toLowerCase();
   const ch = channel.toLowerCase();
   const g = group.toLowerCase();
-  if (g === "reply" || t === "reply" || t === "replied") return "Atbilde";
-  const typeLabel = EVENT_TYPE_LABELS[t];
-  const channelLabel = CHANNEL_LABELS[ch];
-  if (channelLabel && typeLabel) return `${channelLabel} · ${typeLabel}`;
-  if (channelLabel) return channelLabel;
-  if (typeLabel) return typeLabel;
-  if (g) return g;
+
+  // Reply (any channel)
+  if (g === "reply" || t === "reply" || t === "replied") {
+    return "Saņemta atbilde";
+  }
+
+  const channelName = CHANNEL_NOMINATIVE[ch];
+
+  // Outbound / send
+  if (t === "sent" || g === "outbound_attempt") {
+    if (channelName) return `Nosūtīts ${channelName}`;
+    return "Nosūtīta ziņa";
+  }
+  if (t === "delivered") {
+    if (channelName) return `Piegādāts ${channelName}`;
+    return "Piegādāta ziņa";
+  }
+  if (t === "failed" || t === "bounce") {
+    if (channelName) return `Neizdevās ${channelName}`;
+    return "Neizdevās piegādāt";
+  }
+  if (t === "open") {
+    if (channelName) return `Atvērts ${channelName}`;
+    return "Atvērta ziņa";
+  }
+  if (t === "click") return "Klikšķis uz saites";
+
+  // Calls
+  if (ch === "call" || t.startsWith("call")) {
+    if (t === "call_connected") return "Atbildēts zvans";
+    if (t === "call_missed") return "Neatbildēts zvans";
+    return "Zvans";
+  }
+
+  if (channelName) return channelName.charAt(0).toUpperCase() + channelName.slice(1);
+  if (g) return "Aktivitāte";
   return "Aktivitāte";
 }
 
@@ -125,17 +140,30 @@ function parseTs(v: unknown): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+/**
+ * Latvian relative time. Uses correct singular/plural per Latvian rules:
+ *   1, 21, 31… → singular ("1 minūti", "1 stundu", "1 dienu")
+ *   else       → plural ("2 minūtēm", "5 stundām", "10 dienām")
+ */
+function plural(n: number, singular: string, plural: string): string {
+  // Latvian: numbers ending in 1 (but not 11) take singular form.
+  const last = n % 10;
+  const last2 = n % 100;
+  const isSingular = last === 1 && last2 !== 11;
+  return isSingular ? singular : plural;
+}
+
 function formatRelative(ts: number | null): string {
   if (ts == null) return "—";
   const diff = Date.now() - ts;
   if (diff < 0) return new Date(ts).toLocaleDateString("lv-LV");
   const min = Math.floor(diff / 60_000);
   if (min < 1) return "tikko";
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return `pirms ${min} ${plural(min, "minūtes", "minūtēm")}`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `pirms ${h} ${plural(h, "stundas", "stundām")}`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} days ago`;
+  if (d < 30) return `pirms ${d} ${plural(d, "dienas", "dienām")}`;
   return new Date(ts).toLocaleDateString("lv-LV");
 }
 
@@ -179,7 +207,7 @@ function computeNextStep(
       lastTs != null &&
       now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
     ) {
-      return "Follow-up";
+      return "Sekot (Follow-up)";
     }
   }
 
@@ -506,12 +534,16 @@ function GroupRows({
                     row.current_status == null ? "" : String(row.current_status);
                   const step = computeNextStep(status, eng);
                   if (step === "—") {
-                    content = <span className="text-muted-foreground">—</span>;
+                    content = (
+                      <span className="text-xs text-muted-foreground">
+                        Nav darbību
+                      </span>
+                    );
                   } else {
                     const tone =
                       step === "Atbildēt"
                         ? "bg-destructive/15 text-destructive"
-                        : step === "Follow-up"
+                        : step === "Sekot (Follow-up)"
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                           : "bg-secondary text-secondary-foreground";
                     content = (
