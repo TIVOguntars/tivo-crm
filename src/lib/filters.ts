@@ -2,13 +2,20 @@ import { z } from "zod";
 import { fallback } from "@tanstack/zod-adapter";
 import type { AnalyticsFilters } from "@/server/analytics";
 
-export type DateRangePreset = "today" | "7d" | "30d" | "custom";
+export type DateRangePreset =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "7d"
+  | "30d"
+  | "this_month"
+  | "custom";
 
 export const filtersSearchSchema = z.object({
   range: fallback(
-    z.enum(["today", "7d", "30d", "custom"]),
-    "30d",
-  ).default("30d"),
+    z.enum(["all", "today", "yesterday", "7d", "30d", "this_month", "custom"]),
+    "all",
+  ).default("all"),
   from: fallback(z.string().optional(), undefined),
   to: fallback(z.string().optional(), undefined),
   countries: fallback(z.array(z.string()), []).default([]),
@@ -40,12 +47,22 @@ export function resolveDateRange(search: FiltersSearch): {
   };
 
   switch (search.range) {
+    case "all":
+      return { from: null, to: null };
     case "today":
       return { from: isoDate(today), to: isoDate(today) };
+    case "yesterday": {
+      const y = start(1);
+      return { from: isoDate(y), to: isoDate(y) };
+    }
     case "7d":
       return { from: isoDate(start(6)), to: isoDate(today) };
     case "30d":
       return { from: isoDate(start(29)), to: isoDate(today) };
+    case "this_month": {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: isoDate(first), to: isoDate(today) };
+    }
     case "custom":
       return {
         from: search.from ?? null,

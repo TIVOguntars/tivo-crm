@@ -29,9 +29,12 @@ import {
 } from "@/lib/filters";
 
 const RANGE_LABELS: Record<DateRangePreset, string> = {
+  all: "Visi dati",
   today: "Šodien",
+  yesterday: "Vakar",
   "7d": "Pēdējās 7 dienas",
   "30d": "Pēdējās 30 dienas",
+  this_month: "Šis mēnesis",
   custom: "Pielāgots",
 };
 
@@ -146,7 +149,7 @@ export function FilterBar() {
     navigate({
       to: ".",
       search: () => ({
-        range: "30d" as const,
+        range: "all" as const,
         from: undefined,
         to: undefined,
         countries: [],
@@ -161,7 +164,7 @@ export function FilterBar() {
   };
 
   const hasActiveFilters =
-    search.range !== "30d" ||
+    search.range !== "all" ||
     (search.countries?.length ?? 0) > 0 ||
     (search.sources?.length ?? 0) > 0 ||
     (search.owners?.length ?? 0) > 0 ||
@@ -237,6 +240,19 @@ export function FilterBar() {
             Notīrīt filtrus
           </Button>
         )}
+      </div>
+      <div className="mx-auto flex max-w-7xl flex-col gap-0.5 px-4 pb-3 sm:px-6">
+        <div className="text-xs text-foreground">
+          <span className="text-muted-foreground">Periods: </span>
+          <span className="font-medium">
+            {search.range === "custom"
+              ? `${formatDate(from)} → ${formatDate(to)}`
+              : RANGE_LABELS[search.range]}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          Dati tiek rādīti tikai par izvēlēto periodu.
+        </div>
       </div>
     </div>
     </TooltipProvider>
