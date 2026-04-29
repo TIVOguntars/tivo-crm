@@ -363,6 +363,20 @@ function DarbaRindaPage() {
         ))}
       </div>
 
+      <div className="mb-3 flex items-center gap-2">
+        <Switch
+          id="active-only"
+          checked={activeOnly}
+          onCheckedChange={setActiveOnly}
+        />
+        <Label htmlFor="active-only" className="text-sm cursor-pointer">
+          Tikai aktīvie leadi
+        </Label>
+        <span className="text-xs text-muted-foreground">
+          Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
+        </span>
+      </div>
+
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && isLoading && <LoadingState />}
 
