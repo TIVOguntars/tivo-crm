@@ -28,7 +28,6 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "phone_raw", label: "Telefons", widthClass: "w-[11%] min-w-[120px]" },
   { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
   { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
-  { key: "suggested_status", label: "Ieteiktais", widthClass: "w-[11%] min-w-[110px]" },
   { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
   { key: "time_since_last_activity", label: "Aktivitāte", widthClass: "w-[10%] min-w-[100px]" },
   { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
