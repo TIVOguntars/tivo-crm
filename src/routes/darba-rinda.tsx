@@ -29,7 +29,7 @@ const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean
   { key: "tags", label: "Tagi", widthClass: "w-[12%] min-w-[120px]", wrap: true },
   { key: "current_status", label: "Statuss", widthClass: "w-[10%] min-w-[110px]" },
   { key: "priority_score", label: "Prior.", widthClass: "w-[6%] min-w-[60px]", align: "right" },
-  { key: "time_since_last_activity", label: "Aktivitāte", widthClass: "w-[10%] min-w-[100px]" },
+  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[14%] min-w-[150px]", wrap: true },
   { key: "__actions", label: "Darbības", widthClass: "w-[16%] min-w-[180px]" },
 ];
 
@@ -101,6 +101,72 @@ function formatActivityInterval(value: unknown): string {
   const mm = String(minutes).padStart(2, "0");
   if (days > 0) return `${days} days ${hh}:${mm}`;
   return `${hh}:${mm}`;
+}
+
+/* ----- Last activity formatting ----- */
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  reply: "Atbilde",
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  open: "Atvērts",
+  click: "Klikšķis",
+  bounce: "Bounce",
+  failed: "Neizdevās",
+  call: "Zvans",
+  call_connected: "Zvans (atbildēts)",
+  call_missed: "Zvans (neatbildēts)",
+  message: "Ziņa",
+  note: "Piezīme",
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  email: "E-pasts",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  call: "Zvans",
+  messenger: "Messenger",
+};
+
+function describeEvent(channel: string, type: string, group: string): string {
+  const t = type.toLowerCase();
+  const ch = channel.toLowerCase();
+  const g = group.toLowerCase();
+  if (g === "reply" || t === "reply" || t === "replied") return "Atbilde";
+  const typeLabel = EVENT_TYPE_LABELS[t];
+  const channelLabel = CHANNEL_LABELS[ch];
+  if (channelLabel && typeLabel) return `${channelLabel} · ${typeLabel}`;
+  if (channelLabel) return channelLabel;
+  if (typeLabel) return typeLabel;
+  if (g) return g;
+  return "Aktivitāte";
+}
+
+function parseTs(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const t = new Date(String(v)).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function formatRelative(ts: number | null): string {
+  if (ts == null) return "—";
+  const diff = Date.now() - ts;
+  if (diff < 0) return new Date(ts).toLocaleDateString("lv-LV");
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "tikko";
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} days ago`;
+  return new Date(ts).toLocaleDateString("lv-LV");
+}
+
+interface EngagementInfo {
+  last_event_at: string | null;
+  last_channel: string;
+  last_event_type: string;
+  last_event_group: string;
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
