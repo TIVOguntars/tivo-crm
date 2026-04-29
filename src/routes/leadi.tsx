@@ -324,7 +324,7 @@ function SectionTable({
 function LeadiPage() {
   const search = Route.useSearch();
   const q = search.q ?? "";
-  const selectedTags = search.tags ?? [];
+  const selectedTags: string[] = (search.tags as string[] | undefined) ?? [];
 
   const priority = useAnalyticsView(
     "lead_priority_queue",
