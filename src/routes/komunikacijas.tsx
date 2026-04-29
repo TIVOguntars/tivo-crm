@@ -33,10 +33,10 @@ const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" 
   { key: "delivered_count", label: "Piegādāti", type: "num" },
   { key: "failed_count", label: "Neizdevās", type: "num" },
   { key: "engagement_count", label: "Klikšķi", type: "num" },
-  { key: "reply_count", label: "Atbildes", type: "num" },
+  { key: "reply_count", label: "Atbildējuši", type: "num" },
   { key: "delivery_rate", label: "Piegādes %", type: "pct" },
   { key: "engagement_rate", label: "Klikšķu %", type: "pct" },
-  { key: "reply_rate", label: "Atbilžu %", type: "pct" },
+  { key: "reply_rate", label: "Atbildējušo %", type: "pct" },
 ];
 
 function KomunikācijasPage() {
@@ -91,7 +91,7 @@ function KomunikācijasPage() {
             <StatCard label="Piegādāti" value={fmt(totals.delivered)} />
             <StatCard label="Neizdevās" value={fmt(totals.failed)} />
             <StatCard label="Klikšķi" value={fmt(totals.engagement)} />
-            <StatCard label="Atbildes" value={fmt(totals.reply)} />
+            <StatCard label="Atbildējuši" value={fmt(totals.reply)} hint="Unikāli leadi" />
             <StatCard
               label="Piegādes %"
               value={

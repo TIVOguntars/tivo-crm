@@ -85,10 +85,10 @@ export function ChannelSummaryTable({ search }: { search: FiltersSearch }) {
                 <th className="px-2 py-2 text-right font-medium">Piegādāti</th>
                 <th className="px-2 py-2 text-right font-medium">Neizdevās</th>
                 <th className="px-2 py-2 text-right font-medium">Klikšķi</th>
-                <th className="px-2 py-2 text-right font-medium">Atbildes</th>
+                <th className="px-2 py-2 text-right font-medium">Atbildējuši</th>
                 <th className="px-2 py-2 text-right font-medium">Piegādes %</th>
                 <th className="px-2 py-2 text-right font-medium">Klikšķu %</th>
-                <th className="px-2 py-2 text-right font-medium">Atbilžu %</th>
+                <th className="px-2 py-2 text-right font-medium">Atbildējušo %</th>
               </tr>
             </thead>
             <tbody>
