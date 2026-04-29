@@ -28,7 +28,8 @@ function fmtPct(v: unknown): string {
 
 const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" }> = [
   { key: "channel", label: "Kanāls", type: "text" },
-  { key: "outbound_count", label: "Nosūtīti", type: "num" },
+  { key: "verified_outbound_count", label: "Nosūtīti (verificēti)", type: "num" },
+  { key: "unverified_outbound_count", label: "Nav verificēti", type: "num" },
   { key: "delivered_count", label: "Piegādāti", type: "num" },
   { key: "failed_count", label: "Neizdevās", type: "num" },
   { key: "engagement_count", label: "Klikšķi", type: "num" },
@@ -47,12 +48,14 @@ function KomunikācijasPage() {
     const rows = channels.data?.rows ?? [];
     return rows.reduce(
       (acc, r) => ({
-        outbound: acc.outbound + num(r.outbound_count),
+        verified: acc.verified + num(r.verified_outbound_count),
+        unverified: acc.unverified + num(r.unverified_outbound_count),
         delivered: acc.delivered + num(r.delivered_count),
+        failed: acc.failed + num(r.failed_count),
         engagement: acc.engagement + num(r.engagement_count),
         reply: acc.reply + num(r.reply_count),
       }),
-      { outbound: 0, delivered: 0, engagement: 0, reply: 0 },
+      { verified: 0, unverified: 0, delivered: 0, failed: 0, engagement: 0, reply: 0 },
     );
   }, [channels.data]);
 
@@ -74,18 +77,29 @@ function KomunikācijasPage() {
 
       {!errorMsg && !loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-            <StatCard label="Nosūtīti" value={fmt(totals.outbound)} />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-7">
+            <StatCard
+              label="Nosūtīti (verificēti)"
+              value={fmt(totals.verified)}
+              hint="Izsekoti e-pasti"
+            />
+            <StatCard
+              label="Nav verificēti"
+              value={fmt(totals.unverified)}
+              hint="Vēsturiski / neizsekoti"
+            />
             <StatCard label="Piegādāti" value={fmt(totals.delivered)} />
+            <StatCard label="Neizdevās" value={fmt(totals.failed)} />
             <StatCard label="Klikšķi" value={fmt(totals.engagement)} />
             <StatCard label="Atbildes" value={fmt(totals.reply)} />
             <StatCard
-              label="Atbilžu %"
+              label="Piegādes %"
               value={
-                totals.delivered > 0
-                  ? `${((totals.reply / totals.delivered) * 100).toFixed(1)}%`
+                totals.verified > 0
+                  ? `${((totals.delivered / totals.verified) * 100).toFixed(1)}%`
                   : "—"
               }
+              hint="Tikai no verificētajiem"
             />
           </div>
 
