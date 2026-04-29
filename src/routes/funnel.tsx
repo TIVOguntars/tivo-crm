@@ -240,7 +240,17 @@ function FunnelPage() {
             <EmptyState />
           )}
           {!acquisitionError && !acquisitionQuery.isLoading && hasAcquisition && (
-            <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+            <>
+              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Jauni leadi periodā
+                </p>
+                <p className="mt-2 text-3xl font-semibold tabular-nums text-foreground">
+                  {fmt(acquisitionTotal)}
+                </p>
+              </section>
+
+              <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
                 <div className="mb-4">
                   <h2 className="text-sm font-semibold text-foreground">
                     Jauno leadu rezultāts
@@ -250,18 +260,12 @@ function FunnelPage() {
                   </p>
                 </div>
                 <StageList
-                  stages={[
-                    {
-                      stage: "Ienākuši periodā",
-                      count: acquisitionTotal,
-                      order: -1,
-                    },
-                    ...acquisitionStages,
-                  ]}
+                  stages={acquisitionStages}
                   total={acquisitionTotal}
-                  max={Math.max(acqMax, acquisitionTotal)}
+                  max={acqMax}
                 />
-            </section>
+              </section>
+            </>
           )}
         </TabsContent>
       </Tabs>
