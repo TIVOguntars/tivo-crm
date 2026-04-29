@@ -46,6 +46,12 @@ const ZERO_PRIORITY_STATUSES = new Set([
   "Līgums",
 ]);
 
+const INACTIVE_STATUSES = new Set([
+  "Nesasniedzams",
+  "Nekvalificējas",
+  "Atcelts",
+]);
+
 const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) => boolean }[] = [
   { key: "urgent", label: "Steidzami / PPV", hint: "priority ≥ 90", test: (s) => s >= 90 },
   { key: "high", label: "Augsta prioritāte", hint: "70 ≤ priority < 90", test: (s) => s >= 70 && s < 90 },
