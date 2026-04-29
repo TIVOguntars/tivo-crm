@@ -614,6 +614,18 @@ function GroupRows({
                   }
                 } else if (isScore) {
                   content = String(effectivePriority(row));
+                } else if (c.key === "phone") {
+                  const text = formatCell(row.phone);
+                  // Phone null/empty: show empty (not "—")
+                  content = text === "" ? "" : text;
+                } else if (c.key === "status") {
+                  const text = formatCell(row.status);
+                  content =
+                    text === "" ? (
+                      <span className="text-muted-foreground">Nav statusa</span>
+                    ) : (
+                      text
+                    );
                 } else {
                   const text = formatCell(row[c.key]);
                   content =
