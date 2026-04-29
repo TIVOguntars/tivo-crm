@@ -224,6 +224,30 @@ function DarbaRindaPage() {
     query,
   );
 
+  const engagement = useAnalyticsView(
+    "lead_engagement_summary",
+    "limit=5000",
+  );
+
+  const engagementById = useMemo(() => {
+    const map = new Map<string, EngagementInfo>();
+    const erows = (engagement.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const r of erows) {
+      const id = r.lead_id == null ? "" : String(r.lead_id);
+      if (!id) continue;
+      map.set(id, {
+        last_event_at:
+          r.last_event_at == null ? null : String(r.last_event_at),
+        last_channel: r.last_channel == null ? "" : String(r.last_channel),
+        last_event_type:
+          r.last_event_type == null ? "" : String(r.last_event_type),
+        last_event_group:
+          r.last_event_group == null ? "" : String(r.last_event_group),
+      });
+    }
+    return map;
+  }, [engagement.data]);
+
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const q = search.q ?? "";
