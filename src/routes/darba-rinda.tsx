@@ -428,6 +428,9 @@ function DarbaRindaPage() {
   const [activeOnly, setActiveOnly] = useState(true);
   const [pageSize, setPageSize] = useState<50 | 100 | 200>(100);
   const [page, setPage] = useState(1);
+  // KPI card filter: when set, table shows ONLY rows matching this group key
+  // and pagination is disabled (full filtered dataset).
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
 
   const sorted = useMemo(() => {
     const copy = [...rows];
@@ -541,13 +544,23 @@ function DarbaRindaPage() {
     return result;
   }, [filtered]);
 
+  // When a KPI card filter is active, restrict the visible groups to that one.
+  // KPI card numbers themselves are NOT recalculated from this — they stay
+  // bound to the full dataset (followupCounts) or full `groups` array.
+  const visibleGroups = useMemo(
+    () => (kpiFilter ? groups.filter((g) => g.key === kpiFilter) : groups),
+    [groups, kpiFilter],
+  );
+
   // Total visible records across all groups (KPI counts use groups directly — these
   // already reflect the full filtered set, NOT the current page).
   const totalVisible = useMemo(
-    () => groups.reduce((acc, g) => acc + g.rows.length, 0),
-    [groups],
+    () => visibleGroups.reduce((acc, g) => acc + g.rows.length, 0),
+    [visibleGroups],
   );
-  const pageCount = Math.max(1, Math.ceil(totalVisible / pageSize));
+  // When a KPI filter is active, show ALL filtered leads (no pagination).
+  const effectivePageSize = kpiFilter ? Math.max(totalVisible, 1) : pageSize;
+  const pageCount = Math.max(1, Math.ceil(totalVisible / effectivePageSize));
 
   // Clamp page when filters/pageSize change.
   const safePage = Math.min(Math.max(1, page), pageCount);
@@ -556,13 +569,13 @@ function DarbaRindaPage() {
     queueMicrotask(() => setPage(safePage));
   }
 
-  const startIdx = (safePage - 1) * pageSize; // 0-based
-  const endIdx = startIdx + pageSize; // exclusive
+  const startIdx = (safePage - 1) * effectivePageSize; // 0-based
+  const endIdx = startIdx + effectivePageSize; // exclusive
 
   // Slice rows across groups while preserving the global ordering.
   const pagedGroups = useMemo(() => {
     let cursor = 0;
-    return groups.map((g) => {
+    return visibleGroups.map((g) => {
       const groupStart = cursor;
       const groupEnd = cursor + g.rows.length;
       cursor = groupEnd;
@@ -573,7 +586,7 @@ function DarbaRindaPage() {
         rows: sliceFrom < sliceTo ? g.rows.slice(sliceFrom, sliceTo) : [],
       };
     });
-  }, [groups, startIdx, endIdx]);
+  }, [visibleGroups, startIdx, endIdx]);
 
   const rangeFrom = totalVisible === 0 ? 0 : startIdx + 1;
   const rangeTo = Math.min(endIdx, totalVisible);
@@ -612,13 +625,32 @@ function DarbaRindaPage() {
           if (g.key === "followup_today") value = followupCounts["Šodien jāseko"];
           else if (g.key === "followup_overdue") value = followupCounts["Kavēts follow-up"];
           else if (g.key === "followup_old") value = followupCounts["Vecie leadi"];
+          // Only these KPI keys act as table filters per spec.
+          const filterableKeys = new Set([
+            "urgent",
+            "offers",
+            "followup_today",
+            "followup_overdue",
+            "followup_old",
+          ]);
+          const isFilterable = filterableKeys.has(g.key) && value > 0;
+          const isActive = kpiFilter === g.key;
+          const handleClick = isFilterable
+            ? () => {
+                setKpiFilter(isActive ? null : g.key);
+                setPage(1);
+              }
+            : g.rows.length > 0
+              ? () => scrollToGroup(g.key)
+              : undefined;
           return (
             <StatCard
               key={g.key}
               label={g.label}
               value={value}
               hint={g.hint}
-              onClick={g.rows.length > 0 ? () => scrollToGroup(g.key) : undefined}
+              onClick={handleClick}
+              active={isActive}
             />
           );
         })}
@@ -636,6 +668,27 @@ function DarbaRindaPage() {
         <span className="text-xs text-muted-foreground">
           Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
         </span>
+        {kpiFilter && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Aktīvs filtrs:{" "}
+              <span className="font-medium text-foreground">
+                {groups.find((g) => g.key === kpiFilter)?.label ?? kpiFilter}
+              </span>
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2"
+              onClick={() => {
+                setKpiFilter(null);
+                setPage(1);
+              }}
+            >
+              Atiestatīt filtrus
+            </Button>
+          </div>
+        )}
       </div>
 
       {errorMsg && <ErrorState message={errorMsg} />}
