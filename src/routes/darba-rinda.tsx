@@ -307,6 +307,82 @@ function ActionButtons({ row }: { row: Record<string, unknown> }) {
   );
 }
 
+function NextStepButton({
+  row,
+  step,
+  reason,
+}: {
+  row: Record<string, unknown>;
+  step: string;
+  reason: string;
+}) {
+  const navigate = useNavigate();
+  const leadId = row.lead_id ?? row.id;
+  const cta = ctaForStep(step);
+
+  const handleClick = () => {
+    if (cta.mailto) {
+      const email = row.email == null ? "" : String(row.email).trim();
+      if (!email) {
+        toast("Šim leadam nav e-pasta");
+        return;
+      }
+      const params = new URLSearchParams({
+        subject: cta.mailto.subject,
+        body: cta.mailto.body,
+      });
+      window.location.href = `mailto:${email}?${params.toString()}`;
+      return;
+    }
+    if (leadId == null) {
+      toast("Lead ID nav pieejams");
+      return;
+    }
+    navigate({
+      to: "/lead/$leadId",
+      params: { leadId: String(leadId) },
+      hash: cta.focus ?? undefined,
+    });
+  };
+
+  const variantClass =
+    cta.variant === "primary"
+      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+      : cta.variant === "default"
+        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+        : "bg-transparent text-muted-foreground hover:bg-secondary/40 border border-border";
+
+  const button = (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold transition-colors w-full ${variantClass}`}
+    >
+      {step}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col gap-0.5 leading-tight">
+      {reason ? (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="top">{reason}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        button
+      )}
+      {reason && (
+        <span className="text-[10px] text-muted-foreground line-clamp-2">
+          {reason}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DarbaRindaPage() {
   const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
   const query = useMemo(
