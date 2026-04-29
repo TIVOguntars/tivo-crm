@@ -18,6 +18,12 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/darba-rinda")({
@@ -167,55 +173,21 @@ function formatRelative(ts: number | null): string {
   return new Date(ts).toLocaleDateString("lv-LV");
 }
 
-interface EngagementInfo {
-  last_event_at: string | null;
-  last_channel: string;
-  last_event_type: string;
-  last_event_group: string;
-  has_reply: boolean;
-  first_outbound_at: string | null;
-}
-
-const RECENT_REPLY_DAYS = 7;
-const FOLLOWUP_DAYS = 3;
-
 /**
- * Rule-based next step for a lead. NOT AI.
- * Order matters: reply > follow-up > status-driven defaults.
+ * Map raw next_action string from analytics.lead_priority_queue
+ * to a user-facing Latvian label. Frontend MUST NOT recompute logic.
  */
-function computeNextStep(
-  status: string,
-  eng: EngagementInfo | undefined,
-): string {
-  const now = Date.now();
-
-  // 1. Recent reply → must answer
-  if (eng?.has_reply) {
-    const lastTs = parseTs(eng.last_event_at);
-    if (
-      lastTs != null &&
-      now - lastTs <= RECENT_REPLY_DAYS * 24 * 60 * 60 * 1000
-    ) {
-      return "Atbildēt";
-    }
+function nextActionLabel(raw: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  const lower = v.toLowerCase();
+  if (lower === "follow-up" || lower === "follow_up" || lower === "followup") {
+    return "Sekot (Follow-up)";
   }
-
-  // 2. No reply, last outbound > 3d → follow up
-  if (eng && !eng.has_reply && eng.first_outbound_at) {
-    const lastTs = parseTs(eng.last_event_at);
-    if (
-      lastTs != null &&
-      now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
-    ) {
-      return "Sekot (Follow-up)";
-    }
+  if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
+    return "Atbildēt";
   }
-
-  // 3. Status-driven defaults
-  if (status === "Piedāvājums") return "Sekot piedāvājumam";
-  if (status === "Jauns") return "Sazināties";
-
-  return "—";
+  return v;
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
@@ -273,33 +245,6 @@ function DarbaRindaPage() {
     query,
   );
 
-  const engagement = useAnalyticsView(
-    "lead_engagement_summary",
-    "limit=5000",
-  );
-
-  const engagementById = useMemo(() => {
-    const map = new Map<string, EngagementInfo>();
-    const erows = (engagement.data?.rows ?? []) as Array<Record<string, unknown>>;
-    for (const r of erows) {
-      const id = r.lead_id == null ? "" : String(r.lead_id);
-      if (!id) continue;
-      map.set(id, {
-        last_event_at:
-          r.last_event_at == null ? null : String(r.last_event_at),
-        last_channel: r.last_channel == null ? "" : String(r.last_channel),
-        last_event_type:
-          r.last_event_type == null ? "" : String(r.last_event_type),
-        last_event_group:
-          r.last_event_group == null ? "" : String(r.last_event_group),
-        has_reply: Boolean(r.has_reply),
-        first_outbound_at:
-          r.first_outbound_at == null ? null : String(r.first_outbound_at),
-      });
-    }
-    return map;
-  }, [engagement.data]);
-
   const rows = (data?.rows ?? []) as Array<Record<string, unknown>>;
 
   const q = search.q ?? "";
@@ -308,7 +253,18 @@ function DarbaRindaPage() {
 
   const sorted = useMemo(() => {
     const copy = [...rows];
-    copy.sort((a, b) => effectivePriority(b) - effectivePriority(a));
+    copy.sort((a, b) => {
+      const pa = effectivePriority(a);
+      const pb = effectivePriority(b);
+      if (pb !== pa) return pb - pa;
+      // Then by last_activity_at desc, nulls last
+      const ta = parseTs(a.last_activity_at ?? a.last_event_at);
+      const tb = parseTs(b.last_activity_at ?? b.last_event_at);
+      if (ta == null && tb == null) return 0;
+      if (ta == null) return 1;
+      if (tb == null) return -1;
+      return tb - ta;
+    });
     return copy;
   }, [rows]);
 
@@ -373,7 +329,7 @@ function DarbaRindaPage() {
   return (
     <>
       <PageHeader
-        title="Darba rinda"
+        title="Leadi"
         description="Prioritārie leadi no analytics.lead_priority_queue"
       >
         <SearchInput />
@@ -435,7 +391,6 @@ function DarbaRindaPage() {
                       key={g.key}
                       label={g.label}
                       rows={g.rows}
-                      engagementById={engagementById}
                       headerRef={(el) => { groupRefs.current[g.key] = el; }}
                     />
                   ))}
@@ -455,12 +410,10 @@ function DarbaRindaPage() {
 function GroupRows({
   label,
   rows,
-  engagementById,
   headerRef,
 }: {
   label: string;
   rows: Array<Record<string, unknown>>;
-  engagementById: Map<string, EngagementInfo>;
   headerRef?: (el: HTMLTableRowElement | null) => void;
 }) {
   return (
@@ -503,19 +456,25 @@ function GroupRows({
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
                 } else if (c.key === "__last_activity") {
-                  const id = row.lead_id == null ? "" : String(row.lead_id);
-                  const eng = id ? engagementById.get(id) : undefined;
-                  const ts = parseTs(eng?.last_event_at ?? row.last_event_at);
-                  if (ts == null && !eng) {
+                  const ts = parseTs(
+                    row.last_activity_at ?? row.last_event_at,
+                  );
+                  const channel =
+                    row.last_channel == null ? "" : String(row.last_channel);
+                  const evType =
+                    row.last_event_type == null
+                      ? ""
+                      : String(row.last_event_type);
+                  const evGroup =
+                    row.last_event_group == null
+                      ? ""
+                      : String(row.last_event_group);
+                  if (ts == null && !channel && !evType && !evGroup) {
                     content = (
                       <span className="text-muted-foreground">—</span>
                     );
                   } else {
-                    const label = describeEvent(
-                      eng?.last_channel ?? "",
-                      eng?.last_event_type ?? "",
-                      eng?.last_event_group ?? "",
-                    );
+                    const label = describeEvent(channel, evType, evGroup);
                     content = (
                       <div className="flex flex-col leading-tight">
                         <span className="font-medium text-foreground">
@@ -528,12 +487,14 @@ function GroupRows({
                     );
                   }
                 } else if (c.key === "__next_step") {
-                  const id = row.lead_id == null ? "" : String(row.lead_id);
-                  const eng = id ? engagementById.get(id) : undefined;
-                  const status =
-                    row.current_status == null ? "" : String(row.current_status);
-                  const step = computeNextStep(status, eng);
-                  if (step === "—") {
+                  const raw =
+                    row.next_action == null ? "" : String(row.next_action);
+                  const reason =
+                    row.next_action_reason == null
+                      ? ""
+                      : String(row.next_action_reason);
+                  const step = nextActionLabel(raw);
+                  if (!step) {
                     content = (
                       <span className="text-xs text-muted-foreground">
                         Nav darbību
@@ -546,12 +507,33 @@ function GroupRows({
                         : step === "Sekot (Follow-up)"
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                           : "bg-secondary text-secondary-foreground";
-                    content = (
+                    const badge = (
                       <span
                         className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
                       >
                         {step}
                       </span>
+                    );
+                    content = (
+                      <div className="flex flex-col gap-0.5 leading-tight">
+                        {reason ? (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                              <TooltipContent side="top">
+                                {reason}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          badge
+                        )}
+                        {reason && (
+                          <span className="text-[10px] text-muted-foreground line-clamp-2">
+                            {reason}
+                          </span>
+                        )}
+                      </div>
                     );
                   }
                 } else if (isScore) {
