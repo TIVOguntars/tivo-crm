@@ -258,8 +258,8 @@ function DarbaRindaPage() {
       const pb = effectivePriority(b);
       if (pb !== pa) return pb - pa;
       // Then by last_activity_at desc, nulls last
-      const ta = parseTs(a.last_activity_at ?? a.last_event_at);
-      const tb = parseTs(b.last_activity_at ?? b.last_event_at);
+      const ta = parseTs(a.last_activity_at);
+      const tb = parseTs(b.last_activity_at);
       if (ta == null && tb == null) return 0;
       if (ta == null) return 1;
       if (tb == null) return -1;
@@ -456,9 +456,7 @@ function GroupRows({
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
                 } else if (c.key === "__last_activity") {
-                  const ts = parseTs(
-                    row.last_activity_at ?? row.last_event_at,
-                  );
+                  const ts = parseTs(row.last_activity_at);
                   const channel =
                     row.last_channel == null ? "" : String(row.last_channel);
                   const evType =
