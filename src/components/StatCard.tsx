@@ -9,6 +9,20 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, hint, className, onClick }: StatCardProps) {
+  const content = (
+    <>
+      <p className="text-xs font-medium uppercase leading-tight tracking-wide text-muted-foreground line-clamp-2 min-h-[2.25rem]">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground line-clamp-1 min-h-[1rem]">
+        {hint ?? "\u00A0"}
+      </p>
+    </>
+  );
+
   if (onClick) {
     return (
       <button
@@ -19,13 +33,7 @@ export function StatCard({ label, value, hint, className, onClick }: StatCardPro
           className,
         )}
       >
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
-          {value}
-        </p>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        {content}
       </button>
     );
   }
@@ -36,13 +44,7 @@ export function StatCard({ label, value, hint, className, onClick }: StatCardPro
         className,
       )}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
-        {value}
-      </p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {content}
     </div>
   );
 }
