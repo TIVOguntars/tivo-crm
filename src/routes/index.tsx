@@ -42,7 +42,14 @@ function PārskatsPage() {
 
   const kpiRow = (kpi.data?.rows ?? [])[0] ?? {};
 
-  const channelTotals = useMemo(() => {
+  const channelTotals = useMemo<{
+    verified: number;
+    unverified: number;
+    delivered: number;
+    failed: number;
+    engagement: number;
+    reply: number;
+  }>(() => {
     const rows = (channels.data?.rows ?? []) as Array<Record<string, unknown>>;
     return rows.reduce(
       (acc, r) => ({
