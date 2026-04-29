@@ -38,8 +38,24 @@ function PārskatsPage() {
 
   const kpi = useAnalyticsRpc("get_kpi_summary", filters);
   const daily = useAnalyticsRpc("get_daily_activity", filters);
+  const channels = useAnalyticsRpc("get_channel_summary", filters);
 
   const kpiRow = (kpi.data?.rows ?? [])[0] ?? {};
+
+  const channelTotals = useMemo(() => {
+    const rows = (channels.data?.rows ?? []) as Array<Record<string, unknown>>;
+    return rows.reduce(
+      (acc, r) => ({
+        verified: acc.verified + num(r.verified_outbound_count),
+        unverified: acc.unverified + num(r.unverified_outbound_count),
+        delivered: acc.delivered + num(r.delivered_count),
+        failed: acc.failed + num(r.failed_count),
+        engagement: acc.engagement + num(r.engagement_count),
+        reply: acc.reply + num(r.reply_count),
+      }),
+      { verified: 0, unverified: 0, delivered: 0, failed: 0, engagement: 0, reply: 0 },
+    );
+  }, [channels.data]);
 
   const dailyChart = useMemo(() => {
     const rows = daily.data?.rows ?? [];
@@ -52,8 +68,8 @@ function PārskatsPage() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [daily.data]);
 
-  const error = kpi.data?.error || daily.data?.error;
-  const loading = kpi.isLoading || daily.isLoading;
+  const error = kpi.data?.error || daily.data?.error || channels.data?.error;
+  const loading = kpi.isLoading || daily.isLoading || channels.isLoading;
 
   return (
     <>
@@ -70,12 +86,16 @@ function PārskatsPage() {
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
             <StatCard label="Kopā leadi" value={fmt(num(kpiRow.total_leads))} />
             <StatCard
-              label="Nosūtītie ziņojumi"
-              value={fmt(num(kpiRow.outbound_count))}
+              label="Nosūtīti (verificēti)"
+              value={fmt(channelTotals.verified)}
             />
-            <StatCard label="Piegādāti" value={fmt(num(kpiRow.delivered_count))} />
-            <StatCard label="Klikšķi" value={fmt(num(kpiRow.engagement_count))} />
-            <StatCard label="Atbildes" value={fmt(num(kpiRow.reply_count))} />
+            <StatCard label="Piegādāti" value={fmt(channelTotals.delivered)} />
+            <StatCard label="Klikšķi" value={fmt(channelTotals.engagement)} />
+            <StatCard
+              label="Atbildējuši"
+              value={fmt(channelTotals.reply)}
+              hint="Unikāli leadi"
+            />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4">
