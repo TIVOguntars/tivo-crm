@@ -400,6 +400,8 @@ function DarbaRindaPage() {
   const q = search.q ?? "";
 
   const [activeOnly, setActiveOnly] = useState(true);
+  const [pageSize, setPageSize] = useState<50 | 100 | 200>(100);
+  const [page, setPage] = useState(1);
 
   const sorted = useMemo(() => {
     const copy = [...rows];
