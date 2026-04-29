@@ -6,9 +6,10 @@ interface StatCardProps {
   hint?: string;
   className?: string;
   onClick?: () => void;
+  active?: boolean;
 }
 
-export function StatCard({ label, value, hint, className, onClick }: StatCardProps) {
+export function StatCard({ label, value, hint, className, onClick, active }: StatCardProps) {
   const content = (
     <>
       <p className="text-xs font-medium uppercase leading-tight tracking-wide text-muted-foreground line-clamp-2 min-h-[2.25rem]">
@@ -28,8 +29,11 @@ export function StatCard({ label, value, hint, className, onClick }: StatCardPro
       <button
         type="button"
         onClick={onClick}
+        aria-pressed={active}
         className={cn(
           "w-full text-left rounded-lg border border-border bg-card p-4 shadow-sm transition-colors hover:bg-secondary/40 focus:outline-none focus:ring-2 focus:ring-ring",
+          active &&
+            "border-primary ring-2 ring-primary/40 bg-primary/5 hover:bg-primary/10",
           className,
         )}
       >
