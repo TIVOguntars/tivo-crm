@@ -391,7 +391,6 @@ function DarbaRindaPage() {
                       key={g.key}
                       label={g.label}
                       rows={g.rows}
-                      engagementById={engagementById}
                       headerRef={(el) => { groupRefs.current[g.key] = el; }}
                     />
                   ))}
@@ -411,12 +410,10 @@ function DarbaRindaPage() {
 function GroupRows({
   label,
   rows,
-  engagementById,
   headerRef,
 }: {
   label: string;
   rows: Array<Record<string, unknown>>;
-  engagementById: Map<string, EngagementInfo>;
   headerRef?: (el: HTMLTableRowElement | null) => void;
 }) {
   return (
@@ -459,19 +456,25 @@ function GroupRows({
                 if (c.key === "__actions") {
                   content = <ActionButtons row={row} />;
                 } else if (c.key === "__last_activity") {
-                  const id = row.lead_id == null ? "" : String(row.lead_id);
-                  const eng = id ? engagementById.get(id) : undefined;
-                  const ts = parseTs(eng?.last_event_at ?? row.last_event_at);
-                  if (ts == null && !eng) {
+                  const ts = parseTs(
+                    row.last_activity_at ?? row.last_event_at,
+                  );
+                  const channel =
+                    row.last_channel == null ? "" : String(row.last_channel);
+                  const evType =
+                    row.last_event_type == null
+                      ? ""
+                      : String(row.last_event_type);
+                  const evGroup =
+                    row.last_event_group == null
+                      ? ""
+                      : String(row.last_event_group);
+                  if (ts == null && !channel && !evType && !evGroup) {
                     content = (
                       <span className="text-muted-foreground">—</span>
                     );
                   } else {
-                    const label = describeEvent(
-                      eng?.last_channel ?? "",
-                      eng?.last_event_type ?? "",
-                      eng?.last_event_group ?? "",
-                    );
+                    const label = describeEvent(channel, evType, evGroup);
                     content = (
                       <div className="flex flex-col leading-tight">
                         <span className="font-medium text-foreground">
@@ -484,12 +487,14 @@ function GroupRows({
                     );
                   }
                 } else if (c.key === "__next_step") {
-                  const id = row.lead_id == null ? "" : String(row.lead_id);
-                  const eng = id ? engagementById.get(id) : undefined;
-                  const status =
-                    row.current_status == null ? "" : String(row.current_status);
-                  const step = computeNextStep(status, eng);
-                  if (step === "—") {
+                  const raw =
+                    row.next_action == null ? "" : String(row.next_action);
+                  const reason =
+                    row.next_action_reason == null
+                      ? ""
+                      : String(row.next_action_reason);
+                  const step = nextActionLabel(raw);
+                  if (!step) {
                     content = (
                       <span className="text-xs text-muted-foreground">
                         Nav darbību
@@ -502,12 +507,33 @@ function GroupRows({
                         : step === "Sekot (Follow-up)"
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                           : "bg-secondary text-secondary-foreground";
-                    content = (
+                    const badge = (
                       <span
                         className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
                       >
                         {step}
                       </span>
+                    );
+                    content = (
+                      <div className="flex flex-col gap-0.5 leading-tight">
+                        {reason ? (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                              <TooltipContent side="top">
+                                {reason}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          badge
+                        )}
+                        {reason && (
+                          <span className="text-[10px] text-muted-foreground line-clamp-2">
+                            {reason}
+                          </span>
+                        )}
+                      </div>
                     );
                   }
                 } else if (isScore) {
