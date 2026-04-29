@@ -534,12 +534,16 @@ function GroupRows({
                     row.current_status == null ? "" : String(row.current_status);
                   const step = computeNextStep(status, eng);
                   if (step === "—") {
-                    content = <span className="text-muted-foreground">—</span>;
+                    content = (
+                      <span className="text-xs text-muted-foreground">
+                        Nav darbību
+                      </span>
+                    );
                   } else {
                     const tone =
                       step === "Atbildēt"
                         ? "bg-destructive/15 text-destructive"
-                        : step === "Follow-up"
+                        : step === "Sekot (Follow-up)"
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                           : "bg-secondary text-secondary-foreground";
                     content = (
