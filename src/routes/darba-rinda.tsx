@@ -59,10 +59,11 @@ const INACTIVE_STATUSES = new Set([
 ]);
 
 const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) => boolean }[] = [
-  { key: "urgent", label: "Steidzami / PPV", hint: "priority ≥ 90", test: (s) => s >= 90 },
-  { key: "high", label: "Augsta prioritāte", hint: "70 ≤ priority < 90", test: (s) => s >= 70 && s < 90 },
-  { key: "medium", label: "Vidēja prioritāte", hint: "40 ≤ priority < 70", test: (s) => s >= 40 && s < 70 },
-  { key: "low", label: "Zema prioritāte", hint: "0 < priority < 40", test: (s) => s > 0 && s < 40 },
+  { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", test: (s) => s === 100 },
+  { key: "offers", label: "Piedāvājumi", hint: "priority = 90", test: (s) => s === 90 },
+  { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", test: (s) => s === 80 },
+  { key: "followup", label: "Follow-up", hint: "priority = 70", test: (s) => s === 70 },
+  { key: "contact", label: "Sazināties", hint: "priority = 60", test: (s) => s === 60 },
   { key: "none", label: "Nav darbību", hint: "priority = 0", test: (s) => s === 0 },
 ];
 
@@ -186,6 +187,15 @@ function nextActionLabel(raw: string): string {
   }
   if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
     return "Atbildēt";
+  }
+  if (lower === "offer" || lower === "piedāvājums" || lower === "send_offer") {
+    return "Sūtīt piedāvājumu";
+  }
+  if (lower === "verify_contact" || lower === "verify" || lower === "check_contact") {
+    return "Pārbaudīt kontaktu";
+  }
+  if (lower === "contact" || lower === "sazināties" || lower === "reach_out") {
+    return "Sazināties";
   }
   return v;
 }
@@ -335,7 +345,7 @@ function DarbaRindaPage() {
         <SearchInput />
       </PageHeader>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         {groups.map((g) => (
           <StatCard
             key={g.key}
