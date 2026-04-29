@@ -583,7 +583,7 @@ function DarbaRindaPage() {
             <StatCard
               key={c.key}
               label={c.label}
-              value={c.total ?? "—"}
+              value={c.loading && c.total == null ? "…" : (c.total ?? 0)}
               hint={c.hint}
               onClick={handleClick}
               active={isActive}
@@ -608,9 +608,19 @@ function DarbaRindaPage() {
           <span className="text-xs text-muted-foreground tabular-nums">
             Kopā:{" "}
             <span className="font-medium text-foreground">
-              {total ?? "—"}
+              {filteredTotalQ.isLoading && filteredTotalQ.data == null
+                ? "…"
+                : (filteredTotalQ.data ?? total ?? 0)}
             </span>{" "}
             leadi
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Ielādēti:{" "}
+            <span className="font-medium text-foreground">{rows.length}</span>
+            {" "}no{" "}
+            <span className="font-medium text-foreground">
+              {filteredTotalQ.data ?? total ?? rows.length}
+            </span>
           </span>
           {kpiFilter && (
             <div className="flex items-center gap-2">
