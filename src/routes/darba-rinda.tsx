@@ -545,38 +545,22 @@ function DarbaRindaPage() {
       </PageHeader>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        {groups.map((g) => {
-          // Follow-up cards MUST come from the dedicated aggregated query
-          // against analytics.lead_priority_queue (full dataset),
-          // not from filtered/paginated UI data.
-          let value: number = g.rows.length;
-          if (g.key === "followup_today") value = followupCounts["Šodien jāseko"];
-          else if (g.key === "followup_overdue") value = followupCounts["Kavēts follow-up"];
-          else if (g.key === "followup_old") value = followupCounts["Vecie leadi"];
-          // Only these KPI keys act as table filters per spec.
-          const filterableKeys = new Set([
-            "urgent",
-            "offers",
-            "followup_today",
-            "followup_overdue",
-            "followup_old",
-          ]);
-          const isFilterable = filterableKeys.has(g.key) && value > 0;
-          const isActive = kpiFilter === g.key;
-          const handleClick = isFilterable
-            ? () => {
-                setKpiFilter(isActive ? null : g.key);
-                setPage(1);
-              }
-            : g.rows.length > 0
-              ? () => scrollToGroup(g.key)
-              : undefined;
+        {KPI_CARDS.map((c) => {
+          // KPI counts are NEVER derived from the (paginated) table — they come
+          // either from the dedicated RPC (follow-up buckets) or from a
+          // server-side count query keyed on the card's own filter (priority).
+          const isActive = kpiFilter === c.key;
+          const handleClick = () => {
+            setKpiFilter(isActive ? null : c.key);
+            // Reset scroll to top when filter changes.
+            scrollRef.current?.scrollTo({ top: 0 });
+          };
           return (
             <StatCard
-              key={g.key}
-              label={g.label}
-              value={value}
-              hint={g.hint}
+              key={c.key}
+              label={c.label}
+              value={c.total ?? "—"}
+              hint={c.hint}
               onClick={handleClick}
               active={isActive}
             />
@@ -596,27 +580,37 @@ function DarbaRindaPage() {
         <span className="text-xs text-muted-foreground">
           Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
         </span>
-        {kpiFilter && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              Aktīvs filtrs:{" "}
-              <span className="font-medium text-foreground">
-                {groups.find((g) => g.key === kpiFilter)?.label ?? kpiFilter}
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Kopā:{" "}
+            <span className="font-medium text-foreground">
+              {total ?? "—"}
+            </span>{" "}
+            leadi
+          </span>
+          {kpiFilter && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Aktīvs filtrs:{" "}
+                <span className="font-medium text-foreground">
+                  {KPI_CARDS.find((c) => c.key === kpiFilter)?.label ??
+                    kpiFilter}
+                </span>
               </span>
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2"
-              onClick={() => {
-                setKpiFilter(null);
-                setPage(1);
-              }}
-            >
-              Atiestatīt filtrus
-            </Button>
-          </div>
-        )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2"
+                onClick={() => {
+                  setKpiFilter(null);
+                  scrollRef.current?.scrollTo({ top: 0 });
+                }}
+              >
+                Atiestatīt filtrus
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {errorMsg && <ErrorState message={errorMsg} />}
@@ -626,93 +620,14 @@ function DarbaRindaPage() {
         rows.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" style={{ maxHeight: "calc(100vh - 380px)" }}>
-            <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-sm">
-                  <tr>
-                    {COLUMNS.map((c) => (
-                      <th
-                        key={c.key}
-                        className={`px-2 py-2 font-medium tracking-wide ${
-                          c.align === "right" ? "text-right" : "text-left"
-                        } ${c.wrap ? "" : "whitespace-nowrap"} ${c.widthClass ?? ""}`}
-                      >
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedGroups.map((g) => (
-                    <GroupRows
-                      key={g.key}
-                      label={g.label}
-                      rows={g.rows}
-                      headerRef={(el) => { groupRefs.current[g.key] = el; }}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <span>
-                  Rāda{" "}
-                  <span className="font-medium text-foreground tabular-nums">
-                    {rangeFrom}–{rangeTo}
-                  </span>{" "}
-                  no{" "}
-                  <span className="font-medium text-foreground tabular-nums">
-                    {totalVisible}
-                  </span>{" "}
-                  ierakstiem
-                </span>
-                <label className="flex items-center gap-1.5">
-                  <span>Rindas lapā:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value) as 50 | 100 | 200);
-                      setPage(1);
-                    }}
-                    disabled={!!kpiFilter}
-                    className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                  </select>
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage <= 1 || !!kpiFilter}
-                >
-                  Iepriekšējā
-                </Button>
-                <span className="tabular-nums">
-                  Lapa{" "}
-                  <span className="font-medium text-foreground">{safePage}</span>{" "}
-                  no{" "}
-                  <span className="font-medium text-foreground">{pageCount}</span>
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2"
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={safePage >= pageCount || !!kpiFilter}
-                >
-                  Nākamā
-                </Button>
-              </div>
-            </div>
-          </div>
+          <VirtualLeadList
+            rows={rows}
+            scrollRef={scrollRef}
+            virtualizer={virtualizer}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={!!hasNextPage}
+            total={total}
+          />
         )
       )}
     </>
