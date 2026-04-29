@@ -641,39 +641,12 @@ function GroupRows({
                       </span>
                     );
                   } else {
-                    const tone =
-                      step === "Atbildēt"
-                        ? "bg-destructive/15 text-destructive"
-                        : step === "Sekot (Follow-up)"
-                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                          : "bg-secondary text-secondary-foreground";
-                    const badge = (
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tone}`}
-                      >
-                        {step}
-                      </span>
-                    );
                     content = (
-                      <div className="flex flex-col gap-0.5 leading-tight">
-                        {reason ? (
-                          <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>{badge}</TooltipTrigger>
-                              <TooltipContent side="top">
-                                {reason}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          badge
-                        )}
-                        {reason && (
-                          <span className="text-[10px] text-muted-foreground line-clamp-2">
-                            {reason}
-                          </span>
-                        )}
-                      </div>
+                      <NextStepButton
+                        row={row}
+                        step={step}
+                        reason={reason}
+                      />
                     );
                   }
                 } else if (isScore) {
