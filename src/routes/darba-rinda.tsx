@@ -136,6 +136,50 @@ interface EngagementInfo {
   last_channel: string;
   last_event_type: string;
   last_event_group: string;
+  has_reply: boolean;
+  first_outbound_at: string | null;
+}
+
+const RECENT_REPLY_DAYS = 7;
+const FOLLOWUP_DAYS = 3;
+
+/**
+ * Rule-based next step for a lead. NOT AI.
+ * Order matters: reply > follow-up > status-driven defaults.
+ */
+function computeNextStep(
+  status: string,
+  eng: EngagementInfo | undefined,
+): string {
+  const now = Date.now();
+
+  // 1. Recent reply → must answer
+  if (eng?.has_reply) {
+    const lastTs = parseTs(eng.last_event_at);
+    if (
+      lastTs != null &&
+      now - lastTs <= RECENT_REPLY_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      return "Atbildēt";
+    }
+  }
+
+  // 2. No reply, last outbound > 3d → follow up
+  if (eng && !eng.has_reply && eng.first_outbound_at) {
+    const lastTs = parseTs(eng.last_event_at);
+    if (
+      lastTs != null &&
+      now - lastTs > FOLLOWUP_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      return "Follow-up";
+    }
+  }
+
+  // 3. Status-driven defaults
+  if (status === "Piedāvājums") return "Sekot piedāvājumam";
+  if (status === "Jauns") return "Sazināties";
+
+  return "—";
 }
 
 function ActionButtons({ row }: { row: Record<string, unknown> }) {
