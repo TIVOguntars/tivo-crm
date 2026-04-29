@@ -628,7 +628,7 @@ function DarbaRindaPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((g) => (
+                  {pagedGroups.map((g) => (
                     <GroupRows
                       key={g.key}
                       label={g.label}
@@ -639,8 +639,61 @@ function DarbaRindaPage() {
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-              Rāda {filtered.length} no {rows.length} ierakstiem, sakārtotus pēc prioritātes
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span>
+                  Rāda{" "}
+                  <span className="font-medium text-foreground tabular-nums">
+                    {rangeFrom}–{rangeTo}
+                  </span>{" "}
+                  no{" "}
+                  <span className="font-medium text-foreground tabular-nums">
+                    {totalVisible}
+                  </span>{" "}
+                  ierakstiem
+                </span>
+                <label className="flex items-center gap-1.5">
+                  <span>Rindas lapā:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value) as 50 | 100 | 200);
+                      setPage(1);
+                    }}
+                    className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                  </select>
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                >
+                  Iepriekšējā
+                </Button>
+                <span className="tabular-nums">
+                  Lapa{" "}
+                  <span className="font-medium text-foreground">{safePage}</span>{" "}
+                  no{" "}
+                  <span className="font-medium text-foreground">{pageCount}</span>
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2"
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  disabled={safePage >= pageCount}
+                >
+                  Nākamā
+                </Button>
+              </div>
             </div>
           </div>
         )
