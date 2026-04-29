@@ -28,6 +28,11 @@ import {
 import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
+import {
+  priorityTone,
+  PRIORITY_ROW_BG,
+  PRIORITY_BADGE,
+} from "@/lib/priorityColors";
 
 export const Route = createFileRoute("/darba-rinda")({
   component: DarbaRindaPage,
@@ -348,12 +353,10 @@ function NextStepButton({
     });
   };
 
-  const variantClass =
-    cta.variant === "primary"
-      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-      : cta.variant === "default"
-        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
-        : "bg-transparent text-muted-foreground hover:bg-secondary/40 border border-border";
+  // Color the next-step button using the SAME priority tone as the row
+  // background and KPI card. Single source of truth: priority score.
+  const tone = priorityTone(effectivePriority(row));
+  const variantClass = PRIORITY_BADGE[tone];
 
   const button = (
     <button
@@ -741,12 +744,10 @@ function renderCell(c: (typeof COLUMNS)[number], row: Record<string, unknown>): 
 
 function LeadRow({ row }: { row: Record<string, unknown> }) {
   const score = effectivePriority(row);
-  const highlight =
-    score === 100
-      ? "bg-destructive/5"
-      : score >= 80
-        ? "bg-amber-500/5"
-        : "";
+  // Row background tint is derived ONLY from priority — never from
+  // status or follow_up_bucket. Same tone token as KPI card + badge.
+  const tone = priorityTone(score);
+  const highlight = PRIORITY_ROW_BG[tone];
   return (
     <div
       className={`grid items-center border-t border-border text-sm hover:bg-secondary/30 ${highlight}`}
