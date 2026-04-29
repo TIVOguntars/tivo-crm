@@ -105,7 +105,6 @@ function FunnelPage() {
   const total = stages.reduce((acc, s) => acc + s.count, 0);
   const errorMsg = (error as Error | null)?.message || data?.error;
   const hasData = (data?.rows?.length ?? 0) > 0;
-  const max = Math.max(1, total, ...stages.map((s) => s.count));
 
   return (
     <>
