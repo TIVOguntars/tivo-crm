@@ -71,38 +71,6 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
-function formatActivityInterval(value: unknown): string {
-  if (value == null) return "—";
-  // Postgres interval may come as ISO string "P1DT02:30:00" or "1 day 02:30:00" or "02:30:00"
-  // Or as object { days, hours, minutes, seconds }
-  let days = 0;
-  let hours = 0;
-  let minutes = 0;
-
-  if (typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    days = Number(v.days ?? 0) || 0;
-    hours = Number(v.hours ?? 0) || 0;
-    minutes = Number(v.minutes ?? 0) || 0;
-  } else {
-    const s = String(value).trim();
-    if (!s) return "—";
-    // Match e.g. "1 day 02:30:00", "2 days 14:05:09", "00:42:11"
-    const dayMatch = s.match(/(\d+)\s*days?/i);
-    if (dayMatch) days = Number(dayMatch[1]);
-    const timeMatch = s.match(/(\d{1,3}):(\d{2})(?::(\d{2}))?/);
-    if (timeMatch) {
-      hours = Number(timeMatch[1]);
-      minutes = Number(timeMatch[2]);
-    }
-  }
-
-  const hh = String(hours).padStart(2, "0");
-  const mm = String(minutes).padStart(2, "0");
-  if (days > 0) return `${days} days ${hh}:${mm}`;
-  return `${hh}:${mm}`;
-}
-
 /* ----- Last activity formatting ----- */
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
