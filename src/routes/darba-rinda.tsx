@@ -772,16 +772,17 @@ function DarbaRindaPage() {
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
-                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
-                <th className="px-2 py-1.5 text-left font-medium">Vārds / Uzvārds</th>
-                <th className="px-2 py-1.5 text-left font-medium">Email</th>
-                <th className="px-2 py-1.5 text-left font-medium">Telefons</th>
-                <th className="px-2 py-1.5 text-left font-medium">Valsts</th>
-                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
-                <th className="px-2 py-1.5 text-left font-medium">Atbildīgais</th>
-                <th className="px-2 py-1.5 text-left font-medium">Nākamā darbība</th>
-                <th className="px-2 py-1.5 text-left font-medium">Termiņš</th>
-                <th className="px-2 py-1.5 text-left font-medium">Pēdējā saziņa</th>
+                <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Nākamā darbība" k="next_action" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Termiņš" k="next_action_due_date" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Pēdējā saziņa" k="last_contact_date" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
             </thead>
