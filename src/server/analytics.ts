@@ -31,6 +31,7 @@ const RPC_FUNCTIONS = [
   "get_funnel",
   "get_acquisition_funnel",
   "get_channel_summary",
+  "get_channel_summary_v2",
   "get_communication_funnel",
   "get_status_changes_daily",
   "get_funnel_conversion_daily",
