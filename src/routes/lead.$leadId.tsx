@@ -853,7 +853,7 @@ function CommunicationsTimeline({
                     {(() => {
                       const ch = String(c.channel ?? "").toLowerCase();
                       const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
-                      const badge = <ChannelBadge value={tx(CHANNEL_LV, c.channel)} />;
+                      const badge = <ChannelBadge value={tx(CHANNEL_LV, c.channel)} direction={String(c.direction ?? "")} />;
                       if (isEmail && onOpenEmail) {
                         return (
                           <button
@@ -911,11 +911,16 @@ function CommunicationsTimeline({
   );
 }
 
-function ChannelBadge({ value }: { value: string }) {
+function ChannelBadge({ value, direction = "" }: { value: string; direction?: string }) {
   const v = value.toLowerCase();
+  const dir = direction.toLowerCase();
   let cls = "bg-muted text-muted-foreground";
-  if (v.includes("e-past") || v.includes("email") || v.includes("pasts"))
-    cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  if (v.includes("e-past") || v.includes("email") || v.includes("pasts")) {
+    if (dir === "inbound" || dir === "ienākošs")
+      cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    else
+      cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  }
   else if (v.includes("sms"))
     cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   else if (v.includes("zvan") || v.includes("call"))
