@@ -720,8 +720,23 @@ function DarbaRindaPage() {
       {!friendlyError && loading && <LoadingState />}
 
       {!friendlyError && !loading && (
-        <div className="overflow-x-auto rounded-md border border-border bg-card">
-          <table className="w-full min-w-[1200px] text-xs">
+        <div className="rounded-md border border-border bg-card">
+          <table className="w-full table-fixed text-[11px]">
+            <colgroup>
+              <col style={{ width: "24px" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "70px" }} />
+            </colgroup>
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
@@ -770,12 +785,12 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
+                        <td className="truncate px-1.5 py-1.5 font-medium text-foreground">
                           {lead.full_name || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[200px] truncate px-2 py-1.5">
+                        <td className="truncate px-1.5 py-1.5">
                           {lead.email ? (
                             <a
                               href={`mailto:${lead.email}`}
@@ -788,11 +803,11 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[160px] px-2 py-1.5">
+                        <td className="truncate px-1.5 py-1.5">
                           {lead.tags.length === 0 ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-nowrap gap-1 overflow-hidden">
                               {lead.tags.map((t) => (
                                 <span
                                   key={t}
@@ -845,7 +860,7 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[220px] px-2 py-1.5">
+                        <td className="px-1.5 py-1.5">
                           <div className="truncate text-foreground">
                             {lead.next_action || (
                               <span className="text-muted-foreground">—</span>
