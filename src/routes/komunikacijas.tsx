@@ -6,6 +6,7 @@ import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters } from "@/lib/filters";
+import { ConversionsCards } from "@/components/ConversionsCards";
 
 export const Route = createFileRoute("/komunikacijas")({
   component: KomunikācijasPage,
@@ -129,6 +130,8 @@ function KomunikācijasPage() {
             Verificēti = Resend dati vai Resend reconciliation. Nav verificēti =
             vēsturiskie Smartsheet-only emaili.
           </p>
+
+          <ConversionsCards search={search} />
 
           <div className="mt-6 rounded-lg border border-border bg-card shadow-sm">
             <div className="border-b border-border px-4 py-3">
