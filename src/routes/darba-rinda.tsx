@@ -572,6 +572,27 @@ function DarbaRindaPage() {
   const setSegment = (next: Segment) =>
     updateSearch({ seg: next === "all" ? undefined : next });
 
+  const handleSort = (k: SortKey) => {
+    if (k === "default") {
+      updateSearch({ sort: undefined, dir: undefined });
+      return;
+    }
+    if (sortKey === k) {
+      // toggle direction
+      const nextDir = sortDir === "asc" ? "desc" : "asc";
+      updateSearch({ sort: k, dir: nextDir });
+    } else {
+      // sensible default per type
+      const dirDefault: "asc" | "desc" =
+        k === "rating" ||
+        k === "next_action_due_date" ||
+        k === "last_contact_date"
+          ? "desc"
+          : "asc";
+      updateSearch({ sort: k, dir: dirDefault });
+    }
+  };
+
   const clearFilters = () =>
     updateSearch({
       status: undefined,
