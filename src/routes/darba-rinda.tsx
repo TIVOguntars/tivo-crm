@@ -296,6 +296,8 @@ function DarbaRindaPage() {
     ppv?: string;
     qq?: string;
     seg: Segment;
+    sort?: SortKey;
+    dir?: "asc" | "desc";
   };
   const navigate = useNavigate();
 
@@ -307,6 +309,8 @@ function DarbaRindaPage() {
   const selectedSource = (search.sources ?? [])[0];
   const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
+  const sortKey: SortKey = (search.sort as SortKey) ?? "default";
+  const sortDir: "asc" | "desc" = (search.dir as "asc" | "desc") ?? "desc";
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
