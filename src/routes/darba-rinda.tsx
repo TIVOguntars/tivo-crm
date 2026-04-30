@@ -789,7 +789,7 @@ function DarbaRindaPage() {
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8">
+                  <td colSpan={13} className="p-8">
                     <EmptyState />
                   </td>
                 </tr>
@@ -906,7 +906,7 @@ function DarbaRindaPage() {
                       {isOpen && (
                         <tr className="border-b border-border bg-muted/20">
                           <td />
-                          <td colSpan={11} className="px-3 py-3">
+                          <td colSpan={12} className="p-3">
                             <ExpandedDetails lead={lead} />
                           </td>
                         </tr>
