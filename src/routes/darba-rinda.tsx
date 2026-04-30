@@ -951,6 +951,7 @@ function DarbaRindaPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>
