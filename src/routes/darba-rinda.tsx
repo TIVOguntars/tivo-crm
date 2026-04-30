@@ -621,22 +621,64 @@ function DarbaRindaPage() {
       />
 
       {/* Quick segments */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {SEGMENTS.map((sg) => (
-          <button
-            key={sg}
-            type="button"
-            onClick={() => setSegment(sg)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              seg === sg
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
-            )}
-          >
-            {SEGMENT_LABELS[sg]}
-          </button>
-        ))}
+      {/* Rating banners */}
+      <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {RATING_BANNERS.map((b) => {
+          const count = leads.filter((l) => passesRatingBucket(l, b.key)).length;
+          const active = rb === b.key;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setRatingBucket(active ? "all" : b.key)}
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all",
+                b.cls,
+                active
+                  ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 shadow-sm"
+                  : "hover:brightness-105",
+              )}
+            >
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wide opacity-80">
+                  Reitings
+                </div>
+                <div className="text-sm font-semibold">{b.label}</div>
+              </div>
+              <div className="text-lg font-bold tabular-nums">{count}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Status banners */}
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {STATUS_BANNERS.map((b) => {
+          const count = leads.filter((l) => passesSegment(l, b.key)).length;
+          const active = seg === b.key;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setSegment(active ? "all" : b.key)}
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all",
+                b.cls,
+                active
+                  ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 shadow-sm"
+                  : "hover:brightness-105",
+              )}
+            >
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wide opacity-80">
+                  Statuss
+                </div>
+                <div className="text-sm font-semibold">{b.label}</div>
+              </div>
+              <div className="text-lg font-bold tabular-nums">{count}</div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter bar: PPV, Valsts, Statuss, Avots, Atbildīgais, Datums */}
