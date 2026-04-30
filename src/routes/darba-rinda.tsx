@@ -239,6 +239,30 @@ function passesRatingBucket(lead: Lead, rb: RatingBucket): boolean {
   }
 }
 
+const RATING_BANNERS: ReadonlyArray<{
+  key: Exclude<RatingBucket, "all">;
+  label: string;
+  cls: string;
+}> = [
+  { key: "90_100", label: "90–100", cls: "border-emerald-500/30 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100" },
+  { key: "75_90",  label: "75–90",  cls: "border-lime-500/30 bg-lime-500/15 text-lime-900 dark:text-lime-100" },
+  { key: "50_75",  label: "50–75",  cls: "border-amber-500/30 bg-amber-500/15 text-amber-900 dark:text-amber-100" },
+  { key: "20_50",  label: "20–50",  cls: "border-orange-500/30 bg-orange-500/15 text-orange-900 dark:text-orange-100" },
+  { key: "0_20",   label: "0–20",   cls: "border-red-500/30 bg-red-500/15 text-red-900 dark:text-red-100" },
+];
+
+const STATUS_BANNERS: ReadonlyArray<{
+  key: Exclude<Segment, "all">;
+  label: string;
+  cls: string;
+}> = [
+  { key: "jauni",          label: "Jauni",          cls: "border-blue-500/30 bg-blue-500/15 text-blue-900 dark:text-blue-100" },
+  { key: "nesasniedzami",  label: "Nesasniedzami",  cls: "border-zinc-500/30 bg-zinc-500/15 text-zinc-900 dark:text-zinc-100" },
+  { key: "piesaistisana",  label: "Piesaistīšana",  cls: "border-cyan-500/30 bg-cyan-500/15 text-cyan-900 dark:text-cyan-100" },
+  { key: "piedavajums",    label: "Piedāvājums",    cls: "border-purple-500/30 bg-purple-500/15 text-purple-900 dark:text-purple-100" },
+  { key: "ligumi",         label: "Līgums",         cls: "border-emerald-500/30 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100" },
+];
+
 /* ----------------------- Expanded details ----------------------- */
 
 function ExpandedDetails({ lead }: { lead: Lead }) {
