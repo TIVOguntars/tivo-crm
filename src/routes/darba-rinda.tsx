@@ -1,15 +1,33 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { Eye } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Flame,
+  Mail,
+  MapPin,
+  Phone,
+  Tag as TagIcon,
+  X,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
-import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
+import { LoadingState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
+import { cn } from "@/lib/utils";
 
 /* ----------------------- Route + search params ----------------------- */
 
@@ -25,13 +43,13 @@ const SEGMENTS = [
 ] as const;
 type Segment = (typeof SEGMENTS)[number];
 
-const leadiSearchSchema = z.object({
+const searchSchema = z.object({
   status: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
 });
 
 export const Route = createFileRoute("/darba-rinda")({
-  validateSearch: zodValidator(leadiSearchSchema),
+  validateSearch: zodValidator(searchSchema),
   component: DarbaRindaPage,
 });
 
@@ -56,6 +74,8 @@ interface Lead {
   automation_date: string | null;
   tags: string[];
   lead_created_at: string | null;
+  cancel_reason: string;
+  rating: string;
 }
 
 const PAGE_SIZE = 200;
@@ -103,13 +123,51 @@ function fmtDateTime(v: string | null): string {
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
-function dueClass(due: string | null): string {
+/* ----------------------- Status colors ----------------------- */
+
+type StatusTone = {
+  cls: string;
+};
+
+function statusTone(status: string): StatusTone {
+  const k = status.toLowerCase().trim();
+  if (!k) return { cls: "bg-muted text-muted-foreground" };
+  if (k.startsWith("jauns"))
+    return { cls: "bg-blue-500/15 text-blue-700 dark:text-blue-300" };
+  if (
+    k.startsWith("nesasniedz") ||
+    k.startsWith("nesasniegts") ||
+    k.includes("bounce") ||
+    k.includes("nederīg")
+  )
+    return { cls: "bg-muted text-muted-foreground" };
+  if (k.startsWith("piesaist"))
+    return {
+      cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    };
+  if (k.startsWith("nekvalific"))
+    return { cls: "bg-destructive/15 text-destructive" };
+  if (k.startsWith("piedāv") || k.startsWith("piedav"))
+    return {
+      cls: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+    };
+  if (k.startsWith("līgum") || k.startsWith("ligum") || k.includes("contract"))
+    return {
+      cls: "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200",
+    };
+  return { cls: "bg-secondary text-secondary-foreground" };
+}
+
+function isOverdue(due: string | null): boolean {
   const t = parseDate(due);
-  if (t == null) return "text-muted-foreground";
+  return t != null && t < Date.now();
+}
+
+function isSoon(due: string | null): boolean {
+  const t = parseDate(due);
+  if (t == null) return false;
   const diff = t - Date.now();
-  if (diff < 0) return "text-destructive font-medium";
-  if (diff < MS_DAY * 2) return "text-amber-600 dark:text-amber-400 font-medium";
-  return "text-foreground";
+  return diff >= 0 && diff < MS_DAY * 2;
 }
 
 /* ----------------------- Segments ----------------------- */
@@ -121,10 +179,7 @@ const UNREACHABLE_STATUSES = new Set([
   "Bounced",
   "Nederīgs e-pasts",
 ]);
-const OFFER_STATUSES = new Set([
-  "Piedāvājums",
-  "Piedavajums",
-]);
+const OFFER_STATUSES = new Set(["Piedāvājums", "Piedavajums"]);
 const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
 
 function passesSegment(lead: Lead, seg: Segment): boolean {
@@ -139,10 +194,8 @@ function passesSegment(lead: Lead, seg: Segment): boolean {
       return Boolean(parseDate(lead.last_contact_date));
     case "hot":
       return lead.tags.some((t) => t.toLowerCase() === "hot");
-    case "nokaveti": {
-      const t = parseDate(lead.next_action_due_date);
-      return t != null && t < Date.now();
-    }
+    case "nokaveti":
+      return isOverdue(lead.next_action_due_date);
     case "piedavajums":
       return OFFER_STATUSES.has(lead.status);
     case "ligumi":
@@ -156,14 +209,14 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   nesasniedzami: "Nesasniedzami",
   ar_reakciju: "Ar reakciju",
   hot: "Hot",
-  nokaveti: "Nokavēti termiņi",
-  piedavajums: "Piedāvājums",
+  nokaveti: "Nokavēti",
+  piedavajums: "Piedāvājumi",
   ligumi: "Līgumi",
 };
 
-/* ----------------------- Filter dropdown ----------------------- */
+/* ----------------------- Multi-select popover ----------------------- */
 
-function MultiSelect({
+function MultiPopover({
   label,
   options,
   value,
@@ -174,34 +227,365 @@ function MultiSelect({
   value: string[];
   onChange: (next: string[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const selected = new Set(value);
+  const summary =
+    value.length === 0
+      ? label
+      : value.length === 1
+        ? `${label}: ${value[0]}`
+        : `${label} (${value.length})`;
+
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <select
-        multiple
-        value={value}
-        onChange={(e) => {
-          const next = Array.from(e.target.selectedOptions).map((o) => o.value);
-          onChange(next);
-        }}
-        className="h-20 min-w-[140px] rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-8 gap-1.5 text-xs font-normal",
+            value.length > 0 && "border-primary text-foreground",
+          )}
+        >
+          <span className="max-w-[160px] truncate">{summary}</span>
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-0">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <span className="text-xs font-medium">{label}</span>
+          {value.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Notīrīt
+            </button>
+          )}
+        </div>
+        <div className="max-h-64 overflow-y-auto p-1">
+          {options.length === 0 ? (
+            <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+              Nav opciju
+            </div>
+          ) : (
+            options.map((opt) => {
+              const checked = selected.has(opt);
+              return (
+                <label
+                  key={opt}
+                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-secondary/60"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(c) => {
+                      const next = new Set(selected);
+                      if (c) next.add(opt);
+                      else next.delete(opt);
+                      onChange(Array.from(next));
+                    }}
+                  />
+                  <span className="truncate">{opt}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ----------------------- Single status select popover ----------------------- */
+
+function StatusPopover({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-8 gap-1.5 text-xs font-normal",
+            value && "border-primary text-foreground",
+          )}
+        >
+          <span className="max-w-[160px] truncate">
+            {value ? `Statuss: ${value}` : "Statuss"}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-0">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <span className="text-xs font-medium">Statuss</span>
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(undefined);
+                setOpen(false);
+              }}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Notīrīt
+            </button>
+          )}
+        </div>
+        <div className="max-h-64 overflow-y-auto p-1">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                onChange(opt === value ? undefined : opt);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-xs hover:bg-secondary/60",
+                opt === value && "bg-secondary/60 font-medium",
+              )}
+            >
+              <span className="truncate">{opt}</span>
+              {opt === value && <span className="text-primary">✓</span>}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ----------------------- Lead row ----------------------- */
+
+function LeadRow({ lead }: { lead: Lead }) {
+  const [open, setOpen] = useState(false);
+  const tone = statusTone(lead.status);
+  const overdue = isOverdue(lead.next_action_due_date);
+  const soon = isSoon(lead.next_action_due_date);
+  const hot = lead.tags.some((t) => t.toLowerCase() === "hot");
+
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <div className="group flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-secondary/30 sm:flex-row sm:items-start sm:gap-4">
+        {/* Left: expand toggle + identity */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 min-w-0 items-start gap-3 text-left"
+          aria-expanded={open}
+        >
+          <span className="mt-1 inline-flex h-5 w-5 flex-none items-center justify-center rounded text-muted-foreground group-hover:text-foreground">
+            {open ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            {/* Main line */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate text-sm font-semibold text-foreground">
+                {lead.full_name || "—"}
+              </span>
+              {lead.status && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    tone.cls,
+                  )}
+                >
+                  {lead.status}
+                </span>
+              )}
+              {hot && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                  <Flame className="h-3 w-3" />
+                  Hot
+                </span>
+              )}
+              {overdue && (
+                <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                  Nokavēts
+                </span>
+              )}
+            </div>
+
+            {/* Second line */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {lead.email && (
+                <span className="inline-flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  <a
+                    href={`mailto:${lead.email}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate hover:text-foreground hover:underline"
+                  >
+                    {lead.email}
+                  </a>
+                </span>
+              )}
+              {lead.phone && (
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <Phone className="h-3 w-3" />
+                  {lead.phone}
+                </span>
+              )}
+              {lead.country && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {lead.country}
+                </span>
+              )}
+              {lead.source && (
+                <span className="inline-flex items-center gap-1">
+                  <TagIcon className="h-3 w-3" />
+                  {lead.source}
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+
+        {/* Right side: meta */}
+        <div className="flex flex-none flex-col items-start gap-1 text-xs sm:items-end">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground">
+            {lead.owner && (
+              <span>
+                <span className="text-muted-foreground/70">Atb.:</span>{" "}
+                <span className="text-foreground">{lead.owner}</span>
+              </span>
+            )}
+            {lead.ppv && (
+              <span>
+                <span className="text-muted-foreground/70">PPV:</span>{" "}
+                <span className="text-foreground">{lead.ppv}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {lead.next_action && (
+              <span className="text-foreground">{lead.next_action}</span>
+            )}
+            <span
+              className={cn(
+                "tabular-nums",
+                overdue
+                  ? "font-medium text-destructive"
+                  : soon
+                    ? "font-medium text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground",
+              )}
+            >
+              {fmtDate(lead.next_action_due_date)}
+            </span>
+          </div>
+          <Link
+            to="/lead/$leadId"
+            params={{ leadId: lead.lead_id }}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium hover:bg-secondary/50"
+            title="Atvērt Lead 360"
+          >
+            <Eye className="h-3 w-3" />
+            Atvērt Lead 360
+          </Link>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {open && (
+        <div className="border-t border-border bg-muted/20 px-4 py-3">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+            <Detail label="Automatizācija" value={lead.automation_step} />
+            <Detail
+              label="Automatizācijas datums"
+              value={fmtDate(lead.automation_date)}
+              raw={lead.automation_date}
+            />
+            <Detail
+              label="Pēdējā saziņa"
+              value={fmtDateTime(lead.last_contact_date)}
+              raw={lead.last_contact_date}
+            />
+            <Detail label="Atcelšanas iemesls" value={lead.cancel_reason} />
+            <Detail label="Reitings" value={lead.rating} />
+            <div>
+              <dt className="text-muted-foreground">Tags</dt>
+              <dd className="mt-0.5">
+                {lead.tags.length === 0 ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {lead.tags.map((t) => (
+                      <span
+                        key={t}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[11px]",
+                          t.toLowerCase() === "hot"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-secondary text-secondary-foreground",
+                        )}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  raw,
+}: {
+  label: string;
+  value: string;
+  raw?: string | null;
+}) {
+  const empty = !value || value === "—" || (raw !== undefined && !raw);
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "mt-0.5",
+          empty ? "text-muted-foreground" : "text-foreground",
+        )}
       >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-            {selected.has(opt) ? " ✓" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
+        {empty ? "—" : value}
+      </dd>
+    </div>
   );
 }
 
 /* ----------------------- Page ----------------------- */
 
 function DarbaRindaPage() {
-  const search = Route.useSearch() as FiltersSearch & { status?: string; seg: Segment };
+  const search = Route.useSearch() as FiltersSearch & {
+    status?: string;
+    seg: Segment;
+  };
   const navigate = useNavigate();
 
   const q = (search.q ?? "").trim().toLowerCase();
@@ -216,7 +600,7 @@ function DarbaRindaPage() {
   /* Pull a wide page of overview rows; client-side filters/sort. */
   const overviewQuery = useMemo(() => {
     return [
-      "select=lead_id,full_name,email,phone_raw,phone_e164,country,source,status,owner,ppv_vards,next_action,next_action_due_date,last_contact_date,automation_step,automation_date,tags,lead_created_at",
+      "select=*",
       "order=lead_created_at.desc.nullslast",
       `limit=${PAGE_SIZE}`,
     ].join("&");
@@ -225,8 +609,13 @@ function DarbaRindaPage() {
   const overview = useAnalyticsView("leads_overview", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
-  const errorMsg =
+  const rawError =
     (overview.error as Error | null)?.message || overview.data?.error;
+  const friendlyError = rawError
+    ? isEndpointMissing(rawError)
+      ? "Datu skats vēl tiek sagatavots."
+      : "Datus pašlaik nevar ielādēt. Mēģiniet vēlāk."
+    : null;
   const loading = overview.isLoading;
 
   /* Map rows to typed leads */
@@ -253,6 +642,10 @@ function DarbaRindaPage() {
           automation_date: s(r.automation_date) || null,
           tags: asTags(r.tags),
           lead_created_at: s(r.lead_created_at) || null,
+          cancel_reason: s(
+            r.cancel_reason ?? r.cancellation_reason ?? r.atcelšanas_iemesls,
+          ),
+          rating: s(r.rating ?? r.lead_rating ?? r.reitings),
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
@@ -339,12 +732,17 @@ function DarbaRindaPage() {
     q,
   ]);
 
-  /* Sort: due asc nullslast → last_contact_date asc → lead_created_at desc */
+  /* Sort: overdue first → due asc nullslast → last_contact_date asc → lead_created_at desc */
   const sorted = useMemo(() => {
     const copy = [...filtered];
+    const now = Date.now();
     copy.sort((a, b) => {
       const aDue = parseDate(a.next_action_due_date);
       const bDue = parseDate(b.next_action_due_date);
+      const aOver = aDue != null && aDue < now ? 1 : 0;
+      const bOver = bDue != null && bDue < now ? 1 : 0;
+      if (aOver !== bOver) return bOver - aOver;
+
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
@@ -444,84 +842,76 @@ function DarbaRindaPage() {
             key={sg}
             type="button"
             onClick={() => setSegment(sg)}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               seg === sg
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-foreground hover:bg-secondary/40"
-            }`}
+                : "border-border bg-card text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
+            )}
           >
             {SEGMENT_LABELS[sg]}
           </button>
         ))}
       </div>
 
-      {/* Filter bar */}
-      <div className="mb-4 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Statuss</span>
-            <select
-              value={selectedStatus ?? ""}
-              onChange={(e) => setStatus(e.target.value || undefined)}
-              className="h-8 min-w-[160px] rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Visi</option>
-              {options.statuses.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <MultiSelect
-            label="Atbildīgais"
-            options={options.owners}
-            value={selectedOwners}
-            onChange={(v) => setMulti("owners", v)}
-          />
-          <MultiSelect
-            label="PPV"
-            options={options.ppvs}
-            value={selectedPpvs}
-            onChange={(v) => setMulti("ppvs", v)}
-          />
-          <MultiSelect
-            label="Valsts"
-            options={options.countries}
-            value={selectedCountries}
-            onChange={(v) => setMulti("countries", v)}
-          />
-          <MultiSelect
-            label="Avots"
-            options={options.sources}
-            value={selectedSources}
-            onChange={(v) => setMulti("sources", v)}
-          />
-          <MultiSelect
-            label="Tags"
-            options={options.tags}
-            value={selectedTags}
-            onChange={(v) => setMulti("tags", v)}
-          />
-
-          {hasAnyFilter && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8"
-              onClick={clearFilters}
-            >
-              Notīrīt filtrus
-            </Button>
-          )}
-        </div>
+      {/* Compact filter toolbar */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <StatusPopover
+          options={options.statuses}
+          value={selectedStatus}
+          onChange={setStatus}
+        />
+        <MultiPopover
+          label="Atbildīgais"
+          options={options.owners}
+          value={selectedOwners}
+          onChange={(v) => setMulti("owners", v)}
+        />
+        <MultiPopover
+          label="PPV"
+          options={options.ppvs}
+          value={selectedPpvs}
+          onChange={(v) => setMulti("ppvs", v)}
+        />
+        <MultiPopover
+          label="Valsts"
+          options={options.countries}
+          value={selectedCountries}
+          onChange={(v) => setMulti("countries", v)}
+        />
+        <MultiPopover
+          label="Avots"
+          options={options.sources}
+          value={selectedSources}
+          onChange={(v) => setMulti("sources", v)}
+        />
+        <MultiPopover
+          label="Tags"
+          options={options.tags}
+          value={selectedTags}
+          onChange={(v) => setMulti("tags", v)}
+        />
+        {hasAnyFilter && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1 text-xs"
+            onClick={clearFilters}
+          >
+            <X className="h-3.5 w-3.5" />
+            Notīrīt filtrus
+          </Button>
+        )}
       </div>
 
-      {errorMsg && <ErrorState message={errorMsg} />}
-      {!errorMsg && loading && <LoadingState />}
+      {friendlyError && (
+        <div className="mb-3 rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          {friendlyError}
+        </div>
+      )}
+      {!friendlyError && loading && <LoadingState />}
 
-      {!errorMsg && !loading && (
+      {!friendlyError && !loading && (
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
@@ -532,7 +922,7 @@ function DarbaRindaPage() {
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground">
-                Kārtots pēc termiņa, tad pēdējās saziņas, tad izveides datuma.
+                Vispirms nokavētie, tad pēc termiņa, pēdējās saziņas un izveides.
               </p>
             </div>
             <span className="text-xs text-muted-foreground">
@@ -545,135 +935,10 @@ function DarbaRindaPage() {
               <EmptyState />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1400px] text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">Vārds / Uzvārds</th>
-                    <th className="px-3 py-2 text-left font-medium">Email</th>
-                    <th className="px-3 py-2 text-left font-medium">Telefons</th>
-                    <th className="px-3 py-2 text-left font-medium">Valsts</th>
-                    <th className="px-3 py-2 text-left font-medium">Avots</th>
-                    <th className="px-3 py-2 text-left font-medium">Statuss</th>
-                    <th className="px-3 py-2 text-left font-medium">Atbildīgais</th>
-                    <th className="px-3 py-2 text-left font-medium">PPV</th>
-                    <th className="px-3 py-2 text-left font-medium">Nākamā darbība</th>
-                    <th className="px-3 py-2 text-left font-medium">Termiņš</th>
-                    <th className="px-3 py-2 text-left font-medium">Pēdējā saziņa</th>
-                    <th className="px-3 py-2 text-left font-medium">Automatizācija</th>
-                    <th className="px-3 py-2 text-left font-medium">Aut. datums</th>
-                    <th className="px-3 py-2 text-left font-medium">Tags</th>
-                    <th className="px-3 py-2 text-right font-medium" aria-label="Darbības" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((lead) => (
-                    <tr
-                      key={lead.lead_id}
-                      className="border-t border-border hover:bg-secondary/30"
-                    >
-                      <td className="px-3 py-2 font-medium text-foreground">
-                        {lead.full_name || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.email ? (
-                          <a
-                            href={`mailto:${lead.email}`}
-                            className="text-primary hover:underline"
-                          >
-                            {lead.email}
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {lead.phone || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.country || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.source || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.status || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.owner || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.ppv || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.next_action || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td
-                        className={`px-3 py-2 tabular-nums ${dueClass(lead.next_action_due_date)}`}
-                      >
-                        {fmtDate(lead.next_action_due_date)}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {fmtDateTime(lead.last_contact_date)}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.automation_step || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {fmtDate(lead.automation_date)}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.tags.length === 0 ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {lead.tags.map((t) => (
-                              <span
-                                key={t}
-                                className={`rounded-full px-2 py-0.5 text-[11px] ${
-                                  t.toLowerCase() === "hot"
-                                    ? "bg-destructive/15 text-destructive"
-                                    : "bg-secondary text-secondary-foreground"
-                                }`}
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link
-                          to="/lead/$leadId"
-                          params={{ leadId: lead.lead_id }}
-                          className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary/50"
-                          title="Atvērt leadu"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              {sorted.map((lead) => (
+                <LeadRow key={lead.lead_id} lead={lead} />
+              ))}
             </div>
           )}
         </div>
