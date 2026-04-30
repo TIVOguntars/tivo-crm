@@ -425,17 +425,33 @@ function DarbaRindaPage() {
     search,
   ]);
 
-  /* Sort: overdue first → due asc nullslast → last_contact asc → created desc */
+  /* Sorting: default = rating DESC → overdue → due ASC → last_contact ASC → created DESC.
+     User-selected key sorts only by that key, with the default chain as tiebreaker. */
   const sorted = useMemo(() => {
     const copy = [...filtered];
     const now = Date.now();
-    copy.sort((a, b) => {
+
+    const cmpString = (a: string, b: string) => a.localeCompare(b, "lv");
+    const cmpNumNullable = (a: number | null, b: number | null) => {
+      if (a === b) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return a - b;
+    };
+
+    const defaultChain = (a: Lead, b: Lead): number => {
+      const aR = a.rating;
+      const bR = b.rating;
+      if (aR !== bR) {
+        if (aR == null) return 1;
+        if (bR == null) return -1;
+        return bR - aR; // DESC
+      }
       const aDue = parseDate(a.next_action_due_date);
       const bDue = parseDate(b.next_action_due_date);
       const aOver = aDue != null && aDue < now ? 1 : 0;
       const bOver = bDue != null && bDue < now ? 1 : 0;
       if (aOver !== bOver) return bOver - aOver;
-
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
@@ -451,9 +467,57 @@ function DarbaRindaPage() {
       const aCreated = parseDate(a.lead_created_at) ?? 0;
       const bCreated = parseDate(b.lead_created_at) ?? 0;
       return bCreated - aCreated;
+    };
+
+    const dirMul = sortDir === "asc" ? 1 : -1;
+
+    const keyCmp = (a: Lead, b: Lead): number => {
+      switch (sortKey) {
+        case "default":
+          return defaultChain(a, b);
+        case "rating":
+          return cmpNumNullable(a.rating, b.rating) * dirMul;
+        case "next_action_due_date":
+          return (
+            cmpNumNullable(
+              parseDate(a.next_action_due_date),
+              parseDate(b.next_action_due_date),
+            ) * dirMul
+          );
+        case "last_contact_date":
+          return (
+            cmpNumNullable(
+              parseDate(a.last_contact_date),
+              parseDate(b.last_contact_date),
+            ) * dirMul
+          );
+        case "ppv":
+          return cmpString(a.ppv, b.ppv) * dirMul;
+        case "full_name":
+          return cmpString(a.full_name, b.full_name) * dirMul;
+        case "status":
+          return cmpString(a.status, b.status) * dirMul;
+        case "email":
+          return cmpString(a.email, b.email) * dirMul;
+        case "phone":
+          return cmpString(a.phone, b.phone) * dirMul;
+        case "country":
+          return cmpString(a.country, b.country) * dirMul;
+        case "owner":
+          return cmpString(a.owner, b.owner) * dirMul;
+        case "next_action":
+          return cmpString(a.next_action, b.next_action) * dirMul;
+      }
+    };
+
+    copy.sort((a, b) => {
+      const primary = keyCmp(a, b);
+      if (primary !== 0) return primary;
+      // Stable tiebreaker: default chain.
+      return sortKey === "default" ? 0 : defaultChain(a, b);
     });
     return copy;
-  }, [filtered]);
+  }, [filtered, sortKey, sortDir]);
 
   const updateSearch = (patch: Record<string, unknown>) => {
     navigate({
