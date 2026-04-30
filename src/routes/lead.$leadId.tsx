@@ -1044,9 +1044,16 @@ function EmailPreviewDialog({
               className="h-[60vh] w-full"
             />
           ) : text ? (
-            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
-              {text}
-            </pre>
+             <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
+               {text.split(/(_{10,})/).map((part, i) => {
+                 if (/^_{10,}$/.test(part)) {
+                   return (
+                     <div key={i} className="my-6 border-t border-border" />
+                   );
+                 }
+                 return <span key={i}>{part}</span>;
+               })}
+             </div>
           ) : (
             <div className="p-6 text-sm text-muted-foreground">
               E-pasta saturs nav saglabāts.
