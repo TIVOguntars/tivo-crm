@@ -650,22 +650,13 @@ function DarbaRindaPage() {
                             <ChevronRight className="h-3.5 w-3.5" />
                           )}
                         </td>
-                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
-                          {lead.full_name || (
+                        <td className="px-2 py-1.5 text-foreground">
+                          {lead.ppv || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5">
-                          {lead.status ? (
-                            <span
-                              className={cn(
-                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                statusBadgeClass(lead.status),
-                              )}
-                            >
-                              {lead.status}
-                            </span>
-                          ) : (
+                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
+                          {lead.full_name || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -692,13 +683,22 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
-                          {lead.owner || (
+                        <td className="px-2 py-1.5">
+                          {lead.status ? (
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                statusBadgeClass(lead.status),
+                              )}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5 text-foreground">
-                          {lead.ppv || (
+                          {lead.owner || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
