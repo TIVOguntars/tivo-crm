@@ -87,7 +87,7 @@ interface Lead {
   tags: string[];
   lead_created_at: string | null;
   cancel_reason: string;
-  rating: string;
+  rating: number | null;
 }
 
 const PAGE_SIZE = 200;
