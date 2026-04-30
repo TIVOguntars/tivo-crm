@@ -68,6 +68,8 @@ export function FilterBar() {
     "select=tags&limit=2000",
   );
   const tagsList = useMemo(() => {
+    // Suppress raw errors — if priority queue endpoint is missing we
+    // simply offer no tag suggestions instead of breaking the filter UI.
     const rows = (tagsView.data?.rows ?? []) as Array<{ tags?: unknown }>;
     const set = new Set<string>();
     for (const r of rows) {

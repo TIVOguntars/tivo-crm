@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 
-import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
+import { LoadingState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters, type FiltersSearch } from "@/lib/filters";
+import { isEndpointMissing } from "@/lib/endpointStatus";
 
 function num(v: unknown): number {
   const n = typeof v === "string" ? parseFloat(v) : Number(v);
@@ -63,6 +64,17 @@ export function CommunicationFunnel({ search }: { search: FiltersSearch }) {
   }, [query.data]);
 
   const error = (query.error as Error | null)?.message || query.data?.error;
+  const missing = isEndpointMissing(error);
+
+  // Hide the section entirely when the RPC is unavailable; show a quiet
+  // placeholder instead of a raw database error.
+  if (missing) {
+    return (
+      <section className="rounded-lg border border-dashed border-border bg-card p-4 text-center text-sm text-muted-foreground sm:p-6">
+        Funnel dati vēl tiek sagatavoti
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
@@ -76,7 +88,11 @@ export function CommunicationFunnel({ search }: { search: FiltersSearch }) {
         </p>
       </div>
 
-      {error && <ErrorState message={error} />}
+      {error && (
+        <p className="text-sm text-muted-foreground">
+          Funnel dati vēl tiek sagatavoti
+        </p>
+      )}
       {!error && query.isLoading && <LoadingState />}
       {!error && !query.isLoading && channels.length === 0 && <EmptyState />}
       {!error && !query.isLoading && channels.length > 0 && (

@@ -28,6 +28,7 @@ import {
 import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
+import { isEndpointMissing } from "@/lib/endpointStatus";
 import {
   priorityTone,
   PRIORITY_ROW_BG,
@@ -543,6 +544,7 @@ function DarbaRindaPage() {
 
   const errorMsg =
     (error as Error | null)?.message || data?.pages?.[0]?.error || null;
+  const priorityMissing = isEndpointMissing(errorMsg);
 
   return (
     <>
@@ -553,6 +555,11 @@ function DarbaRindaPage() {
         <SearchInput />
       </PageHeader>
 
+      {priorityMissing ? (
+        <div className="mb-6 rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          Prioritāšu modelis tiek konfigurēts
+        </div>
+      ) : (
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {KPI_CARDS.map((c) => {
           // KPI counts are NEVER derived from the (paginated) table — they come
@@ -577,7 +584,9 @@ function DarbaRindaPage() {
           );
         })}
       </div>
+      )}
 
+      {!priorityMissing && (
       <div className="mb-3 flex items-center gap-2">
         <Switch
           id="active-only"
@@ -632,8 +641,9 @@ function DarbaRindaPage() {
           )}
         </div>
       </div>
+      )}
 
-      {errorMsg && <ErrorState message={errorMsg} />}
+      {errorMsg && !priorityMissing && <ErrorState message={errorMsg} />}
       {!errorMsg && isLoading && <LoadingState />}
 
       {!errorMsg && !isLoading && (
