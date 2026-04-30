@@ -1095,6 +1095,18 @@ function formatAttachments(value: unknown): string {
 
 /* -------------------------- email modal -------------------------- */
 
+function extractAttachmentNames(metadata: unknown): string[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  const meta = metadata as Record<string, unknown>;
+  let raw = meta.attachment_names;
+  if (raw == null) return [];
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { return []; }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map((v: unknown) => String(v)).filter((s: string) => s.trim() !== "");
+}
+
 function EmailPreviewDialog({
   comm,
   eventsByComm,
@@ -1152,7 +1164,7 @@ function EmailPreviewDialog({
               Pievienotie faili
             </div>
             <ul className="list-disc space-y-0.5 pl-5 text-sm text-foreground">
-              {attachmentNames.map((name, idx) => (
+              {attachmentNames.map((name: string, idx: number) => (
                 <li key={idx}>{name}</li>
               ))}
             </ul>
