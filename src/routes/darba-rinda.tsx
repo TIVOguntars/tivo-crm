@@ -610,17 +610,17 @@ function DarbaRindaPage() {
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
-                <th className="px-2 py-1.5 text-left font-medium">Vārds</th>
-                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
+                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
+                <th className="px-2 py-1.5 text-left font-medium">Vārds / Uzvārds</th>
                 <th className="px-2 py-1.5 text-left font-medium">Email</th>
                 <th className="px-2 py-1.5 text-left font-medium">Telefons</th>
                 <th className="px-2 py-1.5 text-left font-medium">Valsts</th>
+                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
                 <th className="px-2 py-1.5 text-left font-medium">Atbildīgais</th>
-                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
                 <th className="px-2 py-1.5 text-left font-medium">Nākamā darbība</th>
                 <th className="px-2 py-1.5 text-left font-medium">Termiņš</th>
                 <th className="px-2 py-1.5 text-left font-medium">Pēdējā saziņa</th>
-                <th className="px-2 py-1.5 text-right font-medium" />
+                <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
             </thead>
             <tbody>
