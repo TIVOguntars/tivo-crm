@@ -42,12 +42,14 @@ const SEGMENTS = [
   "all",
   "jauni",
   "nesasniedzami",
-  "ar_reakciju",
-  "hot",
+  "piesaistisana",
   "piedavajums",
   "ligumi",
 ] as const;
 type Segment = (typeof SEGMENTS)[number];
+
+const RATING_BUCKETS = ["all", "90_100", "75_90", "50_75", "20_50", "0_20"] as const;
+type RatingBucket = (typeof RATING_BUCKETS)[number];
 
 const searchSchema = z.object({
   status: fallback(z.string().optional(), undefined),
@@ -55,6 +57,7 @@ const searchSchema = z.object({
   ppv: fallback(z.string().optional(), undefined),
   qq: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+  rb: fallback(z.enum(RATING_BUCKETS), "all").default("all"),
   sort: fallback(z.enum(SORT_KEYS), "default").default("default"),
   dir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
 });
@@ -193,6 +196,7 @@ const UNREACHABLE_STATUSES = new Set([
   "Bounced",
   "Nederīgs e-pasts",
 ]);
+const ATTRACTION_STATUSES = new Set(["Piesaistīšana", "Piesaistisana"]);
 const OFFER_STATUSES = new Set(["Piedāvājums", "Piedavajums"]);
 const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
 
@@ -204,10 +208,8 @@ function passesSegment(lead: Lead, seg: Segment): boolean {
       return NEW_STATUSES.has(lead.status);
     case "nesasniedzami":
       return UNREACHABLE_STATUSES.has(lead.status);
-    case "ar_reakciju":
-      return Boolean(parseDate(lead.last_reply_at));
-    case "hot":
-      return lead.tags.some((t) => t.toLowerCase() === "hot");
+    case "piesaistisana":
+      return ATTRACTION_STATUSES.has(lead.status);
     case "piedavajums":
       return OFFER_STATUSES.has(lead.status);
     case "ligumi":
@@ -219,11 +221,47 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   all: "Visi",
   jauni: "Jauni",
   nesasniedzami: "Nesasniedzami",
-  ar_reakciju: "Ar reakciju",
-  hot: "Hot",
+  piesaistisana: "Piesaistīšana",
   piedavajums: "Piedāvājumi",
   ligumi: "Līgumi",
 };
+
+function passesRatingBucket(lead: Lead, rb: RatingBucket): boolean {
+  if (rb === "all") return true;
+  const r = lead.rating;
+  if (r == null) return false;
+  switch (rb) {
+    case "90_100": return r >= 90 && r <= 100;
+    case "75_90":  return r >= 75 && r < 90;
+    case "50_75":  return r >= 50 && r < 75;
+    case "20_50":  return r >= 20 && r < 50;
+    case "0_20":   return r >= 0 && r < 20;
+  }
+}
+
+const RATING_BANNERS: ReadonlyArray<{
+  key: Exclude<RatingBucket, "all">;
+  label: string;
+  cls: string;
+}> = [
+  { key: "90_100", label: "90–100", cls: "border-emerald-500/30 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100" },
+  { key: "75_90",  label: "75–90",  cls: "border-lime-500/30 bg-lime-500/15 text-lime-900 dark:text-lime-100" },
+  { key: "50_75",  label: "50–75",  cls: "border-amber-500/30 bg-amber-500/15 text-amber-900 dark:text-amber-100" },
+  { key: "20_50",  label: "20–50",  cls: "border-orange-500/30 bg-orange-500/15 text-orange-900 dark:text-orange-100" },
+  { key: "0_20",   label: "0–20",   cls: "border-red-500/30 bg-red-500/15 text-red-900 dark:text-red-100" },
+];
+
+const STATUS_BANNERS: ReadonlyArray<{
+  key: Exclude<Segment, "all">;
+  label: string;
+  cls: string;
+}> = [
+  { key: "jauni",          label: "Jauni",          cls: "border-blue-500/30 bg-blue-500/15 text-blue-900 dark:text-blue-100" },
+  { key: "nesasniedzami",  label: "Nesasniedzami",  cls: "border-zinc-500/30 bg-zinc-500/15 text-zinc-900 dark:text-zinc-100" },
+  { key: "piesaistisana",  label: "Piesaistīšana",  cls: "border-cyan-500/30 bg-cyan-500/15 text-cyan-900 dark:text-cyan-100" },
+  { key: "piedavajums",    label: "Piedāvājums",    cls: "border-purple-500/30 bg-purple-500/15 text-purple-900 dark:text-purple-100" },
+  { key: "ligumi",         label: "Līgums",         cls: "border-emerald-500/30 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100" },
+];
 
 /* ----------------------- Expanded details ----------------------- */
 
@@ -333,6 +371,7 @@ function DarbaRindaPage() {
     ppv?: string;
     qq?: string;
     seg: Segment;
+    rb?: RatingBucket;
     sort?: SortKey;
     dir?: "asc" | "desc";
   };
@@ -346,6 +385,7 @@ function DarbaRindaPage() {
   const selectedSource = (search.sources ?? [])[0];
   const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
+  const rb: RatingBucket = search.rb ?? "all";
   const sortKey: SortKey = (search.sort as SortKey) ?? "default";
   const sortDir: "asc" | "desc" = (search.dir as "asc" | "desc") ?? "desc";
 
@@ -445,6 +485,7 @@ function DarbaRindaPage() {
         if (toTs != null && t > toTs) return false;
       }
       if (!passesSegment(l, seg)) return false;
+      if (!passesRatingBucket(l, rb)) return false;
       if (q) {
         const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -459,6 +500,7 @@ function DarbaRindaPage() {
     selectedCountry,
     selectedSource,
     seg,
+    rb,
     q,
     search,
   ]);
@@ -551,6 +593,9 @@ function DarbaRindaPage() {
   const setSegment = (next: Segment) =>
     updateSearch({ seg: next === "all" ? undefined : next });
 
+  const setRatingBucket = (next: RatingBucket) =>
+    updateSearch({ rb: next === "all" ? undefined : next });
+
   const handleSort = (k: SortKey) => {
     if (k === "default") {
       updateSearch({ sort: undefined, dir: undefined });
@@ -573,6 +618,7 @@ function DarbaRindaPage() {
       ppv: undefined,
       qq: undefined,
       seg: undefined,
+      rb: undefined,
       countries: [],
       sources: [],
       range: undefined,
@@ -588,7 +634,8 @@ function DarbaRindaPage() {
     !!selectedSource ||
     range !== "all" ||
     !!q ||
-    seg !== "all";
+    seg !== "all" ||
+    rb !== "all";
 
   return (
     <>
@@ -598,22 +645,64 @@ function DarbaRindaPage() {
       />
 
       {/* Quick segments */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {SEGMENTS.map((sg) => (
-          <button
-            key={sg}
-            type="button"
-            onClick={() => setSegment(sg)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              seg === sg
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
-            )}
-          >
-            {SEGMENT_LABELS[sg]}
-          </button>
-        ))}
+      {/* Rating banners */}
+      <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {RATING_BANNERS.map((b) => {
+          const count = leads.filter((l) => passesRatingBucket(l, b.key)).length;
+          const active = rb === b.key;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setRatingBucket(active ? "all" : b.key)}
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all",
+                b.cls,
+                active
+                  ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 shadow-sm"
+                  : "hover:brightness-105",
+              )}
+            >
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wide opacity-80">
+                  Reitings
+                </div>
+                <div className="text-sm font-semibold">{b.label}</div>
+              </div>
+              <div className="text-lg font-bold tabular-nums">{count}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Status banners */}
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {STATUS_BANNERS.map((b) => {
+          const count = leads.filter((l) => passesSegment(l, b.key)).length;
+          const active = seg === b.key;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setSegment(active ? "all" : b.key)}
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all",
+                b.cls,
+                active
+                  ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 shadow-sm"
+                  : "hover:brightness-105",
+              )}
+            >
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wide opacity-80">
+                  Statuss
+                </div>
+                <div className="text-sm font-semibold">{b.label}</div>
+              </div>
+              <div className="text-lg font-bold tabular-nums">{count}</div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter bar: PPV, Valsts, Statuss, Avots, Atbildīgais, Datums */}
