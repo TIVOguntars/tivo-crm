@@ -3,6 +3,7 @@ import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { resolveDateRange, type DateRangePreset } from "@/lib/filters";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, EmptyState } from "@/components/DataState";
@@ -268,6 +269,9 @@ function DarbaRindaPage() {
   const selectedStatus = search.status;
   const selectedOwner = search.owner;
   const selectedPpv = search.ppv;
+  const selectedCountry = (search.countries ?? [])[0];
+  const selectedSource = (search.sources ?? [])[0];
+  const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
