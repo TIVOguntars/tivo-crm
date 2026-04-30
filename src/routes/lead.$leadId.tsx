@@ -963,6 +963,95 @@ function readText(c: Record<string, unknown>): string {
   return "";
 }
 
+/** Render plain-text email with visual separation for quoted replies. */
+function renderEmailText(text: string): React.ReactNode {
+  // Split on a line of 10+ underscores (common reply separator)
+  const parts = text.split(/(_{10,})/);
+  const nodes: React.ReactNode[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (/^_{10,}$/.test(part)) {
+      // separator → visual divider with spacing
+      nodes.push(<div key={`sep-${i}`} className="my-6 border-t-2 border-border" />);
+    } else if (i > 0 && part.trim()) {
+      // everything after the separator = quoted original email
+      nodes.push(
+        <div
+          key={`q-${i}`}
+          className="border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground"
+        >
+          {formatEmailBlock(part.trim())}
+        </div>,
+      );
+    } else if (part.trim()) {
+      // reply text (before separator)
+      nodes.push(<div key={`r-${i}`}>{part.trim()}</div>);
+    }
+  }
+  return <>{nodes}</>;
+}
+
+/** Format an email text block: detect header lines and bullet points. */
+function formatEmailBlock(block: string): React.ReactNode {
+  // Try to detect email header pattern (Van:, From:, Verzonden:, Sent:, Aan:, To:, Onderwerp:, Subject:)
+  const headerPattern = /^(Van|From|Verzonden|Sent|Aan|To|Onderwerp|Subject|Date|Datum|Cc|Bcc):\s*/im;
+  const lines = block.split("\n");
+  const result: React.ReactNode[] = [];
+
+  // Detect if first line has inline headers like "Van: ... Verzonden: ... Aan: ... Onderwerp: ..."
+  const firstLine = lines[0] || "";
+  const inlineHeaders = firstLine.match(/(Van|From):\s/i) && firstLine.match(/(Onderwerp|Subject):\s/i);
+
+  if (inlineHeaders) {
+    // Split inline headers into separate lines
+    const headerStr = lines.shift() || "";
+    const headerKeys = ["Van", "From", "Verzonden", "Sent", "Aan", "To", "Onderwerp", "Subject", "Date", "Datum", "Cc", "Bcc"];
+    const regex = new RegExp(`\\s*(?=(${headerKeys.join("|")}):\\s)`, "gi");
+    const headerLines = headerStr.split(regex).filter((s) => s.trim());
+
+    // Deduplicate: regex split may produce key-only fragments; rejoin them
+    const merged: string[] = [];
+    for (const h of headerLines) {
+      if (headerKeys.some((k) => h.trim().toLowerCase() === k.toLowerCase())) {
+        // This is just a key fragment, append next part
+        merged.push(h);
+      } else if (merged.length > 0 && headerKeys.some((k) => merged[merged.length - 1].trim().toLowerCase() === k.toLowerCase())) {
+        merged[merged.length - 1] = merged[merged.length - 1] + h;
+      } else {
+        merged.push(h);
+      }
+    }
+
+    result.push(
+      <div key="hdrs" className="mb-3 space-y-0.5 text-xs">
+        {merged.map((line, j) => {
+          const colonIdx = line.indexOf(":");
+          if (colonIdx > 0) {
+            return (
+              <div key={j}>
+                <span className="font-semibold">{line.slice(0, colonIdx + 1)}</span>
+                {line.slice(colonIdx + 1)}
+              </div>
+            );
+          }
+          return <div key={j}>{line}</div>;
+        })}
+      </div>,
+    );
+
+    // Remaining body
+    const bodyText = lines.join("\n").trim();
+    if (bodyText) {
+      result.push(<div key="body">{bodyText}</div>);
+    }
+  } else {
+    result.push(<Fragment key="plain">{block}</Fragment>);
+  }
+
+  return <>{result}</>;
+}
+
 function formatAttachments(value: unknown): string {
   if (value == null) return "";
   if (Array.isArray(value)) {
@@ -1045,14 +1134,7 @@ function EmailPreviewDialog({
             />
           ) : text ? (
              <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
-               {text.split(/(_{10,})/).map((part, i) => {
-                 if (/^_{10,}$/.test(part)) {
-                   return (
-                     <div key={i} className="my-6 border-t border-border" />
-                   );
-                 }
-                 return <span key={i}>{part}</span>;
-               })}
+               {renderEmailText(text)}
              </div>
           ) : (
             <div className="p-6 text-sm text-muted-foreground">
