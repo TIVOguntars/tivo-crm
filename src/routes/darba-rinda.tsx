@@ -35,6 +35,7 @@ const SORT_KEYS = [
   "next_action",
   "next_action_due_date",
   "last_contact_date",
+  "tags",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 
