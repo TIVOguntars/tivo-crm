@@ -409,10 +409,32 @@ function DarbaRindaPage() {
           cancel_reason: s(
             r.cancel_reason ?? r.cancellation_reason ?? r.atcelšanas_iemesls,
           ),
-          rating: parseRating(r.rating ?? r.lead_rating ?? r.reitings),
+          rating: parseRating(
+            r.rating ?? r.lead_rating ?? r.reitings ?? r.priority,
+          ),
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
+  }, [overview.data]);
+
+  // Dev-only data flow warnings (no raw errors shown to users)
+  useMemo(() => {
+    if (typeof window === "undefined") return;
+    const rows = (overview.data?.rows ?? []) as Row[];
+    if (rows.length === 0) return;
+    const sample = rows[0];
+    const hasRating =
+      "rating" in sample ||
+      "lead_rating" in sample ||
+      "reitings" in sample ||
+      "priority" in sample;
+    const hasTags = "tags" in sample;
+    if (!hasRating)
+      console.warn(
+        "[Leadi] analytics.leads_overview: rating/priority field not found",
+      );
+    if (!hasTags)
+      console.warn("[Leadi] analytics.leads_overview: tags field not found");
   }, [overview.data]);
 
   /* Distinct options derived from dataset. */
