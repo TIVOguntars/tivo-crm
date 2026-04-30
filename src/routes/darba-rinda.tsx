@@ -741,6 +741,7 @@ function DarbaRindaPage() {
 
       {!friendlyError && !loading && (
         <div className="rounded-md border border-border bg-card">
+          <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
           <table className="w-full table-fixed text-[11px]">
             <colgroup>
               <col style={{ width: "24px" }} />
@@ -757,7 +758,7 @@ function DarbaRindaPage() {
               <col style={{ width: "9%" }} />
               <col style={{ width: "70px" }} />
             </colgroup>
-            <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <thead className="sticky top-0 z-10 border-b border-border bg-secondary text-[11px] uppercase tracking-wide text-secondary-foreground shadow-sm">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
                 <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
