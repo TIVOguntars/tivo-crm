@@ -115,6 +115,12 @@ function parseDate(v: unknown): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+function parseRating(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
