@@ -347,6 +347,7 @@ function DarbaRindaPage() {
     ppv?: string;
     qq?: string;
     seg: Segment;
+    rb?: RatingBucket;
     sort?: SortKey;
     dir?: "asc" | "desc";
   };
