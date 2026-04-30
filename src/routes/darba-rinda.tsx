@@ -42,12 +42,14 @@ const SEGMENTS = [
   "all",
   "jauni",
   "nesasniedzami",
-  "ar_reakciju",
-  "hot",
+  "piesaistisana",
   "piedavajums",
   "ligumi",
 ] as const;
 type Segment = (typeof SEGMENTS)[number];
+
+const RATING_BUCKETS = ["all", "90_100", "75_90", "50_75", "20_50", "0_20"] as const;
+type RatingBucket = (typeof RATING_BUCKETS)[number];
 
 const searchSchema = z.object({
   status: fallback(z.string().optional(), undefined),
@@ -55,6 +57,7 @@ const searchSchema = z.object({
   ppv: fallback(z.string().optional(), undefined),
   qq: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+  rb: fallback(z.enum(RATING_BUCKETS), "all").default("all"),
   sort: fallback(z.enum(SORT_KEYS), "default").default("default"),
   dir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
 });
@@ -193,6 +196,7 @@ const UNREACHABLE_STATUSES = new Set([
   "Bounced",
   "Nederīgs e-pasts",
 ]);
+const ATTRACTION_STATUSES = new Set(["Piesaistīšana", "Piesaistisana"]);
 const OFFER_STATUSES = new Set(["Piedāvājums", "Piedavajums"]);
 const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
 
@@ -204,10 +208,8 @@ function passesSegment(lead: Lead, seg: Segment): boolean {
       return NEW_STATUSES.has(lead.status);
     case "nesasniedzami":
       return UNREACHABLE_STATUSES.has(lead.status);
-    case "ar_reakciju":
-      return Boolean(parseDate(lead.last_reply_at));
-    case "hot":
-      return lead.tags.some((t) => t.toLowerCase() === "hot");
+    case "piesaistisana":
+      return ATTRACTION_STATUSES.has(lead.status);
     case "piedavajums":
       return OFFER_STATUSES.has(lead.status);
     case "ligumi":
@@ -219,11 +221,23 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   all: "Visi",
   jauni: "Jauni",
   nesasniedzami: "Nesasniedzami",
-  ar_reakciju: "Ar reakciju",
-  hot: "Hot",
+  piesaistisana: "Piesaistīšana",
   piedavajums: "Piedāvājumi",
   ligumi: "Līgumi",
 };
+
+function passesRatingBucket(lead: Lead, rb: RatingBucket): boolean {
+  if (rb === "all") return true;
+  const r = lead.rating;
+  if (r == null) return false;
+  switch (rb) {
+    case "90_100": return r >= 90 && r <= 100;
+    case "75_90":  return r >= 75 && r < 90;
+    case "50_75":  return r >= 50 && r < 75;
+    case "20_50":  return r >= 20 && r < 50;
+    case "0_20":   return r >= 0 && r < 20;
+  }
+}
 
 /* ----------------------- Expanded details ----------------------- */
 
