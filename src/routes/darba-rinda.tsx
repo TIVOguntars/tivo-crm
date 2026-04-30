@@ -533,6 +533,53 @@ function DarbaRindaPage() {
           ))}
         </select>
 
+        <select
+          value={selectedCountry ?? ""}
+          onChange={(e) =>
+            updateSearch({ countries: e.target.value ? [e.target.value] : [] })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visas valstis</option>
+          {options.countries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedSource ?? ""}
+          onChange={(e) =>
+            updateSearch({ sources: e.target.value ? [e.target.value] : [] })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi avoti</option>
+          {options.sources.map((s2) => (
+            <option key={s2} value={s2}>
+              {s2}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={range}
+          onChange={(e) =>
+            updateSearch({
+              range: e.target.value === "all" ? undefined : e.target.value,
+            })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Visi datumi</option>
+          <option value="today">Šodien</option>
+          <option value="yesterday">Vakar</option>
+          <option value="7d">Pēdējās 7 dienas</option>
+          <option value="30d">Pēdējās 30 dienas</option>
+          <option value="this_month">Šis mēnesis</option>
+        </select>
+
         {hasAnyFilter && (
           <Button
             size="sm"
