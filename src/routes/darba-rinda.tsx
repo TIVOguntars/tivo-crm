@@ -727,12 +727,12 @@ function DarbaRindaPage() {
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
                 <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Vārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tags" k="tags" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
+                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Nākamā darbība" k="next_action" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Pēdējā saziņa" k="last_activity_at" active={sortKey} dir={sortDir} onSort={handleSort} />
@@ -772,27 +772,6 @@ function DarbaRindaPage() {
                         </td>
                         <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
                           {lead.full_name || (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5">
-                          {lead.status ? (
-                            <span
-                              className={cn(
-                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                statusBadgeClass(lead.status),
-                              )}
-                            >
-                              {lead.status}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
-                          {lead.rating != null ? (
-                            lead.rating
-                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -837,6 +816,27 @@ function DarbaRindaPage() {
                         </td>
                         <td className="px-2 py-1.5 text-center text-foreground">
                           {lead.country || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {lead.status ? (
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                statusBadgeClass(lead.status),
+                              )}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
+                          {lead.rating != null ? (
+                            lead.rating
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
