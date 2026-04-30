@@ -21,6 +21,9 @@ const VIEWS = [
   "lead_communication_events",
   "communications",
   "communication_events",
+  "email_conversions",
+  "email_click_performance",
+  "email_click_summary",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
