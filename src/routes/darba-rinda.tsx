@@ -81,14 +81,18 @@ interface Lead {
   owner: string;
   ppv: string;
   next_action: string;
-  next_action_due_date: string | null;
-  last_contact_date: string | null;
-  automation_step: string;
-  automation_date: string | null;
   tags: string[];
-  lead_created_at: string | null;
-  cancel_reason: string;
   rating: number | null;
+  // lead_priority_queue extras
+  next_action_reason: string;
+  last_event_type: string;
+  last_event_group: string;
+  last_channel: string;
+  last_outbound_at: string | null;
+  last_reply_at: string | null;
+  last_activity_at: string | null;
+  planned_build_date: string | null;
+  follow_up_bucket: string;
 }
 
 const PAGE_SIZE = 200;
