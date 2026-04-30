@@ -20,7 +20,7 @@ const SEGMENTS = [
   "ar_reakciju",
   "hot",
   "nokaveti",
-  "pieprasijums_piedavajums",
+  "piedavajums",
   "ligumi",
 ] as const;
 type Segment = (typeof SEGMENTS)[number];
@@ -121,10 +121,8 @@ const UNREACHABLE_STATUSES = new Set([
   "Bounced",
   "Nederīgs e-pasts",
 ]);
-const REQUEST_OFFER_STATUSES = new Set([
-  "Pieprasījums",
+const OFFER_STATUSES = new Set([
   "Piedāvājums",
-  "Pieprasijums",
   "Piedavajums",
 ]);
 const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
@@ -145,8 +143,8 @@ function passesSegment(lead: Lead, seg: Segment): boolean {
       const t = parseDate(lead.next_action_due_date);
       return t != null && t < Date.now();
     }
-    case "pieprasijums_piedavajums":
-      return REQUEST_OFFER_STATUSES.has(lead.status);
+    case "piedavajums":
+      return OFFER_STATUSES.has(lead.status);
     case "ligumi":
       return CONTRACT_STATUSES.has(lead.status);
   }
@@ -159,7 +157,7 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   ar_reakciju: "Ar reakciju",
   hot: "Hot",
   nokaveti: "Nokavēti termiņi",
-  pieprasijums_piedavajums: "Pieprasījums / Piedāvājums",
+  piedavajums: "Piedāvājums",
   ligumi: "Līgumi",
 };
 
@@ -434,7 +432,7 @@ function DarbaRindaPage() {
     <>
       <PageHeader
         title="Leadi"
-        description="Darba saraksts: visi leadi ar termiņiem un kontaktiem."
+        description="Darba saraksts no Supabase datiem"
       >
         <SearchInput />
       </PageHeader>
