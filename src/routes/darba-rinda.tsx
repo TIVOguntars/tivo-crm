@@ -860,6 +860,13 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-2 py-1.5 tabular-nums text-foreground">
+                          {lead.rating != null ? (
+                            lead.rating
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="px-2 py-1.5 text-foreground">
                           {lead.owner || (
                             <span className="text-muted-foreground">—</span>
