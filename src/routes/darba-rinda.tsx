@@ -28,6 +28,7 @@ import {
 import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
+import { isEndpointMissing } from "@/lib/endpointStatus";
 import {
   priorityTone,
   PRIORITY_ROW_BG,
