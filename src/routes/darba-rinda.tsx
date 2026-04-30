@@ -3,6 +3,7 @@ import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { resolveDateRange, type DateRangePreset } from "@/lib/filters";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, EmptyState } from "@/components/DataState";
@@ -268,6 +269,9 @@ function DarbaRindaPage() {
   const selectedStatus = search.status;
   const selectedOwner = search.owner;
   const selectedPpv = search.ppv;
+  const selectedCountry = (search.countries ?? [])[0];
+  const selectedSource = (search.sources ?? [])[0];
+  const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -343,14 +347,27 @@ function DarbaRindaPage() {
       statuses: dedupe(leads.map((l) => l.status)),
       owners: dedupe(leads.map((l) => l.owner)),
       ppvs: dedupe(leads.map((l) => l.ppv)),
+      countries: dedupe(leads.map((l) => l.country)),
+      sources: dedupe(leads.map((l) => l.source)),
     };
   }, [leads]);
 
   const filtered = useMemo(() => {
+    const { from, to } = resolveDateRange(search);
+    const fromTs = from ? new Date(from + "T00:00:00").getTime() : null;
+    const toTs = to ? new Date(to + "T23:59:59").getTime() : null;
     return leads.filter((l) => {
       if (selectedStatus && l.status !== selectedStatus) return false;
       if (selectedOwner && l.owner !== selectedOwner) return false;
       if (selectedPpv && l.ppv !== selectedPpv) return false;
+      if (selectedCountry && l.country !== selectedCountry) return false;
+      if (selectedSource && l.source !== selectedSource) return false;
+      if (fromTs != null || toTs != null) {
+        const t = parseDate(l.lead_created_at);
+        if (t == null) return false;
+        if (fromTs != null && t < fromTs) return false;
+        if (toTs != null && t > toTs) return false;
+      }
       if (!passesSegment(l, seg)) return false;
       if (q) {
         const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
@@ -358,7 +375,17 @@ function DarbaRindaPage() {
       }
       return true;
     });
-  }, [leads, selectedStatus, selectedOwner, selectedPpv, seg, q]);
+  }, [
+    leads,
+    selectedStatus,
+    selectedOwner,
+    selectedPpv,
+    selectedCountry,
+    selectedSource,
+    seg,
+    q,
+    search,
+  ]);
 
   /* Sort: overdue first → due asc nullslast → last_contact asc → created desc */
   const sorted = useMemo(() => {
@@ -411,12 +438,20 @@ function DarbaRindaPage() {
       ppv: undefined,
       qq: undefined,
       seg: undefined,
+      countries: [],
+      sources: [],
+      range: undefined,
+      from: undefined,
+      to: undefined,
     });
 
   const hasAnyFilter =
     !!selectedStatus ||
     !!selectedOwner ||
     !!selectedPpv ||
+    !!selectedCountry ||
+    !!selectedSource ||
+    range !== "all" ||
     !!q ||
     seg !== "all";
 
@@ -498,6 +533,53 @@ function DarbaRindaPage() {
           ))}
         </select>
 
+        <select
+          value={selectedCountry ?? ""}
+          onChange={(e) =>
+            updateSearch({ countries: e.target.value ? [e.target.value] : [] })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visas valstis</option>
+          {options.countries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedSource ?? ""}
+          onChange={(e) =>
+            updateSearch({ sources: e.target.value ? [e.target.value] : [] })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi avoti</option>
+          {options.sources.map((s2) => (
+            <option key={s2} value={s2}>
+              {s2}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={range}
+          onChange={(e) =>
+            updateSearch({
+              range: e.target.value === "all" ? undefined : e.target.value,
+            })
+          }
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Visi datumi</option>
+          <option value="today">Šodien</option>
+          <option value="yesterday">Vakar</option>
+          <option value="7d">Pēdējās 7 dienas</option>
+          <option value="30d">Pēdējās 30 dienas</option>
+          <option value="this_month">Šis mēnesis</option>
+        </select>
+
         {hasAnyFilter && (
           <Button
             size="sm"
@@ -528,17 +610,17 @@ function DarbaRindaPage() {
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
-                <th className="px-2 py-1.5 text-left font-medium">Vārds</th>
-                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
+                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
+                <th className="px-2 py-1.5 text-left font-medium">Vārds / Uzvārds</th>
                 <th className="px-2 py-1.5 text-left font-medium">Email</th>
                 <th className="px-2 py-1.5 text-left font-medium">Telefons</th>
                 <th className="px-2 py-1.5 text-left font-medium">Valsts</th>
+                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
                 <th className="px-2 py-1.5 text-left font-medium">Atbildīgais</th>
-                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
                 <th className="px-2 py-1.5 text-left font-medium">Nākamā darbība</th>
                 <th className="px-2 py-1.5 text-left font-medium">Termiņš</th>
                 <th className="px-2 py-1.5 text-left font-medium">Pēdējā saziņa</th>
-                <th className="px-2 py-1.5 text-right font-medium" />
+                <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
             </thead>
             <tbody>
@@ -568,22 +650,13 @@ function DarbaRindaPage() {
                             <ChevronRight className="h-3.5 w-3.5" />
                           )}
                         </td>
-                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
-                          {lead.full_name || (
+                        <td className="px-2 py-1.5 text-foreground">
+                          {lead.ppv || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5">
-                          {lead.status ? (
-                            <span
-                              className={cn(
-                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                statusBadgeClass(lead.status),
-                              )}
-                            >
-                              {lead.status}
-                            </span>
-                          ) : (
+                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
+                          {lead.full_name || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -610,13 +683,22 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
-                          {lead.owner || (
+                        <td className="px-2 py-1.5">
+                          {lead.status ? (
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                statusBadgeClass(lead.status),
+                              )}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5 text-foreground">
-                          {lead.ppv || (
+                          {lead.owner || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
