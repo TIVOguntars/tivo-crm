@@ -239,7 +239,10 @@ function ExpandedDetails({ lead }: { lead: Lead }) {
         value={lead.automation_date ? fmtDate(lead.automation_date) : ""}
       />
       <DetailItem label="Atcelšanas iemesls" value={lead.cancel_reason} />
-      <DetailItem label="Reitings" value={lead.rating} />
+      <DetailItem
+        label="Reitings"
+        value={lead.rating != null ? String(lead.rating) : ""}
+      />
       <DetailItem
         label="Lead izveidots"
         value={lead.lead_created_at ? fmtDateTime(lead.lead_created_at) : ""}
@@ -356,7 +359,7 @@ function DarbaRindaPage() {
           cancel_reason: s(
             r.cancel_reason ?? r.cancellation_reason ?? r.atcelšanas_iemesls,
           ),
-          rating: s(r.rating ?? r.lead_rating ?? r.reitings),
+          rating: parseRating(r.rating ?? r.lead_rating ?? r.reitings),
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
