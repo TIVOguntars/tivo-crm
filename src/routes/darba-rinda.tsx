@@ -722,6 +722,21 @@ function DarbaRindaPage() {
       {!friendlyError && !loading && (
         <div className="rounded-md border border-border bg-card">
           <table className="w-full table-fixed text-[11px]">
+            <colgroup>
+              <col style={{ width: "24px" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "70px" }} />
+            </colgroup>
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
