@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
@@ -553,7 +553,7 @@ function DarbaRindaPage() {
                   const isOpen = expanded.has(lead.lead_id);
                   const overdue = isOverdue(lead.next_action_due_date);
                   return (
-                    <React.Fragment key={lead.lead_id}>
+                    <Fragment key={lead.lead_id}>
                       <tr
                         onClick={() => toggleExpand(lead.lead_id)}
                         className={cn(
@@ -659,7 +659,7 @@ function DarbaRindaPage() {
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })
               )}
