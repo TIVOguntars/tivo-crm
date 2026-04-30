@@ -360,6 +360,7 @@ function DarbaRindaPage() {
   const selectedSource = (search.sources ?? [])[0];
   const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
+  const rb: RatingBucket = search.rb ?? "all";
   const sortKey: SortKey = (search.sort as SortKey) ?? "default";
   const sortDir: "asc" | "desc" = (search.dir as "asc" | "desc") ?? "desc";
 
@@ -459,6 +460,7 @@ function DarbaRindaPage() {
         if (toTs != null && t > toTs) return false;
       }
       if (!passesSegment(l, seg)) return false;
+      if (!passesRatingBucket(l, rb)) return false;
       if (q) {
         const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -473,6 +475,7 @@ function DarbaRindaPage() {
     selectedCountry,
     selectedSource,
     seg,
+    rb,
     q,
     search,
   ]);
@@ -565,6 +568,9 @@ function DarbaRindaPage() {
   const setSegment = (next: Segment) =>
     updateSearch({ seg: next === "all" ? undefined : next });
 
+  const setRatingBucket = (next: RatingBucket) =>
+    updateSearch({ rb: next === "all" ? undefined : next });
+
   const handleSort = (k: SortKey) => {
     if (k === "default") {
       updateSearch({ sort: undefined, dir: undefined });
@@ -587,6 +593,7 @@ function DarbaRindaPage() {
       ppv: undefined,
       qq: undefined,
       seg: undefined,
+      rb: undefined,
       countries: [],
       sources: [],
       range: undefined,
@@ -602,7 +609,8 @@ function DarbaRindaPage() {
     !!selectedSource ||
     range !== "all" ||
     !!q ||
-    seg !== "all";
+    seg !== "all" ||
+    rb !== "all";
 
   return (
     <>
