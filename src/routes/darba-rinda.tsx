@@ -164,6 +164,26 @@ function statusBadgeClass(status: string): string {
   return "bg-secondary text-secondary-foreground";
 }
 
+function nextActionBadgeClass(action: string): string {
+  const k = action.toLowerCase().trim();
+  if (!k || k.startsWith("nav")) return "bg-muted text-muted-foreground";
+  if (k.includes("zvan") || k.includes("call"))
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300";
+  if (k.includes("epast") || k.includes("e-past") || k.includes("email") || k.includes("rakst"))
+    return "bg-purple-500/15 text-purple-700 dark:text-purple-300";
+  if (k.includes("piedāv") || k.includes("piedav") || k.includes("offer"))
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+  if (k.includes("tikš") || k.includes("meet"))
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  if (k.includes("līgum") || k.includes("ligum") || k.includes("contract"))
+    return "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200";
+  if (k.includes("atgādin") || k.includes("follow"))
+    return "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300";
+  if (k.includes("atcel") || k.includes("noraid"))
+    return "bg-destructive/15 text-destructive";
+  return "bg-secondary text-secondary-foreground";
+}
+
 /* ----------------------- Segments ----------------------- */
 
 const NEW_STATUSES = new Set(["Jauns", "Jauns lead", "Jauns leads"]);
