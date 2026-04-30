@@ -2,7 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  ChevronUp,
+  Search,
+  X,
+} from "lucide-react";
 import { resolveDateRange, type DateRangePreset } from "@/lib/filters";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +21,22 @@ import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
 /* ----------------------- Route + search params ----------------------- */
+
+const SORT_KEYS = [
+  "default",
+  "ppv",
+  "full_name",
+  "status",
+  "rating",
+  "email",
+  "phone",
+  "country",
+  "owner",
+  "next_action",
+  "next_action_due_date",
+  "last_contact_date",
+] as const;
+type SortKey = (typeof SORT_KEYS)[number];
 
 const SEGMENTS = [
   "all",
@@ -33,6 +56,8 @@ const searchSchema = z.object({
   ppv: fallback(z.string().optional(), undefined),
   qq: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+  sort: fallback(z.enum(SORT_KEYS), "default").default("default"),
+  dir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
 });
 
 export const Route = createFileRoute("/darba-rinda")({
