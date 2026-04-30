@@ -303,7 +303,7 @@ function SortHeader({
   active: SortKey;
   dir: "asc" | "desc";
   onSort: (k: SortKey) => void;
-  align?: "left" | "right";
+  align?: "left" | "right" | "center";
 }) {
   const isActive = active === k;
   const Icon = !isActive ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
@@ -311,7 +311,11 @@ function SortHeader({
     <th
       className={cn(
         "select-none px-2 py-1.5 font-medium",
-        align === "right" ? "text-right" : "text-left",
+        align === "right"
+          ? "text-right"
+          : align === "center"
+            ? "text-center"
+            : "text-left",
       )}
     >
       <button
