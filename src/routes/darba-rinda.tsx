@@ -289,6 +289,45 @@ function DetailItem({
 
 /* ----------------------- Page ----------------------- */
 
+function SortHeader({
+  label,
+  k,
+  active,
+  dir,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  k: SortKey;
+  active: SortKey;
+  dir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const isActive = active === k;
+  const Icon = !isActive ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <th
+      className={cn(
+        "select-none px-2 py-1.5 font-medium",
+        align === "right" ? "text-right" : "text-left",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={cn(
+          "inline-flex items-center gap-1 hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <Icon className="h-3 w-3 opacity-70" />
+      </button>
+    </th>
+  );
+}
+
 function DarbaRindaPage() {
   const search = Route.useSearch() as FiltersSearch & {
     status?: string;
