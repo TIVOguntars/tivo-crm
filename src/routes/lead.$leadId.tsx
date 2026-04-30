@@ -525,7 +525,7 @@ function LeadProfilePage() {
         </div>
       )}
 
-      <EmailPreviewDialog comm={openComm} onClose={() => setOpenComm(null)} />
+      <EmailPreviewDialog comm={openComm} eventsByComm={eventsByComm} onClose={() => setOpenComm(null)} />
     </>
   );
 }
@@ -1095,11 +1095,25 @@ function formatAttachments(value: unknown): string {
 
 /* -------------------------- email modal -------------------------- */
 
+function extractAttachmentNames(metadata: unknown): string[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  const meta = metadata as Record<string, unknown>;
+  let raw = meta.attachment_names;
+  if (raw == null) return [];
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { return []; }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map((v: unknown) => String(v)).filter((s: string) => s.trim() !== "");
+}
+
 function EmailPreviewDialog({
   comm,
+  eventsByComm,
   onClose,
 }: {
   comm: Record<string, unknown> | null;
+  eventsByComm: Map<string, Array<Record<string, unknown>>>;
   onClose: () => void;
 }) {
   const open = !!comm;
@@ -1107,6 +1121,21 @@ function EmailPreviewDialog({
   const sentAt = comm ? fmtDate(comm.sent_at ?? comm.received_at) : NA;
   const html = useMemo(() => (comm ? readHtml(comm) : ""), [comm]);
   const text = useMemo(() => (comm ? readText(comm) : ""), [comm]);
+
+  const attachmentNames = useMemo(() => {
+    if (!comm) return [];
+    // 1. Try communication_events.metadata.attachment_names
+    const commId = String(comm.id ?? comm.communication_id ?? "");
+    const events = commId ? eventsByComm.get(commId) ?? [] : [];
+    for (const ev of events) {
+      const names = extractAttachmentNames(ev.metadata);
+      if (names.length > 0) return names;
+    }
+    // 2. Fallback: communications.metadata.attachment_names
+    const names = extractAttachmentNames(comm.metadata);
+    if (names.length > 0) return names;
+    return [];
+  }, [comm, eventsByComm]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -1128,6 +1157,19 @@ function EmailPreviewDialog({
             <span className="text-foreground">{sentAt}</span>
           </div>
         </div>
+
+        {attachmentNames.length > 0 && (
+          <div className="mt-2 rounded-md border border-border bg-muted/30 p-3">
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Pievienotie faili
+            </div>
+            <ul className="list-disc space-y-0.5 pl-5 text-sm text-foreground">
+              {attachmentNames.map((name: string, idx: number) => (
+                <li key={idx}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
           {html ? (
