@@ -2,7 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  ChevronUp,
+  Search,
+  X,
+} from "lucide-react";
 import { resolveDateRange, type DateRangePreset } from "@/lib/filters";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +21,22 @@ import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
 /* ----------------------- Route + search params ----------------------- */
+
+const SORT_KEYS = [
+  "default",
+  "ppv",
+  "full_name",
+  "status",
+  "rating",
+  "email",
+  "phone",
+  "country",
+  "owner",
+  "next_action",
+  "next_action_due_date",
+  "last_contact_date",
+] as const;
+type SortKey = (typeof SORT_KEYS)[number];
 
 const SEGMENTS = [
   "all",
@@ -33,6 +56,8 @@ const searchSchema = z.object({
   ppv: fallback(z.string().optional(), undefined),
   qq: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+  sort: fallback(z.enum(SORT_KEYS), "default").default("default"),
+  dir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
 });
 
 export const Route = createFileRoute("/darba-rinda")({
@@ -62,7 +87,7 @@ interface Lead {
   tags: string[];
   lead_created_at: string | null;
   cancel_reason: string;
-  rating: string;
+  rating: number | null;
 }
 
 const PAGE_SIZE = 200;
@@ -88,6 +113,12 @@ function parseDate(v: unknown): number | null {
   if (v == null || v === "") return null;
   const t = new Date(String(v)).getTime();
   return Number.isFinite(t) ? t : null;
+}
+
+function parseRating(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 function fmtDate(v: string | null): string {
@@ -214,7 +245,10 @@ function ExpandedDetails({ lead }: { lead: Lead }) {
         value={lead.automation_date ? fmtDate(lead.automation_date) : ""}
       />
       <DetailItem label="Atcelšanas iemesls" value={lead.cancel_reason} />
-      <DetailItem label="Reitings" value={lead.rating} />
+      <DetailItem
+        label="Reitings"
+        value={lead.rating != null ? String(lead.rating) : ""}
+      />
       <DetailItem
         label="Lead izveidots"
         value={lead.lead_created_at ? fmtDateTime(lead.lead_created_at) : ""}
@@ -255,6 +289,45 @@ function DetailItem({
 
 /* ----------------------- Page ----------------------- */
 
+function SortHeader({
+  label,
+  k,
+  active,
+  dir,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  k: SortKey;
+  active: SortKey;
+  dir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const isActive = active === k;
+  const Icon = !isActive ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <th
+      className={cn(
+        "select-none px-2 py-1.5 font-medium",
+        align === "right" ? "text-right" : "text-left",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={cn(
+          "inline-flex items-center gap-1 hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <Icon className="h-3 w-3 opacity-70" />
+      </button>
+    </th>
+  );
+}
+
 function DarbaRindaPage() {
   const search = Route.useSearch() as FiltersSearch & {
     status?: string;
@@ -262,6 +335,8 @@ function DarbaRindaPage() {
     ppv?: string;
     qq?: string;
     seg: Segment;
+    sort?: SortKey;
+    dir?: "asc" | "desc";
   };
   const navigate = useNavigate();
 
@@ -273,6 +348,8 @@ function DarbaRindaPage() {
   const selectedSource = (search.sources ?? [])[0];
   const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
+  const sortKey: SortKey = (search.sort as SortKey) ?? "default";
+  const sortDir: "asc" | "desc" = (search.dir as "asc" | "desc") ?? "desc";
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
@@ -331,7 +408,7 @@ function DarbaRindaPage() {
           cancel_reason: s(
             r.cancel_reason ?? r.cancellation_reason ?? r.atcelšanas_iemesls,
           ),
-          rating: s(r.rating ?? r.lead_rating ?? r.reitings),
+          rating: parseRating(r.rating ?? r.lead_rating ?? r.reitings),
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
@@ -387,17 +464,33 @@ function DarbaRindaPage() {
     search,
   ]);
 
-  /* Sort: overdue first → due asc nullslast → last_contact asc → created desc */
+  /* Sorting: default = rating DESC → overdue → due ASC → last_contact ASC → created DESC.
+     User-selected key sorts only by that key, with the default chain as tiebreaker. */
   const sorted = useMemo(() => {
     const copy = [...filtered];
     const now = Date.now();
-    copy.sort((a, b) => {
+
+    const cmpString = (a: string, b: string) => a.localeCompare(b, "lv");
+    const cmpNumNullable = (a: number | null, b: number | null) => {
+      if (a === b) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return a - b;
+    };
+
+    const defaultChain = (a: Lead, b: Lead): number => {
+      const aR = a.rating;
+      const bR = b.rating;
+      if (aR !== bR) {
+        if (aR == null) return 1;
+        if (bR == null) return -1;
+        return bR - aR; // DESC
+      }
       const aDue = parseDate(a.next_action_due_date);
       const bDue = parseDate(b.next_action_due_date);
       const aOver = aDue != null && aDue < now ? 1 : 0;
       const bOver = bDue != null && bDue < now ? 1 : 0;
       if (aOver !== bOver) return bOver - aOver;
-
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
@@ -413,9 +506,57 @@ function DarbaRindaPage() {
       const aCreated = parseDate(a.lead_created_at) ?? 0;
       const bCreated = parseDate(b.lead_created_at) ?? 0;
       return bCreated - aCreated;
+    };
+
+    const dirMul = sortDir === "asc" ? 1 : -1;
+
+    const keyCmp = (a: Lead, b: Lead): number => {
+      switch (sortKey) {
+        case "default":
+          return defaultChain(a, b);
+        case "rating":
+          return cmpNumNullable(a.rating, b.rating) * dirMul;
+        case "next_action_due_date":
+          return (
+            cmpNumNullable(
+              parseDate(a.next_action_due_date),
+              parseDate(b.next_action_due_date),
+            ) * dirMul
+          );
+        case "last_contact_date":
+          return (
+            cmpNumNullable(
+              parseDate(a.last_contact_date),
+              parseDate(b.last_contact_date),
+            ) * dirMul
+          );
+        case "ppv":
+          return cmpString(a.ppv, b.ppv) * dirMul;
+        case "full_name":
+          return cmpString(a.full_name, b.full_name) * dirMul;
+        case "status":
+          return cmpString(a.status, b.status) * dirMul;
+        case "email":
+          return cmpString(a.email, b.email) * dirMul;
+        case "phone":
+          return cmpString(a.phone, b.phone) * dirMul;
+        case "country":
+          return cmpString(a.country, b.country) * dirMul;
+        case "owner":
+          return cmpString(a.owner, b.owner) * dirMul;
+        case "next_action":
+          return cmpString(a.next_action, b.next_action) * dirMul;
+      }
+    };
+
+    copy.sort((a, b) => {
+      const primary = keyCmp(a, b);
+      if (primary !== 0) return primary;
+      // Stable tiebreaker: default chain.
+      return sortKey === "default" ? 0 : defaultChain(a, b);
     });
     return copy;
-  }, [filtered]);
+  }, [filtered, sortKey, sortDir]);
 
   const updateSearch = (patch: Record<string, unknown>) => {
     navigate({
@@ -430,6 +571,27 @@ function DarbaRindaPage() {
 
   const setSegment = (next: Segment) =>
     updateSearch({ seg: next === "all" ? undefined : next });
+
+  const handleSort = (k: SortKey) => {
+    if (k === "default") {
+      updateSearch({ sort: undefined, dir: undefined });
+      return;
+    }
+    if (sortKey === k) {
+      // toggle direction
+      const nextDir = sortDir === "asc" ? "desc" : "asc";
+      updateSearch({ sort: k, dir: nextDir });
+    } else {
+      // sensible default per type
+      const dirDefault: "asc" | "desc" =
+        k === "rating" ||
+        k === "next_action_due_date" ||
+        k === "last_contact_date"
+          ? "desc"
+          : "asc";
+      updateSearch({ sort: k, dir: dirDefault });
+    }
+  };
 
   const clearFilters = () =>
     updateSearch({
@@ -495,32 +657,6 @@ function DarbaRindaPage() {
         </div>
 
         <select
-          value={selectedStatus ?? ""}
-          onChange={(e) => updateSearch({ status: e.target.value || undefined })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Visi statusi</option>
-          {options.statuses.map((st) => (
-            <option key={st} value={st}>
-              {st}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedOwner ?? ""}
-          onChange={(e) => updateSearch({ owner: e.target.value || undefined })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Visi atbildīgie</option>
-          {options.owners.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-
-        <select
           value={selectedPpv ?? ""}
           onChange={(e) => updateSearch({ ppv: e.target.value || undefined })}
           className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -549,6 +685,19 @@ function DarbaRindaPage() {
         </select>
 
         <select
+          value={selectedStatus ?? ""}
+          onChange={(e) => updateSearch({ status: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi statusi</option>
+          {options.statuses.map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+
+        <select
           value={selectedSource ?? ""}
           onChange={(e) =>
             updateSearch({ sources: e.target.value ? [e.target.value] : [] })
@@ -559,6 +708,19 @@ function DarbaRindaPage() {
           {options.sources.map((s2) => (
             <option key={s2} value={s2}>
               {s2}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedOwner ?? ""}
+          onChange={(e) => updateSearch({ owner: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi atbildīgie</option>
+          {options.owners.map((o) => (
+            <option key={o} value={o}>
+              {o}
             </option>
           ))}
         </select>
@@ -610,23 +772,24 @@ function DarbaRindaPage() {
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
-                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
-                <th className="px-2 py-1.5 text-left font-medium">Vārds / Uzvārds</th>
-                <th className="px-2 py-1.5 text-left font-medium">Email</th>
-                <th className="px-2 py-1.5 text-left font-medium">Telefons</th>
-                <th className="px-2 py-1.5 text-left font-medium">Valsts</th>
-                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
-                <th className="px-2 py-1.5 text-left font-medium">Atbildīgais</th>
-                <th className="px-2 py-1.5 text-left font-medium">Nākamā darbība</th>
-                <th className="px-2 py-1.5 text-left font-medium">Termiņš</th>
-                <th className="px-2 py-1.5 text-left font-medium">Pēdējā saziņa</th>
+                <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Nākamā darbība" k="next_action" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Termiņš" k="next_action_due_date" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Pēdējā saziņa" k="last_contact_date" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8">
+                  <td colSpan={13} className="p-8">
                     <EmptyState />
                   </td>
                 </tr>
@@ -697,6 +860,13 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-2 py-1.5 tabular-nums text-foreground">
+                          {lead.rating != null ? (
+                            lead.rating
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="px-2 py-1.5 text-foreground">
                           {lead.owner || (
                             <span className="text-muted-foreground">—</span>
@@ -736,7 +906,7 @@ function DarbaRindaPage() {
                       {isOpen && (
                         <tr className="border-b border-border bg-muted/20">
                           <td />
-                          <td colSpan={11} className="px-3 py-3">
+                          <td colSpan={12} className="p-3">
                             <ExpandedDetails lead={lead} />
                           </td>
                         </tr>
