@@ -33,8 +33,7 @@ const SORT_KEYS = [
   "country",
   "owner",
   "next_action",
-  "next_action_due_date",
-  "last_contact_date",
+  "last_activity_at",
   "tags",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
@@ -45,7 +44,6 @@ const SEGMENTS = [
   "nesasniedzami",
   "ar_reakciju",
   "hot",
-  "nokaveti",
   "piedavajums",
   "ligumi",
 ] as const;
@@ -81,21 +79,20 @@ interface Lead {
   owner: string;
   ppv: string;
   next_action: string;
+  next_action_reason: string;
   tags: string[];
   rating: number | null;
-  // lead_priority_queue extras
-  next_action_reason: string;
+  last_activity_at: string | null;
   last_event_type: string;
   last_event_group: string;
   last_channel: string;
   last_outbound_at: string | null;
   last_reply_at: string | null;
-  last_activity_at: string | null;
   planned_build_date: string | null;
   follow_up_bucket: string;
 }
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 500;
 
 /* ----------------------- Helpers ----------------------- */
 
@@ -167,11 +164,6 @@ function statusBadgeClass(status: string): string {
   return "bg-secondary text-secondary-foreground";
 }
 
-function isOverdue(due: string | null): boolean {
-  const t = parseDate(due);
-  return t != null && t < Date.now();
-}
-
 /* ----------------------- Segments ----------------------- */
 
 const NEW_STATUSES = new Set(["Jauns", "Jauns lead", "Jauns leads"]);
@@ -193,11 +185,9 @@ function passesSegment(lead: Lead, seg: Segment): boolean {
     case "nesasniedzami":
       return UNREACHABLE_STATUSES.has(lead.status);
     case "ar_reakciju":
-      return Boolean(parseDate(lead.last_contact_date));
+      return Boolean(parseDate(lead.last_reply_at));
     case "hot":
       return lead.tags.some((t) => t.toLowerCase() === "hot");
-    case "nokaveti":
-      return isOverdue(lead.next_action_due_date);
     case "piedavajums":
       return OFFER_STATUSES.has(lead.status);
     case "ligumi":
@@ -211,7 +201,6 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   nesasniedzami: "Nesasniedzami",
   ar_reakciju: "Ar reakciju",
   hot: "Hot",
-  nokaveti: "Nokavēti",
   piedavajums: "Piedāvājumi",
   ligumi: "Līgumi",
 };
@@ -222,43 +211,23 @@ function ExpandedDetails({ lead }: { lead: Lead }) {
   return (
     <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
       <DetailItem label="Avots" value={lead.source} />
+      <DetailItem label="Iemesls" value={lead.next_action_reason} />
+      <DetailItem label="Pēdējais notikums" value={lead.last_event_type} />
+      <DetailItem label="Notikuma grupa" value={lead.last_event_group} />
+      <DetailItem label="Pēdējais kanāls" value={lead.last_channel} />
       <DetailItem
-        label="Tags"
-        node={
-          lead.tags.length === 0 ? null : (
-            <div className="flex flex-wrap gap-1">
-              {lead.tags.map((t) => (
-                <span
-                  key={t}
-                  className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px]",
-                    t.toLowerCase() === "hot"
-                      ? "bg-destructive/15 text-destructive"
-                      : "bg-secondary text-secondary-foreground",
-                  )}
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )
-        }
-      />
-      <DetailItem label="Automatizācija" value={lead.automation_step} />
-      <DetailItem
-        label="Automatizācijas datums"
-        value={lead.automation_date ? fmtDate(lead.automation_date) : ""}
-      />
-      <DetailItem label="Atcelšanas iemesls" value={lead.cancel_reason} />
-      <DetailItem
-        label="Reitings"
-        value={lead.rating != null ? String(lead.rating) : ""}
+        label="Pēdējā izejošā"
+        value={lead.last_outbound_at ? fmtDateTime(lead.last_outbound_at) : ""}
       />
       <DetailItem
-        label="Lead izveidots"
-        value={lead.lead_created_at ? fmtDateTime(lead.lead_created_at) : ""}
+        label="Pēdējā atbilde"
+        value={lead.last_reply_at ? fmtDateTime(lead.last_reply_at) : ""}
       />
-      <DetailItem label="Lead ID" value={lead.lead_id} mono />
+      <DetailItem
+        label="Plānotais būvniecības datums"
+        value={lead.planned_build_date ? fmtDate(lead.planned_build_date) : ""}
+      />
+      <DetailItem label="Follow-up bucket" value={lead.follow_up_bucket} />
     </dl>
   );
 }
@@ -278,7 +247,7 @@ function DetailItem({
   const empty = hasNode ? node == null : !value;
   return (
     <div className="flex gap-2">
-      <dt className="w-40 flex-none text-muted-foreground">{label}</dt>
+      <dt className="w-44 flex-none text-muted-foreground">{label}</dt>
       <dd
         className={cn(
           "min-w-0 flex-1",
@@ -369,18 +338,18 @@ function DarbaRindaPage() {
       return next;
     });
 
-  /* Pull a wide page; client-side filters/sort. */
+  /* Primary datasource: analytics.lead_priority_queue. */
   const overviewQuery = useMemo(
     () =>
       [
         "select=*",
-        "order=lead_created_at.desc.nullslast",
+        "order=reitings.desc.nullslast,last_activity_at.desc.nullslast",
         `limit=${PAGE_SIZE}`,
       ].join("&"),
     [],
   );
 
-  const overview = useAnalyticsView("leads_overview", overviewQuery);
+  const overview = useAnalyticsView("lead_priority_queue", overviewQuery);
 
   const rawError =
     (overview.error as Error | null)?.message || overview.data?.error;
@@ -401,48 +370,27 @@ function DarbaRindaPage() {
           lead_id: id,
           full_name: s(r.full_name),
           email: s(r.email),
-          phone: s(r.phone_raw || r.phone_e164),
+          phone: s(r.phone),
           country: s(r.country),
           source: s(r.source),
           status: s(r.status),
           owner: s(r.owner),
           ppv: s(r.ppv_vards),
           next_action: s(r.next_action),
-          next_action_due_date: s(r.next_action_due_date) || null,
-          last_contact_date: s(r.last_contact_date) || null,
-          automation_step: s(r.automation_step),
-          automation_date: s(r.automation_date) || null,
+          next_action_reason: s(r.next_action_reason),
           tags: asTags(r.tags),
-          lead_created_at: s(r.lead_created_at) || null,
-          cancel_reason: s(
-            r.cancel_reason ?? r.cancellation_reason ?? r.atcelšanas_iemesls,
-          ),
-          rating: parseRating(
-            r.rating ?? r.lead_rating ?? r.reitings ?? r.priority,
-          ),
+          rating: parseRating(r.reitings),
+          last_activity_at: s(r.last_activity_at) || null,
+          last_event_type: s(r.last_event_type),
+          last_event_group: s(r.last_event_group),
+          last_channel: s(r.last_channel),
+          last_outbound_at: s(r.last_outbound_at) || null,
+          last_reply_at: s(r.last_reply_at) || null,
+          planned_build_date: s(r.planned_build_date) || null,
+          follow_up_bucket: s(r.follow_up_bucket),
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data]);
-
-  // Dev-only data flow warnings (no raw errors shown to users)
-  useMemo(() => {
-    if (typeof window === "undefined") return;
-    const rows = (overview.data?.rows ?? []) as Row[];
-    if (rows.length === 0) return;
-    const sample = rows[0];
-    const hasRating =
-      "rating" in sample ||
-      "lead_rating" in sample ||
-      "reitings" in sample ||
-      "priority" in sample;
-    const hasTags = "tags" in sample;
-    if (!hasRating)
-      console.warn(
-        "[Leadi] analytics.leads_overview: rating/priority field not found",
-      );
-    if (!hasTags)
-      console.warn("[Leadi] analytics.leads_overview: tags field not found");
   }, [overview.data]);
 
   /* Distinct options derived from dataset. */
@@ -471,7 +419,7 @@ function DarbaRindaPage() {
       if (selectedCountry && l.country !== selectedCountry) return false;
       if (selectedSource && l.source !== selectedSource) return false;
       if (fromTs != null || toTs != null) {
-        const t = parseDate(l.lead_created_at);
+        const t = parseDate(l.last_activity_at);
         if (t == null) return false;
         if (fromTs != null && t < fromTs) return false;
         if (toTs != null && t > toTs) return false;
@@ -495,11 +443,9 @@ function DarbaRindaPage() {
     search,
   ]);
 
-  /* Sorting: default = rating DESC → overdue → due ASC → last_contact ASC → created DESC.
-     User-selected key sorts only by that key, with the default chain as tiebreaker. */
+  /* Default sort: rating DESC → last_activity DESC. */
   const sorted = useMemo(() => {
     const copy = [...filtered];
-    const now = Date.now();
 
     const cmpString = (a: string, b: string) => a.localeCompare(b, "lv");
     const cmpNumNullable = (a: number | null, b: number | null) => {
@@ -517,26 +463,14 @@ function DarbaRindaPage() {
         if (bR == null) return -1;
         return bR - aR; // DESC
       }
-      const aDue = parseDate(a.next_action_due_date);
-      const bDue = parseDate(b.next_action_due_date);
-      const aOver = aDue != null && aDue < now ? 1 : 0;
-      const bOver = bDue != null && bDue < now ? 1 : 0;
-      if (aOver !== bOver) return bOver - aOver;
-      if (aDue !== bDue) {
-        if (aDue == null) return 1;
-        if (bDue == null) return -1;
-        return aDue - bDue;
-      }
-      const aLast = parseDate(a.last_contact_date);
-      const bLast = parseDate(b.last_contact_date);
+      const aLast = parseDate(a.last_activity_at);
+      const bLast = parseDate(b.last_activity_at);
       if (aLast !== bLast) {
         if (aLast == null) return 1;
         if (bLast == null) return -1;
-        return aLast - bLast;
+        return bLast - aLast;
       }
-      const aCreated = parseDate(a.lead_created_at) ?? 0;
-      const bCreated = parseDate(b.lead_created_at) ?? 0;
-      return bCreated - aCreated;
+      return 0;
     };
 
     const dirMul = sortDir === "asc" ? 1 : -1;
@@ -547,18 +481,11 @@ function DarbaRindaPage() {
           return defaultChain(a, b);
         case "rating":
           return cmpNumNullable(a.rating, b.rating) * dirMul;
-        case "next_action_due_date":
+        case "last_activity_at":
           return (
             cmpNumNullable(
-              parseDate(a.next_action_due_date),
-              parseDate(b.next_action_due_date),
-            ) * dirMul
-          );
-        case "last_contact_date":
-          return (
-            cmpNumNullable(
-              parseDate(a.last_contact_date),
-              parseDate(b.last_contact_date),
+              parseDate(a.last_activity_at),
+              parseDate(b.last_activity_at),
             ) * dirMul
           );
         case "ppv":
@@ -585,7 +512,6 @@ function DarbaRindaPage() {
     copy.sort((a, b) => {
       const primary = keyCmp(a, b);
       if (primary !== 0) return primary;
-      // Stable tiebreaker: default chain.
       return sortKey === "default" ? 0 : defaultChain(a, b);
     });
     return copy;
@@ -611,17 +537,11 @@ function DarbaRindaPage() {
       return;
     }
     if (sortKey === k) {
-      // toggle direction
       const nextDir = sortDir === "asc" ? "desc" : "asc";
       updateSearch({ sort: k, dir: nextDir });
     } else {
-      // sensible default per type
       const dirDefault: "asc" | "desc" =
-        k === "rating" ||
-        k === "next_action_due_date" ||
-        k === "last_contact_date"
-          ? "desc"
-          : "asc";
+        k === "rating" || k === "last_activity_at" ? "desc" : "asc";
       updateSearch({ sort: k, dir: dirDefault });
     }
   };
@@ -654,7 +574,7 @@ function DarbaRindaPage() {
     <>
       <PageHeader
         title="Leadi"
-        description="Darba saraksts no Supabase datiem"
+        description="Darba saraksts pēc lead_priority_queue (reitings DESC)"
       />
 
       {/* Quick segments */}
@@ -676,7 +596,7 @@ function DarbaRindaPage() {
         ))}
       </div>
 
-      {/* Single-row compact filter bar */}
+      {/* Filter bar: PPV, Valsts, Statuss, Avots, Atbildīgais, Datums */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -806,16 +726,16 @@ function DarbaRindaPage() {
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
                 <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
-                <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Vārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tags" k="tags" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
-                <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Nākamā darbība" k="next_action" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Pēdējā saziņa" k="last_contact_date" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Pēdējā saziņa" k="last_activity_at" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
             </thead>
@@ -829,7 +749,6 @@ function DarbaRindaPage() {
               ) : (
                 sorted.map((lead) => {
                   const isOpen = expanded.has(lead.lead_id);
-                  const overdue = isOverdue(lead.next_action_due_date);
                   return (
                     <Fragment key={lead.lead_id}>
                       <tr
@@ -853,6 +772,27 @@ function DarbaRindaPage() {
                         </td>
                         <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
                           {lead.full_name || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {lead.status ? (
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                statusBadgeClass(lead.status),
+                              )}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
+                          {lead.rating != null ? (
+                            lead.rating
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -900,51 +840,25 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5">
-                          {lead.status ? (
-                            <span
-                              className={cn(
-                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                statusBadgeClass(lead.status),
-                              )}
-                            >
-                              {lead.status}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
-                          {lead.rating != null ? (
-                            lead.rating
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
                         <td className="px-2 py-1.5 text-center text-foreground">
                           {lead.owner || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[200px] px-2 py-1.5">
+                        <td className="max-w-[220px] px-2 py-1.5">
                           <div className="truncate text-foreground">
                             {lead.next_action || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </div>
-                          <div
-                            className={cn(
-                              "tabular-nums text-[11px]",
-                              overdue
-                                ? "font-medium text-destructive"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {fmtDate(lead.next_action_due_date)}
-                          </div>
+                          {lead.follow_up_bucket && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {lead.follow_up_bucket}
+                            </div>
+                          )}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
-                          {fmtDateTime(lead.last_contact_date)}
+                          {fmtDateTime(lead.last_activity_at)}
                         </td>
                         <td
                           className="px-2 py-1.5 text-right"
@@ -955,7 +869,7 @@ function DarbaRindaPage() {
                             params={{ leadId: lead.lead_id }}
                             className="inline-flex items-center rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-secondary/50"
                           >
-                            Atvērt
+                            Atvērt Lead 360
                           </Link>
                         </td>
                       </tr>
