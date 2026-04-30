@@ -438,12 +438,20 @@ function DarbaRindaPage() {
       ppv: undefined,
       qq: undefined,
       seg: undefined,
+      countries: [],
+      sources: [],
+      range: undefined,
+      from: undefined,
+      to: undefined,
     });
 
   const hasAnyFilter =
     !!selectedStatus ||
     !!selectedOwner ||
     !!selectedPpv ||
+    !!selectedCountry ||
+    !!selectedSource ||
+    range !== "all" ||
     !!q ||
     seg !== "all";
 
