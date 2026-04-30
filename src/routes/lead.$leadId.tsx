@@ -1045,14 +1045,7 @@ function EmailPreviewDialog({
             />
           ) : text ? (
              <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
-               {text.split(/(_{10,})/).map((part, i) => {
-                 if (/^_{10,}$/.test(part)) {
-                   return (
-                     <div key={i} className="my-6 border-t border-border" />
-                   );
-                 }
-                 return <span key={i}>{part}</span>;
-               })}
+               {renderEmailText(text)}
              </div>
           ) : (
             <div className="p-6 text-sm text-muted-foreground">
