@@ -597,32 +597,6 @@ function DarbaRindaPage() {
         </div>
 
         <select
-          value={selectedStatus ?? ""}
-          onChange={(e) => updateSearch({ status: e.target.value || undefined })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Visi statusi</option>
-          {options.statuses.map((st) => (
-            <option key={st} value={st}>
-              {st}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedOwner ?? ""}
-          onChange={(e) => updateSearch({ owner: e.target.value || undefined })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Visi atbildīgie</option>
-          {options.owners.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-
-        <select
           value={selectedPpv ?? ""}
           onChange={(e) => updateSearch({ ppv: e.target.value || undefined })}
           className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -651,6 +625,19 @@ function DarbaRindaPage() {
         </select>
 
         <select
+          value={selectedStatus ?? ""}
+          onChange={(e) => updateSearch({ status: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi statusi</option>
+          {options.statuses.map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+
+        <select
           value={selectedSource ?? ""}
           onChange={(e) =>
             updateSearch({ sources: e.target.value ? [e.target.value] : [] })
@@ -661,6 +648,19 @@ function DarbaRindaPage() {
           {options.sources.map((s2) => (
             <option key={s2} value={s2}>
               {s2}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedOwner ?? ""}
+          onChange={(e) => updateSearch({ owner: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi atbildīgie</option>
+          {options.owners.map((o) => (
+            <option key={o} value={o}>
+              {o}
             </option>
           ))}
         </select>
