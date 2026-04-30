@@ -569,6 +569,8 @@ function DarbaRindaPage() {
           return cmpString(a.owner, b.owner) * dirMul;
         case "next_action":
           return cmpString(a.next_action, b.next_action) * dirMul;
+        case "tags":
+          return cmpString(a.tags.join(","), b.tags.join(",")) * dirMul;
       }
     };
 
