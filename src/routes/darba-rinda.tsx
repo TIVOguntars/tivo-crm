@@ -1,857 +1,683 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
-import { toast } from "sonner";
-import {
-  Eye,
-  Mail,
-  MessageSquare,
-  Phone,
-  MessageCircle,
-  Send,
-} from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { Eye } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard, type StatCardTone } from "@/components/StatCard";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useInfiniteAnalyticsView } from "@/hooks/useInfiniteAnalyticsView";
-import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
-import { useAnalyticsCount } from "@/hooks/useAnalyticsCount";
-import { isEndpointMissing } from "@/lib/endpointStatus";
-import {
-  priorityTone,
-  PRIORITY_ROW_BG,
-  PRIORITY_BADGE,
-} from "@/lib/priorityColors";
+import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import type { FiltersSearch } from "@/lib/filters";
+
+/* ----------------------- Route + search params ----------------------- */
+
+const SEGMENTS = [
+  "all",
+  "jauni",
+  "nesasniedzami",
+  "ar_reakciju",
+  "hot",
+  "nokaveti",
+  "piedavajums",
+  "ligumi",
+] as const;
+type Segment = (typeof SEGMENTS)[number];
+
+const leadiSearchSchema = z.object({
+  status: fallback(z.string().optional(), undefined),
+  seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+});
 
 export const Route = createFileRoute("/darba-rinda")({
+  validateSearch: zodValidator(leadiSearchSchema),
   component: DarbaRindaPage,
 });
 
-const COLUMNS: { key: string; label: string; widthClass?: string; wrap?: boolean; align?: "left" | "right" | "center" }[] = [
-  { key: "full_name", label: "Vārds", widthClass: "w-[14%] min-w-[140px]", wrap: true },
-  { key: "email", label: "Email", widthClass: "w-[17%] min-w-[180px]", wrap: true },
-  { key: "phone", label: "Telefons", widthClass: "w-[10%] min-w-[120px]" },
-  { key: "tags", label: "Tagi", widthClass: "w-[10%] min-w-[110px]", wrap: true },
-  { key: "status", label: "Statuss", widthClass: "w-[9%] min-w-[110px]" },
-  { key: "priority", label: "Prior.", widthClass: "w-[5%] min-w-[60px]", align: "right" },
-  { key: "__last_activity", label: "Pēdējā aktivitāte", widthClass: "w-[12%] min-w-[140px]", wrap: true },
-  { key: "__next_step", label: "Nākamais solis", widthClass: "w-[10%] min-w-[120px]", wrap: true },
-  { key: "__actions", label: "Darbības", widthClass: "w-[13%] min-w-[170px]" },
-];
+/* ---------------------------- Types ---------------------------- */
 
-const SEARCH_KEYS = ["full_name", "email", "phone"] as const;
+type Row = Record<string, unknown>;
 
-const ZERO_PRIORITY_STATUSES = new Set([
-  "Atcelts",
-  "Atlikts",
-  "Pabeigts",
-  "Nekvalificējas",
-  "Līgums",
-]);
-
-const INACTIVE_STATUSES = new Set([
-  "Nesasniedzams",
-  "Nekvalificējas",
-  "Atcelts",
-]);
-
-const GROUP_DEFS: { key: string; label: string; hint: string; test: (s: number) => boolean }[] = [
-  { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", test: (s) => s === 100 },
-  { key: "offers", label: "Piedāvājumi", hint: "priority = 90", test: (s) => s === 90 },
-  { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", test: (s) => s === 80 },
-  { key: "followup", label: "Follow-up", hint: "priority = 70", test: (s) => s === 70 },
-  { key: "contact", label: "Sazināties", hint: "priority = 60", test: (s) => s === 60 },
-  { key: "none", label: "Nav darbību", hint: "priority = 0", test: (s) => s === 0 },
-];
-
-function effectivePriority(row: Record<string, unknown>): number {
-  const status = row.status == null ? "" : String(row.status);
-  if (ZERO_PRIORITY_STATUSES.has(status)) return 0;
-  const score = Number(row.priority);
-  return Number.isFinite(score) ? score : 0;
+interface Lead {
+  lead_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  country: string;
+  source: string;
+  status: string;
+  owner: string;
+  ppv: string;
+  next_action: string;
+  next_action_due_date: string | null;
+  last_contact_date: string | null;
+  automation_step: string;
+  automation_date: string | null;
+  tags: string[];
+  lead_created_at: string | null;
 }
 
-function formatCell(value: unknown): string {
-  if (value == null) return "";
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
+const PAGE_SIZE = 200;
+
+/* ----------------------- Helpers ----------------------- */
+
+function s(v: unknown): string {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.join(", ");
+  return String(v);
 }
 
-/* ----- Last activity formatting ----- */
-
-// "Saņemts/Nosūtīts/etc." + channel name in nominative.
-const CHANNEL_NOMINATIVE: Record<string, string> = {
-  email: "e-pasts",
-  sms: "SMS",
-  whatsapp: "WhatsApp ziņa",
-  call: "zvans",
-  messenger: "Messenger ziņa",
-};
-
-function describeEvent(channel: string, type: string, group: string): string {
-  const t = type.toLowerCase();
-  const ch = channel.toLowerCase();
-  const g = group.toLowerCase();
-
-  // Reply (any channel)
-  if (g === "reply" || t === "reply" || t === "replied") {
-    return "Saņemta atbilde";
-  }
-
-  const channelName = CHANNEL_NOMINATIVE[ch];
-
-  // Outbound / send
-  if (t === "sent" || g === "outbound_attempt") {
-    if (channelName) return `Nosūtīts ${channelName}`;
-    return "Nosūtīta ziņa";
-  }
-  if (t === "delivered") {
-    if (channelName) return `Piegādāts ${channelName}`;
-    return "Piegādāta ziņa";
-  }
-  if (t === "failed" || t === "bounce") {
-    if (channelName) return `Neizdevās ${channelName}`;
-    return "Neizdevās piegādāt";
-  }
-  if (t === "open") {
-    if (channelName) return `Atvērts ${channelName}`;
-    return "Atvērta ziņa";
-  }
-  if (t === "click") return "Klikšķis uz saites";
-
-  // Calls
-  if (ch === "call" || t.startsWith("call")) {
-    if (t === "call_connected") return "Atbildēts zvans";
-    if (t === "call_missed") return "Neatbildēts zvans";
-    return "Zvans";
-  }
-
-  if (channelName) return channelName.charAt(0).toUpperCase() + channelName.slice(1);
-  if (g) return "Aktivitāte";
-  return "Aktivitāte";
+function asTags(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((t) => String(t).trim()).filter(Boolean);
+  if (v == null) return [];
+  return String(v)
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
-function parseTs(v: unknown): number | null {
+function parseDate(v: unknown): number | null {
   if (v == null || v === "") return null;
   const t = new Date(String(v)).getTime();
   return Number.isFinite(t) ? t : null;
 }
 
-/**
- * Latvian relative time. Uses correct singular/plural per Latvian rules:
- *   1, 21, 31… → singular ("1 minūti", "1 stundu", "1 dienu")
- *   else       → plural ("2 minūtēm", "5 stundām", "10 dienām")
- */
-function plural(n: number, singular: string, plural: string): string {
-  // Latvian: numbers ending in 1 (but not 11) take singular form.
-  const last = n % 10;
-  const last2 = n % 100;
-  const isSingular = last === 1 && last2 !== 11;
-  return isSingular ? singular : plural;
+function fmtDate(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "—";
+  return new Date(t).toLocaleDateString("lv-LV");
 }
 
-function formatRelative(ts: number | null): string {
-  if (ts == null) return "—";
-  const diff = Date.now() - ts;
-  if (diff < 0) return new Date(ts).toLocaleDateString("lv-LV");
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return "tikko";
-  if (min < 60) return `pirms ${min} ${plural(min, "minūtes", "minūtēm")}`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `pirms ${h} ${plural(h, "stundas", "stundām")}`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `pirms ${d} ${plural(d, "dienas", "dienām")}`;
-  return new Date(ts).toLocaleDateString("lv-LV");
+function fmtDateTime(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "—";
+  return new Date(t).toLocaleString("lv-LV", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-/**
- * Map raw next_action string from analytics.lead_priority_queue
- * to a user-facing Latvian label. Frontend MUST NOT recompute logic.
- */
-function nextActionLabel(raw: string): string {
-  const v = raw.trim();
-  if (!v) return "";
-  const lower = v.toLowerCase();
-  if (lower === "follow-up" || lower === "follow_up" || lower === "followup") {
-    return "Sekot (Follow-up)";
-  }
-  if (lower === "reply" || lower === "atbildēt" || lower === "answer") {
-    return "Atbildēt";
-  }
-  if (
-    lower === "offer" ||
-    lower === "piedāvājums" ||
-    lower === "send_offer" ||
-    lower === "follow_offer" ||
-    lower === "sekot piedāvājumam"
-  ) {
-    return "Sekot piedāvājumam";
-  }
-  if (lower === "verify_contact" || lower === "verify" || lower === "check_contact") {
-    return "Pārbaudīt kontaktu";
-  }
-  if (lower === "contact" || lower === "sazināties" || lower === "reach_out") {
-    return "Sazināties";
-  }
-  return v;
+const MS_DAY = 24 * 60 * 60 * 1000;
+
+function dueClass(due: string | null): string {
+  const t = parseDate(due);
+  if (t == null) return "text-muted-foreground";
+  const diff = t - Date.now();
+  if (diff < 0) return "text-destructive font-medium";
+  if (diff < MS_DAY * 2) return "text-amber-600 dark:text-amber-400 font-medium";
+  return "text-foreground";
 }
 
-/**
- * Resolve the primary CTA for a given next_action label:
- *  - target hash on the lead profile (which section to focus)
- *  - mailto compose for follow-up
- *  - visual variant
- */
-type NextStepCta = {
-  variant: "primary" | "default" | "outline";
-  /** hash to append to /lead/$leadId, or null for no hash */
-  focus: string | null;
-  /** if set, opens mailto: instead of navigating */
-  mailto?: { subject: string; body: string };
+/* ----------------------- Segments ----------------------- */
+
+const NEW_STATUSES = new Set(["Jauns", "Jauns lead", "Jauns leads"]);
+const UNREACHABLE_STATUSES = new Set([
+  "Nesasniedzams",
+  "Nesasniegts",
+  "Bounced",
+  "Nederīgs e-pasts",
+]);
+const OFFER_STATUSES = new Set([
+  "Piedāvājums",
+  "Piedavajums",
+]);
+const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
+
+function passesSegment(lead: Lead, seg: Segment): boolean {
+  switch (seg) {
+    case "all":
+      return true;
+    case "jauni":
+      return NEW_STATUSES.has(lead.status);
+    case "nesasniedzami":
+      return UNREACHABLE_STATUSES.has(lead.status);
+    case "ar_reakciju":
+      return Boolean(parseDate(lead.last_contact_date));
+    case "hot":
+      return lead.tags.some((t) => t.toLowerCase() === "hot");
+    case "nokaveti": {
+      const t = parseDate(lead.next_action_due_date);
+      return t != null && t < Date.now();
+    }
+    case "piedavajums":
+      return OFFER_STATUSES.has(lead.status);
+    case "ligumi":
+      return CONTRACT_STATUSES.has(lead.status);
+  }
+}
+
+const SEGMENT_LABELS: Record<Segment, string> = {
+  all: "Visi",
+  jauni: "Jauni",
+  nesasniedzami: "Nesasniedzami",
+  ar_reakciju: "Ar reakciju",
+  hot: "Hot",
+  nokaveti: "Nokavēti termiņi",
+  piedavajums: "Piedāvājums",
+  ligumi: "Līgumi",
 };
 
-function ctaForStep(step: string): NextStepCta {
-  switch (step) {
-    case "Atbildēt":
-      return { variant: "primary", focus: "communication" };
-    case "Sekot piedāvājumam":
-      return { variant: "default", focus: "offer" };
-    case "Sekot (Follow-up)":
-      return {
-        variant: "default",
-        focus: "communication",
-        mailto: {
-          subject: "Sveiki! Atgādinājums par mūsu piedāvājumu",
-          body:
-            "Sveiki!\n\nGribēju pārliecināties, vai esat saņēmuši mūsu iepriekšējo ziņu un vai jums ir kādi jautājumi par piedāvājumu.\n\nGaidu jūsu atbildi!\n\nAr cieņu,",
-        },
-      };
-    case "Pārbaudīt kontaktu":
-      return { variant: "default", focus: "contact" };
-    case "Sazināties":
-      return { variant: "default", focus: "communication" };
-    default:
-      return { variant: "outline", focus: null };
-  }
-}
+/* ----------------------- Filter dropdown ----------------------- */
 
-function ActionButtons({ row }: { row: Record<string, unknown> }) {
-  const leadId = row.lead_id ?? row.id;
-  const navigate = useNavigate();
-  const comingSoon = () => toast("Drīzumā");
-
-  const handleViewProfile = () => {
-    if (leadId == null) {
-      toast("Lead ID nav pieejams");
-      return;
-    }
-    navigate({ to: "/lead/$leadId", params: { leadId: String(leadId) } });
-  };
-
+function MultiSelect({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const selected = new Set(value);
   return (
-    <div className="flex flex-nowrap items-center gap-0.5 opacity-60 hover:opacity-100 transition-opacity">
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-6 w-6 p-0 text-muted-foreground"
-        onClick={handleViewProfile}
-        title="Skatīt profilu"
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <select
+        multiple
+        value={value}
+        onChange={(e) => {
+          const next = Array.from(e.target.selectedOptions).map((o) => o.value);
+          onChange(next);
+        }}
+        className="h-20 min-w-[140px] rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        <Eye className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="E-pasts">
-        <Mail className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="SMS">
-        <MessageSquare className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="WhatsApp">
-        <Send className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Zvans">
-        <Phone className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={comingSoon} title="Messenger">
-        <MessageCircle className="h-3 w-3" />
-      </Button>
-    </div>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+            {selected.has(opt) ? " ✓" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
-function NextStepButton({
-  row,
-  step,
-  reason,
-}: {
-  row: Record<string, unknown>;
-  step: string;
-  reason: string;
-}) {
-  const navigate = useNavigate();
-  const leadId = row.lead_id ?? row.id;
-  const cta = ctaForStep(step);
+/* ----------------------- Page ----------------------- */
 
-  const handleClick = () => {
-    if (cta.mailto) {
-      const email = row.email == null ? "" : String(row.email).trim();
-      if (!email) {
-        toast("Šim leadam nav e-pasta");
-        return;
+function DarbaRindaPage() {
+  const search = Route.useSearch() as FiltersSearch & { status?: string; seg: Segment };
+  const navigate = useNavigate();
+
+  const q = (search.q ?? "").trim().toLowerCase();
+  const selectedCountries = search.countries ?? [];
+  const selectedSources = search.sources ?? [];
+  const selectedOwners = search.owners ?? [];
+  const selectedPpvs = search.ppvs ?? [];
+  const selectedTags = search.tags ?? [];
+  const selectedStatus = search.status;
+  const seg: Segment = search.seg ?? "all";
+
+  /* Pull a wide page of overview rows; client-side filters/sort. */
+  const overviewQuery = useMemo(() => {
+    return [
+      "select=lead_id,full_name,email,phone_raw,phone_e164,country,source,status,owner,ppv_vards,next_action,next_action_due_date,last_contact_date,automation_step,automation_date,tags,lead_created_at",
+      "order=lead_created_at.desc.nullslast",
+      `limit=${PAGE_SIZE}`,
+    ].join("&");
+  }, []);
+
+  const overview = useAnalyticsView("leads_overview", overviewQuery);
+  const filterOptions = useAnalyticsView("filter_options", "limit=1");
+
+  const errorMsg =
+    (overview.error as Error | null)?.message || overview.data?.error;
+  const loading = overview.isLoading;
+
+  /* Map rows to typed leads */
+  const leads = useMemo<Lead[]>(() => {
+    const rows = (overview.data?.rows ?? []) as Row[];
+    return rows
+      .map((r) => {
+        const id = s(r.lead_id);
+        if (!id) return null;
+        return {
+          lead_id: id,
+          full_name: s(r.full_name),
+          email: s(r.email),
+          phone: s(r.phone_raw || r.phone_e164),
+          country: s(r.country),
+          source: s(r.source),
+          status: s(r.status),
+          owner: s(r.owner),
+          ppv: s(r.ppv_vards),
+          next_action: s(r.next_action),
+          next_action_due_date: s(r.next_action_due_date) || null,
+          last_contact_date: s(r.last_contact_date) || null,
+          automation_step: s(r.automation_step),
+          automation_date: s(r.automation_date) || null,
+          tags: asTags(r.tags),
+          lead_created_at: s(r.lead_created_at) || null,
+        } as Lead;
+      })
+      .filter((x): x is Lead => x !== null);
+  }, [overview.data]);
+
+  /* Filter options from the dataset itself (fallback for filter_options). */
+  const options = useMemo(() => {
+    const fo = (filterOptions.data?.rows ?? [])[0] as Row | undefined;
+
+    const fromArray = (v: unknown): string[] =>
+      Array.isArray(v) ? v.map(String).filter(Boolean) : [];
+
+    const dedupe = (arr: string[]) =>
+      Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "lv"),
+      );
+
+    return {
+      statuses: dedupe(
+        fromArray(fo?.statuses).length > 0
+          ? fromArray(fo?.statuses)
+          : leads.map((l) => l.status),
+      ),
+      countries: dedupe(
+        fromArray(fo?.countries).length > 0
+          ? fromArray(fo?.countries)
+          : leads.map((l) => l.country),
+      ),
+      sources: dedupe(
+        fromArray(fo?.sources).length > 0
+          ? fromArray(fo?.sources)
+          : leads.map((l) => l.source),
+      ),
+      owners: dedupe(
+        fromArray(fo?.owners).length > 0
+          ? fromArray(fo?.owners)
+          : leads.map((l) => l.owner),
+      ),
+      ppvs: dedupe(
+        fromArray(fo?.ppvs).length > 0
+          ? fromArray(fo?.ppvs)
+          : leads.map((l) => l.ppv),
+      ),
+      tags: dedupe(leads.flatMap((l) => l.tags)),
+    };
+  }, [filterOptions.data, leads]);
+
+  /* Apply filters + segment + search */
+  const filtered = useMemo(() => {
+    const tagSel = selectedTags.map((t) => t.toLowerCase());
+
+    return leads.filter((l) => {
+      if (selectedStatus && l.status !== selectedStatus) return false;
+      if (selectedCountries.length && !selectedCountries.includes(l.country))
+        return false;
+      if (selectedSources.length && !selectedSources.includes(l.source))
+        return false;
+      if (selectedOwners.length && !selectedOwners.includes(l.owner))
+        return false;
+      if (selectedPpvs.length && !selectedPpvs.includes(l.ppv)) return false;
+
+      if (tagSel.length) {
+        const lower = l.tags.map((t) => t.toLowerCase());
+        if (!tagSel.every((t) => lower.includes(t))) return false;
       }
-      const params = new URLSearchParams({
-        subject: cta.mailto.subject,
-        body: cta.mailto.body,
-      });
-      window.location.href = `mailto:${email}?${params.toString()}`;
-      return;
-    }
-    if (leadId == null) {
-      toast("Lead ID nav pieejams");
-      return;
-    }
+
+      if (!passesSegment(l, seg)) return false;
+
+      if (q) {
+        const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [
+    leads,
+    selectedStatus,
+    selectedCountries,
+    selectedSources,
+    selectedOwners,
+    selectedPpvs,
+    selectedTags,
+    seg,
+    q,
+  ]);
+
+  /* Sort: due asc nullslast → last_contact_date asc → lead_created_at desc */
+  const sorted = useMemo(() => {
+    const copy = [...filtered];
+    copy.sort((a, b) => {
+      const aDue = parseDate(a.next_action_due_date);
+      const bDue = parseDate(b.next_action_due_date);
+      if (aDue !== bDue) {
+        if (aDue == null) return 1;
+        if (bDue == null) return -1;
+        if (aDue !== bDue) return aDue - bDue;
+      }
+      const aLast = parseDate(a.last_contact_date);
+      const bLast = parseDate(b.last_contact_date);
+      if (aLast !== bLast) {
+        if (aLast == null) return 1;
+        if (bLast == null) return -1;
+        if (aLast !== bLast) return aLast - bLast;
+      }
+      const aCreated = parseDate(a.lead_created_at) ?? 0;
+      const bCreated = parseDate(b.lead_created_at) ?? 0;
+      return bCreated - aCreated;
+    });
+    return copy;
+  }, [filtered]);
+
+  const setSegment = (next: Segment) => {
     navigate({
-      to: "/lead/$leadId",
-      params: { leadId: String(leadId) },
-      hash: cta.focus ?? undefined,
+      to: "/darba-rinda",
+      search: ((prev: Record<string, unknown>) => ({
+        ...prev,
+        seg: next === "all" ? undefined : next,
+      })) as never,
+      replace: true,
     });
   };
 
-  // Color the next-step button using the SAME priority tone as the row
-  // background and KPI card. Single source of truth: priority score.
-  const tone = priorityTone(effectivePriority(row));
-  const variantClass = PRIORITY_BADGE[tone];
-
-  const button = (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold transition-colors w-full ${variantClass}`}
-    >
-      {step}
-    </button>
-  );
-
-  return (
-    <div className="flex flex-col gap-0.5 leading-tight">
-      {reason ? (
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent side="top">{reason}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        button
-      )}
-      {reason && (
-        <span className="text-[10px] text-muted-foreground line-clamp-2">
-          {reason}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function DarbaRindaPage() {
-  const search = useSearch({ strict: false }) as { q?: string; tags?: string[] };
-
-  const q = (search.q ?? "").trim();
-  const selectedTags = (search.tags ?? []) as string[];
-
-  const [activeOnly, setActiveOnly] = useState(true);
-  // KPI card filter: drives server-side query (no client-side group filtering).
-  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
-
-  // Build the PostgREST query string from current filters. Server-side only.
-  // Sorting: priority desc, last_activity_at desc (both nulls last).
-  const baseQuery = useMemo(() => {
-    const parts: string[] = [
-      "order=priority.desc.nullslast,last_activity_at.desc.nullslast",
-    ];
-
-    // KPI filter -> server filter
-    if (kpiFilter === "urgent") parts.push("priority=eq.100");
-    else if (kpiFilter === "offers") parts.push("priority=eq.90");
-    else if (kpiFilter === "verify") parts.push("priority=eq.80");
-    else if (kpiFilter === "contact") parts.push("priority=eq.60");
-    else if (kpiFilter === "none") parts.push("priority=eq.0");
-    else if (kpiFilter === "followup_today")
-      parts.push(
-        `follow_up_bucket=eq.${encodeURIComponent("Šodien jāseko")}`,
-      );
-    else if (kpiFilter === "followup_overdue")
-      parts.push(
-        `follow_up_bucket=eq.${encodeURIComponent("Kavēts follow-up")}`,
-      );
-    else if (kpiFilter === "followup_old")
-      parts.push(
-        `follow_up_bucket=eq.${encodeURIComponent("Vecie leadi")}`,
-      );
-
-    // "Tikai aktīvie leadi" -> exclude inactive statuses
-    if (activeOnly) {
-      parts.push(
-        `status=not.in.(${[...INACTIVE_STATUSES]
-          .map((s) => encodeURIComponent(s))
-          .join(",")})`,
-      );
-    }
-
-    // Free-text search across name/email/phone (server-side ilike)
-    if (q) {
-      const needle = `*${q.replace(/[(),]/g, "")}*`;
-      const enc = encodeURIComponent(needle);
-      parts.push(
-        `or=(full_name.ilike.${enc},email.ilike.${enc},phone.ilike.${enc})`,
-      );
-    }
-
-    // Tags (text column, comma-separated). Use ilike per selected tag.
-    for (const t of selectedTags) {
-      const enc = encodeURIComponent(`*${t}*`);
-      parts.push(`tags=ilike.${enc}`);
-    }
-
-    return parts.join("&");
-  }, [kpiFilter, activeOnly, q, selectedTags]);
-
-  const {
-    data,
-    error,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-  } = useInfiniteAnalyticsView("lead_priority_queue", baseQuery, 100);
-
-  // Flatten loaded pages into a single ordered list.
-  const rows = useMemo(() => {
-    const out: Array<Record<string, unknown>> = [];
-    for (const p of data?.pages ?? []) {
-      for (const r of p.rows) out.push(r as Record<string, unknown>);
-    }
-    return out;
-  }, [data]);
-
-  const total = data?.pages?.[0]?.total ?? null;
-
-  // Follow-up KPI cards source: dedicated RPC analytics.get_follow_up_counts.
-  // ALWAYS reflects the full dataset — independent of UI filters,
-  // "Tikai aktīvie leadi" toggle, pagination, or table grouping.
-  const { data: bucketAgg } = useAnalyticsRpc("get_follow_up_counts", {});
-
-  const followupCounts = useMemo(() => {
-    const map: Record<string, number> = {
-      "Šodien jāseko": 0,
-      "Kavēts follow-up": 0,
-      "Vecie leadi": 0,
-    };
-    const aggRows = (bucketAgg?.rows ?? []) as Array<Record<string, unknown>>;
-    for (const r of aggRows) {
-      // Accept either { follow_up_bucket, count } or { bucket, count } shapes.
-      const bucket =
-        (r.follow_up_bucket ?? r.bucket ?? "") == null
-          ? ""
-          : String(r.follow_up_bucket ?? r.bucket ?? "").trim();
-      const count =
-        Number(r.lead_count ?? r.count ?? r.total ?? 0) || 0;
-      if (bucket in map) map[bucket] = count;
-    }
-    return map;
-  }, [bucketAgg]);
-
-  // Independent server-side count queries per priority KPI card.
-  // These reflect the FULL analytics.lead_priority_queue dataset and are
-  // NOT affected by the table's filters / activeOnly / search / pagination.
-  const urgentCount = useAnalyticsCount("lead_priority_queue", "priority=eq.100");
-  const offersCount = useAnalyticsCount("lead_priority_queue", "priority=eq.90");
-  const verifyCount = useAnalyticsCount("lead_priority_queue", "priority=eq.80");
-  const contactCount = useAnalyticsCount("lead_priority_queue", "priority=eq.60");
-  const noneCount = useAnalyticsCount("lead_priority_queue", "priority=eq.0");
-
-  // Exact total for the CURRENT server-side filter (KPI + activeOnly + search + tags).
-  // Drives the "Kopā: X leadi" indicator. Independent from the loaded page count.
-  const filteredTotalQ = useAnalyticsCount("lead_priority_queue", baseQuery);
-
-  // KPI card definitions (display + total + loading + filter key).
-  // `total` is `null` only while the underlying count query is loading,
-  // so the UI can show a skeleton. A successful query returning 0 still
-  // renders "0" — never a dash.
-  type KpiCard = {
-    key: string;
-    label: string;
-    hint: string;
-    total: number | null;
-    loading: boolean;
-    tone: StatCardTone;
+  const setStatus = (next: string | undefined) => {
+    navigate({
+      to: "/darba-rinda",
+      search: ((prev: Record<string, unknown>) => ({
+        ...prev,
+        status: next || undefined,
+      })) as never,
+      replace: true,
+    });
   };
-  const KPI_CARDS: KpiCard[] = [
-    { key: "urgent", label: "Steidzami / jāatbild", hint: "priority = 100", total: urgentCount.data ?? null, loading: urgentCount.isLoading, tone: "red" },
-    { key: "offers", label: "Piedāvājumi", hint: "priority = 90", total: offersCount.data ?? null, loading: offersCount.isLoading, tone: "purple" },
-    { key: "verify", label: "Pārbaudīt kontaktu", hint: "priority = 80", total: verifyCount.data ?? null, loading: verifyCount.isLoading, tone: "orange" },
-    { key: "followup_today", label: "Šodien jāseko", hint: 'follow_up_bucket = "Šodien jāseko"', total: followupCounts["Šodien jāseko"], loading: !bucketAgg, tone: "yellow" },
-    { key: "followup_overdue", label: "Kavēts follow-up", hint: 'follow_up_bucket = "Kavēts follow-up"', total: followupCounts["Kavēts follow-up"], loading: !bucketAgg, tone: "amber" },
-    { key: "followup_old", label: "Vecie leadi", hint: 'follow_up_bucket = "Vecie leadi"', total: followupCounts["Vecie leadi"], loading: !bucketAgg, tone: "gray" },
-    { key: "contact", label: "Sazināties", hint: "priority = 60", total: contactCount.data ?? null, loading: contactCount.isLoading, tone: "blue" },
-    { key: "none", label: "Nav darbību", hint: "priority = 0", total: noneCount.data ?? null, loading: noneCount.isLoading, tone: "gray" },
-  ];
 
-  // ---------- Virtualized infinite-scroll table ----------
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const setMulti = (
+    key: "countries" | "sources" | "owners" | "ppvs" | "tags",
+    value: string[],
+  ) => {
+    navigate({
+      to: "/darba-rinda",
+      search: ((prev: Record<string, unknown>) => ({
+        ...prev,
+        [key]: value.length ? value : [],
+      })) as never,
+      replace: true,
+    });
+  };
 
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 56,
-    overscan: 8,
-  });
+  const clearFilters = () => {
+    navigate({
+      to: "/darba-rinda",
+      search: ((prev: Record<string, unknown>) => ({
+        ...prev,
+        status: undefined,
+        countries: [],
+        sources: [],
+        owners: [],
+        ppvs: [],
+        tags: [],
+        seg: undefined,
+        q: undefined,
+      })) as never,
+      replace: true,
+    });
+  };
 
-  // Trigger fetchNextPage when within ~3 rows of the bottom of the rendered list.
-  useEffect(() => {
-    const items = virtualizer.getVirtualItems();
-    if (!items.length) return;
-    const lastIdx = items[items.length - 1].index;
-    if (lastIdx >= rows.length - 3 && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [
-    virtualizer.getVirtualItems(),
-    rows.length,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    virtualizer,
-  ]);
-
-  const errorMsg =
-    (error as Error | null)?.message || data?.pages?.[0]?.error || null;
-  const priorityMissing = isEndpointMissing(errorMsg);
+  const hasAnyFilter =
+    !!selectedStatus ||
+    selectedCountries.length > 0 ||
+    selectedSources.length > 0 ||
+    selectedOwners.length > 0 ||
+    selectedPpvs.length > 0 ||
+    selectedTags.length > 0 ||
+    seg !== "all" ||
+    !!q;
 
   return (
     <>
       <PageHeader
         title="Leadi"
-        description="Prioritārie leadi no analytics.lead_priority_queue"
+        description="Darba saraksts no Supabase datiem"
       >
         <SearchInput />
       </PageHeader>
 
-      {priorityMissing ? (
-        <div className="mb-6 rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          Prioritāšu modelis tiek konfigurēts
-        </div>
-      ) : (
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        {KPI_CARDS.map((c) => {
-          // KPI counts are NEVER derived from the (paginated) table — they come
-          // either from the dedicated RPC (follow-up buckets) or from a
-          // server-side count query keyed on the card's own filter (priority).
-          const isActive = kpiFilter === c.key;
-          const handleClick = () => {
-            setKpiFilter(isActive ? null : c.key);
-            // Reset scroll to top when filter changes.
-            scrollRef.current?.scrollTo({ top: 0 });
-          };
-          return (
-            <StatCard
-              key={c.key}
-              label={c.label}
-              value={c.loading && c.total == null ? "…" : (c.total ?? 0)}
-              hint={c.hint}
-              onClick={handleClick}
-              active={isActive}
-              tone={c.tone}
-            />
-          );
-        })}
-      </div>
-      )}
-
-      {!priorityMissing && (
-      <div className="mb-3 flex items-center gap-2">
-        <Switch
-          id="active-only"
-          checked={activeOnly}
-          onCheckedChange={setActiveOnly}
-        />
-        <Label htmlFor="active-only" className="text-sm cursor-pointer">
-          Tikai aktīvie leadi
-        </Label>
-        <span className="text-xs text-muted-foreground">
-          Slēpj: Nesasniedzams, Nekvalificējas, Atcelts
-        </span>
-        <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            Kopā:{" "}
-            <span className="font-medium text-foreground">
-              {filteredTotalQ.isLoading && filteredTotalQ.data == null
-                ? "…"
-                : (filteredTotalQ.data ?? total ?? 0)}
-            </span>{" "}
-            leadi
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            Ielādēti:{" "}
-            <span className="font-medium text-foreground">{rows.length}</span>
-            {" "}no{" "}
-            <span className="font-medium text-foreground">
-              {filteredTotalQ.data ?? total ?? rows.length}
-            </span>
-          </span>
-          {kpiFilter && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                Aktīvs filtrs:{" "}
-                <span className="font-medium text-foreground">
-                  {KPI_CARDS.find((c) => c.key === kpiFilter)?.label ??
-                    kpiFilter}
-                </span>
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2"
-                onClick={() => {
-                  setKpiFilter(null);
-                  scrollRef.current?.scrollTo({ top: 0 });
-                }}
-              >
-                Atiestatīt filtrus
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-      )}
-
-      {errorMsg && !priorityMissing && <ErrorState message={errorMsg} />}
-      {!errorMsg && isLoading && <LoadingState />}
-
-      {!errorMsg && !isLoading && (
-        rows.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <VirtualLeadList
-            rows={rows}
-            scrollRef={scrollRef}
-            virtualizer={virtualizer}
-            isFetchingNextPage={isFetchingNextPage}
-            hasNextPage={!!hasNextPage}
-            total={total}
-          />
-        )
-      )}
-    </>
-  );
-}
-
-// Grid template matching the original COLUMNS widths.
-// Each column maps to one fr based on its previous percentage,
-// with min-width preserved via `minmax()`.
-const GRID_TEMPLATE =
-  "minmax(140px,14fr) minmax(180px,17fr) minmax(120px,10fr) minmax(110px,10fr) minmax(110px,9fr) minmax(60px,5fr) minmax(140px,12fr) minmax(120px,10fr) minmax(170px,13fr)";
-
-function renderCell(c: (typeof COLUMNS)[number], row: Record<string, unknown>): ReactNode {
-  if (c.key === "__actions") return <ActionButtons row={row} />;
-  if (c.key === "__last_activity") {
-    const ts = parseTs(row.last_activity_at);
-    const channel = row.last_channel == null ? "" : String(row.last_channel);
-    const evType = row.last_event_type == null ? "" : String(row.last_event_type);
-    const evGroup = row.last_event_group == null ? "" : String(row.last_event_group);
-    if (ts == null && !channel && !evType && !evGroup) {
-      return <span className="text-muted-foreground">—</span>;
-    }
-    const label = describeEvent(channel, evType, evGroup);
-    return (
-      <div className="flex flex-col leading-tight">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="text-xs text-muted-foreground">{formatRelative(ts)}</span>
-      </div>
-    );
-  }
-  if (c.key === "__next_step") {
-    const raw = row.next_action == null ? "" : String(row.next_action);
-    const reason =
-      row.next_action_reason == null ? "" : String(row.next_action_reason);
-    const step = nextActionLabel(raw);
-    if (!step) {
-      return <span className="text-xs text-muted-foreground">Nav darbību</span>;
-    }
-    return <NextStepButton row={row} step={step} reason={reason} />;
-  }
-  if (c.key === "priority") return String(effectivePriority(row));
-  if (c.key === "phone") {
-    const text = formatCell(row.phone);
-    if (text === "") return "";
-    return (
-      <a
-        href={`tel:${text.replace(/\s+/g, "")}`}
-        className="text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {text}
-      </a>
-    );
-  }
-  if (c.key === "status") {
-    const text = formatCell(row.status);
-    // Color is ALWAYS derived from priority — never from status text.
-    // Status only controls the label.
-    const tone = priorityTone(effectivePriority(row));
-    const toneClass = PRIORITY_BADGE[tone];
-    if (text === "") {
-      return (
-        <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${toneClass}`}>
-          Nav statusa
-        </span>
-      );
-    }
-    return (
-      <span
-        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${toneClass}`}
-      >
-        {text}
-      </span>
-    );
-  }
-  const text = formatCell(row[c.key]);
-  return text === "" ? <span className="text-muted-foreground">—</span> : text;
-}
-
-function LeadRow({ row }: { row: Record<string, unknown> }) {
-  const score = effectivePriority(row);
-  // Row background tint is derived ONLY from priority — never from
-  // status or follow_up_bucket. Same tone token as KPI card + badge.
-  const tone = priorityTone(score);
-  const highlight = PRIORITY_ROW_BG[tone];
-  return (
-    <div
-      className={`grid items-center border-t border-border text-sm hover:bg-secondary/30 ${highlight}`}
-      style={{ gridTemplateColumns: GRID_TEMPLATE }}
-    >
-      {COLUMNS.map((c) => {
-        const isScore = c.key === "priority";
-        return (
-          <div
-            key={c.key}
-            className={`px-2 py-2 text-foreground ${
-              c.align === "right" ? "text-right" : "text-left"
-            } ${c.wrap ? "whitespace-normal break-words" : "truncate"} ${
-              isScore ? "font-semibold tabular-nums" : ""
+      {/* Quick segments */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {SEGMENTS.map((sg) => (
+          <button
+            key={sg}
+            type="button"
+            onClick={() => setSegment(sg)}
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              seg === sg
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-foreground hover:bg-secondary/40"
             }`}
-            title={
-              c.key !== "__actions" &&
-              c.key !== "__last_activity" &&
-              c.key !== "__next_step" &&
-              !c.wrap
-                ? formatCell(row[c.key])
-                : undefined
-            }
           >
-            {renderCell(c, row)}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function VirtualLeadList({
-  rows,
-  scrollRef,
-  virtualizer,
-  isFetchingNextPage,
-  hasNextPage,
-  total,
-}: {
-  rows: Array<Record<string, unknown>>;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
-  virtualizer: Virtualizer<HTMLDivElement, Element>;
-  isFetchingNextPage: boolean;
-  hasNextPage: boolean;
-  total: number | null;
-}) {
-  const items = virtualizer.getVirtualItems();
-  const totalSize = virtualizer.getTotalSize();
-
-  return (
-    <div
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm"
-      style={{ maxHeight: "calc(100vh - 380px)" }}
-    >
-      {/* Sticky column header */}
-      <div
-        className="grid border-b border-border bg-muted text-xs uppercase text-muted-foreground"
-        style={{ gridTemplateColumns: GRID_TEMPLATE }}
-      >
-        {COLUMNS.map((c) => (
-          <div
-            key={c.key}
-            className={`px-2 py-2 font-medium tracking-wide ${
-              c.align === "right" ? "text-right" : "text-left"
-            } ${c.wrap ? "" : "whitespace-nowrap"}`}
-          >
-            {c.label}
-          </div>
+            {SEGMENT_LABELS[sg]}
+          </button>
         ))}
       </div>
 
-      {/* Virtualized scroll body */}
-      <div ref={scrollRef} className="flex-1 overflow-auto">
-        <div style={{ height: totalSize, position: "relative" }}>
-          {items.map((vi) => {
-            const row = rows[vi.index];
-            if (!row) return null;
-            return (
-              <div
-                key={vi.key}
-                ref={virtualizer.measureElement}
-                data-index={vi.index}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${vi.start}px)`,
-                }}
-              >
-                <LeadRow row={row} />
-              </div>
-            );
-          })}
-        </div>
-        {/* Bottom loading / end-of-list indicator */}
-        <div className="flex items-center justify-center px-4 py-3 text-xs text-muted-foreground">
-          {isFetchingNextPage ? (
-            <span>Ielādē vēl...</span>
-          ) : hasNextPage ? (
-            <span>Ritini, lai ielādētu vairāk</span>
-          ) : total != null ? (
-            <span>
-              Visi {total} leadi ielādēti
-            </span>
-          ) : null}
+      {/* Filter bar */}
+      <div className="mb-4 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">Statuss</span>
+            <select
+              value={selectedStatus ?? ""}
+              onChange={(e) => setStatus(e.target.value || undefined)}
+              className="h-8 min-w-[160px] rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Visi</option>
+              {options.statuses.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <MultiSelect
+            label="Atbildīgais"
+            options={options.owners}
+            value={selectedOwners}
+            onChange={(v) => setMulti("owners", v)}
+          />
+          <MultiSelect
+            label="PPV"
+            options={options.ppvs}
+            value={selectedPpvs}
+            onChange={(v) => setMulti("ppvs", v)}
+          />
+          <MultiSelect
+            label="Valsts"
+            options={options.countries}
+            value={selectedCountries}
+            onChange={(v) => setMulti("countries", v)}
+          />
+          <MultiSelect
+            label="Avots"
+            options={options.sources}
+            value={selectedSources}
+            onChange={(v) => setMulti("sources", v)}
+          />
+          <MultiSelect
+            label="Tags"
+            options={options.tags}
+            value={selectedTags}
+            onChange={(v) => setMulti("tags", v)}
+          />
+
+          {hasAnyFilter && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8"
+              onClick={clearFilters}
+            >
+              Notīrīt filtrus
+            </Button>
+          )}
         </div>
       </div>
-    </div>
+
+      {errorMsg && <ErrorState message={errorMsg} />}
+      {!errorMsg && loading && <LoadingState />}
+
+      {!errorMsg && !loading && (
+        <div className="rounded-lg border border-border bg-card shadow-sm">
+          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                Leadi{" "}
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  ({sorted.length})
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Kārtots pēc termiņa, tad pēdējās saziņas, tad izveides datuma.
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Rāda pirmos {PAGE_SIZE}
+            </span>
+          </header>
+
+          {sorted.length === 0 ? (
+            <div className="p-8">
+              <EmptyState />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1400px] text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Vārds / Uzvārds</th>
+                    <th className="px-3 py-2 text-left font-medium">Email</th>
+                    <th className="px-3 py-2 text-left font-medium">Telefons</th>
+                    <th className="px-3 py-2 text-left font-medium">Valsts</th>
+                    <th className="px-3 py-2 text-left font-medium">Avots</th>
+                    <th className="px-3 py-2 text-left font-medium">Statuss</th>
+                    <th className="px-3 py-2 text-left font-medium">Atbildīgais</th>
+                    <th className="px-3 py-2 text-left font-medium">PPV</th>
+                    <th className="px-3 py-2 text-left font-medium">Nākamā darbība</th>
+                    <th className="px-3 py-2 text-left font-medium">Termiņš</th>
+                    <th className="px-3 py-2 text-left font-medium">Pēdējā saziņa</th>
+                    <th className="px-3 py-2 text-left font-medium">Automatizācija</th>
+                    <th className="px-3 py-2 text-left font-medium">Aut. datums</th>
+                    <th className="px-3 py-2 text-left font-medium">Tags</th>
+                    <th className="px-3 py-2 text-right font-medium" aria-label="Darbības" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((lead) => (
+                    <tr
+                      key={lead.lead_id}
+                      className="border-t border-border hover:bg-secondary/30"
+                    >
+                      <td className="px-3 py-2 font-medium text-foreground">
+                        {lead.full_name || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.email ? (
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="text-primary hover:underline"
+                          >
+                            {lead.email}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-foreground">
+                        {lead.phone || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.country || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.source || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.status || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.owner || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.ppv || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.next_action || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td
+                        className={`px-3 py-2 tabular-nums ${dueClass(lead.next_action_due_date)}`}
+                      >
+                        {fmtDate(lead.next_action_due_date)}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-foreground">
+                        {fmtDateTime(lead.last_contact_date)}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.automation_step || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-foreground">
+                        {fmtDate(lead.automation_date)}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {lead.tags.length === 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {lead.tags.map((t) => (
+                              <span
+                                key={t}
+                                className={`rounded-full px-2 py-0.5 text-[11px] ${
+                                  t.toLowerCase() === "hot"
+                                    ? "bg-destructive/15 text-destructive"
+                                    : "bg-secondary text-secondary-foreground"
+                                }`}
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Link
+                          to="/lead/$leadId"
+                          params={{ leadId: lead.lead_id }}
+                          className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary/50"
+                          title="Atvērt leadu"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
