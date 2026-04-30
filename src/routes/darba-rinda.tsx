@@ -553,9 +553,8 @@ function DarbaRindaPage() {
                   const isOpen = expanded.has(lead.lead_id);
                   const overdue = isOverdue(lead.next_action_due_date);
                   return (
-                    <>
+                    <React.Fragment key={lead.lead_id}>
                       <tr
-                        key={lead.lead_id}
                         onClick={() => toggleExpand(lead.lead_id)}
                         className={cn(
                           "cursor-pointer border-b border-border/60 hover:bg-secondary/30",
@@ -653,17 +652,14 @@ function DarbaRindaPage() {
                         </td>
                       </tr>
                       {isOpen && (
-                        <tr
-                          key={`${lead.lead_id}-d`}
-                          className="border-b border-border bg-muted/20"
-                        >
+                        <tr className="border-b border-border bg-muted/20">
                           <td />
                           <td colSpan={11} className="px-3 py-3">
                             <ExpandedDetails lead={lead} />
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })
               )}
