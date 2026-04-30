@@ -92,7 +92,7 @@ interface Lead {
   follow_up_bucket: string;
 }
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 1000;
 
 /* ----------------------- Helpers ----------------------- */
 
