@@ -347,14 +347,27 @@ function DarbaRindaPage() {
       statuses: dedupe(leads.map((l) => l.status)),
       owners: dedupe(leads.map((l) => l.owner)),
       ppvs: dedupe(leads.map((l) => l.ppv)),
+      countries: dedupe(leads.map((l) => l.country)),
+      sources: dedupe(leads.map((l) => l.source)),
     };
   }, [leads]);
 
   const filtered = useMemo(() => {
+    const { from, to } = resolveDateRange(search);
+    const fromTs = from ? new Date(from + "T00:00:00").getTime() : null;
+    const toTs = to ? new Date(to + "T23:59:59").getTime() : null;
     return leads.filter((l) => {
       if (selectedStatus && l.status !== selectedStatus) return false;
       if (selectedOwner && l.owner !== selectedOwner) return false;
       if (selectedPpv && l.ppv !== selectedPpv) return false;
+      if (selectedCountry && l.country !== selectedCountry) return false;
+      if (selectedSource && l.source !== selectedSource) return false;
+      if (fromTs != null || toTs != null) {
+        const t = parseDate(l.lead_created_at);
+        if (t == null) return false;
+        if (fromTs != null && t < fromTs) return false;
+        if (toTs != null && t > toTs) return false;
+      }
       if (!passesSegment(l, seg)) return false;
       if (q) {
         const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
@@ -362,7 +375,17 @@ function DarbaRindaPage() {
       }
       return true;
     });
-  }, [leads, selectedStatus, selectedOwner, selectedPpv, seg, q]);
+  }, [
+    leads,
+    selectedStatus,
+    selectedOwner,
+    selectedPpv,
+    selectedCountry,
+    selectedSource,
+    seg,
+    q,
+    search,
+  ]);
 
   /* Sort: overdue first → due asc nullslast → last_contact asc → created desc */
   const sorted = useMemo(() => {
