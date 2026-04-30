@@ -801,16 +801,16 @@ function DarbaRindaPage() {
             <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
-                <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Tags" k="tags" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Valsts" k="country" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Statuss" k="status" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Reitings" k="rating" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
+                <SortHeader label="Atbildīgais" k="owner" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
                 <SortHeader label="Nākamā darbība" k="next_action" active={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortHeader label="Termiņš" k="next_action_due_date" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Pēdējā saziņa" k="last_contact_date" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <th className="px-2 py-1.5 text-right font-medium" aria-label="Darbības" />
               </tr>
@@ -842,7 +842,7 @@ function DarbaRindaPage() {
                             <ChevronRight className="h-3.5 w-3.5" />
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
+                        <td className="px-2 py-1.5 text-center text-foreground">
                           {lead.ppv || (
                             <span className="text-muted-foreground">—</span>
                           )}
@@ -865,12 +865,33 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="max-w-[160px] px-2 py-1.5">
+                          {lead.tags.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {lead.tags.map((t) => (
+                                <span
+                                  key={t}
+                                  className={cn(
+                                    "rounded px-1.5 py-0.5 text-[10px]",
+                                    t.toLowerCase() === "hot"
+                                      ? "bg-destructive/15 text-destructive"
+                                      : "bg-secondary text-secondary-foreground",
+                                  )}
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-2 py-1.5 tabular-nums text-foreground">
                           {lead.phone || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
+                        <td className="px-2 py-1.5 text-center text-foreground">
                           {lead.country || (
                             <span className="text-muted-foreground">—</span>
                           )}
@@ -889,32 +910,34 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 tabular-nums text-foreground">
+                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
                           {lead.rating != null ? (
                             lead.rating
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
+                        <td className="px-2 py-1.5 text-center text-foreground">
                           {lead.owner || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[180px] truncate px-2 py-1.5 text-foreground">
-                          {lead.next_action || (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td
-                          className={cn(
-                            "px-2 py-1.5 tabular-nums",
-                            overdue
-                              ? "font-medium text-destructive"
-                              : "text-foreground",
-                          )}
-                        >
-                          {fmtDate(lead.next_action_due_date)}
+                        <td className="max-w-[200px] px-2 py-1.5">
+                          <div className="truncate text-foreground">
+                            {lead.next_action || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </div>
+                          <div
+                            className={cn(
+                              "tabular-nums text-[11px]",
+                              overdue
+                                ? "font-medium text-destructive"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {fmtDate(lead.next_action_due_date)}
+                          </div>
                         </td>
                         <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
                           {fmtDateTime(lead.last_contact_date)}
