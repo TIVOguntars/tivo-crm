@@ -2,28 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import {
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  Flame,
-  Mail,
-  MapPin,
-  Phone,
-  Tag as TagIcon,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
-import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
@@ -45,6 +28,9 @@ type Segment = (typeof SEGMENTS)[number];
 
 const searchSchema = z.object({
   status: fallback(z.string().optional(), undefined),
+  owner: fallback(z.string().optional(), undefined),
+  ppv: fallback(z.string().optional(), undefined),
+  qq: fallback(z.string().optional(), undefined),
   seg: fallback(z.enum(SEGMENTS), "all").default("all"),
 });
 
@@ -121,53 +107,32 @@ function fmtDateTime(v: string | null): string {
   });
 }
 
-const MS_DAY = 24 * 60 * 60 * 1000;
-
-/* ----------------------- Status colors ----------------------- */
-
-type StatusTone = {
-  cls: string;
-};
-
-function statusTone(status: string): StatusTone {
+function statusBadgeClass(status: string): string {
   const k = status.toLowerCase().trim();
-  if (!k) return { cls: "bg-muted text-muted-foreground" };
+  if (!k) return "bg-muted text-muted-foreground";
   if (k.startsWith("jauns"))
-    return { cls: "bg-blue-500/15 text-blue-700 dark:text-blue-300" };
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300";
   if (
     k.startsWith("nesasniedz") ||
     k.startsWith("nesasniegts") ||
     k.includes("bounce") ||
     k.includes("nederīg")
   )
-    return { cls: "bg-muted text-muted-foreground" };
+    return "bg-muted text-muted-foreground";
   if (k.startsWith("piesaist"))
-    return {
-      cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-    };
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
   if (k.startsWith("nekvalific"))
-    return { cls: "bg-destructive/15 text-destructive" };
+    return "bg-destructive/15 text-destructive";
   if (k.startsWith("piedāv") || k.startsWith("piedav"))
-    return {
-      cls: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
-    };
+    return "bg-purple-500/15 text-purple-700 dark:text-purple-300";
   if (k.startsWith("līgum") || k.startsWith("ligum") || k.includes("contract"))
-    return {
-      cls: "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200",
-    };
-  return { cls: "bg-secondary text-secondary-foreground" };
+    return "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200";
+  return "bg-secondary text-secondary-foreground";
 }
 
 function isOverdue(due: string | null): boolean {
   const t = parseDate(due);
   return t != null && t < Date.now();
-}
-
-function isSoon(due: string | null): boolean {
-  const t = parseDate(due);
-  if (t == null) return false;
-  const diff = t - Date.now();
-  return diff >= 0 && diff < MS_DAY * 2;
 }
 
 /* ----------------------- Segments ----------------------- */
@@ -214,366 +179,74 @@ const SEGMENT_LABELS: Record<Segment, string> = {
   ligumi: "Līgumi",
 };
 
-/* ----------------------- Multi-select popover ----------------------- */
+/* ----------------------- Expanded details ----------------------- */
 
-function MultiPopover({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  value: string[];
-  onChange: (next: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = new Set(value);
-  const summary =
-    value.length === 0
-      ? label
-      : value.length === 1
-        ? `${label}: ${value[0]}`
-        : `${label} (${value.length})`;
-
+function ExpandedDetails({ lead }: { lead: Lead }) {
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-8 gap-1.5 text-xs font-normal",
-            value.length > 0 && "border-primary text-foreground",
-          )}
-        >
-          <span className="max-w-[160px] truncate">{summary}</span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-xs font-medium">{label}</span>
-          {value.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onChange([])}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Notīrīt
-            </button>
-          )}
-        </div>
-        <div className="max-h-64 overflow-y-auto p-1">
-          {options.length === 0 ? (
-            <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-              Nav opciju
-            </div>
-          ) : (
-            options.map((opt) => {
-              const checked = selected.has(opt);
-              return (
-                <label
-                  key={opt}
-                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-secondary/60"
-                >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={(c) => {
-                      const next = new Set(selected);
-                      if (c) next.add(opt);
-                      else next.delete(opt);
-                      onChange(Array.from(next));
-                    }}
-                  />
-                  <span className="truncate">{opt}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* ----------------------- Single status select popover ----------------------- */
-
-function StatusPopover({
-  options,
-  value,
-  onChange,
-}: {
-  options: string[];
-  value: string | undefined;
-  onChange: (next: string | undefined) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-8 gap-1.5 text-xs font-normal",
-            value && "border-primary text-foreground",
-          )}
-        >
-          <span className="max-w-[160px] truncate">
-            {value ? `Statuss: ${value}` : "Statuss"}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-xs font-medium">Statuss</span>
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange(undefined);
-                setOpen(false);
-              }}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Notīrīt
-            </button>
-          )}
-        </div>
-        <div className="max-h-64 overflow-y-auto p-1">
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => {
-                onChange(opt === value ? undefined : opt);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-xs hover:bg-secondary/60",
-                opt === value && "bg-secondary/60 font-medium",
-              )}
-            >
-              <span className="truncate">{opt}</span>
-              {opt === value && <span className="text-primary">✓</span>}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* ----------------------- Lead row ----------------------- */
-
-function LeadRow({ lead }: { lead: Lead }) {
-  const [open, setOpen] = useState(false);
-  const tone = statusTone(lead.status);
-  const overdue = isOverdue(lead.next_action_due_date);
-  const soon = isSoon(lead.next_action_due_date);
-  const hot = lead.tags.some((t) => t.toLowerCase() === "hot");
-
-  return (
-    <div className="border-b border-border last:border-b-0">
-      <div className="group flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-secondary/30 sm:flex-row sm:items-start sm:gap-4">
-        {/* Left: expand toggle + identity */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex flex-1 min-w-0 items-start gap-3 text-left"
-          aria-expanded={open}
-        >
-          <span className="mt-1 inline-flex h-5 w-5 flex-none items-center justify-center rounded text-muted-foreground group-hover:text-foreground">
-            {open ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            {/* Main line */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-semibold text-foreground">
-                {lead.full_name || "—"}
-              </span>
-              {lead.status && (
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
+      <DetailItem label="Avots" value={lead.source} />
+      <DetailItem
+        label="Tags"
+        node={
+          lead.tags.length === 0 ? null : (
+            <div className="flex flex-wrap gap-1">
+              {lead.tags.map((t) => (
                 <span
+                  key={t}
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    tone.cls,
+                    "rounded px-1.5 py-0.5 text-[10px]",
+                    t.toLowerCase() === "hot"
+                      ? "bg-destructive/15 text-destructive"
+                      : "bg-secondary text-secondary-foreground",
                   )}
                 >
-                  {lead.status}
+                  {t}
                 </span>
-              )}
-              {hot && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-medium text-destructive">
-                  <Flame className="h-3 w-3" />
-                  Hot
-                </span>
-              )}
-              {overdue && (
-                <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-medium text-destructive">
-                  Nokavēts
-                </span>
-              )}
+              ))}
             </div>
-
-            {/* Second line */}
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {lead.email && (
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <a
-                    href={`mailto:${lead.email}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="truncate hover:text-foreground hover:underline"
-                  >
-                    {lead.email}
-                  </a>
-                </span>
-              )}
-              {lead.phone && (
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <Phone className="h-3 w-3" />
-                  {lead.phone}
-                </span>
-              )}
-              {lead.country && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {lead.country}
-                </span>
-              )}
-              {lead.source && (
-                <span className="inline-flex items-center gap-1">
-                  <TagIcon className="h-3 w-3" />
-                  {lead.source}
-                </span>
-              )}
-            </div>
-          </div>
-        </button>
-
-        {/* Right side: meta */}
-        <div className="flex flex-none flex-col items-start gap-1 text-xs sm:items-end">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground">
-            {lead.owner && (
-              <span>
-                <span className="text-muted-foreground/70">Atb.:</span>{" "}
-                <span className="text-foreground">{lead.owner}</span>
-              </span>
-            )}
-            {lead.ppv && (
-              <span>
-                <span className="text-muted-foreground/70">PPV:</span>{" "}
-                <span className="text-foreground">{lead.ppv}</span>
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            {lead.next_action && (
-              <span className="text-foreground">{lead.next_action}</span>
-            )}
-            <span
-              className={cn(
-                "tabular-nums",
-                overdue
-                  ? "font-medium text-destructive"
-                  : soon
-                    ? "font-medium text-amber-600 dark:text-amber-400"
-                    : "text-muted-foreground",
-              )}
-            >
-              {fmtDate(lead.next_action_due_date)}
-            </span>
-          </div>
-          <Link
-            to="/lead/$leadId"
-            params={{ leadId: lead.lead_id }}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-1 inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium hover:bg-secondary/50"
-            title="Atvērt Lead 360"
-          >
-            <Eye className="h-3 w-3" />
-            Atvērt Lead 360
-          </Link>
-        </div>
-      </div>
-
-      {/* Expanded details */}
-      {open && (
-        <div className="border-t border-border bg-muted/20 px-4 py-3">
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-            <Detail label="Automatizācija" value={lead.automation_step} />
-            <Detail
-              label="Automatizācijas datums"
-              value={fmtDate(lead.automation_date)}
-              raw={lead.automation_date}
-            />
-            <Detail
-              label="Pēdējā saziņa"
-              value={fmtDateTime(lead.last_contact_date)}
-              raw={lead.last_contact_date}
-            />
-            <Detail label="Atcelšanas iemesls" value={lead.cancel_reason} />
-            <Detail label="Reitings" value={lead.rating} />
-            <div>
-              <dt className="text-muted-foreground">Tags</dt>
-              <dd className="mt-0.5">
-                {lead.tags.length === 0 ? (
-                  <span className="text-muted-foreground">—</span>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {lead.tags.map((t) => (
-                      <span
-                        key={t}
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[11px]",
-                          t.toLowerCase() === "hot"
-                            ? "bg-destructive/15 text-destructive"
-                            : "bg-secondary text-secondary-foreground",
-                        )}
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      )}
-    </div>
+          )
+        }
+      />
+      <DetailItem label="Automatizācija" value={lead.automation_step} />
+      <DetailItem
+        label="Automatizācijas datums"
+        value={lead.automation_date ? fmtDate(lead.automation_date) : ""}
+      />
+      <DetailItem label="Atcelšanas iemesls" value={lead.cancel_reason} />
+      <DetailItem label="Reitings" value={lead.rating} />
+      <DetailItem
+        label="Lead izveidots"
+        value={lead.lead_created_at ? fmtDateTime(lead.lead_created_at) : ""}
+      />
+      <DetailItem label="Lead ID" value={lead.lead_id} mono />
+    </dl>
   );
 }
 
-function Detail({
+function DetailItem({
   label,
   value,
-  raw,
+  node,
+  mono,
 }: {
   label: string;
-  value: string;
-  raw?: string | null;
+  value?: string;
+  node?: React.ReactNode;
+  mono?: boolean;
 }) {
-  const empty = !value || value === "—" || (raw !== undefined && !raw);
+  const hasNode = node !== undefined;
+  const empty = hasNode ? node == null : !value;
   return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
+    <div className="flex gap-2">
+      <dt className="w-40 flex-none text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          "mt-0.5",
+          "min-w-0 flex-1",
           empty ? "text-muted-foreground" : "text-foreground",
+          mono && "font-mono text-[11px]",
         )}
       >
-        {empty ? "—" : value}
+        {empty ? "—" : hasNode ? node : value}
       </dd>
     </div>
   );
@@ -584,30 +257,40 @@ function Detail({
 function DarbaRindaPage() {
   const search = Route.useSearch() as FiltersSearch & {
     status?: string;
+    owner?: string;
+    ppv?: string;
+    qq?: string;
     seg: Segment;
   };
   const navigate = useNavigate();
 
-  const q = (search.q ?? "").trim().toLowerCase();
-  const selectedCountries = search.countries ?? [];
-  const selectedSources = search.sources ?? [];
-  const selectedOwners = search.owners ?? [];
-  const selectedPpvs = search.ppvs ?? [];
-  const selectedTags = search.tags ?? [];
+  const q = (search.qq ?? "").trim().toLowerCase();
   const selectedStatus = search.status;
+  const selectedOwner = search.owner;
+  const selectedPpv = search.ppv;
   const seg: Segment = search.seg ?? "all";
 
-  /* Pull a wide page of overview rows; client-side filters/sort. */
-  const overviewQuery = useMemo(() => {
-    return [
-      "select=*",
-      "order=lead_created_at.desc.nullslast",
-      `limit=${PAGE_SIZE}`,
-    ].join("&");
-  }, []);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  /* Pull a wide page; client-side filters/sort. */
+  const overviewQuery = useMemo(
+    () =>
+      [
+        "select=*",
+        "order=lead_created_at.desc.nullslast",
+        `limit=${PAGE_SIZE}`,
+      ].join("&"),
+    [],
+  );
 
   const overview = useAnalyticsView("leads_overview", overviewQuery);
-  const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
   const rawError =
     (overview.error as Error | null)?.message || overview.data?.error;
@@ -618,7 +301,6 @@ function DarbaRindaPage() {
     : null;
   const loading = overview.isLoading;
 
-  /* Map rows to typed leads */
   const leads = useMemo<Lead[]>(() => {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
@@ -651,88 +333,34 @@ function DarbaRindaPage() {
       .filter((x): x is Lead => x !== null);
   }, [overview.data]);
 
-  /* Filter options from the dataset itself (fallback for filter_options). */
+  /* Distinct options derived from dataset. */
   const options = useMemo(() => {
-    const fo = (filterOptions.data?.rows ?? [])[0] as Row | undefined;
-
-    const fromArray = (v: unknown): string[] =>
-      Array.isArray(v) ? v.map(String).filter(Boolean) : [];
-
     const dedupe = (arr: string[]) =>
       Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>
         a.localeCompare(b, "lv"),
       );
-
     return {
-      statuses: dedupe(
-        fromArray(fo?.statuses).length > 0
-          ? fromArray(fo?.statuses)
-          : leads.map((l) => l.status),
-      ),
-      countries: dedupe(
-        fromArray(fo?.countries).length > 0
-          ? fromArray(fo?.countries)
-          : leads.map((l) => l.country),
-      ),
-      sources: dedupe(
-        fromArray(fo?.sources).length > 0
-          ? fromArray(fo?.sources)
-          : leads.map((l) => l.source),
-      ),
-      owners: dedupe(
-        fromArray(fo?.owners).length > 0
-          ? fromArray(fo?.owners)
-          : leads.map((l) => l.owner),
-      ),
-      ppvs: dedupe(
-        fromArray(fo?.ppvs).length > 0
-          ? fromArray(fo?.ppvs)
-          : leads.map((l) => l.ppv),
-      ),
-      tags: dedupe(leads.flatMap((l) => l.tags)),
+      statuses: dedupe(leads.map((l) => l.status)),
+      owners: dedupe(leads.map((l) => l.owner)),
+      ppvs: dedupe(leads.map((l) => l.ppv)),
     };
-  }, [filterOptions.data, leads]);
+  }, [leads]);
 
-  /* Apply filters + segment + search */
   const filtered = useMemo(() => {
-    const tagSel = selectedTags.map((t) => t.toLowerCase());
-
     return leads.filter((l) => {
       if (selectedStatus && l.status !== selectedStatus) return false;
-      if (selectedCountries.length && !selectedCountries.includes(l.country))
-        return false;
-      if (selectedSources.length && !selectedSources.includes(l.source))
-        return false;
-      if (selectedOwners.length && !selectedOwners.includes(l.owner))
-        return false;
-      if (selectedPpvs.length && !selectedPpvs.includes(l.ppv)) return false;
-
-      if (tagSel.length) {
-        const lower = l.tags.map((t) => t.toLowerCase());
-        if (!tagSel.every((t) => lower.includes(t))) return false;
-      }
-
+      if (selectedOwner && l.owner !== selectedOwner) return false;
+      if (selectedPpv && l.ppv !== selectedPpv) return false;
       if (!passesSegment(l, seg)) return false;
-
       if (q) {
         const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [
-    leads,
-    selectedStatus,
-    selectedCountries,
-    selectedSources,
-    selectedOwners,
-    selectedPpvs,
-    selectedTags,
-    seg,
-    q,
-  ]);
+  }, [leads, selectedStatus, selectedOwner, selectedPpv, seg, q]);
 
-  /* Sort: overdue first → due asc nullslast → last_contact_date asc → lead_created_at desc */
+  /* Sort: overdue first → due asc nullslast → last_contact asc → created desc */
   const sorted = useMemo(() => {
     const copy = [...filtered];
     const now = Date.now();
@@ -746,14 +374,14 @@ function DarbaRindaPage() {
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
-        if (aDue !== bDue) return aDue - bDue;
+        return aDue - bDue;
       }
       const aLast = parseDate(a.last_contact_date);
       const bLast = parseDate(b.last_contact_date);
       if (aLast !== bLast) {
         if (aLast == null) return 1;
         if (bLast == null) return -1;
-        if (aLast !== bLast) return aLast - bLast;
+        return aLast - bLast;
       }
       const aCreated = parseDate(a.lead_created_at) ?? 0;
       const bCreated = parseDate(b.lead_created_at) ?? 0;
@@ -762,78 +390,42 @@ function DarbaRindaPage() {
     return copy;
   }, [filtered]);
 
-  const setSegment = (next: Segment) => {
+  const updateSearch = (patch: Record<string, unknown>) => {
     navigate({
       to: "/darba-rinda",
       search: ((prev: Record<string, unknown>) => ({
         ...prev,
-        seg: next === "all" ? undefined : next,
+        ...patch,
       })) as never,
       replace: true,
     });
   };
 
-  const setStatus = (next: string | undefined) => {
-    navigate({
-      to: "/darba-rinda",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        status: next || undefined,
-      })) as never,
-      replace: true,
-    });
-  };
+  const setSegment = (next: Segment) =>
+    updateSearch({ seg: next === "all" ? undefined : next });
 
-  const setMulti = (
-    key: "countries" | "sources" | "owners" | "ppvs" | "tags",
-    value: string[],
-  ) => {
-    navigate({
-      to: "/darba-rinda",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        [key]: value.length ? value : [],
-      })) as never,
-      replace: true,
+  const clearFilters = () =>
+    updateSearch({
+      status: undefined,
+      owner: undefined,
+      ppv: undefined,
+      qq: undefined,
+      seg: undefined,
     });
-  };
-
-  const clearFilters = () => {
-    navigate({
-      to: "/darba-rinda",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        status: undefined,
-        countries: [],
-        sources: [],
-        owners: [],
-        ppvs: [],
-        tags: [],
-        seg: undefined,
-        q: undefined,
-      })) as never,
-      replace: true,
-    });
-  };
 
   const hasAnyFilter =
     !!selectedStatus ||
-    selectedCountries.length > 0 ||
-    selectedSources.length > 0 ||
-    selectedOwners.length > 0 ||
-    selectedPpvs.length > 0 ||
-    selectedTags.length > 0 ||
-    seg !== "all" ||
-    !!q;
+    !!selectedOwner ||
+    !!selectedPpv ||
+    !!q ||
+    seg !== "all";
 
   return (
     <>
       <PageHeader
         title="Leadi"
         description="Darba saraksts no Supabase datiem"
-      >
-        <SearchInput />
-      </PageHeader>
+      />
 
       {/* Quick segments */}
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -854,43 +446,58 @@ function DarbaRindaPage() {
         ))}
       </div>
 
-      {/* Compact filter toolbar */}
+      {/* Single-row compact filter bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <StatusPopover
-          options={options.statuses}
-          value={selectedStatus}
-          onChange={setStatus}
-        />
-        <MultiPopover
-          label="Atbildīgais"
-          options={options.owners}
-          value={selectedOwners}
-          onChange={(v) => setMulti("owners", v)}
-        />
-        <MultiPopover
-          label="PPV"
-          options={options.ppvs}
-          value={selectedPpvs}
-          onChange={(v) => setMulti("ppvs", v)}
-        />
-        <MultiPopover
-          label="Valsts"
-          options={options.countries}
-          value={selectedCountries}
-          onChange={(v) => setMulti("countries", v)}
-        />
-        <MultiPopover
-          label="Avots"
-          options={options.sources}
-          value={selectedSources}
-          onChange={(v) => setMulti("sources", v)}
-        />
-        <MultiPopover
-          label="Tags"
-          options={options.tags}
-          value={selectedTags}
-          onChange={(v) => setMulti("tags", v)}
-        />
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search.qq ?? ""}
+            onChange={(e) => updateSearch({ qq: e.target.value || undefined })}
+            placeholder="Meklēt vārds, e-pasts, telefons..."
+            className="h-8 w-64 rounded-md border border-input bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <select
+          value={selectedStatus ?? ""}
+          onChange={(e) => updateSearch({ status: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi statusi</option>
+          {options.statuses.map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedOwner ?? ""}
+          onChange={(e) => updateSearch({ owner: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi atbildīgie</option>
+          {options.owners.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedPpv ?? ""}
+          onChange={(e) => updateSearch({ ppv: e.target.value || undefined })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Visi PPV</option>
+          {options.ppvs.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+
         {hasAnyFilter && (
           <Button
             size="sm"
@@ -899,9 +506,13 @@ function DarbaRindaPage() {
             onClick={clearFilters}
           >
             <X className="h-3.5 w-3.5" />
-            Notīrīt filtrus
+            Notīrīt
           </Button>
         )}
+
+        <span className="ml-auto text-xs text-muted-foreground">
+          {sorted.length} leadi
+        </span>
       </div>
 
       {friendlyError && (
@@ -912,35 +523,152 @@ function DarbaRindaPage() {
       {!friendlyError && loading && <LoadingState />}
 
       {!friendlyError && !loading && (
-        <div className="rounded-lg border border-border bg-card shadow-sm">
-          <header className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Leadi{" "}
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                  ({sorted.length})
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Vispirms nokavētie, tad pēc termiņa, pēdējās saziņas un izveides.
-              </p>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Rāda pirmos {PAGE_SIZE}
-            </span>
-          </header>
-
-          {sorted.length === 0 ? (
-            <div className="p-8">
-              <EmptyState />
-            </div>
-          ) : (
-            <div>
-              {sorted.map((lead) => (
-                <LeadRow key={lead.lead_id} lead={lead} />
-              ))}
-            </div>
-          )}
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full min-w-[1200px] text-xs">
+            <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
+                <th className="px-2 py-1.5 text-left font-medium">Vārds</th>
+                <th className="px-2 py-1.5 text-left font-medium">Statuss</th>
+                <th className="px-2 py-1.5 text-left font-medium">Email</th>
+                <th className="px-2 py-1.5 text-left font-medium">Telefons</th>
+                <th className="px-2 py-1.5 text-left font-medium">Valsts</th>
+                <th className="px-2 py-1.5 text-left font-medium">Atbildīgais</th>
+                <th className="px-2 py-1.5 text-left font-medium">PPV</th>
+                <th className="px-2 py-1.5 text-left font-medium">Nākamā darbība</th>
+                <th className="px-2 py-1.5 text-left font-medium">Termiņš</th>
+                <th className="px-2 py-1.5 text-left font-medium">Pēdējā saziņa</th>
+                <th className="px-2 py-1.5 text-right font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="p-8">
+                    <EmptyState />
+                  </td>
+                </tr>
+              ) : (
+                sorted.map((lead) => {
+                  const isOpen = expanded.has(lead.lead_id);
+                  const overdue = isOverdue(lead.next_action_due_date);
+                  return (
+                    <>
+                      <tr
+                        key={lead.lead_id}
+                        onClick={() => toggleExpand(lead.lead_id)}
+                        className={cn(
+                          "cursor-pointer border-b border-border/60 hover:bg-secondary/30",
+                          isOpen && "bg-secondary/20",
+                        )}
+                      >
+                        <td className="px-2 py-1.5 align-middle text-muted-foreground">
+                          {isOpen ? (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          )}
+                        </td>
+                        <td className="max-w-[180px] truncate px-2 py-1.5 font-medium text-foreground">
+                          {lead.full_name || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {lead.status ? (
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                statusBadgeClass(lead.status),
+                              )}
+                            >
+                              {lead.status}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="max-w-[200px] truncate px-2 py-1.5">
+                          {lead.email ? (
+                            <a
+                              href={`mailto:${lead.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-primary hover:underline"
+                            >
+                              {lead.email}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums text-foreground">
+                          {lead.phone || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          {lead.country || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          {lead.owner || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          {lead.ppv || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="max-w-[180px] truncate px-2 py-1.5 text-foreground">
+                          {lead.next_action || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-2 py-1.5 tabular-nums",
+                            overdue
+                              ? "font-medium text-destructive"
+                              : "text-foreground",
+                          )}
+                        >
+                          {fmtDate(lead.next_action_due_date)}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
+                          {fmtDateTime(lead.last_contact_date)}
+                        </td>
+                        <td
+                          className="px-2 py-1.5 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Link
+                            to="/lead/$leadId"
+                            params={{ leadId: lead.lead_id }}
+                            className="inline-flex items-center rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-secondary/50"
+                          >
+                            Atvērt
+                          </Link>
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr
+                          key={`${lead.lead_id}-d`}
+                          className="border-b border-border bg-muted/20"
+                        >
+                          <td />
+                          <td colSpan={11} className="px-3 py-3">
+                            <ExpandedDetails lead={lead} />
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </>
