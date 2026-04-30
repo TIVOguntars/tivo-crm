@@ -164,6 +164,26 @@ function statusBadgeClass(status: string): string {
   return "bg-secondary text-secondary-foreground";
 }
 
+function nextActionBadgeClass(action: string): string {
+  const k = action.toLowerCase().trim();
+  if (!k || k.startsWith("nav")) return "bg-muted text-muted-foreground";
+  if (k.includes("zvan") || k.includes("call"))
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300";
+  if (k.includes("epast") || k.includes("e-past") || k.includes("email") || k.includes("rakst"))
+    return "bg-purple-500/15 text-purple-700 dark:text-purple-300";
+  if (k.includes("piedāv") || k.includes("piedav") || k.includes("offer"))
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+  if (k.includes("tikš") || k.includes("meet"))
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  if (k.includes("līgum") || k.includes("ligum") || k.includes("contract"))
+    return "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200";
+  if (k.includes("atgādin") || k.includes("follow"))
+    return "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300";
+  if (k.includes("atcel") || k.includes("noraid"))
+    return "bg-destructive/15 text-destructive";
+  return "bg-secondary text-secondary-foreground";
+}
+
 /* ----------------------- Segments ----------------------- */
 
 const NEW_STATUSES = new Set(["Jauns", "Jauns lead", "Jauns leads"]);
@@ -741,7 +761,7 @@ function DarbaRindaPage() {
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
                 <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
-                <SortHeader label="Vārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tags" k="tags" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
@@ -785,8 +805,12 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="truncate px-1.5 py-1.5 font-medium text-foreground">
-                          {lead.full_name || (
+                        <td className="px-1.5 py-1.5 font-medium text-foreground">
+                          {lead.full_name ? (
+                            <span className="line-clamp-2 break-words leading-tight">
+                              {lead.full_name}
+                            </span>
+                          ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
@@ -803,11 +827,11 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="truncate px-1.5 py-1.5">
+                        <td className="px-1.5 py-1.5">
                           {lead.tags.length === 0 ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            <div className="flex flex-nowrap gap-1 overflow-hidden">
+                            <div className="flex flex-wrap gap-1">
                               {lead.tags.map((t) => (
                                 <span
                                   key={t}
@@ -848,7 +872,7 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-center tabular-nums text-foreground">
+                        <td className="px-1 py-1.5 text-center tabular-nums text-[10px] text-foreground">
                           {lead.rating != null ? (
                             lead.rating
                           ) : (
@@ -862,7 +886,16 @@ function DarbaRindaPage() {
                         </td>
                         <td className="px-1.5 py-1.5">
                           <div className="truncate text-foreground">
-                            {lead.next_action || (
+                            {lead.next_action ? (
+                              <span
+                                className={cn(
+                                  "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                  nextActionBadgeClass(lead.next_action),
+                                )}
+                              >
+                                {lead.next_action}
+                              </span>
+                            ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </div>
@@ -873,7 +906,22 @@ function DarbaRindaPage() {
                           )}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
-                          {fmtDateTime(lead.last_activity_at)}
+                          {(() => {
+                            const t = parseDate(lead.last_activity_at);
+                            if (t == null) return "—";
+                            const d = new Date(t);
+                            return (
+                              <div className="leading-tight">
+                                <div>{d.toLocaleDateString("lv-LV")}</div>
+                                <div className="text-[10px]">
+                                  {d.toLocaleTimeString("lv-LV", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td
                           className="px-2 py-1.5 text-right"
@@ -884,7 +932,7 @@ function DarbaRindaPage() {
                             params={{ leadId: lead.lead_id }}
                             className="inline-flex items-center rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-secondary/50"
                           >
-                            Atvērt Lead 360
+                            Atvērt
                           </Link>
                         </td>
                       </tr>
