@@ -1098,13 +1098,23 @@ function formatAttachments(value: unknown): string {
 function extractAttachmentNames(metadata: unknown): string[] {
   if (!metadata || typeof metadata !== "object") return [];
   const meta = metadata as Record<string, unknown>;
-  let raw = meta.attachment_names;
+  let raw = meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames;
   if (raw == null) return [];
   if (typeof raw === "string") {
     try { raw = JSON.parse(raw); } catch { return []; }
   }
   if (!Array.isArray(raw)) return [];
-  return raw.map((v: unknown) => String(v)).filter((s: string) => s.trim() !== "");
+  return raw
+    .map((v: unknown) => {
+      if (v == null) return "";
+      if (typeof v === "string") return v;
+      if (typeof v === "object") {
+        const o = v as Record<string, unknown>;
+        return String(o.name ?? o.filename ?? o.file_name ?? "");
+      }
+      return String(v);
+    })
+    .filter((s: string) => s.trim() !== "");
 }
 
 function EmailPreviewDialog({
@@ -1134,6 +1144,9 @@ function EmailPreviewDialog({
     // 2. Fallback: communications.metadata.attachment_names
     const names = extractAttachmentNames(comm.metadata);
     if (names.length > 0) return names;
+    // 3. Fallback: communications.attachments_info column
+    const infoNames = extractAttachmentNames(comm.attachments_info);
+    if (infoNames.length > 0) return infoNames;
     return [];
   }, [comm, eventsByComm]);
 
