@@ -748,8 +748,10 @@ function isProvenReplyEvent(
   const outMeta = (outbound.metadata ?? null) as Record<string, unknown> | null;
   const outMsgId =
     outMeta?.provider_message_id ?? outMeta?.message_id ?? outbound.provider_message_id;
-  const outRef = outMeta?.reference_code ?? outbound.reference_code;
 
+  // Strict, message-specific proof only. We intentionally do NOT use
+  // reference_code on its own — it is typically shared across a
+  // lead/campaign and would falsely link unrelated inbound emails.
   if (
     evMeta.reply_to_communication_id != null &&
     outId &&
@@ -761,14 +763,6 @@ function isProvenReplyEvent(
     evMeta.in_reply_to_message_id != null &&
     outMsgId != null &&
     String(evMeta.in_reply_to_message_id) === String(outMsgId)
-  ) {
-    return true;
-  }
-  if (
-    evMeta.reference_code != null &&
-    outRef != null &&
-    String(evMeta.reference_code) === String(outRef) &&
-    String(outRef).trim() !== ""
   ) {
     return true;
   }
