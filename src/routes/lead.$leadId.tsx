@@ -885,17 +885,25 @@ function CommunicationsTimeline({
             const rawEvents = commId ? eventsByComm.get(commId) ?? [] : [];
             const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
             const dir = String(c.direction ?? "").toLowerCase();
-            // Outbound rows: keep lifecycle events; only keep reply/inbound
-            // events when reply linkage is explicitly proven via metadata.
-            // Inbound rows: do not nest events.
-            const events =
+            // Outbound rows: show NOTIKUMI only when there is at least one
+            // strictly linked reply event. Do not group by lead, subject,
+            // timestamps, or reference_code.
+            const strictReplyEvents =
               dir === "outbound"
                 ? rawEvents.filter((ev) => {
                     const t = String(ev.event_type ?? "").trim().toLowerCase();
-                    if (OUTBOUND_EVENT_TYPES.has(t)) return true;
-                    if (REPLY_EVENT_TYPES.has(t)) return isProvenReplyEvent(ev, c);
-                    return false;
+                    return REPLY_EVENT_TYPES.has(t) && isStrictReplyEvent(ev, c);
                   })
+                : [];
+            const events =
+              dir === "outbound" && strictReplyEvents.length > 0
+                ? [
+                    ...rawEvents.filter((ev) => {
+                    const t = String(ev.event_type ?? "").trim().toLowerCase();
+                      return t === "sent";
+                    }),
+                    ...strictReplyEvents,
+                  ]
                 : [];
 
             return (
@@ -927,30 +935,29 @@ function CommunicationsTimeline({
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
-                {(events.length > 0 || (eventsLoading && dir === "outbound")) && (
+                {events.length > 0 && (
                   <tr key={`${commId || i}-events`} className="border-b border-border/60">
                     <td colSpan={6} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
                         <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
                           Notikumi ({events.length})
                         </div>
-                        {eventsLoading && events.length === 0 ? (
-                          <div className="text-xs text-muted-foreground">Ielādē notikumus...</div>
-                        ) : (
-                          <ol className="space-y-1">
+                        <ol className="space-y-1">
                             {events.map((ev, j) => {
                               const tags = clickTagsForEvent(ev, links);
+                              const eventType = String(ev.event_type ?? "").trim().toLowerCase();
                               return (
                                 <li key={j} className="flex flex-wrap items-center gap-2 text-xs">
                                   <span className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`} />
-                                  <span className="font-semibold text-foreground">{tx(COMM_STATUS_LV, ev.event_type)}</span>
+                                  <span className="font-semibold text-foreground">
+                                    {REPLY_EVENT_TYPES.has(eventType) ? "Atbilde" : tx(COMM_STATUS_LV, ev.event_type)}
+                                  </span>
                                   <span className="text-muted-foreground">{fmtDate(ev.event_timestamp)}</span>
                                   {tags.map((tag) => <ClickTag key={tag}>{tag}</ClickTag>)}
                                 </li>
                               );
                             })}
-                          </ol>
-                        )}
+                        </ol>
                       </div>
                     </td>
                   </tr>
