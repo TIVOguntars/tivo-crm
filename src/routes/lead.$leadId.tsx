@@ -901,39 +901,6 @@ function CommunicationsTimeline({
     return tb - ta;
   });
 
-  const outboundComms = sorted.filter(
-    (c) => String(c.direction ?? "").toLowerCase() === "outbound",
-  );
-  const inboundLinked = new Map<string, boolean>();
-  for (const inb of sorted) {
-    if (String(inb.direction ?? "").toLowerCase() !== "inbound") continue;
-    const id = String(inb.id ?? inb.communication_id ?? "");
-    if (!id) continue;
-    const inMeta = (inb.metadata ?? null) as Record<string, unknown> | null;
-    const inReplyTo = inMeta?.reply_to_communication_id;
-    const inInReplyTo = inMeta?.in_reply_to_message_id;
-    const inRef = inMeta?.reference_code ?? inb.reference_code;
-    let linked = false;
-    for (const out of outboundComms) {
-      const outId = String(out.id ?? out.communication_id ?? "");
-      const outMeta = (out.metadata ?? null) as Record<string, unknown> | null;
-      const outMsgId =
-        outMeta?.provider_message_id ?? outMeta?.message_id ?? out.provider_message_id;
-      const outRef = outMeta?.reference_code ?? out.reference_code;
-      if (inReplyTo != null && outId && String(inReplyTo) === outId) { linked = true; break; }
-      if (inInReplyTo != null && outMsgId != null && String(inInReplyTo) === String(outMsgId)) { linked = true; break; }
-      if (inRef != null && outRef != null && String(inRef).trim() !== "" && String(inRef) === String(outRef)) { linked = true; break; }
-      const evs = eventsByComm.get(outId) ?? [];
-      for (const ev of evs) {
-        const em = (ev.metadata ?? null) as Record<string, unknown> | null;
-        if (!em) continue;
-        if (em.reply_to_communication_id != null && String(em.reply_to_communication_id) === id) { linked = true; break; }
-      }
-      if (linked) break;
-    }
-    inboundLinked.set(id, linked);
-  }
-
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="min-w-[980px] w-full border-collapse text-left text-xs">
@@ -996,15 +963,6 @@ function CommunicationsTimeline({
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
-                {dir === "inbound" && commId && inboundLinked.get(commId) === false && (
-                  <tr key={`${commId || i}-unlinked`} className="border-b border-border/60">
-                    <td colSpan={6} className="px-3 pb-2 pt-0">
-                      <span className="inline-flex rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
-                        Nav piesaistīts konkrētam sūtījumam
-                      </span>
-                    </td>
-                  </tr>
-                )}
                 {(events.length > 0 || (eventsLoading && dir === "outbound")) && (
                   <tr key={`${commId || i}-events`} className="border-b border-border/60">
                     <td colSpan={6} className="px-7 pb-3 pt-0">
