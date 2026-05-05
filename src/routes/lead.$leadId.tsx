@@ -864,8 +864,7 @@ function CommunicationsTimeline({
                       .trim()
                       .toLowerCase();
                     return (
-                      REPLY_EVENT_TYPES.has(eventType) &&
-                      eventSubjectContainsOutboundSubject(ev, c)
+                      REPLY_EVENT_TYPES.has(eventType) && eventSubjectContainsOutboundSubject(ev, c)
                     );
                   })
                 : [];
