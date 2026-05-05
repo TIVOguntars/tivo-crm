@@ -715,6 +715,87 @@ const EVENT_DOT_CLS: Record<string, string> = {
   failed: "bg-destructive",
 };
 
+// Outbound-lifecycle event types that legitimately belong nested under
+// the outbound communication. Inbound/reply events are excluded — they are
+// rendered as their own rows in the timeline (from `communications`).
+const OUTBOUND_EVENT_TYPES = new Set([
+  "sent",
+  "delivered",
+  "opened",
+  "clicked",
+  "bounced",
+  "complained",
+  "failed",
+  "queued",
+  "deferred",
+]);
+
+const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
+
+/**
+ * Decide if an inbound communication has a clearly proven reply relation to
+ * any outbound communication in the same lead. Used only to optionally show
+ * an "unlinked" badge — we never auto-nest inbound rows.
+ */
+function inboundHasProvenLink(
+  inbound: Record<string, unknown>,
+  outbound: Array<Record<string, unknown>>,
+  eventsByComm: Map<string, Array<Record<string, unknown>>>,
+): boolean {
+  const meta = (inbound.metadata ?? null) as Record<string, unknown> | null;
+  const inboundReplyTo = meta?.reply_to_communication_id;
+  const inboundInReplyTo = meta?.in_reply_to_message_id;
+  const inboundRef = meta?.reference_code ?? inbound.reference_code;
+
+  for (const out of outbound) {
+    const outId = String(out.id ?? out.communication_id ?? "");
+    if (!outId) continue;
+    if (inboundReplyTo != null && String(inboundReplyTo) === outId) return true;
+
+    const outMeta = (out.metadata ?? null) as Record<string, unknown> | null;
+    const outMsgId =
+      outMeta?.provider_message_id ?? outMeta?.message_id ?? out.provider_message_id;
+    if (
+      inboundInReplyTo != null &&
+      outMsgId != null &&
+      String(inboundInReplyTo) === String(outMsgId)
+    ) {
+      return true;
+    }
+
+    const outRef = outMeta?.reference_code ?? out.reference_code;
+    if (
+      inboundRef != null &&
+      String(inboundRef).trim() !== "" &&
+      outRef != null &&
+      String(outRef) === String(inboundRef)
+    ) {
+      return true;
+    }
+
+    // communication_events on outbound side may carry the linkage too
+    const evs = eventsByComm.get(outId) ?? [];
+    for (const ev of evs) {
+      const evMeta = (ev.metadata ?? null) as Record<string, unknown> | null;
+      if (!evMeta) continue;
+      if (
+        evMeta.reply_to_communication_id != null &&
+        String(evMeta.reply_to_communication_id) === String(inbound.id ?? "")
+      ) {
+        return true;
+      }
+      if (
+        inboundInReplyTo != null &&
+        evMeta.in_reply_to_message_id != null &&
+        String(evMeta.in_reply_to_message_id) === String(inboundInReplyTo)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function eventDotCls(eventType: unknown): string {
   const k = String(eventType ?? "").trim().toLowerCase();
   return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
