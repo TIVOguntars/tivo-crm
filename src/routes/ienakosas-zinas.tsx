@@ -188,6 +188,25 @@ function InboxPage() {
         return { ev, comm, lead, leadId };
       })
       .filter(({ ev, comm, lead }) => {
+        // Hide emails with no body AND no attachments
+        const ch = String(comm?.channel ?? "").toLowerCase();
+        const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
+        if (isEmail) {
+          const body =
+            String((comm?.text_body as string | null) ?? "").trim() ||
+            String((comm?.html_body as string | null) ?? "").trim();
+          if (!body) {
+            const meta = (comm?.metadata ?? null) as Record<string, unknown> | null;
+            const rawAtt = meta?.attachment_names ?? meta?.attachments ?? meta?.attachment_filenames;
+            let count = 0;
+            let arr: unknown = rawAtt;
+            if (typeof arr === "string") {
+              try { arr = JSON.parse(arr); } catch { arr = null; }
+            }
+            if (Array.isArray(arr)) count = arr.length;
+            if (count === 0) return false;
+          }
+        }
         if (channelFilter !== "all") {
           if (String(comm?.channel ?? "").toLowerCase() !== channelFilter) return false;
         }
