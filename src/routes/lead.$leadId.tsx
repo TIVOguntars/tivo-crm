@@ -733,65 +733,44 @@ const OUTBOUND_EVENT_TYPES = new Set([
 const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
 
 /**
- * Decide if an inbound communication has a clearly proven reply relation to
- * any outbound communication in the same lead. Used only to optionally show
- * an "unlinked" badge — we never auto-nest inbound rows.
+ * Decide if a reply-type event nested under an outbound communication is
+ * actually proven to belong to that outbound. We require explicit linkage
+ * via metadata — otherwise the event is filtered out so the inbound message
+ * is shown only as its own top-level row.
  */
-function inboundHasProvenLink(
-  inbound: Record<string, unknown>,
-  outbound: Array<Record<string, unknown>>,
-  eventsByComm: Map<string, Array<Record<string, unknown>>>,
+function isProvenReplyEvent(
+  ev: Record<string, unknown>,
+  outbound: Record<string, unknown>,
 ): boolean {
-  const meta = (inbound.metadata ?? null) as Record<string, unknown> | null;
-  const inboundReplyTo = meta?.reply_to_communication_id;
-  const inboundInReplyTo = meta?.in_reply_to_message_id;
-  const inboundRef = meta?.reference_code ?? inbound.reference_code;
+  const evMeta = (ev.metadata ?? null) as Record<string, unknown> | null;
+  if (!evMeta) return false;
+  const outId = String(outbound.id ?? outbound.communication_id ?? "");
+  const outMeta = (outbound.metadata ?? null) as Record<string, unknown> | null;
+  const outMsgId =
+    outMeta?.provider_message_id ?? outMeta?.message_id ?? outbound.provider_message_id;
+  const outRef = outMeta?.reference_code ?? outbound.reference_code;
 
-  for (const out of outbound) {
-    const outId = String(out.id ?? out.communication_id ?? "");
-    if (!outId) continue;
-    if (inboundReplyTo != null && String(inboundReplyTo) === outId) return true;
-
-    const outMeta = (out.metadata ?? null) as Record<string, unknown> | null;
-    const outMsgId =
-      outMeta?.provider_message_id ?? outMeta?.message_id ?? out.provider_message_id;
-    if (
-      inboundInReplyTo != null &&
-      outMsgId != null &&
-      String(inboundInReplyTo) === String(outMsgId)
-    ) {
-      return true;
-    }
-
-    const outRef = outMeta?.reference_code ?? out.reference_code;
-    if (
-      inboundRef != null &&
-      String(inboundRef).trim() !== "" &&
-      outRef != null &&
-      String(outRef) === String(inboundRef)
-    ) {
-      return true;
-    }
-
-    // communication_events on outbound side may carry the linkage too
-    const evs = eventsByComm.get(outId) ?? [];
-    for (const ev of evs) {
-      const evMeta = (ev.metadata ?? null) as Record<string, unknown> | null;
-      if (!evMeta) continue;
-      if (
-        evMeta.reply_to_communication_id != null &&
-        String(evMeta.reply_to_communication_id) === String(inbound.id ?? "")
-      ) {
-        return true;
-      }
-      if (
-        inboundInReplyTo != null &&
-        evMeta.in_reply_to_message_id != null &&
-        String(evMeta.in_reply_to_message_id) === String(inboundInReplyTo)
-      ) {
-        return true;
-      }
-    }
+  if (
+    evMeta.reply_to_communication_id != null &&
+    outId &&
+    String(evMeta.reply_to_communication_id) === outId
+  ) {
+    return true;
+  }
+  if (
+    evMeta.in_reply_to_message_id != null &&
+    outMsgId != null &&
+    String(evMeta.in_reply_to_message_id) === String(outMsgId)
+  ) {
+    return true;
+  }
+  if (
+    evMeta.reference_code != null &&
+    outRef != null &&
+    String(evMeta.reference_code) === String(outRef) &&
+    String(outRef).trim() !== ""
+  ) {
+    return true;
   }
   return false;
 }
