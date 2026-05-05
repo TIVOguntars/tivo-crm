@@ -918,8 +918,21 @@ function CommunicationsTimeline({
           {sorted.map((c, i) => {
             const sentAt = c.sent_at ?? c.received_at ?? c.created_at;
             const commId = String(c.id ?? c.communication_id ?? "");
-            const events = commId ? eventsByComm.get(commId) ?? [] : [];
+            const rawEvents = commId ? eventsByComm.get(commId) ?? [] : [];
             const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
+            const dir = String(c.direction ?? "").toLowerCase();
+            // Outbound rows: keep lifecycle events; only keep reply/inbound
+            // events when reply linkage is explicitly proven via metadata.
+            // Inbound rows: do not nest events.
+            const events =
+              dir === "outbound"
+                ? rawEvents.filter((ev) => {
+                    const t = String(ev.event_type ?? "").trim().toLowerCase();
+                    if (OUTBOUND_EVENT_TYPES.has(t)) return true;
+                    if (REPLY_EVENT_TYPES.has(t)) return isProvenReplyEvent(ev, c);
+                    return false;
+                  })
+                : [];
 
             return (
               <Fragment key={commId || i}>
@@ -950,7 +963,7 @@ function CommunicationsTimeline({
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
-                {(events.length > 0 || eventsLoading) && (
+                {(events.length > 0 || (eventsLoading && dir === "outbound")) && (
                   <tr key={`${commId || i}-events`} className="border-b border-border/60">
                     <td colSpan={6} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
