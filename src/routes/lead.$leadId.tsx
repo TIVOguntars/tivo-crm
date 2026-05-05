@@ -5,12 +5,7 @@ import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle } from "luci
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { usePublicTable } from "@/hooks/usePublicTable";
 
@@ -41,9 +36,7 @@ function isEmptyValue(value: unknown): boolean {
 function fmt(value: unknown): string {
   if (value == null) return NA;
   if (Array.isArray(value)) {
-    const arr = value
-      .map((v) => (v == null ? "" : String(v)))
-      .filter((s) => s.trim() !== "");
+    const arr = value.map((v) => (v == null ? "" : String(v))).filter((s) => s.trim() !== "");
     return arr.length === 0 ? NA : arr.join(", ");
   }
   if (typeof value === "object") {
@@ -96,10 +89,7 @@ function prettifyText(s: string): string {
 }
 
 /** Look up a field in row OR row.metadata (if metadata is an object). */
-function pick(
-  row: Record<string, unknown> | null | undefined,
-  ...keys: string[]
-): unknown {
+function pick(row: Record<string, unknown> | null | undefined, ...keys: string[]): unknown {
   if (!row) return undefined;
   const meta =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
@@ -107,8 +97,7 @@ function pick(
       : null;
   for (const k of keys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
-    if (meta && meta[k] !== undefined && meta[k] !== null && meta[k] !== "")
-      return meta[k];
+    if (meta && meta[k] !== undefined && meta[k] !== null && meta[k] !== "") return meta[k];
   }
   return undefined;
 }
@@ -183,10 +172,7 @@ function LeadProfilePage() {
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
-  const profile = (overviewQ.data?.rows?.[0] ?? null) as Record<
-    string,
-    unknown
-  > | null;
+  const profile = (overviewQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
 
   // currentLead.lead_id MUST come from analytics.leads_overview.lead_id
   // (which equals public.leads.id). No fallbacks.
@@ -201,33 +187,22 @@ function LeadProfilePage() {
     { fresh: true, enabled: !!currentLeadId },
   );
 
-  const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<
-    string,
-    unknown
-  > | null;
-  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<
-    string,
-    unknown
-  > | null;
+  const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
+  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
 
-  const profileError =
-    (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
+  const profileError = (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
 
   // Tolerant to both shapes: { rows: [...] } (server fn) or [...] (raw array)
-  const comms = (
-    Array.isArray(commsQ.data)
-      ? commsQ.data
-      : (commsQ.data?.rows ?? [])
-  ) as Array<Record<string, unknown>>;
+  const comms = (Array.isArray(commsQ.data) ? commsQ.data : (commsQ.data?.rows ?? [])) as Array<
+    Record<string, unknown>
+  >;
   const commsError =
     (commsQ.error as Error | null)?.message ||
     (Array.isArray(commsQ.data) ? null : commsQ.data?.error);
 
   const commIds = useMemo(
     () =>
-      comms
-        .map((c) => c.id ?? c.communication_id)
-        .filter((v): v is string | number => v != null),
+      comms.map((c) => c.id ?? c.communication_id).filter((v): v is string | number => v != null),
     [comms],
   );
   const hasComms = commIds.length > 0;
@@ -280,8 +255,7 @@ function LeadProfilePage() {
   const fullName = fullNameRaw ? String(fullNameRaw) : `Lead #${leadId}`;
   const status = pick(profile, "status", "current_status");
   const rating = pick(profile, "rating");
-  const priority =
-    pick(priorityRow, "priority") ?? pick(profile, "priority");
+  const priority = pick(priorityRow, "priority") ?? pick(profile, "priority");
   const tagsRaw = pick(profile, "tags");
   const tagsStr = isEmptyValue(tagsRaw) ? "" : fmt(tagsRaw);
   const ppv = pick(profile, "ppv_vards", "ppv", "ppv_name");
@@ -306,7 +280,7 @@ function LeadProfilePage() {
   // Darba info
   const nextActionRaw = pick(profile, "next_action");
   const nextActionTr = nextActionRaw
-    ? NEXT_ACTION_LV[String(nextActionRaw).trim().toLowerCase()] ?? String(nextActionRaw)
+    ? (NEXT_ACTION_LV[String(nextActionRaw).trim().toLowerCase()] ?? String(nextActionRaw))
     : "";
   const termins = fmtDate(pick(profile, "next_action_due_date", "due_date"));
   const lastContact = fmtDate(pick(profile, "last_contact_date", "last_contact_at"));
@@ -322,9 +296,7 @@ function LeadProfilePage() {
 
   // Engagement / reaction
   const lastEvent = pick(engagement ?? undefined, "last_event_type", "last_event");
-  const lastEventAt = fmtDate(
-    pick(engagement ?? undefined, "last_event_at", "last_activity_at"),
-  );
+  const lastEventAt = fmtDate(pick(engagement ?? undefined, "last_event_at", "last_activity_at"));
   const reactionRaw = pick(
     engagement ?? undefined,
     "has_reaction",
@@ -387,9 +359,7 @@ function LeadProfilePage() {
               />
               <InlineField label="Tagi" value={tagsStr} />
               <InlineField label="PPV" value={ppv} />
-              <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                {leadId}
-              </span>
+              <span className="ml-auto font-mono text-[11px] text-muted-foreground">{leadId}</span>
             </div>
             {(!isEmptyValue(email) || !isEmptyValue(phone) || !isEmptyValue(country)) && (
               <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border/60 pt-1.5">
@@ -422,9 +392,15 @@ function LeadProfilePage() {
           {/* === CILNES === */}
           <Tabs defaultValue="parskats" className="w-full">
             <TabsList className="h-8">
-              <TabsTrigger value="parskats" className="text-xs">Pārskats</TabsTrigger>
-              <TabsTrigger value="projekts" className="text-xs">Projekts</TabsTrigger>
-              <TabsTrigger value="tehniski" className="text-xs">Tehniski</TabsTrigger>
+              <TabsTrigger value="parskats" className="text-xs">
+                Pārskats
+              </TabsTrigger>
+              <TabsTrigger value="projekts" className="text-xs">
+                Projekts
+              </TabsTrigger>
+              <TabsTrigger value="tehniski" className="text-xs">
+                Tehniski
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="parskats" className="mt-2">
@@ -468,10 +444,19 @@ function LeadProfilePage() {
                       <Grid>
                         <Field label="m²" value={m2} alwaysShow />
                         <Field label="Summa" value={summa} alwaysShow />
-                        <Field label="Plānota būvniecība" value={planotaBuvniecibaText} alwaysShow />
+                        <Field
+                          label="Plānota būvniecība"
+                          value={planotaBuvniecibaText}
+                          alwaysShow
+                        />
                         <Field label="Forma · Zeme" value={formaZeme} alwaysShow />
                         <Field label="Forma · Projekts" value={formaProjekts} alwaysShow />
-                        <Field label="Forma · Ziņa no Lead" value={formaZinaNoLead} wide alwaysShow />
+                        <Field
+                          label="Forma · Ziņa no Lead"
+                          value={formaZinaNoLead}
+                          wide
+                          alwaysShow
+                        />
                       </Grid>
                     )}
                   </section>
@@ -488,10 +473,7 @@ function LeadProfilePage() {
                   <Field
                     label="Notikumu skaits"
                     value={String(
-                      Array.from(eventsByComm.values()).reduce(
-                        (sum, arr) => sum + arr.length,
-                        0,
-                      ),
+                      Array.from(eventsByComm.values()).reduce((sum, arr) => sum + arr.length, 0),
                     )}
                   />
                 </Grid>
@@ -525,7 +507,11 @@ function LeadProfilePage() {
         </div>
       )}
 
-      <EmailPreviewDialog comm={openComm} eventsByComm={eventsByComm} onClose={() => setOpenComm(null)} />
+      <EmailPreviewDialog
+        comm={openComm}
+        eventsByComm={eventsByComm}
+        onClose={() => setOpenComm(null)}
+      />
     </>
   );
 }
@@ -566,9 +552,7 @@ function Section({
         {title}
       </h2>
       {empty ? (
-        <div className="text-xs italic text-muted-foreground">
-          {emptyLabel ?? NA}
-        </div>
+        <div className="text-xs italic text-muted-foreground">{emptyLabel ?? NA}</div>
       ) : (
         children
       )}
@@ -576,13 +560,7 @@ function Section({
   );
 }
 
-function CompactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function CompactSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
@@ -618,11 +596,7 @@ function ActionIconButton({
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
-      {children}
-    </div>
-  );
+  return <div className="grid gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
 }
 
 function Field({
@@ -646,9 +620,7 @@ function Field({
   const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <div
-      className={`flex items-baseline gap-2 text-sm ${
-        wide ? "sm:col-span-2 lg:col-span-3" : ""
-      }`}
+      className={`flex items-baseline gap-2 text-sm ${wide ? "sm:col-span-2 lg:col-span-3" : ""}`}
     >
       <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
         {label}
@@ -688,14 +660,8 @@ function InlineField({
   const shown = empty ? "\u00A0" : prettifyText(display);
   return (
     <span className="inline-flex items-baseline gap-1.5 text-sm">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span
-        className="font-semibold text-foreground"
-      >
-        {shown}
-      </span>
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="font-semibold text-foreground">{shown}</span>
     </span>
   );
 }
@@ -717,15 +683,14 @@ const EVENT_DOT_CLS: Record<string, string> = {
 
 const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
 
-function belongsToCommunication(
-  ev: Record<string, unknown>,
-  communicationId: string,
-): boolean {
+function belongsToCommunication(ev: Record<string, unknown>, communicationId: string): boolean {
   return communicationId !== "" && String(ev.communication_id ?? "") === communicationId;
 }
 
 function eventDotCls(eventType: unknown): string {
-  const k = String(eventType ?? "").trim().toLowerCase();
+  const k = String(eventType ?? "")
+    .trim()
+    .toLowerCase();
   return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
 }
 
@@ -746,7 +711,8 @@ function metaValue(row: Record<string, unknown>, key: string): unknown {
 }
 
 function emailStep(c: Record<string, unknown>): string {
-  const value = c.automation_step ?? c.template_key ?? c.content_ref ?? metaValue(c, "automation_step");
+  const value =
+    c.automation_step ?? c.template_key ?? c.content_ref ?? metaValue(c, "automation_step");
   return value == null || String(value).trim() === "" ? "" : String(value);
 }
 
@@ -765,7 +731,9 @@ function eventLinkKey(ev: Record<string, unknown>): string {
 }
 
 function linkTypeLabel(link: Record<string, unknown>): string {
-  const type = String(metaValue(link, "link_type") ?? "").trim().toLowerCase();
+  const type = String(metaValue(link, "link_type") ?? "")
+    .trim()
+    .toLowerCase();
   if (CLICK_TAG_LV[type]) return CLICK_TAG_LV[type];
   const url = String(link.destination_url ?? link.original_url ?? "").toLowerCase();
   if (url.startsWith("tel:")) return "Telefons";
@@ -778,11 +746,15 @@ function clickTagsForEvent(
   ev: Record<string, unknown>,
   links: Array<Record<string, unknown>>,
 ): string[] {
-  if (String(ev.event_type ?? "").trim().toLowerCase() !== "clicked") return [];
+  if (
+    String(ev.event_type ?? "")
+      .trim()
+      .toLowerCase() !== "clicked"
+  )
+    return [];
   const key = eventLinkKey(ev);
   const matched = links.find(
-    (link) =>
-      String(link.link_key ?? link.tracking_code ?? link.id ?? "") === key,
+    (link) => String(link.link_key ?? link.tracking_code ?? link.id ?? "") === key,
   );
   const labels = matched ? [linkTypeLabel(matched)] : links.map(linkTypeLabel);
   return Array.from(new Set(labels)).filter(Boolean);
@@ -823,7 +795,7 @@ function CommunicationsTimeline({
     const hasBody = readHtml(c).trim() !== "" || readText(c).trim() !== "";
     if (hasBody) return true;
     const commId = String(c.id ?? c.communication_id ?? "");
-    const events = commId ? eventsByComm.get(commId) ?? [] : [];
+    const events = commId ? (eventsByComm.get(commId) ?? []) : [];
     for (const ev of events) {
       if (extractAttachmentNames(ev.metadata).length > 0) return true;
     }
@@ -841,12 +813,8 @@ function CommunicationsTimeline({
 
   // Sort newest -> oldest by coalesce(sent_at, received_at, created_at)
   const sorted = [...visibleComms].sort((a, b) => {
-    const ta =
-      new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() ||
-      0;
-    const tb =
-      new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() ||
-      0;
+    const ta = new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() || 0;
+    const tb = new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() || 0;
     return tb - ta;
   });
 
@@ -870,7 +838,7 @@ function CommunicationsTimeline({
             const rawEvents = commId
               ? (eventsByComm.get(commId) ?? []).filter((ev) => belongsToCommunication(ev, commId))
               : [];
-            const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
+            const links = commId ? (trackingLinksByComm.get(commId) ?? []) : [];
             const dir = String(c.direction ?? "").toLowerCase();
             // Outbound rows: NOTIKUMI uses only events whose communication_id
             // exactly equals this outbound communication id. No lead, subject,
@@ -884,8 +852,14 @@ function CommunicationsTimeline({
                   <td className="px-3 py-2">
                     {(() => {
                       const ch = String(c.channel ?? "").toLowerCase();
-                      const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
-                      const badge = <ChannelBadge value={tx(CHANNEL_LV, c.channel)} direction={String(c.direction ?? "")} />;
+                      const isEmail =
+                        ch.includes("email") || ch.includes("mail") || ch.includes("past");
+                      const badge = (
+                        <ChannelBadge
+                          value={tx(CHANNEL_LV, c.channel)}
+                          direction={String(c.direction ?? "")}
+                        />
+                      );
                       if (isEmail && onOpenEmail) {
                         return (
                           <button
@@ -901,8 +875,12 @@ function CommunicationsTimeline({
                       return badge;
                     })()}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(DIRECTION_LV, c.direction)}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{tx(COMM_STATUS_LV, c.current_status ?? c.status)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                    {tx(DIRECTION_LV, c.direction)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
+                    {tx(COMM_STATUS_LV, c.current_status ?? c.status)}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
@@ -914,20 +892,30 @@ function CommunicationsTimeline({
                           Notikumi ({events.length})
                         </div>
                         <ol className="space-y-1">
-                            {events.map((ev, j) => {
-                              const tags = clickTagsForEvent(ev, links);
-                              const eventType = String(ev.event_type ?? "").trim().toLowerCase();
-                              return (
-                                <li key={j} className="flex flex-wrap items-center gap-2 text-xs">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`} />
-                                  <span className="font-semibold text-foreground">
-                                    {REPLY_EVENT_TYPES.has(eventType) ? "Atbilde" : tx(COMM_STATUS_LV, ev.event_type)}
-                                  </span>
-                                  <span className="text-muted-foreground">{fmtDate(ev.event_timestamp)}</span>
-                                  {tags.map((tag) => <ClickTag key={tag}>{tag}</ClickTag>)}
-                                </li>
-                              );
-                            })}
+                          {events.map((ev, j) => {
+                            const tags = clickTagsForEvent(ev, links);
+                            const eventType = String(ev.event_type ?? "")
+                              .trim()
+                              .toLowerCase();
+                            return (
+                              <li key={j} className="flex flex-wrap items-center gap-2 text-xs">
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`}
+                                />
+                                <span className="font-semibold text-foreground">
+                                  {REPLY_EVENT_TYPES.has(eventType)
+                                    ? "Atbilde"
+                                    : tx(COMM_STATUS_LV, ev.event_type)}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {fmtDate(ev.event_timestamp)}
+                                </span>
+                                {tags.map((tag) => (
+                                  <ClickTag key={tag}>{tag}</ClickTag>
+                                ))}
+                              </li>
+                            );
+                          })}
                         </ol>
                       </div>
                     </td>
@@ -949,19 +937,13 @@ function ChannelBadge({ value, direction = "" }: { value: string; direction?: st
   if (v.includes("e-past") || v.includes("email") || v.includes("pasts")) {
     if (dir === "inbound" || dir === "ienākošs")
       cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-    else
-      cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
-  }
-  else if (v.includes("sms"))
-    cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    else cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  } else if (v.includes("sms")) cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   else if (v.includes("zvan") || v.includes("call"))
     cls = "bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  else if (v.includes("whats"))
-    cls = "bg-green-500/10 text-green-700 dark:text-green-300";
+  else if (v.includes("whats")) cls = "bg-green-500/10 text-green-700 dark:text-green-300";
   return (
-    <span
-      className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cls}`}
-    >
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {value}
     </span>
   );
@@ -1031,18 +1013,33 @@ function renderEmailText(text: string): React.ReactNode {
 /** Format an email text block: detect header lines and bullet points. */
 function formatEmailBlock(block: string): React.ReactNode {
   // Try to detect email header pattern (Van:, From:, Verzonden:, Sent:, Aan:, To:, Onderwerp:, Subject:)
-  const headerPattern = /^(Van|From|Verzonden|Sent|Aan|To|Onderwerp|Subject|Date|Datum|Cc|Bcc):\s*/im;
+  const headerPattern =
+    /^(Van|From|Verzonden|Sent|Aan|To|Onderwerp|Subject|Date|Datum|Cc|Bcc):\s*/im;
   const lines = block.split("\n");
   const result: React.ReactNode[] = [];
 
   // Detect if first line has inline headers like "Van: ... Verzonden: ... Aan: ... Onderwerp: ..."
   const firstLine = lines[0] || "";
-  const inlineHeaders = firstLine.match(/(Van|From):\s/i) && firstLine.match(/(Onderwerp|Subject):\s/i);
+  const inlineHeaders =
+    firstLine.match(/(Van|From):\s/i) && firstLine.match(/(Onderwerp|Subject):\s/i);
 
   if (inlineHeaders) {
     // Split inline headers into separate lines
     const headerStr = lines.shift() || "";
-    const headerKeys = ["Van", "From", "Verzonden", "Sent", "Aan", "To", "Onderwerp", "Subject", "Date", "Datum", "Cc", "Bcc"];
+    const headerKeys = [
+      "Van",
+      "From",
+      "Verzonden",
+      "Sent",
+      "Aan",
+      "To",
+      "Onderwerp",
+      "Subject",
+      "Date",
+      "Datum",
+      "Cc",
+      "Bcc",
+    ];
     const regex = new RegExp(`\\s*(?=(${headerKeys.join("|")}):\\s)`, "gi");
     const headerLines = headerStr.split(regex).filter((s) => s.trim());
 
@@ -1052,7 +1049,10 @@ function formatEmailBlock(block: string): React.ReactNode {
       if (headerKeys.some((k) => h.trim().toLowerCase() === k.toLowerCase())) {
         // This is just a key fragment, append next part
         merged.push(h);
-      } else if (merged.length > 0 && headerKeys.some((k) => merged[merged.length - 1].trim().toLowerCase() === k.toLowerCase())) {
+      } else if (
+        merged.length > 0 &&
+        headerKeys.some((k) => merged[merged.length - 1].trim().toLowerCase() === k.toLowerCase())
+      ) {
         merged[merged.length - 1] = merged[merged.length - 1] + h;
       } else {
         merged.push(h);
@@ -1097,8 +1097,7 @@ function formatAttachments(value: unknown): string {
         if (typeof item === "string") return item;
         if (typeof item === "object") {
           const o = item as Record<string, unknown>;
-          const name =
-            o.filename ?? o.name ?? o.file_name ?? o.title ?? o.path;
+          const name = o.filename ?? o.name ?? o.file_name ?? o.title ?? o.path;
           if (name != null && String(name).trim() !== "") return String(name);
           try {
             return JSON.stringify(o);
@@ -1132,7 +1131,11 @@ function extractAttachmentNames(metadata: unknown): string[] {
   let raw = meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames;
   if (raw == null) return [];
   if (typeof raw === "string") {
-    try { raw = JSON.parse(raw); } catch { return []; }
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return [];
+    }
   }
   if (!Array.isArray(raw)) return [];
   return raw
@@ -1167,7 +1170,7 @@ function EmailPreviewDialog({
     if (!comm) return [];
     // 1. Try communication_events.metadata.attachment_names
     const commId = String(comm.id ?? comm.communication_id ?? "");
-    const events = commId ? eventsByComm.get(commId) ?? [] : [];
+    const events = commId ? (eventsByComm.get(commId) ?? []) : [];
     for (const ev of events) {
       const names = extractAttachmentNames(ev.metadata);
       if (names.length > 0) return names;
@@ -1189,15 +1192,11 @@ function EmailPreviewDialog({
         </DialogHeader>
         <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
           <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Temats
-            </span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Temats</span>
             <span className="text-foreground">{subject}</span>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Datums
-            </span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Datums</span>
             <span className="text-foreground">{sentAt}</span>
           </div>
         </div>
@@ -1217,20 +1216,13 @@ function EmailPreviewDialog({
 
         <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
           {html ? (
-            <iframe
-              title="E-pasta saturs"
-              sandbox=""
-              srcDoc={html}
-              className="h-[60vh] w-full"
-            />
+            <iframe title="E-pasta saturs" sandbox="" srcDoc={html} className="h-[60vh] w-full" />
           ) : text ? (
-             <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
-               {renderEmailText(text)}
-             </div>
-          ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              E-pasta saturs nav saglabāts.
+            <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
+              {renderEmailText(text)}
             </div>
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">E-pasta saturs nav saglabāts.</div>
           )}
         </div>
       </DialogContent>
