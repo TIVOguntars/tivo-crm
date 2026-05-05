@@ -715,6 +715,66 @@ const EVENT_DOT_CLS: Record<string, string> = {
   failed: "bg-destructive",
 };
 
+// Outbound-lifecycle event types that legitimately belong nested under
+// the outbound communication. Inbound/reply events are excluded — they are
+// rendered as their own rows in the timeline (from `communications`).
+const OUTBOUND_EVENT_TYPES = new Set([
+  "sent",
+  "delivered",
+  "opened",
+  "clicked",
+  "bounced",
+  "complained",
+  "failed",
+  "queued",
+  "deferred",
+]);
+
+const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
+
+/**
+ * Decide if a reply-type event nested under an outbound communication is
+ * actually proven to belong to that outbound. We require explicit linkage
+ * via metadata — otherwise the event is filtered out so the inbound message
+ * is shown only as its own top-level row.
+ */
+function isProvenReplyEvent(
+  ev: Record<string, unknown>,
+  outbound: Record<string, unknown>,
+): boolean {
+  const evMeta = (ev.metadata ?? null) as Record<string, unknown> | null;
+  if (!evMeta) return false;
+  const outId = String(outbound.id ?? outbound.communication_id ?? "");
+  const outMeta = (outbound.metadata ?? null) as Record<string, unknown> | null;
+  const outMsgId =
+    outMeta?.provider_message_id ?? outMeta?.message_id ?? outbound.provider_message_id;
+  const outRef = outMeta?.reference_code ?? outbound.reference_code;
+
+  if (
+    evMeta.reply_to_communication_id != null &&
+    outId &&
+    String(evMeta.reply_to_communication_id) === outId
+  ) {
+    return true;
+  }
+  if (
+    evMeta.in_reply_to_message_id != null &&
+    outMsgId != null &&
+    String(evMeta.in_reply_to_message_id) === String(outMsgId)
+  ) {
+    return true;
+  }
+  if (
+    evMeta.reference_code != null &&
+    outRef != null &&
+    String(evMeta.reference_code) === String(outRef) &&
+    String(outRef).trim() !== ""
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function eventDotCls(eventType: unknown): string {
   const k = String(eventType ?? "").trim().toLowerCase();
   return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
@@ -841,6 +901,39 @@ function CommunicationsTimeline({
     return tb - ta;
   });
 
+  const outboundComms = sorted.filter(
+    (c) => String(c.direction ?? "").toLowerCase() === "outbound",
+  );
+  const inboundLinked = new Map<string, boolean>();
+  for (const inb of sorted) {
+    if (String(inb.direction ?? "").toLowerCase() !== "inbound") continue;
+    const id = String(inb.id ?? inb.communication_id ?? "");
+    if (!id) continue;
+    const inMeta = (inb.metadata ?? null) as Record<string, unknown> | null;
+    const inReplyTo = inMeta?.reply_to_communication_id;
+    const inInReplyTo = inMeta?.in_reply_to_message_id;
+    const inRef = inMeta?.reference_code ?? inb.reference_code;
+    let linked = false;
+    for (const out of outboundComms) {
+      const outId = String(out.id ?? out.communication_id ?? "");
+      const outMeta = (out.metadata ?? null) as Record<string, unknown> | null;
+      const outMsgId =
+        outMeta?.provider_message_id ?? outMeta?.message_id ?? out.provider_message_id;
+      const outRef = outMeta?.reference_code ?? out.reference_code;
+      if (inReplyTo != null && outId && String(inReplyTo) === outId) { linked = true; break; }
+      if (inInReplyTo != null && outMsgId != null && String(inInReplyTo) === String(outMsgId)) { linked = true; break; }
+      if (inRef != null && outRef != null && String(inRef).trim() !== "" && String(inRef) === String(outRef)) { linked = true; break; }
+      const evs = eventsByComm.get(outId) ?? [];
+      for (const ev of evs) {
+        const em = (ev.metadata ?? null) as Record<string, unknown> | null;
+        if (!em) continue;
+        if (em.reply_to_communication_id != null && String(em.reply_to_communication_id) === id) { linked = true; break; }
+      }
+      if (linked) break;
+    }
+    inboundLinked.set(id, linked);
+  }
+
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="min-w-[980px] w-full border-collapse text-left text-xs">
@@ -858,8 +951,21 @@ function CommunicationsTimeline({
           {sorted.map((c, i) => {
             const sentAt = c.sent_at ?? c.received_at ?? c.created_at;
             const commId = String(c.id ?? c.communication_id ?? "");
-            const events = commId ? eventsByComm.get(commId) ?? [] : [];
+            const rawEvents = commId ? eventsByComm.get(commId) ?? [] : [];
             const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
+            const dir = String(c.direction ?? "").toLowerCase();
+            // Outbound rows: keep lifecycle events; only keep reply/inbound
+            // events when reply linkage is explicitly proven via metadata.
+            // Inbound rows: do not nest events.
+            const events =
+              dir === "outbound"
+                ? rawEvents.filter((ev) => {
+                    const t = String(ev.event_type ?? "").trim().toLowerCase();
+                    if (OUTBOUND_EVENT_TYPES.has(t)) return true;
+                    if (REPLY_EVENT_TYPES.has(t)) return isProvenReplyEvent(ev, c);
+                    return false;
+                  })
+                : [];
 
             return (
               <Fragment key={commId || i}>
@@ -890,7 +996,16 @@ function CommunicationsTimeline({
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
-                {(events.length > 0 || eventsLoading) && (
+                {dir === "inbound" && commId && inboundLinked.get(commId) === false && (
+                  <tr key={`${commId || i}-unlinked`} className="border-b border-border/60">
+                    <td colSpan={6} className="px-3 pb-2 pt-0">
+                      <span className="inline-flex rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        Nav piesaistīts konkrētam sūtījumam
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {(events.length > 0 || (eventsLoading && dir === "outbound")) && (
                   <tr key={`${commId || i}-events`} className="border-b border-border/60">
                     <td colSpan={6} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
