@@ -717,26 +717,11 @@ const EVENT_DOT_CLS: Record<string, string> = {
 
 const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
 
-/**
- * Decide if a reply-type event is strictly proven to belong to this outbound.
- * A missing reply_to_communication_id is never enough to group an inbound email.
- */
-function isStrictReplyEvent(
+function belongsToCommunication(
   ev: Record<string, unknown>,
-  outbound: Record<string, unknown>,
+  communicationId: string,
 ): boolean {
-  const evMeta = (ev.metadata ?? null) as Record<string, unknown> | null;
-  if (!evMeta) return false;
-  const outId = String(outbound.id ?? outbound.communication_id ?? "");
-  if (!outId) return false;
-  const replyTo = evMeta.reply_to_communication_id;
-  if (replyTo == null || String(replyTo) !== outId) return false;
-
-  const outMeta = (outbound.metadata ?? null) as Record<string, unknown> | null;
-  const outMsgId =
-    outMeta?.provider_message_id ?? outMeta?.message_id ?? outbound.provider_message_id;
-  if (evMeta.in_reply_to_message_id == null) return true;
-  return outMsgId != null && String(evMeta.in_reply_to_message_id) === String(outMsgId);
+  return communicationId !== "" && String(ev.communication_id ?? "") === communicationId;
 }
 
 function eventDotCls(eventType: unknown): string {
@@ -882,29 +867,15 @@ function CommunicationsTimeline({
           {sorted.map((c, i) => {
             const sentAt = c.sent_at ?? c.received_at ?? c.created_at;
             const commId = String(c.id ?? c.communication_id ?? "");
-            const rawEvents = commId ? eventsByComm.get(commId) ?? [] : [];
+            const rawEvents = commId
+              ? (eventsByComm.get(commId) ?? []).filter((ev) => belongsToCommunication(ev, commId))
+              : [];
             const links = commId ? trackingLinksByComm.get(commId) ?? [] : [];
             const dir = String(c.direction ?? "").toLowerCase();
-            // Outbound rows: show NOTIKUMI only when there is at least one
-            // strictly linked reply event. Do not group by lead, subject,
-            // timestamps, or reference_code.
-            const strictReplyEvents =
-              dir === "outbound"
-                ? rawEvents.filter((ev) => {
-                    const t = String(ev.event_type ?? "").trim().toLowerCase();
-                    return REPLY_EVENT_TYPES.has(t) && isStrictReplyEvent(ev, c);
-                  })
-                : [];
-            const events =
-              dir === "outbound" && strictReplyEvents.length > 0
-                ? [
-                    ...rawEvents.filter((ev) => {
-                    const t = String(ev.event_type ?? "").trim().toLowerCase();
-                      return t === "sent";
-                    }),
-                    ...strictReplyEvents,
-                  ]
-                : [];
+            // Outbound rows: NOTIKUMI uses only events whose communication_id
+            // exactly equals this outbound communication id. No lead, subject,
+            // reply_to_communication_id, date, or last-outbound matching.
+            const events = dir === "outbound" ? rawEvents : [];
 
             return (
               <Fragment key={commId || i}>
