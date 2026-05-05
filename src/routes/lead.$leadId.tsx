@@ -687,6 +687,20 @@ function belongsToCommunication(ev: Record<string, unknown>, communicationId: st
   return communicationId !== "" && String(ev.communication_id ?? "") === communicationId;
 }
 
+function rawSubjectValue(row: Record<string, unknown>): string {
+  const value = row.subject ?? metaValue(row, "subject") ?? metaValue(row, "email_subject");
+  return value == null ? "" : String(value).trim();
+}
+
+function eventSubjectContainsOutboundSubject(
+  ev: Record<string, unknown>,
+  outbound: Record<string, unknown>,
+): boolean {
+  const outboundSubject = rawSubjectValue(outbound).toLowerCase();
+  const eventSubject = rawSubjectValue(ev).toLowerCase();
+  return outboundSubject !== "" && eventSubject.includes(outboundSubject);
+}
+
 function eventDotCls(eventType: unknown): string {
   const k = String(eventType ?? "")
     .trim()
@@ -841,9 +855,31 @@ function CommunicationsTimeline({
             const links = commId ? (trackingLinksByComm.get(commId) ?? []) : [];
             const dir = String(c.direction ?? "").toLowerCase();
             // Outbound rows: NOTIKUMI uses only events whose communication_id
-            // exactly equals this outbound communication id. No lead, subject,
-            // reply_to_communication_id, date, or last-outbound matching.
-            const events = dir === "outbound" ? rawEvents : [];
+            // exactly equals this outbound communication id. Reply e-mail events
+            // must also contain the outbound subject in their own subject.
+            const matchingReplyEvents =
+              dir === "outbound"
+                ? rawEvents.filter((ev) => {
+                    const eventType = String(ev.event_type ?? "")
+                      .trim()
+                      .toLowerCase();
+                    return (
+                      REPLY_EVENT_TYPES.has(eventType) && eventSubjectContainsOutboundSubject(ev, c)
+                    );
+                  })
+                : [];
+            const events =
+              dir === "outbound" && matchingReplyEvents.length > 0
+                ? [
+                    ...rawEvents.filter(
+                      (ev) =>
+                        String(ev.event_type ?? "")
+                          .trim()
+                          .toLowerCase() === "sent",
+                    ),
+                    ...matchingReplyEvents,
+                  ]
+                : [];
 
             return (
               <Fragment key={commId || i}>
