@@ -806,7 +806,23 @@ function CommunicationsTimeline({
 }) {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
-  if (!comms || comms.length === 0) {
+  // Filter out empty emails: e-pasts ar tukšu saturu UN bez pielikumiem netiek rādīts.
+  const visibleComms = (comms ?? []).filter((c) => {
+    const ch = String(c.channel ?? "").toLowerCase();
+    const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
+    if (!isEmail) return true;
+    const hasBody = readHtml(c).trim() !== "" || readText(c).trim() !== "";
+    if (hasBody) return true;
+    const commId = String(c.id ?? c.communication_id ?? "");
+    const events = commId ? eventsByComm.get(commId) ?? [] : [];
+    for (const ev of events) {
+      if (extractAttachmentNames(ev.metadata).length > 0) return true;
+    }
+    if (extractAttachmentNames(c.metadata).length > 0) return true;
+    if (extractAttachmentNames(c.attachments_info).length > 0) return true;
+    return false;
+  });
+  if (!visibleComms || visibleComms.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
         Komunikāciju vēl nav
@@ -815,7 +831,7 @@ function CommunicationsTimeline({
   }
 
   // Sort newest -> oldest by coalesce(sent_at, received_at, created_at)
-  const sorted = [...comms].sort((a, b) => {
+  const sorted = [...visibleComms].sort((a, b) => {
     const ta =
       new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() ||
       0;
