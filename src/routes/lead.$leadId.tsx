@@ -882,10 +882,7 @@ function CommunicationsTimeline({
 
             return (
               <Fragment key={commId || i}>
-                <tr
-                  key={`${commId || i}-row`}
-                  className={`align-top ${events.length === 0 ? "" : ""}`}
-                >
+                <tr key={`${commId || i}-row`} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
                   <td className="px-3 py-2">
                     {(() => {
@@ -929,9 +926,12 @@ function CommunicationsTimeline({
                   const preview = meta && typeof meta.body_preview === "string"
                     ? (meta.body_preview as string).trim()
                     : "";
-                  if (!preview) return null;
+                   if (!preview) {
+                     // No preview row: put divider on the main row instead
+                     return null;
+                   }
                   return (
-                    <tr key={`${commId || i}-preview`} className="border-b border-border/60">
+                     <tr key={`${commId || i}-preview`} className="border-b border-border">
                       <td colSpan={5} className="relative p-0">
                         <div className="relative h-5 w-full">
                           <div className="absolute inset-x-3 top-0 truncate text-xs text-muted-foreground">
@@ -943,7 +943,7 @@ function CommunicationsTimeline({
                   );
                 })()}
                 {events.length > 0 && (
-                  <tr key={`${commId || i}-events`} className="border-b border-border/60">
+                   <tr key={`${commId || i}-events`} className="border-b border-border">
                     <td colSpan={5} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
                         <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
