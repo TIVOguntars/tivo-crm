@@ -389,6 +389,8 @@ function LeadProfilePage() {
     for (const c of comms) {
       const cid = String(c.id ?? c.communication_id ?? "");
       if (!cid) continue;
+      const commTime =
+        new Date(String(c.sent_at ?? c.received_at ?? c.created_at ?? 0)).getTime() || 0;
       const list: Array<Record<string, unknown>> = [];
       const used = new Set<string>();
       for (const ev of allEvents) {
@@ -396,6 +398,14 @@ function LeadProfilePage() {
         const k = evId || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}`;
         if (used.has(k)) continue;
         if (matchesComm(ev, c, cid)) {
+          // Rule 5: never show replied/clicked/opened/delivered events that
+          // happened before the communication was sent.
+          const evType = String(ev.event_type ?? "").toLowerCase();
+          const evAt = new Date(String(ev.event_timestamp ?? 0)).getTime() || 0;
+          const isPostSendEvent = ["delivered", "opened", "clicked", "replied"].includes(evType);
+          if (isPostSendEvent && commTime > 0 && evAt > 0 && evAt < commTime) {
+            continue;
+          }
           used.add(k);
           list.push(ev);
         }
@@ -1444,6 +1454,17 @@ function EmailPreviewDialog({
   const html = useMemo(() => (comm ? readHtml(comm) : ""), [comm]);
   const text = useMemo(() => (comm ? readText(comm) : ""), [comm]);
 
+  const fromAddr = comm ? fmt(comm.from_address) : NA;
+  const toAddr = comm ? fmt(comm.to_address) : NA;
+  const popupMeta =
+    comm && comm.metadata && typeof comm.metadata === "object" && !Array.isArray(comm.metadata)
+      ? (comm.metadata as Record<string, unknown>)
+      : null;
+  const ccVal = popupMeta?.cc;
+  const bccVal = popupMeta?.bcc;
+  const ccText = ccVal != null && !isEmptyValue(ccVal) ? fmt(ccVal) : "";
+  const bccText = bccVal != null && !isEmptyValue(bccVal) ? fmt(bccVal) : "";
+
   const attachmentNames = useMemo(() => {
     if (!comm) return [];
     // 1. Try communication_events.metadata.attachment_names
@@ -1469,6 +1490,26 @@ function EmailPreviewDialog({
           <DialogTitle>E-pasta saturs</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">No</span>
+            <span className="text-foreground break-all">{fromAddr}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Kam</span>
+            <span className="text-foreground break-all">{toAddr}</span>
+          </div>
+          {ccText && (
+            <div className="grid grid-cols-[120px_1fr] gap-2">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Cc</span>
+              <span className="text-foreground break-all">{ccText}</span>
+            </div>
+          )}
+          {bccText && (
+            <div className="grid grid-cols-[120px_1fr] gap-2">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Bcc</span>
+              <span className="text-foreground break-all">{bccText}</span>
+            </div>
+          )}
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Temats</span>
             <span className="text-foreground">{subject}</span>
