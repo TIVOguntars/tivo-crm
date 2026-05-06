@@ -415,12 +415,17 @@ function DarbaRindaPage() {
   };
   const navigate = useNavigate();
 
-  const q = (search.qq ?? "").trim().toLowerCase();
+  const q = (search.qq ?? search.q ?? "").trim().toLowerCase();
   const selectedStatus = search.status;
-  const selectedOwner = search.owner;
-  const selectedPpv = search.ppv;
-  const selectedCountry = (search.countries ?? [])[0];
-  const selectedSource = (search.sources ?? [])[0];
+  const selectedOwners = (search.owners ?? []).concat(
+    search.owner ? [search.owner] : [],
+  );
+  const selectedPpvs = (search.ppvs ?? []).concat(
+    search.ppv ? [search.ppv] : [],
+  );
+  const selectedCountries = search.countries ?? [];
+  const selectedSources = search.sources ?? [];
+  const selectedTags = (search.tags ?? []).map((t) => t.toLowerCase());
   const range: DateRangePreset = (search.range as DateRangePreset) ?? "all";
   const seg: Segment = search.seg ?? "all";
   const rb: RatingBucket = search.rb ?? "all";
@@ -513,10 +518,17 @@ function DarbaRindaPage() {
     const toTs = to ? new Date(to + "T23:59:59").getTime() : null;
     return leads.filter((l) => {
       if (selectedStatus && l.status !== selectedStatus) return false;
-      if (selectedOwner && l.owner !== selectedOwner) return false;
-      if (selectedPpv && l.ppv !== selectedPpv) return false;
-      if (selectedCountry && l.country !== selectedCountry) return false;
-      if (selectedSource && l.source !== selectedSource) return false;
+      if (selectedOwners.length && !selectedOwners.includes(l.owner))
+        return false;
+      if (selectedPpvs.length && !selectedPpvs.includes(l.ppv)) return false;
+      if (selectedCountries.length && !selectedCountries.includes(l.country))
+        return false;
+      if (selectedSources.length && !selectedSources.includes(l.source))
+        return false;
+      if (selectedTags.length) {
+        const lower = l.tags.map((t) => t.toLowerCase());
+        if (!selectedTags.every((t) => lower.includes(t))) return false;
+      }
       if (fromTs != null || toTs != null) {
         const t = parseDate(l.last_activity_at);
         if (t == null) return false;
@@ -534,10 +546,11 @@ function DarbaRindaPage() {
   }, [
     leads,
     selectedStatus,
-    selectedOwner,
-    selectedPpv,
-    selectedCountry,
-    selectedSource,
+    selectedOwners,
+    selectedPpvs,
+    selectedCountries,
+    selectedSources,
+    selectedTags,
     seg,
     rb,
     q,
@@ -656,10 +669,14 @@ function DarbaRindaPage() {
       owner: undefined,
       ppv: undefined,
       qq: undefined,
+      q: undefined,
       seg: undefined,
       rb: undefined,
       countries: [],
       sources: [],
+      owners: [],
+      ppvs: [],
+      tags: [],
       range: undefined,
       from: undefined,
       to: undefined,
@@ -667,10 +684,11 @@ function DarbaRindaPage() {
 
   const hasAnyFilter =
     !!selectedStatus ||
-    !!selectedOwner ||
-    !!selectedPpv ||
-    !!selectedCountry ||
-    !!selectedSource ||
+    selectedOwners.length > 0 ||
+    selectedPpvs.length > 0 ||
+    selectedCountries.length > 0 ||
+    selectedSources.length > 0 ||
+    selectedTags.length > 0 ||
     range !== "all" ||
     !!q ||
     seg !== "all" ||
