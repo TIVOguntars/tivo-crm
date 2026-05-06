@@ -266,27 +266,64 @@ const STATUS_BANNERS: ReadonlyArray<{
 
 /* ----------------------- Expanded details ----------------------- */
 
+const EVENT_TYPE_LV: Record<string, string> = {
+  outbound_attempt: "Izejošs mēģinājums",
+  outbound: "Izejošs",
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  opened: "Atvērts",
+  clicked: "Klikšķis",
+  replied: "Atbildēts",
+  reply: "Atbildēts",
+  inbound_received: "Saņemta atbilde",
+  inbound: "Ienākošs",
+  bounced: "Atgriezts",
+  failed: "Neizdevās",
+  complained: "Sūdzība",
+  suppressed: "Bloķēts",
+  call: "Zvans",
+  call_attempt: "Zvana mēģinājums",
+  note: "Piezīme",
+  status_change: "Statusa maiņa",
+};
+
+function humanizeEvent(value: string): string {
+  const key = value.trim().toLowerCase();
+  if (!key) return "";
+  if (EVENT_TYPE_LV[key]) return EVENT_TYPE_LV[key];
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function ExpandedDetails({ lead }: { lead: Lead }) {
+  const nextActionValue = lead.next_action
+    ? lead.next_action_due_date
+      ? `${lead.next_action} — ${fmtDate(lead.next_action_due_date)}`
+      : lead.next_action
+    : "";
   return (
     <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
-      <DetailItem label="Avots" value={lead.source} />
-      <DetailItem label="Iemesls" value={lead.next_action_reason} />
-      <DetailItem label="Pēdējais notikums" value={lead.last_event_type} />
-      <DetailItem label="Notikuma grupa" value={lead.last_event_group} />
+      <DetailItem label="Lead avots" value={lead.source} />
       <DetailItem label="Pēdējais kanāls" value={lead.last_channel} />
       <DetailItem
-        label="Pēdējā izejošā"
+        label="Pēdējā aktivitāte"
+        value={lead.last_event_type ? humanizeEvent(lead.last_event_type) : ""}
+      />
+      <DetailItem
+        label="Pēdējais nosūtītais"
         value={lead.last_outbound_at ? fmtDateTime(lead.last_outbound_at) : ""}
       />
       <DetailItem
         label="Pēdējā atbilde"
         value={lead.last_reply_at ? fmtDateTime(lead.last_reply_at) : ""}
       />
+      <DetailItem label="Nākamā darbība" value={nextActionValue} />
       <DetailItem
-        label="Plānotais būvniecības datums"
+        label="Būvniecības laiks"
         value={lead.planned_build_date ? fmtDate(lead.planned_build_date) : ""}
       />
-      <DetailItem label="Follow-up bucket" value={lead.follow_up_bucket} />
+      <DetailItem label="Papildus info" value={lead.next_action_reason} />
     </dl>
   );
 }
