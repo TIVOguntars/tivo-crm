@@ -674,7 +674,7 @@ function LeadProfilePage() {
               error={commsError}
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
-              eventsLoading={hasComms && eventsQ.isLoading}
+              eventsLoading={(hasComms && eventsByCommIdQ.isLoading) || (!!currentLeadId && eventsByLeadQ.isLoading)}
               onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
