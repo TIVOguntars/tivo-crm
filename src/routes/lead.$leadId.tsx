@@ -880,9 +880,22 @@ function CommunicationsTimeline({
                   ]
                 : [];
 
+            const meta0 =
+              c.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata)
+                ? (c.metadata as Record<string, unknown>)
+                : null;
+            const previewText =
+              meta0 && typeof meta0.body_preview === "string"
+                ? (meta0.body_preview as string).trim()
+                : "";
+            const hasPreview = !!previewText;
+            const hasEvents = events.length > 0;
             return (
               <Fragment key={commId || i}>
-                <tr key={`${commId || i}-row`} className="align-top">
+                <tr
+                  key={`${commId || i}-row`}
+                  className={`align-top ${hasPreview || hasEvents ? "" : "border-b border-border"}`}
+                >
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
                   <td className="px-3 py-2">
                     {(() => {
@@ -918,32 +931,22 @@ function CommunicationsTimeline({
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground break-words">{subjectText(c)}</td>
                 </tr>
-                {(() => {
-                  const meta =
-                    c.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata)
-                      ? (c.metadata as Record<string, unknown>)
-                      : null;
-                  const preview = meta && typeof meta.body_preview === "string"
-                    ? (meta.body_preview as string).trim()
-                    : "";
-                   if (!preview) {
-                     // No preview row: put divider on the main row instead
-                     return null;
-                   }
-                  return (
-                     <tr key={`${commId || i}-preview`} className="border-b border-border">
-                      <td colSpan={5} className="relative p-0">
-                        <div className="relative h-5 w-full">
-                          <div className="absolute inset-x-3 top-0 truncate text-xs text-muted-foreground">
-                            {preview}
-                          </div>
+                {hasPreview && (
+                  <tr
+                    key={`${commId || i}-preview`}
+                    className={hasEvents ? "" : "border-b border-border"}
+                  >
+                    <td colSpan={5} className="relative p-0">
+                      <div className="relative h-5 w-full">
+                        <div className="absolute inset-x-3 top-0 truncate text-xs text-muted-foreground">
+                          {previewText}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })()}
-                {events.length > 0 && (
-                   <tr key={`${commId || i}-events`} className="border-b border-border">
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {hasEvents && (
+                  <tr key={`${commId || i}-events`} className="border-b border-border">
                     <td colSpan={5} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
                         <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
