@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Children, Fragment, isValidElement, useMemo, useState } from "react";
-import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle } from "lucide-react";
+import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle, ChevronRight, ChevronDown } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,42 @@ const COMM_STATUS_LV: Record<string, string> = {
   complained: "Sūdzība",
   failed: "Neizdevās",
 };
+
+const TIMELINE_EVENT_LV: Record<string, string> = {
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  opened: "Atvērts",
+  clicked: "Klikšķis",
+  replied: "Atbildēts",
+  reply: "Atbildēts",
+  inbound_received: "Atbildēts",
+  bounced: "Neizdevās",
+  failed: "Neizdevās",
+  complained: "Neizdevās",
+  suppressed: "Neizdevās",
+};
+
+function clickedTargetLabel(
+  ev: Record<string, unknown>,
+  links: Array<Record<string, unknown>>,
+): string {
+  const meta = (ev.metadata && typeof ev.metadata === "object" && !Array.isArray(ev.metadata)
+    ? (ev.metadata as Record<string, unknown>)
+    : null);
+  const linkType = meta && typeof meta.link_type === "string" ? meta.link_type.trim() : "";
+  if (linkType) return CLICK_TAG_LV[linkType.toLowerCase()] ?? linkType;
+  const linkUrl = meta && typeof meta.link_url === "string" ? meta.link_url.trim() : "";
+  if (linkUrl) return linkUrl;
+  const raw = ev.raw_payload;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const url = (raw as Record<string, unknown>).url;
+    if (typeof url === "string" && url.trim() !== "") return url.trim();
+  }
+  // fallback: use tracking link match
+  const tags = clickTagsForEvent(ev, links);
+  if (tags.length > 0) return tags[0];
+  return "Nezināms links";
+}
 
 function tx(map: Record<string, string>, value: unknown): string {
   const raw = value == null ? "" : String(value).trim().toLowerCase();
@@ -799,6 +835,9 @@ function CommunicationsTimeline({
   eventsLoading: boolean;
   onOpenEmail?: (c: Record<string, unknown>) => void;
 }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
   // Filter out empty emails: e-pasts ar tukšu saturu UN bez pielikumiem netiek rādīts.
@@ -837,6 +876,7 @@ function CommunicationsTimeline({
       <table className="w-full max-w-full table-auto border-collapse text-left text-xs">
         <thead className="bg-muted/40 text-muted-foreground">
           <tr className="border-b border-border">
+            <th className="w-8 px-2 py-2 font-medium uppercase" aria-label="Izvērst" />
             <th className="px-3 py-2 font-medium uppercase">Datums</th>
             <th className="px-3 py-2 font-medium uppercase">Saziņa</th>
             <th className="px-3 py-2 font-medium uppercase">Statuss</th>
@@ -890,12 +930,39 @@ function CommunicationsTimeline({
                 : "";
             const hasPreview = !!previewText;
             const hasEvents = events.length > 0;
+            const rowKey = commId || String(i);
+            const isOpen = !!expanded[rowKey];
+            // Timeline events for the accordion: all events for this communication,
+            // sorted ascending by event_timestamp.
+            const timelineEvents = [...rawEvents].sort((a, b) => {
+              const ta = new Date(String(a.event_timestamp ?? 0)).getTime() || 0;
+              const tb = new Date(String(b.event_timestamp ?? 0)).getTime() || 0;
+              return ta - tb;
+            });
             return (
               <Fragment key={commId || i}>
                 <tr
                   key={`${commId || i}-row`}
-                  className={`align-top ${hasPreview || hasEvents ? "" : "border-b border-border"}`}
+                  className={`align-top ${hasPreview || hasEvents || isOpen ? "" : "border-b border-border"}`}
                 >
+                  <td className="px-2 py-2 align-top">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpanded(rowKey);
+                      }}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      aria-label={isOpen ? "Sakļaut notikumus" : "Izvērst notikumus"}
+                      aria-expanded={isOpen}
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
                   <td className="px-3 py-2">
                     {(() => {
@@ -934,50 +1001,60 @@ function CommunicationsTimeline({
                 {hasPreview && (
                   <tr
                     key={`${commId || i}-preview`}
-                    className={hasEvents ? "" : "border-b border-border"}
+                    className={hasEvents || isOpen ? "" : "border-b border-border"}
                   >
-                    <td colSpan={5} className="relative p-0">
+                    <td colSpan={6} className="relative p-0">
                       <div className="relative h-5 w-full">
-                        <div className="absolute inset-x-3 top-0 truncate text-xs text-muted-foreground">
+                        <div className="absolute inset-x-10 top-0 truncate text-xs text-muted-foreground">
                           {previewText}
                         </div>
                       </div>
                     </td>
                   </tr>
                 )}
-                {hasEvents && (
-                  <tr key={`${commId || i}-events`} className="border-b border-border">
-                    <td colSpan={5} className="px-7 pb-3 pt-0">
+                {isOpen && (
+                  <tr key={`${commId || i}-timeline`} className="border-b border-border">
+                    <td colSpan={6} className="px-10 pb-3 pt-1">
                       <div className="border-l border-border pl-3">
-                        <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
-                          Notikumi ({events.length})
+                        <div className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">
+                          Notikumu vēsture
                         </div>
-                        <ol className="space-y-1">
-                          {events.map((ev, j) => {
-                            const tags = clickTagsForEvent(ev, links);
-                            const eventType = String(ev.event_type ?? "")
-                              .trim()
-                              .toLowerCase();
-                            return (
-                              <li key={j} className="flex flex-wrap items-center gap-2 text-xs">
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`}
-                                />
-                                <span className="font-semibold text-foreground">
-                                  {REPLY_EVENT_TYPES.has(eventType)
-                                    ? "Atbilde"
-                                    : tx(COMM_STATUS_LV, ev.event_type)}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {fmtDate(ev.event_timestamp)}
-                                </span>
-                                {tags.map((tag) => (
-                                  <ClickTag key={tag}>{tag}</ClickTag>
-                                ))}
-                              </li>
-                            );
-                          })}
-                        </ol>
+                        {eventsLoading && timelineEvents.length === 0 ? (
+                          <div className="text-xs text-muted-foreground">Ielādē notikumus…</div>
+                        ) : timelineEvents.length === 0 ? (
+                          <div className="text-xs text-muted-foreground">Nav notikumu vēstures</div>
+                        ) : (
+                          <ol className="space-y-1">
+                            {timelineEvents.map((ev, j) => {
+                              const eventType = String(ev.event_type ?? "")
+                                .trim()
+                                .toLowerCase();
+                              const label =
+                                TIMELINE_EVENT_LV[eventType] ??
+                                tx(COMM_STATUS_LV, ev.event_type);
+                              const isClicked = eventType === "clicked";
+                              return (
+                                <li
+                                  key={j}
+                                  className="flex flex-wrap items-center gap-2 text-xs"
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`}
+                                  />
+                                  <span className="font-semibold text-foreground">{label}:</span>
+                                  <span className="text-muted-foreground">
+                                    {fmtDate(ev.event_timestamp)}
+                                  </span>
+                                  {isClicked && (
+                                    <span className="text-foreground">
+                                      — {clickedTargetLabel(ev, links)}
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        )}
                       </div>
                     </td>
                   </tr>
