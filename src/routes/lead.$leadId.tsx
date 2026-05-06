@@ -1003,10 +1003,10 @@ function ChannelBadge({ value, direction = "" }: { value: string; direction?: st
 }
 
 function readHtml(c: Record<string, unknown>): string {
-  const direct = c.html_body;
-  if (typeof direct === "string" && direct.trim() !== "") return direct;
   const meta = c.metadata as Record<string, unknown> | null | undefined;
   if (meta && typeof meta === "object") {
+    const bh = (meta as Record<string, unknown>).body_html;
+    if (typeof bh === "string" && bh.trim() !== "") return bh;
     const payload = (meta as Record<string, unknown>).resend_payload as
       | Record<string, unknown>
       | undefined;
@@ -1015,6 +1015,8 @@ function readHtml(c: Record<string, unknown>): string {
       if (typeof h === "string" && h.trim() !== "") return h;
     }
   }
+  const direct = c.html_body;
+  if (typeof direct === "string" && direct.trim() !== "") return direct;
   return "";
 }
 
@@ -1239,7 +1241,7 @@ function EmailPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-5xl w-[95vw] overflow-hidden">
         <DialogHeader>
           <DialogTitle>E-pasta saturs</DialogTitle>
         </DialogHeader>
@@ -1269,7 +1271,12 @@ function EmailPreviewDialog({
 
         <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
           {html ? (
-            <iframe title="E-pasta saturs" sandbox="" srcDoc={html} className="h-[60vh] w-full" />
+            <iframe
+              title="E-pasta saturs"
+              sandbox=""
+              srcDoc={`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:12px;max-width:100%;overflow-x:hidden;word-wrap:break-word;overflow-wrap:anywhere;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111}*{max-width:100%!important;box-sizing:border-box}img,video,table{height:auto!important;max-width:100%!important}table{table-layout:fixed!important;width:100%!important;border-collapse:collapse}pre{white-space:pre-wrap;word-break:break-word}</style></head><body>${html}</body></html>`}
+              className="h-[60vh] w-full block"
+            />
           ) : text ? (
             <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
               {renderEmailText(text)}
