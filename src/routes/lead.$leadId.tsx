@@ -838,8 +838,7 @@ function CommunicationsTimeline({
         <thead className="bg-muted/40 text-muted-foreground">
           <tr className="border-b border-border">
             <th className="px-3 py-2 font-medium uppercase">Datums</th>
-            <th className="px-3 py-2 font-medium uppercase">Kanāls</th>
-            <th className="px-3 py-2 font-medium uppercase">Virziens</th>
+            <th className="px-3 py-2 font-medium uppercase">Saziņa</th>
             <th className="px-3 py-2 font-medium uppercase">Statuss</th>
             <th className="px-3 py-2 font-medium uppercase">E-pasta solis</th>
             <th className="px-3 py-2 font-medium uppercase">Temats</th>
@@ -890,11 +889,13 @@ function CommunicationsTimeline({
                       const ch = String(c.channel ?? "").toLowerCase();
                       const isEmail =
                         ch.includes("email") || ch.includes("mail") || ch.includes("past");
+                      const dirRaw = String(c.direction ?? "").toLowerCase();
+                      let label = tx(CHANNEL_LV, c.channel);
+                      if (isEmail) {
+                        label = dirRaw === "inbound" ? "Ienākošs e-pasts" : "Izejošs e-pasts";
+                      }
                       const badge = (
-                        <ChannelBadge
-                          value={tx(CHANNEL_LV, c.channel)}
-                          direction={String(c.direction ?? "")}
-                        />
+                        <ChannelBadge value={label} direction={String(c.direction ?? "")} />
                       );
                       if (isEmail && onOpenEmail) {
                         return (
@@ -912,17 +913,33 @@ function CommunicationsTimeline({
                     })()}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {tx(DIRECTION_LV, c.direction)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
                     {tx(COMM_STATUS_LV, c.current_status ?? c.status)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
                   <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
                 </tr>
+                {(() => {
+                  const meta =
+                    c.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata)
+                      ? (c.metadata as Record<string, unknown>)
+                      : null;
+                  const preview = meta && typeof meta.body_preview === "string"
+                    ? (meta.body_preview as string).trim()
+                    : "";
+                  if (!preview) return null;
+                  return (
+                    <tr key={`${commId || i}-preview`} className="border-b border-border/60">
+                      <td colSpan={5} className="px-3 pb-2 pt-0">
+                        <div className="block w-full max-w-full truncate overflow-hidden whitespace-nowrap text-xs text-muted-foreground">
+                          {preview}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })()}
                 {events.length > 0 && (
                   <tr key={`${commId || i}-events`} className="border-b border-border/60">
-                    <td colSpan={6} className="px-7 pb-3 pt-0">
+                    <td colSpan={5} className="px-7 pb-3 pt-0">
                       <div className="border-l border-border pl-3">
                         <div className="mb-1 text-[11px] font-medium uppercase text-foreground">
                           Notikumi ({events.length})
