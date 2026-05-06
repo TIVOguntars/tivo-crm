@@ -1454,6 +1454,13 @@ function EmailPreviewDialog({
   const html = useMemo(() => (comm ? readHtml(comm) : ""), [comm]);
   const text = useMemo(() => (comm ? readText(comm) : ""), [comm]);
 
+  const fromAddr = comm ? fmt(comm.from_address) : NA;
+  const toAddr = comm ? fmt(comm.to_address) : NA;
+  const ccVal = comm ? (commMeta(comm)?.cc as unknown) : undefined;
+  const bccVal = comm ? (commMeta(comm)?.bcc as unknown) : undefined;
+  const ccText = ccVal != null && !isEmptyValue(ccVal) ? fmt(ccVal) : "";
+  const bccText = bccVal != null && !isEmptyValue(bccVal) ? fmt(bccVal) : "";
+
   const attachmentNames = useMemo(() => {
     if (!comm) return [];
     // 1. Try communication_events.metadata.attachment_names
@@ -1479,6 +1486,26 @@ function EmailPreviewDialog({
           <DialogTitle>E-pasta saturs</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">No</span>
+            <span className="text-foreground break-all">{fromAddr}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Kam</span>
+            <span className="text-foreground break-all">{toAddr}</span>
+          </div>
+          {ccText && (
+            <div className="grid grid-cols-[120px_1fr] gap-2">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Cc</span>
+              <span className="text-foreground break-all">{ccText}</span>
+            </div>
+          )}
+          {bccText && (
+            <div className="grid grid-cols-[120px_1fr] gap-2">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Bcc</span>
+              <span className="text-foreground break-all">{bccText}</span>
+            </div>
+          )}
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Temats</span>
             <span className="text-foreground">{subject}</span>
