@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Children, Fragment, isValidElement, useMemo, useState } from "react";
-import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle } from "lucide-react";
+import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle, ChevronRight, ChevronDown } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -799,6 +799,9 @@ function CommunicationsTimeline({
   eventsLoading: boolean;
   onOpenEmail?: (c: Record<string, unknown>) => void;
 }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
   // Filter out empty emails: e-pasts ar tukšu saturu UN bez pielikumiem netiek rādīts.
