@@ -93,6 +93,7 @@ interface Lead {
   last_reply_at: string | null;
   planned_build_date: string | null;
   follow_up_bucket: string;
+  next_action_due_date: string | null;
 }
 
 const PAGE_SIZE = 1000;
