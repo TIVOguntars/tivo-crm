@@ -242,11 +242,22 @@ function LeadProfilePage() {
     [comms],
   );
   const hasComms = commIds.length > 0;
-  const eventsQueryStr = hasComms
+  const eventsByCommIdQueryStr = hasComms
     ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&order=event_timestamp.asc&limit=2000`
     : "";
-  const eventsQ = usePublicTable("communication_events", eventsQueryStr, {
+  const eventsByCommIdQ = usePublicTable("communication_events", eventsByCommIdQueryStr, {
     enabled: hasComms,
+    fresh: true,
+  });
+  // Also fetch all events for this lead — many events (delivered/opened/clicked
+  // /replied) may have a NULL communication_id and only carry lead_id +
+  // metadata back-references. Without this, the timeline would only show
+  // "sent" events whose communication_id equals the row id.
+  const eventsByLeadQueryStr = currentLeadId
+    ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&order=event_timestamp.asc&limit=2000`
+    : "";
+  const eventsByLeadQ = usePublicTable("communication_events", eventsByLeadQueryStr, {
+    enabled: !!currentLeadId,
     fresh: true,
   });
 
@@ -258,19 +269,146 @@ function LeadProfilePage() {
     fresh: true,
   });
 
+  // Sort comms by sent_at ASC for "next communication time" fallback window.
+  const sortedCommsAsc = useMemo(() => {
+    return [...comms].sort((a, b) => {
+      const ta =
+        new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() || 0;
+      const tb =
+        new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() || 0;
+      return ta - tb;
+    });
+  }, [comms]);
+
   const eventsByComm = useMemo(() => {
     const map = new Map<string, Array<Record<string, unknown>>>();
     if (!hasComms) return map;
-    const rows = (eventsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
-    for (const ev of rows) {
-      const k = String(ev.communication_id ?? "");
-      if (!k) continue;
-      const list = map.get(k) ?? [];
-      list.push(ev);
-      map.set(k, list);
+
+    // Merge + dedupe events from both queries by event id.
+    const seen = new Set<string>();
+    const allEvents: Array<Record<string, unknown>> = [];
+    const pushEv = (ev: Record<string, unknown>) => {
+      const id = String(ev.id ?? "");
+      const key = id || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}|${ev.communication_id ?? ""}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      allEvents.push(ev);
+    };
+    for (const ev of (eventsByCommIdQ.data?.rows ?? []) as Array<Record<string, unknown>>) {
+      pushEv(ev);
+    }
+    for (const ev of (eventsByLeadQ.data?.rows ?? []) as Array<Record<string, unknown>>) {
+      pushEv(ev);
+    }
+
+    const evMeta = (ev: Record<string, unknown>): Record<string, unknown> | null => {
+      const m = ev.metadata;
+      return m && typeof m === "object" && !Array.isArray(m)
+        ? (m as Record<string, unknown>)
+        : null;
+    };
+    const commMeta = (c: Record<string, unknown>) => {
+      const m = c.metadata;
+      return m && typeof m === "object" && !Array.isArray(m)
+        ? (m as Record<string, unknown>)
+        : null;
+    };
+
+    // Build per-comm lookup helpers
+    const commById = new Map<string, Record<string, unknown>>();
+    for (const c of comms) {
+      const cid = String(c.id ?? c.communication_id ?? "");
+      if (cid) commById.set(cid, c);
+    }
+
+    // Index "next sent_at" per outbound id, for the fifth fallback window.
+    const nextSentAt = new Map<string, number>();
+    for (let i = 0; i < sortedCommsAsc.length; i++) {
+      const c = sortedCommsAsc[i];
+      const cid = String(c.id ?? c.communication_id ?? "");
+      if (!cid) continue;
+      const nxt = sortedCommsAsc[i + 1];
+      const nt = nxt
+        ? new Date(String(nxt.sent_at ?? nxt.received_at ?? nxt.created_at ?? 0)).getTime() || Number.POSITIVE_INFINITY
+        : Number.POSITIVE_INFINITY;
+      nextSentAt.set(cid, nt);
+    }
+
+    const matchesComm = (
+      ev: Record<string, unknown>,
+      c: Record<string, unknown>,
+      cid: string,
+    ): boolean => {
+      // 1. Direct communication_id match
+      if (String(ev.communication_id ?? "") === cid) return true;
+      const m = evMeta(ev);
+      if (!m) return false;
+      // 2. metadata.reply_to_communication_id
+      if (m.reply_to_communication_id != null && String(m.reply_to_communication_id) === cid)
+        return true;
+      // 3. metadata.inbound_communication_id
+      if (m.inbound_communication_id != null && String(m.inbound_communication_id) === cid)
+        return true;
+      // 4. Same email thread / reference
+      const cm = commMeta(c);
+      const cRef =
+        (c.reference_code as string | undefined) ??
+        (cm?.reference_code as string | undefined) ??
+        "";
+      const eRef =
+        (ev.reference_code as string | undefined) ??
+        (m.reference_code as string | undefined) ??
+        "";
+      if (cRef && eRef && String(cRef) === String(eRef)) return true;
+      const providerMsgId =
+        (c.provider_message_id as string | undefined) ??
+        (cm?.provider_message_id as string | undefined) ??
+        (cm?.message_id as string | undefined) ??
+        "";
+      if (providerMsgId) {
+        const inReplyTo = m.in_reply_to;
+        if (typeof inReplyTo === "string" && inReplyTo.includes(String(providerMsgId))) return true;
+        const refs = m.references;
+        if (typeof refs === "string" && refs.includes(String(providerMsgId))) return true;
+        if (Array.isArray(refs) && refs.some((r) => String(r) === String(providerMsgId)))
+          return true;
+      }
+      // 5. Same lead + within window [sent_at, next sent_at)
+      const evLead = String(ev.lead_id ?? "");
+      const cLead = String(c.lead_id ?? "");
+      if (evLead && cLead && evLead === cLead) {
+        const sentAt =
+          new Date(String(c.sent_at ?? c.received_at ?? c.created_at ?? 0)).getTime() || 0;
+        const nxt = nextSentAt.get(cid) ?? Number.POSITIVE_INFINITY;
+        const evAt = new Date(String(ev.event_timestamp ?? 0)).getTime() || 0;
+        if (sentAt > 0 && evAt >= sentAt && evAt < nxt) return true;
+      }
+      return false;
+    };
+
+    for (const c of comms) {
+      const cid = String(c.id ?? c.communication_id ?? "");
+      if (!cid) continue;
+      const list: Array<Record<string, unknown>> = [];
+      const used = new Set<string>();
+      for (const ev of allEvents) {
+        const evId = String(ev.id ?? "");
+        const k = evId || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}`;
+        if (used.has(k)) continue;
+        if (matchesComm(ev, c, cid)) {
+          used.add(k);
+          list.push(ev);
+        }
+      }
+      list.sort((a, b) => {
+        const ta = new Date(String(a.event_timestamp ?? 0)).getTime() || 0;
+        const tb = new Date(String(b.event_timestamp ?? 0)).getTime() || 0;
+        return ta - tb;
+      });
+      map.set(cid, list);
     }
     return map;
-  }, [eventsQ.data, hasComms]);
+  }, [eventsByCommIdQ.data, eventsByLeadQ.data, hasComms, comms, sortedCommsAsc]);
 
   const trackingLinksByComm = useMemo(() => {
     const map = new Map<string, Array<Record<string, unknown>>>();
@@ -536,7 +674,7 @@ function LeadProfilePage() {
               error={commsError}
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
-              eventsLoading={hasComms && eventsQ.isLoading}
+              eventsLoading={(hasComms && eventsByCommIdQ.isLoading) || (!!currentLeadId && eventsByLeadQ.isLoading)}
               onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
