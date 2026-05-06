@@ -1456,8 +1456,12 @@ function EmailPreviewDialog({
 
   const fromAddr = comm ? fmt(comm.from_address) : NA;
   const toAddr = comm ? fmt(comm.to_address) : NA;
-  const ccVal = comm ? (commMeta(comm)?.cc as unknown) : undefined;
-  const bccVal = comm ? (commMeta(comm)?.bcc as unknown) : undefined;
+  const popupMeta =
+    comm && comm.metadata && typeof comm.metadata === "object" && !Array.isArray(comm.metadata)
+      ? (comm.metadata as Record<string, unknown>)
+      : null;
+  const ccVal = popupMeta?.cc;
+  const bccVal = popupMeta?.bcc;
   const ccText = ccVal != null && !isEmptyValue(ccVal) ? fmt(ccVal) : "";
   const bccText = bccVal != null && !isEmptyValue(bccVal) ? fmt(bccVal) : "";
 
