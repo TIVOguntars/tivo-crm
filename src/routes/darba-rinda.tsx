@@ -449,6 +449,7 @@ function DarbaRindaPage() {
           last_reply_at: s(r.last_reply_at) || null,
           planned_build_date: s(r.planned_build_date) || null,
           follow_up_bucket: s(r.follow_up_bucket),
+          next_action_due_date: s(r.next_action_due_date) || null,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
