@@ -389,6 +389,8 @@ function LeadProfilePage() {
     for (const c of comms) {
       const cid = String(c.id ?? c.communication_id ?? "");
       if (!cid) continue;
+      const commTime =
+        new Date(String(c.sent_at ?? c.received_at ?? c.created_at ?? 0)).getTime() || 0;
       const list: Array<Record<string, unknown>> = [];
       const used = new Set<string>();
       for (const ev of allEvents) {
@@ -396,6 +398,14 @@ function LeadProfilePage() {
         const k = evId || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}`;
         if (used.has(k)) continue;
         if (matchesComm(ev, c, cid)) {
+          // Rule 5: never show replied/clicked/opened/delivered events that
+          // happened before the communication was sent.
+          const evType = String(ev.event_type ?? "").toLowerCase();
+          const evAt = new Date(String(ev.event_timestamp ?? 0)).getTime() || 0;
+          const isPostSendEvent = ["delivered", "opened", "clicked", "replied"].includes(evType);
+          if (isPostSendEvent && commTime > 0 && evAt > 0 && evAt < commTime) {
+            continue;
+          }
           used.add(k);
           list.push(ev);
         }
