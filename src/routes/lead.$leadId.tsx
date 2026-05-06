@@ -833,8 +833,8 @@ function CommunicationsTimeline({
   });
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="min-w-[980px] w-full border-collapse text-left text-xs">
+    <div className="w-full max-w-full overflow-hidden rounded-md border border-border">
+      <table className="w-full max-w-full table-auto border-collapse text-left text-xs">
         <thead className="bg-muted/40 text-muted-foreground">
           <tr className="border-b border-border">
             <th className="px-3 py-2 font-medium uppercase">Datums</th>
@@ -882,7 +882,10 @@ function CommunicationsTimeline({
 
             return (
               <Fragment key={commId || i}>
-                <tr key={`${commId || i}-row`} className="border-b border-border/60 align-top">
+                <tr
+                  key={`${commId || i}-row`}
+                  className={`align-top ${events.length === 0 ? "" : ""}`}
+                >
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
                   <td className="px-3 py-2">
                     {(() => {
@@ -916,7 +919,7 @@ function CommunicationsTimeline({
                     {tx(COMM_STATUS_LV, c.current_status ?? c.status)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
-                  <td className="px-3 py-2 text-foreground">{subjectText(c)}</td>
+                  <td className="px-3 py-2 text-foreground break-words">{subjectText(c)}</td>
                 </tr>
                 {(() => {
                   const meta =
@@ -929,9 +932,11 @@ function CommunicationsTimeline({
                   if (!preview) return null;
                   return (
                     <tr key={`${commId || i}-preview`} className="border-b border-border/60">
-                      <td colSpan={5} className="px-3 pb-2 pt-0">
-                        <div className="block w-full max-w-full truncate overflow-hidden whitespace-nowrap text-xs text-muted-foreground">
-                          {preview}
+                      <td colSpan={5} className="relative p-0">
+                        <div className="relative h-5 w-full">
+                          <div className="absolute inset-x-3 top-0 truncate text-xs text-muted-foreground">
+                            {preview}
+                          </div>
                         </div>
                       </td>
                     </tr>
