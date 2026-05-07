@@ -125,6 +125,49 @@ function PriorityBadge({ label }: { label: string }) {
   );
 }
 
+function PriorityCell({ label, score }: { label: string; score: number }) {
+  if (!label && !score) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <PriorityBadge label={label} />
+      {score > 0 && (
+        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+          {score}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function parseTags(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((t) => String(t).trim().toLowerCase())
+      .filter(Boolean);
+  }
+  return String(value)
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function TagsCell({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <span
+          key={t}
+          className="inline-flex h-4 items-center rounded-sm bg-muted px-1 text-[10px] font-normal lowercase text-muted-foreground"
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function OwnerBadge({ value }: { value: string }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   const isSystem = value === "SIS";
