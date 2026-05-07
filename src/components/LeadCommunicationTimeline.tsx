@@ -686,7 +686,7 @@ function CommunicationViewerModal({
       fetchPublicTable({
         data: {
           table: "communications",
-          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&limit=1`,
+          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,body_text,body_html,text_body,html_body,metadata&limit=1`,
         },
       }),
     enabled: open,
@@ -718,8 +718,7 @@ function CommunicationViewerModal({
     return s(t) || s(meta?.mailbox);
   })();
   const dateStr = fmtDateTime(comm?.sent_at ?? comm?.received_at ?? comm?.created_at);
-  const html = s(comm?.html_body);
-  const text = s(comm?.text_body);
+  const bodies = chooseEmailBodies(comm);
   const status = s(comm?.current_status);
   const attachments = getAttachments(comm);
 
@@ -779,7 +778,7 @@ function CommunicationViewerModal({
               Ziņa nav atrasta.
             </div>
           ) : (
-            <EmailBody html={html} text={text} />
+            <EmailBody html={bodies.html} text={bodies.text} />
           )}
 
           {events.length > 0 && (
