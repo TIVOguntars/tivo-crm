@@ -309,8 +309,12 @@ function firstString(...values: unknown[]): string {
 
 function headerString(comm: Row | null): string {
   const meta = metaRecord(comm);
+  const headers = meta.headers;
+  const renderedHeaders = headers && typeof headers === "object" && !Array.isArray(headers)
+    ? Object.entries(headers as Row).map(([key, value]) => `${key}: ${stringFrom(value)}`).join("\n")
+    : stringFrom(headers);
   return [
-    stringFrom(meta.headers),
+    renderedHeaders,
     stringFrom(meta.raw_headers),
     stringFrom(meta.headerLines),
     stringFrom(meta.content_type),
@@ -384,8 +388,20 @@ function decodeBase64(input: string, charset: string): string {
 
 function repairMojibake(input: string): string {
   if (!/[ÃÂâ€]/.test(input)) return input;
-  const bytes = Uint8Array.from([...input].map((char) => char.charCodeAt(0) & 0xff));
-  const repaired = decodeBytes(bytes, "utf-8");
+  const cp1252: Record<string, number> = {
+    "€": 0x80, "‚": 0x82, "ƒ": 0x83, "„": 0x84, "…": 0x85, "†": 0x86, "‡": 0x87,
+    "ˆ": 0x88, "‰": 0x89, "Š": 0x8a, "‹": 0x8b, "Œ": 0x8c, "Ž": 0x8e, "‘": 0x91,
+    "’": 0x92, "“": 0x93, "”": 0x94, "•": 0x95, "–": 0x96, "—": 0x97, "˜": 0x98,
+    "™": 0x99, "š": 0x9a, "›": 0x9b, "œ": 0x9c, "ž": 0x9e, "Ÿ": 0x9f,
+  };
+  const bytes: number[] = [];
+  for (const char of input) {
+    const code = char.charCodeAt(0);
+    if (cp1252[char] != null) bytes.push(cp1252[char]);
+    else if (code <= 0xff) bytes.push(code);
+    else bytes.push(...new TextEncoder().encode(char));
+  }
+  const repaired = decodeBytes(new Uint8Array(bytes), "utf-8");
   const before = (input.match(/[ÃÂ�]/g) ?? []).length;
   const after = (repaired.match(/[ÃÂ�]/g) ?? []).length;
   return after < before ? repaired : input;
