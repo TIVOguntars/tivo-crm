@@ -685,7 +685,8 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
     return { main: html, quoted: "" };
   }
   try {
-    const doc = new DOMParser().parseFromString(`<div id="__r">${html}</div>`, "text/html");
+    const decodedHtml = decodePayload(html);
+    const doc = new DOMParser().parseFromString(`<div id="__r">${decodedHtml}</div>`, "text/html");
     const root = doc.getElementById("__r");
     if (!root) return { main: html, quoted: "" };
 
@@ -732,6 +733,8 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
     }
 
     if (!firstQuoted) return { main: html, quoted: "" };
+
+    removeDuplicatedHtmlFooters(root, firstQuoted);
 
     const quotedContainer = doc.createElement("div");
     let node: Node | null = firstQuoted;
