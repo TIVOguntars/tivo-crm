@@ -7,11 +7,12 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { fetchPublicTable } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
