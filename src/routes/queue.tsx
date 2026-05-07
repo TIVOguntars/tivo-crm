@@ -226,7 +226,7 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue_ui", "limit=500");
+  const view = useCrmView("next_action_queue_ui", undefined, { all: true });
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");

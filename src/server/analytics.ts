@@ -296,16 +296,56 @@ async function queryCrmView(
   return (await res.json()) as AnalyticsRow[];
 }
 
+async function queryCrmViewAll(
+  view: CrmView,
+  query: string,
+): Promise<AnalyticsRow[]> {
+  const { url, key } = getEnv();
+  const chunk = 1000;
+  let offset = 0;
+  const all: AnalyticsRow[] = [];
+  // Hard safety cap to avoid runaway loops
+  const maxRows = 100_000;
+  while (offset < maxRows) {
+    const endpoint = `${url}/rest/v1/${view}${query ? `?${query}` : ""}`;
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Accept-Profile": "crm",
+        Accept: "application/json",
+        Range: `${offset}-${offset + chunk - 1}`,
+        "Range-Unit": "items",
+      },
+    });
+    if (!res.ok && res.status !== 206) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Neizdevās nolasīt crm.${view} (${res.status}): ${text.slice(0, 300)}`,
+      );
+    }
+    const batch = (await res.json()) as AnalyticsRow[];
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    all.push(...batch);
+    if (batch.length < chunk) break;
+    offset += chunk;
+  }
+  return all;
+}
+
 export const fetchCrmView = createServerFn({ method: "GET" })
-  .inputValidator((input: { view: CrmView; query?: string }) => {
+  .inputValidator((input: { view: CrmView; query?: string; all?: boolean }) => {
     if (!CRM_VIEWS.includes(input.view)) {
       throw new Error(`Nezināms skats: ${input.view}`);
     }
-    return { view: input.view, query: input.query ?? "" };
+    return { view: input.view, query: input.query ?? "", all: !!input.all };
   })
   .handler(async ({ data }) => {
     try {
-      const rows = await queryCrmView(data.view, data.query);
+      const rows = data.all
+        ? await queryCrmViewAll(data.view, data.query)
+        : await queryCrmView(data.view, data.query);
       return { rows, error: null as string | null };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
