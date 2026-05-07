@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -25,6 +25,7 @@ import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
+import { LeadDrawer } from "@/components/LeadDrawer";
 
 export const Route = createFileRoute("/queue")({
   component: QueuePage,
@@ -245,8 +246,8 @@ function MiniKpi({
 }
 
 function QueuePage() {
-  const navigate = useNavigate();
   const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
+  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const rows = (view.data?.rows ?? []) as Row[];
 
   const statusOptionsView = useCrmView(
@@ -683,12 +684,7 @@ function QueuePage() {
                       {leadId ? (
                         <button
                           className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
-                          onClick={() =>
-                            navigate({
-                              to: "/lead/$leadId",
-                              params: { leadId },
-                            })
-                          }
+                          onClick={() => setDrawerLeadId(leadId)}
                         >
                           {s(r.full_name) || "—"}
                         </button>
@@ -709,13 +705,7 @@ function QueuePage() {
                         size="sm"
                         variant="outline"
                         className="h-6 px-2 text-[11px]"
-                        onClick={() =>
-                          leadId &&
-                          navigate({
-                            to: "/lead/$leadId",
-                            params: { leadId },
-                          })
-                        }
+                        onClick={() => leadId && setDrawerLeadId(leadId)}
                       >
                         Atvērt
                       </Button>
@@ -728,6 +718,11 @@ function QueuePage() {
           </div>
         </div>
       )}
+      <LeadDrawer
+        leadId={drawerLeadId}
+        open={drawerLeadId !== null}
+        onOpenChange={(o) => { if (!o) setDrawerLeadId(null); }}
+      />
     </div>
   );
 }
