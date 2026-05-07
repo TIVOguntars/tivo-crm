@@ -276,7 +276,6 @@ function QueuePage() {
               <TableRow>
                 <TableHead className="h-9 w-24">Prioritāte</TableHead>
                 <TableHead className="h-9 w-16">Score</TableHead>
-                {hasPriority && <TableHead className="h-9 w-16">Prioritāte</TableHead>}
                 <TableHead className="h-9">Termiņš</TableHead>
                 <TableHead className="h-9">Darbība</TableHead>
                 <TableHead className="h-9">Lead</TableHead>
@@ -307,11 +306,6 @@ function QueuePage() {
                     <TableCell className="py-1 tabular-nums text-xs">
                       {n(r.lead_priority_score) || "—"}
                     </TableCell>
-                    {hasPriority && (
-                      <TableCell className="py-1 font-medium tabular-nums">
-                        {n(r.priority_score) || "—"}
-                      </TableCell>
-                    )}
                     <TableCell className="whitespace-nowrap py-1 text-xs">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
