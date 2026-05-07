@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
 import { FilterBar } from "../components/FilterBar";
 import { filtersSearchSchema } from "@/lib/filters";
+import { Toaster } from "@/components/ui/sonner";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -103,6 +104,7 @@ function RootComponent() {
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
           <Outlet />
         </main>
+        <Toaster position="top-right" />
       </div>
     </QueryClientProvider>
   );

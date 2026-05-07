@@ -722,6 +722,14 @@ function QueuePage() {
         leadId={drawerLeadId}
         open={drawerLeadId !== null}
         onOpenChange={(o) => { if (!o) setDrawerLeadId(null); }}
+        onActionCompleted={async (completedId) => {
+          const result = await view.refetch();
+          const newRows = (result.data?.rows ?? []) as Row[];
+          const stillExists = newRows.some((r) => s(r.lead_id) === completedId);
+          if (!stillExists) {
+            setDrawerLeadId(null);
+          }
+        }}
       />
     </div>
   );
