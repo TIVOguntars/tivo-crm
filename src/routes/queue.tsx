@@ -358,20 +358,21 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-[backdrop-filter]:bg-muted/70 [&_tr]:border-b-2 [&_tr]:border-border">
-              <tr>
-                <HeadCell className="w-[110px]">Prioritāte</HeadCell>
+            <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+              <tr className="border-b border-border/70">
+                <HeadCell className="w-[130px]">Prioritāte</HeadCell>
                 <HeadCell className="w-[140px]">Termiņš</HeadCell>
                 <HeadCell className="w-[110px]">Atbildīgais</HeadCell>
                 <HeadCell>Darbība</HeadCell>
                 <HeadCell>Lead</HeadCell>
-                <HeadCell>PPV</HeadCell>
-                <HeadCell className="w-[80px]">Valsts</HeadCell>
-                <HeadCell>Workflow</HeadCell>
+                <HeadCell className="w-[180px]">Tagi</HeadCell>
+                <HeadCell className="text-muted-foreground/70">PPV</HeadCell>
+                <HeadCell className="w-[80px] text-muted-foreground/70">Valsts</HeadCell>
+                <HeadCell className="text-muted-foreground/70">Workflow</HeadCell>
                 <HeadCell className="w-[130px]">Statuss</HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="border-b border-border bg-muted/40">
+              <tr className="border-b-2 border-border bg-background/60 shadow-[inset_0_1px_0_0_hsl(var(--border))]">
                 <FilterCell>
                   <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
                     <SelectItem value="all">Visi</SelectItem>
@@ -388,6 +389,9 @@ function QueuePage() {
                   <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
                 </FilterCell>
                 <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
+                </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
