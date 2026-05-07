@@ -680,6 +680,20 @@ function cleanPlainText(text: string): string {
   return cleaned;
 }
 
+function removeDuplicatedHtmlFooters(root: Element, quotedStart: Element): void {
+  const elements = Array.from(root.querySelectorAll("div,p,span,td"));
+  const seen = new Set<string>();
+  for (const el of elements) {
+    if (el.compareDocumentPosition(quotedStart) & Node.DOCUMENT_POSITION_PRECEDING) continue;
+    const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
+    if (!text || text.length > 260) continue;
+    if (!COMPANY_FOOTER_REGEX.test(text) && !SIGNATURE_START_REGEX.test(text)) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) el.remove();
+    else seen.add(key);
+  }
+}
+
 function splitQuotedHtml(html: string): { main: string; quoted: string } {
   if (typeof window === "undefined" || typeof DOMParser === "undefined") {
     return { main: html, quoted: "" };
