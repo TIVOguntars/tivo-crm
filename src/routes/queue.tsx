@@ -424,7 +424,7 @@ function QueuePage() {
   }, [rows]);
 
   const leadStatusChips = useMemo(() => {
-    const exclude = new Set(["Nekvalificējas"]);
+    const exclude = new Set(["Nekvalificējas", "Nesasniedzams", "Atcelts", "Atkārtojas"]);
     const map = new Map<string, { label: string; sort: number }>();
     for (const r of rows) {
       if (r.show_in_status_quick_filter === false) continue;
