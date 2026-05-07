@@ -539,8 +539,6 @@ function QueuePage() {
         <LoadingState />
       ) : view.data?.error ? (
         <ErrorState message={view.data.error} />
-      ) : filtered.length === 0 ? (
-        <EmptyState label="Rindā nav ierakstu" />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
@@ -643,7 +641,15 @@ function QueuePage() {
               </tr>
             </thead>
             <TableBody>
-              {filtered.map((r, i) => {
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                    {hasActiveFilters
+                      ? "Nav ierakstu, kas atbilst filtriem."
+                      : "Rindā nav ierakstu"}
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
                 const pLabel = s(r.priority_label);
                 const isHigh = pLabel === "Augsta";
