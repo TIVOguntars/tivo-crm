@@ -169,14 +169,25 @@ function TagsCell({ tags }: { tags: string[] }) {
 
 function OwnerBadge({ value }: { value: string }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
-  const isSystem = value === "SIS";
+  const v = value.toUpperCase();
+  if (v === "—" || v === "NAV PIEŠĶIRTS" || v === "NAV PIESKIRTS")
+    return <span className="text-muted-foreground">—</span>;
+  const tone =
+    v === "SIS"
+      ? "bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
+      : v === "MO"
+        ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200"
+        : v === "UC"
+          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+          : v === "CP"
+            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+            : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200";
   return (
     <Badge
       className={cn(
         "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none",
-        isSystem
-          ? "bg-slate-700 text-white border-transparent dark:bg-slate-600"
-          : "bg-indigo-600 text-white border-transparent",
+        "border-transparent",
+        tone,
       )}
     >
       {value}
