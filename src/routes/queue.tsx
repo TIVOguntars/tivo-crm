@@ -358,8 +358,8 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-              <tr className="border-b border-border/70">
+            <thead className="[&_tr]:bg-muted/90 supports-[backdrop-filter]:[&_tr]:bg-muted/80">
+              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur">
                 <HeadCell className="w-[130px]">Prioritāte</HeadCell>
                 <HeadCell className="w-[140px]">Termiņš</HeadCell>
                 <HeadCell className="w-[110px]">Atbildīgais</HeadCell>
@@ -372,7 +372,7 @@ function QueuePage() {
                 <HeadCell className="w-[130px]">Statuss</HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="border-b-2 border-border bg-background/60 shadow-[inset_0_1px_0_0_hsl(var(--border))]">
+              <tr className="sticky top-8 z-20 border-b-2 border-border !bg-background/80 backdrop-blur">
                 <FilterCell>
                   <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
                     <SelectItem value="all">Visi</SelectItem>
