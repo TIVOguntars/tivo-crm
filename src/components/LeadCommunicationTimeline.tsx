@@ -264,21 +264,34 @@ const QUOTE_REGEXES: RegExp[] = [
   /^-{2,}\s*Original Message\s*-{2,}/im,
   /^-{2,}\s*Forwarded message\s*-{2,}/im,
   /^-{2,}\s*Pārsūtītā ziņa\s*-{2,}/im,
+  /^-{2,}\s*Pārsūtīts ziņojums\s*-{2,}/im,
+  /^Begin forwarded message:/im,
+  /^Sākas pārsūtītais ziņojums:/im,
   /^_{5,}\s*$/m,
-  /^From:\s.+$/im,
-  /^Sent:\s.+$/im,
-  /^Subject:\s.+$/im,
-  /^To:\s.+$/im,
+  /^\s*From:\s.+$/im,
+  /^\s*Sent:\s.+$/im,
+  /^\s*Subject:\s.+$/im,
+  /^\s*To:\s.+$/im,
   /^Cc:\s.+$/im,
   /^Date:\s.+$/im,
-  /^On\s.+wrote:\s*$/im,
+  /^\s*On\s.+wrote:\s*$/im,
   /^On\s.+,\s.+wrote:/im,
+  /^On\s.+at\s.+,\s.+wrote:/im,
+  /^\d{1,2}\.\s.+rakstīja:/im,
+  /^.+\srakstīja:\s*$/im,
   /^Le\s.+a écrit\s*:$/im,
   /^Am\s.+schrieb\s.+:$/im,
   /^Den\s.+skrev\s.+:$/im,
+  /^Op\s.+schreef\s.+:$/im,
+  /^El\s.+escribió:\s*$/im,
+  /^Il giorno\s.+ha scritto:\s*$/im,
   /^Fra:\s.+$/im,
   /^Sendt:\s.+$/im,
   /^Emne:\s.+$/im,
+  /^Van:\s.+$/im,
+  /^Verzonden:\s.+$/im,
+  /^Aan:\s.+$/im,
+  /^Onderwerp:\s.+$/im,
   /^От:\s.+$/im,
   /^Тема:\s.+$/im,
   /^No:\s.+$/im,
@@ -290,6 +303,8 @@ const QUOTE_REGEXES: RegExp[] = [
 ];
 
 const MIME_GARBAGE_REGEX = /^(MIME-Version|Content-Type|Content-Transfer-Encoding|Content-Disposition|Content-ID|Content-Language|X-[\w-]+|DKIM-Signature|Return-Path|Received|Message-ID|References|In-Reply-To):/i;
+const COMPANY_FOOTER_REGEX = /(tivo\s*houses|tivohouses\.com|crm\.tivohouses\.com|sia\s+tivo|vienotais\s+reģ|reg\.?\s*nr|brīvības\s+gatve)/i;
+const SIGNATURE_START_REGEX = /^\s*(--\s*|sent from my iphone|sent from my ipad|get outlook for (ios|android)|outlook for ios|ar cieņu|cieņā|best regards|kind regards|med venlig hilsen|venlig hilsen|mvh\.?)\s*$/i;
 
 function metaRecord(comm: Row | null): Row {
   const meta = comm?.metadata;
