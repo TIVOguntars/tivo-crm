@@ -429,7 +429,10 @@ function QueuePage() {
                     )}
                   >
                     <TableCell className="py-2">
-                      <PriorityCell label={pLabel} score={n(r.lead_priority_score)} />
+                      <PriorityCell
+                        label={pLabel}
+                        score={n(r.lead_priority_score) || n(r.priority_score)}
+                      />
                     </TableCell>
                     <TableCell className="whitespace-nowrap py-2 font-semibold">
                       {fmtDateTime(r.due_at)}
