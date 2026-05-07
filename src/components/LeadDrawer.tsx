@@ -14,6 +14,7 @@ import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { LeadCommunicationTimeline } from "@/components/LeadCommunicationTimeline";
+import { LeadActionHistory } from "@/components/LeadActionHistory";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { useState } from "react";
 
@@ -298,8 +299,8 @@ function DrawerContent({
           <TabsContent value="projekts" className="mt-3 text-sm text-muted-foreground">
             Projekta saturs tiks pievienots.
           </TabsContent>
-          <TabsContent value="vesture" className="mt-3 text-sm text-muted-foreground">
-            Vēstures saturs tiks pievienots.
+          <TabsContent value="vesture" className="mt-3">
+            <LeadActionHistory leadId={s(row.lead_id) || leadId} />
           </TabsContent>
         </Tabs>
       </div>
