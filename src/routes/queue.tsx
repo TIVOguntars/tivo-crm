@@ -276,6 +276,10 @@ function QueuePage() {
     () => uniq(rows.map((r) => s(r.action_owner_label))),
     [rows],
   );
+  const priorities = useMemo(
+    () => uniq(rows.map((r) => s(r.priority_label))),
+    [rows],
+  );
   const countries = useMemo(
     () => uniq(rows.map((r) => s(r.country))),
     [rows],
@@ -430,12 +434,7 @@ function QueuePage() {
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
-                  <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
-                    <SelectItem value="all">Visi</SelectItem>
-                    <SelectItem value="Augsta">Augsta</SelectItem>
-                    <SelectItem value="Normāla">Normāla</SelectItem>
-                    <SelectItem value="Zema">Zema</SelectItem>
-                  </HeaderSelect>
+                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell />
                 <FilterCell>
