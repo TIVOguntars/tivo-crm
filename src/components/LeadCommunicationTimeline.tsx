@@ -686,7 +686,7 @@ function CommunicationViewerModal({
       fetchPublicTable({
         data: {
           table: "communications",
-          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,body_text,body_html,text_body,html_body,metadata&limit=1`,
+          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=*&limit=1`,
         },
       }),
     enabled: open,
