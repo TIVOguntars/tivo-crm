@@ -134,6 +134,9 @@ function QueuePage() {
   const [bucket, setBucket] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
+  const [owner, setOwner] = useState<string>("all");
+  const [country, setCountry] = useState<string>("all");
+  const [ppv, setPpv] = useState<string>("all");
   const [q, setQ] = useState<string>("");
 
   const actionTypes = useMemo(
@@ -148,6 +151,18 @@ function QueuePage() {
     () => uniq(rows.map((r) => s(r.legacy_lead_status))),
     [rows],
   );
+  const owners = useMemo(
+    () => uniq(rows.map((r) => s(r.action_owner_label))),
+    [rows],
+  );
+  const countries = useMemo(
+    () => uniq(rows.map((r) => s(r.country))),
+    [rows],
+  );
+  const ppvs = useMemo(
+    () => uniq(rows.map((r) => s(r.ppv_name))),
+    [rows],
+  );
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -158,6 +173,9 @@ function QueuePage() {
       if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
         return false;
       if (priority !== "all" && s(r.priority_label) !== priority) return false;
+      if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
+      if (country !== "all" && s(r.country) !== country) return false;
+      if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
       if (qq) {
         const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
         if (!hay.includes(qq)) return false;
@@ -183,7 +201,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, priority, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, q]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
@@ -256,6 +274,24 @@ function QueuePage() {
           options={leadStatuses}
           onChange={setLeadStatus}
         />
+        <FilterSelect
+          label="Atbildīgais"
+          value={owner}
+          options={owners}
+          onChange={setOwner}
+        />
+        <FilterSelect
+          label="Valsts"
+          value={country}
+          options={countries}
+          onChange={setCountry}
+        />
+        <FilterSelect
+          label="PPV"
+          value={ppv}
+          options={ppvs}
+          onChange={setPpv}
+        />
       </div>
 
       {view.isLoading ? (
@@ -276,6 +312,9 @@ function QueuePage() {
                 <TableHead className="h-9">Lead</TableHead>
                 <TableHead className="h-9">Objekts</TableHead>
                 <TableHead className="h-9">Workflow</TableHead>
+                <TableHead className="h-9">Atbildīgais</TableHead>
+                <TableHead className="h-9">Valsts</TableHead>
+                <TableHead className="h-9">PPV</TableHead>
                 <TableHead className="h-9">Lead statuss</TableHead>
                 <TableHead className="h-9">Rindas statuss</TableHead>
                 <TableHead className="h-9 text-right">Darbības</TableHead>
@@ -324,6 +363,21 @@ function QueuePage() {
                     </TableCell>
                     <TableCell className="py-1">{s(r.object_name) || "—"}</TableCell>
                     <TableCell className="py-1">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-1">
+                      {(() => {
+                        const ol = s(r.action_owner_label);
+                        if (!ol) return <span className="text-muted-foreground">—</span>;
+                        if (ol === "SIS")
+                          return (
+                            <Badge variant="outline" className="font-medium">
+                              SIS · auto
+                            </Badge>
+                          );
+                        return ol;
+                      })()}
+                    </TableCell>
+                    <TableCell className="py-1 text-xs">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-1 text-xs">{s(r.ppv_name) || "—"}</TableCell>
                     <TableCell className="py-1">{s(r.legacy_lead_status) || "—"}</TableCell>
                     <TableCell className="py-1">
                       <QueueBucketBadge
