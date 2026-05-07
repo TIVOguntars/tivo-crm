@@ -13,6 +13,8 @@ import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { LeadCommunicationTimeline } from "@/components/LeadCommunicationTimeline";
+import { CompleteActionModal } from "@/components/CompleteActionModal";
+import { useState } from "react";
 
 type Row = Record<string, unknown>;
 
@@ -71,10 +73,12 @@ export function LeadDrawer({
   leadId,
   open,
   onOpenChange,
+  onActionCompleted,
 }: {
   leadId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onActionCompleted?: (leadId: string) => void;
 }) {
   const view = useQuery({
     queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
@@ -104,14 +108,27 @@ export function LeadDrawer({
         ) : !row ? (
           <div className="p-6 text-sm text-muted-foreground">Nav datu šim leadam.</div>
         ) : (
-          <DrawerContent row={row} leadId={leadId} />
+          <DrawerContent
+            row={row}
+            leadId={leadId}
+            onActionCompleted={onActionCompleted}
+          />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
+function DrawerContent({
+  row,
+  leadId,
+  onActionCompleted,
+}: {
+  row: Row;
+  leadId: string | null;
+  onActionCompleted?: (leadId: string) => void;
+}) {
+  const [completeOpen, setCompleteOpen] = useState(false);
   const fullName = s(row.full_name) || "—";
   const status = s(row.lead_status_label);
   const priority = s(row.priority_label);
@@ -236,7 +253,12 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
             <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} />
             <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} />
             <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" />
-            <QuickBtn icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Pabeigt darbību" />
+            <QuickBtn
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+              label="Pabeigt darbību"
+              onClick={() => setCompleteOpen(true)}
+              disabled={!leadId}
+            />
             <QuickBtn icon={<CalendarClock className="h-3.5 w-3.5" />} label="Pārcelt termiņu" />
           </div>
         </section>
@@ -263,11 +285,30 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
           </TabsContent>
         </Tabs>
       </div>
+      <CompleteActionModal
+        open={completeOpen}
+        onOpenChange={setCompleteOpen}
+        leadId={leadId}
+        defaultOwner={visibleOwner}
+        onCompleted={() => {
+          if (leadId && onActionCompleted) onActionCompleted(leadId);
+        }}
+      />
     </div>
   );
 }
 
-function QuickBtn({ icon, label, disabled }: { icon: React.ReactNode; label: string; disabled?: boolean }) {
+function QuickBtn({
+  icon,
+  label,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <Button
       variant="outline"
@@ -275,6 +316,7 @@ function QuickBtn({ icon, label, disabled }: { icon: React.ReactNode; label: str
       className="h-8 justify-start gap-1.5 text-xs font-normal disabled:opacity-50 disabled:cursor-not-allowed"
       type="button"
       disabled={disabled}
+      onClick={onClick}
     >
       {icon}
       {label}
