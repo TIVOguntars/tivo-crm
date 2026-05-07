@@ -961,7 +961,7 @@ function HeaderOptionsSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+      <SelectTrigger className="h-6 w-full min-w-0 border-input bg-white px-1.5 text-[11px] text-slate-900 dark:bg-white dark:text-slate-900">
         <SelectValue placeholder="Visi" />
       </SelectTrigger>
       <SelectContent>
