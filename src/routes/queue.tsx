@@ -237,8 +237,34 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue_display", undefined, { all: true });
+  const view = useCrmView("next_action_queue_display_enriched", undefined, { all: true });
   const rows = (view.data?.rows ?? []) as Row[];
+
+  const statusOptionsView = useCrmView(
+    "lead_status_options",
+    "select=value,label,sort_order&order=sort_order.asc",
+    { all: true },
+  );
+  const ALLOWED_LEAD_STATUSES = [
+    "Jauns",
+    "Nesasniedzams",
+    "Piesaistīšana",
+    "Kvalificēts",
+    "Nekvalificējas",
+  ];
+  const leadStatusOptions = useMemo(() => {
+    const raw = (statusOptionsView.data?.rows ?? []) as Row[];
+    const filtered = raw
+      .map((o) => ({
+        label: s(o.label) || s(o.value),
+        sort_order: n(o.sort_order),
+      }))
+      .filter((o) => ALLOWED_LEAD_STATUSES.includes(o.label));
+    if (filtered.length === 0) {
+      return ALLOWED_LEAD_STATUSES.map((l, i) => ({ label: l, sort_order: i }));
+    }
+    return filtered.sort((a, b) => a.sort_order - b.sort_order);
+  }, [statusOptionsView.data]);
 
   const [actionType, setActionType] = useState<string>("all");
   const [bucket, setBucket] = useState<string>("all");
@@ -264,8 +290,8 @@ function QueuePage() {
     [rows],
   );
   const leadStatuses = useMemo(
-    () => uniq(rows.map((r) => s(r.legacy_lead_status))),
-    [rows],
+    () => leadStatusOptions.map((o) => o.label),
+    [leadStatusOptions],
   );
   const owners = useMemo(
     () => uniq(rows.map((r) => s(r.action_owner_label))),
@@ -294,7 +320,7 @@ function QueuePage() {
     const list = rows.filter((r) => {
       if (actionType !== "all" && s(r.action_label) !== actionType) return false;
       if (bucket !== "all" && s(r.queue_bucket) !== bucket) return false;
-      if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
+      if (leadStatus !== "all" && s(r.lead_status_label) !== leadStatus)
         return false;
       if (priority !== "all" && s(r.priority_label) !== priority) return false;
       if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
@@ -506,7 +532,9 @@ function QueuePage() {
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-3 text-muted-foreground/80">{s(r.legacy_lead_status) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground/80">
+                      {s(r.lead_status_label) || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="py-3 text-right">
                       <Button
                         size="sm"
@@ -591,7 +619,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "tags":
       return parseTags(r.tags).join(",");
     case "leadStatus":
-      return s(r.legacy_lead_status).toLowerCase();
+      return s(r.lead_status_label).toLowerCase();
   }
 }
 
