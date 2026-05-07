@@ -54,19 +54,6 @@ function fmtDateTime(value: unknown): string {
   }).format(d);
 }
 
-function fmtDate(value: unknown): string {
-  const str = s(value);
-  if (!str) return "—";
-  const d = new Date(str);
-  if (Number.isNaN(d.getTime())) return str;
-  return new Intl.DateTimeFormat("lv-LV", {
-    timeZone: "Europe/Riga",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
 function PriorityBadge({ label }: { label: string }) {
   if (!label) return null;
   const tone =
