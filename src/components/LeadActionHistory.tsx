@@ -52,6 +52,12 @@ export function LeadActionHistory({ leadId }: { leadId: string | null }) {
     staleTime: 30_000,
   });
 
+  // TEMP debug logging
+  if (typeof window !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.log("[action_history] leadId:", leadId, "rows:", q.data?.rows?.length ?? 0, "error:", q.data?.error);
+  }
+
   if (!leadId) return null;
   if (q.isLoading) return <LoadingState />;
   if (q.data?.error) return <ErrorState message={q.data.error} />;
