@@ -633,6 +633,7 @@ function cleanupReplyText(text: string): string {
     .replace(/[\t\u00a0]+/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[>\s]*(From|Sent|Subject|To|Cc|Date|No|Kam|Nosūtīts|Tēma|Datums|Sūtītājs|Van|Verzonden|Aan|Onderwerp):/gi, "\n$1:")
+    .replace(/([^\n])\s{2,}(From|Sent|Subject|To|Cc|Date|No|Kam|Nosūtīts|Tēma|Datums|Sūtītājs|Van|Verzonden|Aan|Onderwerp):/gi, "$1\n$2:")
     .replace(/^> ?/gm, "")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
