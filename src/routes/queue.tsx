@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -238,6 +239,15 @@ function QueuePage() {
   const [ppv, setPpv] = useState<string>("all");
   const [tag, setTag] = useState<string>("all");
   const [q, setQ] = useState<string>("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+
+  const toggleSort = (key: SortKey) => {
+    setSort((cur) => {
+      if (!cur || cur.key !== key) return { key, dir: "desc" };
+      if (cur.dir === "desc") return { key, dir: "asc" };
+      return null;
+    });
+  };
 
   const actionTypes = useMemo(
     () => uniq(rows.map((r) => s(r.action_label))),
@@ -292,6 +302,19 @@ function QueuePage() {
       return true;
     });
     list.sort((a, b) => {
+      if (sort) {
+        const dir = sort.dir === "asc" ? 1 : -1;
+        const av = sortValue(a, sort.key);
+        const bv = sortValue(b, sort.key);
+        if (typeof av === "number" && typeof bv === "number") {
+          if (av !== bv) return (av - bv) * dir;
+        } else {
+          const as = String(av ?? "");
+          const bs = String(bv ?? "");
+          const cmp = as.localeCompare(bs, "lv");
+          if (cmp !== 0) return cmp * dir;
+        }
+      }
       const aSp = n(a.sort_priority);
       const bSp = n(b.sort_priority);
       if (aSp !== bSp) return bSp - aSp;
@@ -310,7 +333,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, tag, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, tag, q, sort]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
@@ -356,15 +379,36 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[110px]">Prioritāte</HeadCell>
-                <HeadCell className="w-[100px]">Termiņš</HeadCell>
-                <HeadCell className="w-[64px]">Atbild.</HeadCell>
-                <HeadCell>Darbība</HeadCell>
-                <HeadCell className="min-w-[220px]">Lead</HeadCell>
-                <HeadCell className="text-muted-foreground/70">PPV</HeadCell>
-                <HeadCell className="w-[64px] text-muted-foreground/70">Valsts</HeadCell>
-                <HeadCell className="w-[120px]">Tagi</HeadCell>
-                <HeadCell className="text-muted-foreground/70">Workflow</HeadCell>
+                <HeadCell className="w-[110px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
+                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
+                  </div>
+                </HeadCell>
+                <HeadCell className="w-[100px]">
+                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[64px]">
+                  <SortButton label="Atbild." k="owner" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell>
+                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="min-w-[220px]">
+                  <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="text-muted-foreground/70">
+                  <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[64px] text-muted-foreground/70">
+                  <SortButton label="Valsts" k="country" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[120px]">
+                  <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="text-muted-foreground/70">
+                  <SortButton label="Workflow" k="workflow" sort={sort} onClick={toggleSort} />
+                </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
