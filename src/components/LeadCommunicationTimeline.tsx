@@ -258,30 +258,318 @@ function getAttachments(comm: Row | null): string[] {
 
 /* ---- Email body rendering helpers ---- */
 
+type EmailBodies = { html: string; text: string };
+
 const QUOTE_REGEXES: RegExp[] = [
   /^-{2,}\s*Original Message\s*-{2,}/im,
   /^_{5,}\s*$/m,
   /^From:\s.+$/im,
-  /^On\s.+wrote:\s*$/im,
   /^Sent:\s.+$/im,
+  /^Subject:\s.+$/im,
+  /^To:\s.+$/im,
+  /^On\s.+wrote:\s*$/im,
+  /^Le\s.+a écrit\s*:$/im,
+  /^Am\s.+schrieb\s.+:$/im,
+  /^Den\s.+skrev\s.+:$/im,
+  /^Fra:\s.+$/im,
+  /^Sendt:\s.+$/im,
+  /^Emne:\s.+$/im,
   /^От:\s.+$/im,
-  /^No:\s.+$/im, // Latvian "From:"
+  /^Тема:\s.+$/im,
+  /^No:\s.+$/im,
+  /^Kam:\s.+$/im,
   /^Nosūtīts:\s.+$/im,
+  /^Tēma:\s.+$/im,
 ];
+
+const MIME_GARBAGE_REGEX = /^(MIME-Version|Content-Type|Content-Transfer-Encoding|Content-Disposition|Content-ID|Content-Language|X-[\w-]+|DKIM-Signature|Return-Path|Received|Message-ID|References|In-Reply-To):/i;
+
+function metaRecord(comm: Row | null): Row {
+  const meta = comm?.metadata;
+  return meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Row) : {};
+}
+
+function stringFrom(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(stringFrom).find(Boolean) ?? "";
+  if (value && typeof value === "object") {
+    const row = value as Row;
+    return s(row.value ?? row.body ?? row.html ?? row.text ?? row.content ?? row.data);
+  }
+  return "";
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    const str = stringFrom(value).trim();
+    if (str) return str;
+  }
+  return "";
+}
+
+function headerString(comm: Row | null): string {
+  const meta = metaRecord(comm);
+  const headers = meta.headers;
+  const renderedHeaders = headers && typeof headers === "object" && !Array.isArray(headers)
+    ? Object.entries(headers as Row).map(([key, value]) => `${key}: ${stringFrom(value)}`).join("\n")
+    : stringFrom(headers);
+  return [
+    renderedHeaders,
+    stringFrom(meta.raw_headers),
+    stringFrom(meta.headerLines),
+    stringFrom(meta.content_type),
+    stringFrom(meta.contentType),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function detectCharset(...values: string[]): string {
+  const source = values.filter(Boolean).join("\n");
+  const match = source.match(/charset\s*=\s*["']?([^"';\s]+)/i);
+  return normalizeCharset(match?.[1] || "utf-8");
+}
+
+function normalizeCharset(charset: string): string {
+  const value = charset.trim().toLowerCase().replace(/^charset=/, "");
+  if (!value || value === "default") return "utf-8";
+  if (value === "utf8") return "utf-8";
+  if (value === "latin1") return "iso-8859-1";
+  if (value === "cp1257") return "windows-1257";
+  return value;
+}
+
+function detectTransferEncoding(headers: string, body: string): "quoted-printable" | "base64" | "" {
+  const match = headers.match(/content-transfer-encoding\s*:\s*([^\r\n;]+)/i);
+  const encoding = match?.[1]?.trim().toLowerCase() ?? "";
+  if (encoding.includes("quoted-printable")) return "quoted-printable";
+  if (encoding.includes("base64")) return "base64";
+  if (/=[0-9A-F]{2}/i.test(body) || /=\r?\n/.test(body)) return "quoted-printable";
+  const compact = body.trim().replace(/\r?\n/g, "");
+  if (compact.length > 80 && compact.length % 4 !== 1 && !/[\t ]/.test(body.trim()) && /^[A-Za-z0-9+/]+={0,2}$/.test(compact)) return "base64";
+  return "";
+}
+
+function decodeBytes(bytes: Uint8Array, charset: string): string {
+  try {
+    return new TextDecoder(normalizeCharset(charset), { fatal: false }).decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  }
+}
+
+function decodeQuotedPrintable(input: string, charset: string): string {
+  const clean = input.replace(/=\r?\n/g, "");
+  const bytes: number[] = [];
+  for (let i = 0; i < clean.length; i += 1) {
+    const ch = clean[i];
+    const hex = clean.slice(i + 1, i + 3);
+    if (ch === "=" && /^[0-9A-F]{2}$/i.test(hex)) {
+      bytes.push(parseInt(hex, 16));
+      i += 2;
+      continue;
+    }
+    const code = ch.charCodeAt(0);
+    if (code <= 0xff) bytes.push(code);
+    else bytes.push(...new TextEncoder().encode(ch));
+  }
+  return decodeBytes(new Uint8Array(bytes), charset);
+}
+
+function decodeBase64(input: string, charset: string): string {
+  const normalized = input.replace(/\s+/g, "");
+  if (!normalized || normalized.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) return input;
+  try {
+    const binary = globalThis.atob(normalized);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return decodeBytes(bytes, charset);
+  } catch {
+    return input;
+  }
+}
+
+function repairMojibake(input: string): string {
+  if (!/[ÃÂâ€]/.test(input)) return input;
+  const cp1252: Record<string, number> = {
+    "€": 0x80, "‚": 0x82, "ƒ": 0x83, "„": 0x84, "…": 0x85, "†": 0x86, "‡": 0x87,
+    "ˆ": 0x88, "‰": 0x89, "Š": 0x8a, "‹": 0x8b, "Œ": 0x8c, "Ž": 0x8e, "‘": 0x91,
+    "’": 0x92, "“": 0x93, "”": 0x94, "•": 0x95, "–": 0x96, "—": 0x97, "˜": 0x98,
+    "™": 0x99, "š": 0x9a, "›": 0x9b, "œ": 0x9c, "ž": 0x9e, "Ÿ": 0x9f,
+  };
+  const bytes: number[] = [];
+  for (const char of input) {
+    const code = char.charCodeAt(0);
+    if (cp1252[char] != null) bytes.push(cp1252[char]);
+    else if (code <= 0xff) bytes.push(code);
+    else bytes.push(...new TextEncoder().encode(char));
+  }
+  const repaired = decodeBytes(new Uint8Array(bytes), "utf-8");
+  const before = (input.match(/[ÃÂ�]/g) ?? []).length;
+  const after = (repaired.match(/[ÃÂ�]/g) ?? []).length;
+  return after < before ? repaired : input;
+}
+
+function decodePayload(input: string, headers = ""): string {
+  const raw = input.replace(/^\uFEFF/, "");
+  const charset = detectCharset(headers, raw);
+  const encoding = detectTransferEncoding(headers, raw);
+  if (encoding === "quoted-printable") return decodeEncodedWords(repairMojibake(decodeQuotedPrintable(raw, charset)));
+  if (encoding === "base64") return decodeEncodedWords(repairMojibake(decodeBase64(raw, charset)));
+  return decodeEncodedWords(repairMojibake(raw));
+}
+
+function decodeEncodedWords(input: string): string {
+  return input.replace(/=\?([^?]+)\?([bqBQ])\?([^?]+)\?=/g, (_match, charset, mode, value) => {
+    const normalizedCharset = normalizeCharset(String(charset));
+    if (String(mode).toUpperCase() === "B") return decodeBase64(String(value), normalizedCharset);
+    const bytes: number[] = [];
+    const q = String(value).replace(/_/g, " ");
+    for (let i = 0; i < q.length; i += 1) {
+      const hex = q.slice(i + 1, i + 3);
+      if (q[i] === "=" && /^[0-9A-F]{2}$/i.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+      } else {
+        bytes.push(q.charCodeAt(i));
+      }
+    }
+    return decodeBytes(new Uint8Array(bytes), normalizedCharset);
+  });
+}
+
+function parseHeaders(block: string): Row {
+  const headers: Row = {};
+  const unfolded = block.replace(/\r?\n[\t ]+/g, " ");
+  for (const line of unfolded.split(/\r?\n/)) {
+    const idx = line.indexOf(":");
+    if (idx <= 0) continue;
+    headers[line.slice(0, idx).trim().toLowerCase()] = line.slice(idx + 1).trim();
+  }
+  return headers;
+}
+
+function splitHeaderBody(raw: string): { headers: Row; headerText: string; body: string } {
+  const match = raw.match(/\r?\n\r?\n/);
+  if (!match || match.index == null) return { headers: {}, headerText: "", body: raw };
+  const headerText = raw.slice(0, match.index);
+  const body = raw.slice(match.index + match[0].length);
+  return { headers: parseHeaders(headerText), headerText, body };
+}
+
+function boundaryFrom(contentType: string): string {
+  return contentType.match(/boundary\s*=\s*"([^"]+)"/i)?.[1]
+    ?? contentType.match(/boundary\s*=\s*([^;\s]+)/i)?.[1]
+    ?? "";
+}
+
+function looksLikeHtml(value: string): boolean {
+  return /<(html|body|div|p|br|table|a|span|strong|em|ul|ol|li|blockquote)\b/i.test(value);
+}
+
+function extractMimeBodies(raw: string, inheritedHeaders = ""): EmailBodies {
+  const { headers, headerText, body } = splitHeaderBody(raw);
+  const contentType = s(headers["content-type"] || inheritedHeaders);
+  const boundary = boundaryFrom(contentType) || raw.match(/boundary\s*=\s*"([^"]+)"/i)?.[1] || "";
+  const result: EmailBodies = { html: "", text: "" };
+
+  if (boundary) {
+    const parts = raw.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:--)?(?:\\r?\\n)?`, "g"));
+    for (const part of parts) {
+      if (!part.trim() || part.includes("This is a multi-part message in MIME format")) continue;
+      const nested = extractMimeBodies(part, headerText);
+      result.html ||= nested.html;
+      result.text ||= nested.text;
+    }
+    return result;
+  }
+
+  const disposition = s(headers["content-disposition"]).toLowerCase();
+  if (disposition.includes("attachment")) return result;
+
+  const transferHeaders = [headerText, inheritedHeaders].filter(Boolean).join("\n");
+  const decoded = decodePayload(body, transferHeaders);
+  if (/text\/html/i.test(contentType) || looksLikeHtml(decoded)) result.html = decoded.trim();
+  else if (/text\/plain/i.test(contentType) || decoded.trim()) result.text = decoded.trim();
+  return result;
+}
+
+function isRawMime(value: string): boolean {
+  return /(^|\n)(MIME-Version|Content-Type|Content-Transfer-Encoding):/i.test(value)
+    || /(^|\n)--[\w='()+_,.\/:?-]{8,}/.test(value);
+}
+
+function chooseEmailBodies(comm: Row | null): EmailBodies {
+  const meta = metaRecord(comm);
+  const headers = headerString(comm);
+  const rawMime = firstString(meta.raw, meta.raw_email, meta.mime, meta.message_source, meta.source, meta.original);
+  const directRawMime = firstString(comm?.raw, comm?.raw_email, comm?.mime, comm?.message_source, comm?.source, comm?.original);
+  const mimeBodies = rawMime || directRawMime ? extractMimeBodies(rawMime || directRawMime, headers) : { html: "", text: "" };
+
+  const htmlCandidates = [
+    comm?.body_html,
+    comm?.parsed_html,
+    comm?.rendered_html,
+    meta.body_html,
+    meta.parsed_html,
+    meta.rendered_html,
+    comm?.html_body,
+    meta.html_body,
+    meta.html,
+    mimeBodies.html,
+  ];
+  const textCandidates = [comm?.body_text, comm?.text_body, meta.body_text, meta.text_body, meta.text, mimeBodies.text];
+
+  for (const candidate of htmlCandidates) {
+    const decoded = decodePayload(stringFrom(candidate), headers).trim();
+    if (!decoded) continue;
+    if (isRawMime(decoded)) {
+      const extracted = extractMimeBodies(decoded, headers);
+      if (extracted.html) return { html: extracted.html, text: extracted.text };
+      if (extracted.text) return { html: "", text: cleanPlainText(extracted.text) };
+    }
+    if (looksLikeHtml(decoded)) return { html: decoded, text: "" };
+  }
+
+  for (const candidate of textCandidates) {
+    const decoded = decodePayload(stringFrom(candidate), headers).trim();
+    if (!decoded) continue;
+    if (isRawMime(decoded)) {
+      const extracted = extractMimeBodies(decoded, headers);
+      if (extracted.html) return { html: extracted.html, text: extracted.text };
+      if (extracted.text) return { html: "", text: cleanPlainText(extracted.text) };
+    }
+    if (looksLikeHtml(decoded)) return { html: decoded, text: "" };
+    return { html: "", text: cleanPlainText(decoded) };
+  }
+
+  return { html: "", text: "" };
+}
 
 function splitQuotedText(text: string): { main: string; quoted: string } {
   let cutAt = -1;
   for (const re of QUOTE_REGEXES) {
     const m = text.match(re);
-    if (m && m.index != null && (cutAt === -1 || m.index < cutAt)) {
+    if (m && m.index != null && m.index > 0 && (cutAt === -1 || m.index < cutAt)) {
       cutAt = m.index;
     }
   }
-  if (cutAt <= 0) return { main: text, quoted: "" };
+  if (cutAt <= 0) return { main: text.trim(), quoted: "" };
   return {
     main: text.slice(0, cutAt).trimEnd(),
     quoted: text.slice(cutAt).trim(),
   };
+}
+
+function cleanPlainText(text: string): string {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const cleaned = lines
+    .filter((line) => !MIME_GARBAGE_REGEX.test(line.trim()))
+    .filter((line) => !/^--[\w='()+_,.\/:?-]{8,}--?$/.test(line.trim()))
+    .join("\n")
+    .replace(/={2,}\s*$/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+  return cleaned;
 }
 
 function splitQuotedHtml(html: string): { main: string; quoted: string } {
@@ -293,7 +581,6 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
     const root = doc.getElementById("__r");
     if (!root) return { main: html, quoted: "" };
 
-    // Common quoted markers across email clients
     const selectors = [
       "blockquote",
       ".gmail_quote",
@@ -311,18 +598,16 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
         firstQuoted = el;
       }
     }
+
     if (!firstQuoted) {
-      // text-based fallback
-      const fullText = root.textContent ?? "";
-      const { quoted } = splitQuotedText(fullText);
-      if (!quoted) return { main: html, quoted: "" };
-      return { main: html, quoted: "" };
+      const elements = Array.from(root.querySelectorAll("div,p,span,td,table,hr"));
+      firstQuoted = elements.find((el) => QUOTE_REGEXES.some((re) => re.test((el.textContent ?? "").trim()))) ?? null;
     }
 
-    // Build quoted fragment by extracting firstQuoted + all following siblings up the tree
+    if (!firstQuoted) return { main: html, quoted: "" };
+
     const quotedContainer = doc.createElement("div");
     let node: Node | null = firstQuoted;
-    // Walk up to a child of root
     while (node && node.parentNode && node.parentNode !== root) {
       node = node.parentNode;
     }
@@ -349,22 +634,51 @@ function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     ADD_ATTR: ["target", "rel"],
-    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input", "button"],
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input"],
     FORBID_ATTR: ["onerror", "onload", "onclick"],
   });
 }
 
-function EmailBody({ html, text }: { html: string; text: string }) {
+function ThreadHistory({ quoted, html }: { quoted: string; html: boolean }) {
   const [showQuoted, setShowQuoted] = useState(false);
+  if (!quoted) return null;
+  const blocks = html ? [quoted] : quoted.split(/\n(?=From:|No:|On\s.+wrote:|-----Original Message-----)/i).filter(Boolean);
+  return (
+    <div className="mt-5 border-t border-border pt-4">
+      <button
+        type="button"
+        onClick={() => setShowQuoted((v) => !v)}
+        className="rounded border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+      >
+        {showQuoted ? "Paslēpt iepriekšējo saraksti" : `Rādīt iepriekšējo saraksti${blocks.length > 1 ? ` (${blocks.length})` : ""}`}
+      </button>
+      {showQuoted && (
+        <div className="mt-3 space-y-3">
+          {blocks.map((block, idx) => html ? (
+            <div
+              key={idx}
+              className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_img]:max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitize(block) }}
+            />
+          ) : (
+            <pre key={idx} className="whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/20 p-3 font-sans text-xs leading-relaxed text-muted-foreground">
+              {cleanPlainText(block)}
+            </pre>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
+function EmailBody({ html, text }: { html: string; text: string }) {
   if (html) {
     const { main, quoted } = splitQuotedHtml(html);
     const cleanMain = sanitize(main);
-    const cleanQuoted = quoted ? sanitize(quoted) : "";
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-3xl rounded-md bg-card px-5 py-4 shadow-sm ring-1 ring-border/60">
         <div
-          className="email-html prose prose-sm max-w-none break-words text-sm leading-relaxed text-foreground
+          className="email-html prose prose-sm max-w-none break-words text-sm leading-relaxed text-card-foreground
             [&_a]:text-primary [&_a]:underline-offset-2
             [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded
             [&_table]:max-w-full [&_table]:border-collapse
@@ -373,51 +687,19 @@ function EmailBody({ html, text }: { html: string; text: string }) {
             [&_hr]:my-4 [&_hr]:border-border"
           dangerouslySetInnerHTML={{ __html: cleanMain }}
         />
-        {cleanQuoted && (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setShowQuoted((v) => !v)}
-              className="rounded border border-border bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
-            >
-              {showQuoted ? "Paslēpt iepriekšējo saraksti" : "Rādīt iepriekšējo saraksti"}
-            </button>
-            {showQuoted && (
-              <div
-                className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground
-                  [&_a]:text-primary [&_img]:max-w-full"
-                dangerouslySetInnerHTML={{ __html: cleanQuoted }}
-              />
-            )}
-          </div>
-        )}
+        <ThreadHistory quoted={quoted} html />
       </div>
     );
   }
 
   if (text) {
-    const { main, quoted } = splitQuotedText(text);
+    const { main, quoted } = splitQuotedText(cleanPlainText(text));
     return (
-      <div className="mx-auto max-w-3xl">
-        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+      <div className="mx-auto max-w-3xl rounded-md bg-card px-5 py-4 shadow-sm ring-1 ring-border/60">
+        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-card-foreground">
           {main}
         </pre>
-        {quoted && (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setShowQuoted((v) => !v)}
-              className="rounded border border-border bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
-            >
-              {showQuoted ? "Paslēpt iepriekšējo saraksti" : "Rādīt iepriekšējo saraksti"}
-            </button>
-            {showQuoted && (
-              <pre className="mt-3 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/20 p-3 font-sans text-xs leading-relaxed text-muted-foreground">
-                {quoted}
-              </pre>
-            )}
-          </div>
-        )}
+        <ThreadHistory quoted={quoted} html={false} />
       </div>
     );
   }
@@ -444,7 +726,7 @@ function CommunicationViewerModal({
       fetchPublicTable({
         data: {
           table: "communications",
-          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&limit=1`,
+          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=*&limit=1`,
         },
       }),
     enabled: open,
@@ -476,8 +758,7 @@ function CommunicationViewerModal({
     return s(t) || s(meta?.mailbox);
   })();
   const dateStr = fmtDateTime(comm?.sent_at ?? comm?.received_at ?? comm?.created_at);
-  const html = s(comm?.html_body);
-  const text = s(comm?.text_body);
+  const bodies = chooseEmailBodies(comm);
   const status = s(comm?.current_status);
   const attachments = getAttachments(comm);
 
@@ -537,7 +818,7 @@ function CommunicationViewerModal({
               Ziņa nav atrasta.
             </div>
           ) : (
-            <EmailBody html={html} text={text} />
+            <EmailBody html={bodies.html} text={bodies.text} />
           )}
 
           {events.length > 0 && (
