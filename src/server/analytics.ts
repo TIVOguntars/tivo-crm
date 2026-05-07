@@ -269,7 +269,7 @@ export const fetchPublicTable = createServerFn({ method: "GET" })
     }
   });
 
-const CRM_VIEWS = ["next_action_queue"] as const;
+const CRM_VIEWS = ["next_action_queue", "next_action_queue_ui"] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
 async function queryCrmView(
