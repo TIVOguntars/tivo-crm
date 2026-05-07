@@ -414,11 +414,11 @@ function InboxPage() {
         )
       )}
 
-      <LeadDetailDrawer
+      <EmailViewerModal
         open={selected !== null}
         onClose={() => setSelected(null)}
         leadId={selected?.leadId ?? null}
-        selectedComm={selected?.comm ?? null}
+        comm={selected?.comm ?? null}
       />
     </>
   );
