@@ -463,7 +463,8 @@ function getAttachments(comm: Record<string, unknown> | null): string[] {
   let raw: unknown =
     meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames ?? null;
   if (typeof raw === "string") {
-    try { raw = JSON.parse(raw); } catch { return [raw]; }
+    const s = raw;
+    try { raw = JSON.parse(s); } catch { return [s]; }
   }
   if (!Array.isArray(raw)) return [];
   return raw
