@@ -107,7 +107,11 @@ export function CompleteActionModal({
         setSubmitting(false);
         return;
       }
-      toast.success("Darbība pabeigta");
+      toast.success(
+        hasNext
+          ? "Darbība pabeigta un nākamā darbība ieplānota"
+          : "Darbība pabeigta",
+      );
       await qc.invalidateQueries({ queryKey: ["crm"] });
       onOpenChange(false);
       onCompleted();
@@ -148,44 +152,48 @@ export function CompleteActionModal({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="owner">Atbildīgais</Label>
-            <Input
-              id="owner"
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              placeholder="Neobligāti"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>
-              Termiņš{hasNext && <span className="text-destructive"> *</span>}
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !due && "text-muted-foreground",
-                  )}
-                  type="button"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {due ? format(due, "yyyy-MM-dd") : "Izvēlies datumu"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={due}
-                  onSelect={setDue}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
+          {hasNext && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="owner">Atbildīgais</Label>
+                <Input
+                  id="owner"
+                  value={owner}
+                  onChange={(e) => setOwner(e.target.value)}
+                  placeholder="Neobligāti"
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>
+                  Termiņš<span className="text-destructive"> *</span>
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !due && "text-muted-foreground",
+                      )}
+                      type="button"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {due ? format(due, "yyyy-MM-dd") : "Izvēlies datumu"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={due}
+                      onSelect={setDue}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </>
+          )}
           {error && (
             <p className="text-xs text-destructive" role="alert">{error}</p>
           )}
