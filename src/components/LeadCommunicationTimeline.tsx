@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, MousePointerClick, MessageSquareReply, AlertTriangle, Paperclip, Reply, Forward, X } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -255,6 +256,179 @@ function getAttachments(comm: Row | null): string[] {
     .filter(Boolean);
 }
 
+/* ---- Email body rendering helpers ---- */
+
+const QUOTE_REGEXES: RegExp[] = [
+  /^-{2,}\s*Original Message\s*-{2,}/im,
+  /^_{5,}\s*$/m,
+  /^From:\s.+$/im,
+  /^On\s.+wrote:\s*$/im,
+  /^Sent:\s.+$/im,
+  /^От:\s.+$/im,
+  /^No:\s.+$/im, // Latvian "From:"
+  /^Nosūtīts:\s.+$/im,
+];
+
+function splitQuotedText(text: string): { main: string; quoted: string } {
+  let cutAt = -1;
+  for (const re of QUOTE_REGEXES) {
+    const m = text.match(re);
+    if (m && m.index != null && (cutAt === -1 || m.index < cutAt)) {
+      cutAt = m.index;
+    }
+  }
+  if (cutAt <= 0) return { main: text, quoted: "" };
+  return {
+    main: text.slice(0, cutAt).trimEnd(),
+    quoted: text.slice(cutAt).trim(),
+  };
+}
+
+function splitQuotedHtml(html: string): { main: string; quoted: string } {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return { main: html, quoted: "" };
+  }
+  try {
+    const doc = new DOMParser().parseFromString(`<div id="__r">${html}</div>`, "text/html");
+    const root = doc.getElementById("__r");
+    if (!root) return { main: html, quoted: "" };
+
+    // Common quoted markers across email clients
+    const selectors = [
+      "blockquote",
+      ".gmail_quote",
+      ".gmail_attr",
+      "div.yahoo_quoted",
+      "div#OLK_SRC_BODY_SECTION",
+      "div.OutlookMessageHeader",
+      "div[id^='divRplyFwdMsg']",
+      "hr#stopSpelling",
+    ];
+    let firstQuoted: Element | null = null;
+    for (const sel of selectors) {
+      const el = root.querySelector(sel);
+      if (el && (!firstQuoted || (firstQuoted.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING))) {
+        firstQuoted = el;
+      }
+    }
+    if (!firstQuoted) {
+      // text-based fallback
+      const fullText = root.textContent ?? "";
+      const { quoted } = splitQuotedText(fullText);
+      if (!quoted) return { main: html, quoted: "" };
+      return { main: html, quoted: "" };
+    }
+
+    // Build quoted fragment by extracting firstQuoted + all following siblings up the tree
+    const quotedContainer = doc.createElement("div");
+    let node: Node | null = firstQuoted;
+    // Walk up to a child of root
+    while (node && node.parentNode && node.parentNode !== root) {
+      node = node.parentNode;
+    }
+    if (!node) return { main: html, quoted: "" };
+
+    const toMove: Node[] = [];
+    let cur: Node | null = node;
+    while (cur) {
+      toMove.push(cur);
+      cur = cur.nextSibling;
+    }
+    toMove.forEach((n) => quotedContainer.appendChild(n));
+
+    return {
+      main: root.innerHTML,
+      quoted: quotedContainer.innerHTML,
+    };
+  } catch {
+    return { main: html, quoted: "" };
+  }
+}
+
+function sanitize(html: string): string {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ["target", "rel"],
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input", "button"],
+    FORBID_ATTR: ["onerror", "onload", "onclick"],
+  });
+}
+
+function EmailBody({ html, text }: { html: string; text: string }) {
+  const [showQuoted, setShowQuoted] = useState(false);
+
+  if (html) {
+    const { main, quoted } = splitQuotedHtml(html);
+    const cleanMain = sanitize(main);
+    const cleanQuoted = quoted ? sanitize(quoted) : "";
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div
+          className="email-html prose prose-sm max-w-none break-words text-sm leading-relaxed text-foreground
+            [&_a]:text-primary [&_a]:underline-offset-2
+            [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded
+            [&_table]:max-w-full [&_table]:border-collapse
+            [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
+            [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5
+            [&_hr]:my-4 [&_hr]:border-border"
+          dangerouslySetInnerHTML={{ __html: cleanMain }}
+        />
+        {cleanQuoted && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowQuoted((v) => !v)}
+              className="rounded border border-border bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+            >
+              {showQuoted ? "Paslēpt iepriekšējo saraksti" : "Rādīt iepriekšējo saraksti"}
+            </button>
+            {showQuoted && (
+              <div
+                className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground
+                  [&_a]:text-primary [&_img]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: cleanQuoted }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (text) {
+    const { main, quoted } = splitQuotedText(text);
+    return (
+      <div className="mx-auto max-w-3xl">
+        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+          {main}
+        </pre>
+        {quoted && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowQuoted((v) => !v)}
+              className="rounded border border-border bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+            >
+              {showQuoted ? "Paslēpt iepriekšējo saraksti" : "Rādīt iepriekšējo saraksti"}
+            </button>
+            {showQuoted && (
+              <pre className="mt-3 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/20 p-3 font-sans text-xs leading-relaxed text-muted-foreground">
+                {quoted}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+      Šai ziņai nav satura.
+    </div>
+  );
+}
+
 function CommunicationViewerModal({
   communicationId,
   onClose,
@@ -309,8 +483,8 @@ function CommunicationViewerModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-hidden p-0 sm:rounded-lg">
-        <DialogHeader className="space-y-2 border-b border-border bg-muted/30 px-5 py-4">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden p-0 sm:rounded-lg">
+        <DialogHeader className="sticky top-0 z-10 space-y-2 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
           <DialogTitle className="pr-8 text-base font-semibold">
             {commQ.isLoading ? "Ielādē…" : subject}
           </DialogTitle>
@@ -339,8 +513,11 @@ function CommunicationViewerModal({
             </dl>
           )}
           {attachments.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
               <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Pielikumi ({attachments.length})
+              </span>
               {attachments.map((a, i) => (
                 <Badge key={i} variant="secondary" className="text-[11px] font-normal">
                   {a}
@@ -350,7 +527,7 @@ function CommunicationViewerModal({
           )}
         </DialogHeader>
 
-        <div className="max-h-[55vh] overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto bg-background px-6 py-5">
           {commQ.isLoading ? (
             <LoadingState />
           ) : commQ.data?.error ? (
@@ -359,23 +536,12 @@ function CommunicationViewerModal({
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
               Ziņa nav atrasta.
             </div>
-          ) : html ? (
-            <div
-              className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground [&_a]:text-primary [&_img]:max-w-full"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          ) : text ? (
-            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
-              {text}
-            </pre>
           ) : (
-            <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-              Šai ziņai nav satura.
-            </div>
+            <EmailBody html={html} text={text} />
           )}
 
           {events.length > 0 && (
-            <div className="mt-5 border-t border-border pt-3">
+            <div className="mx-auto mt-6 max-w-3xl border-t border-border pt-3">
               <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Notikumi ({events.length})
               </div>
