@@ -29,6 +29,14 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { callCrmRpc, fetchCrmView } from "@/server/analytics";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 const NEXT_ACTIONS = [
   "Zvanīt",
@@ -43,6 +51,91 @@ const NEXT_ACTIONS = [
 ];
 
 const NONE = "__none__";
+
+function OwnerCombobox({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const showAdd =
+    trimmed.length > 0 &&
+    !options.some((o) => o.toLowerCase() === trimmed.toLowerCase());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between font-normal",
+            !value && "text-muted-foreground",
+          )}
+        >
+          {value || "Izvēlies vai ieraksti"}
+          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+      >
+        <Command shouldFilter>
+          <CommandInput
+            placeholder="Meklēt vai ierakstīt…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>Nav atrasts</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={(v) => {
+                    onChange(v);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === opt ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {opt}
+                </CommandItem>
+              ))}
+              {showAdd && (
+                <CommandItem
+                  value={`__add__${trimmed}`}
+                  onSelect={() => {
+                    onChange(trimmed);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  Izmantot „{trimmed}"
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function CompleteActionModal({
   open,
