@@ -139,7 +139,11 @@ function DrawerContent({
   const country = s(row.country);
   const ppv = s(row.ppv_name);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
-  const phoneRaw = s(row.telefons_raw) || s(row.phone_raw);
+  const phoneRaw =
+    s(row.telefons_raw) ||
+    s(row.phone_raw) ||
+    s(row.telefons_neapstradats) ||
+    s(row.telefons);
   const phone = phoneE164 || phoneRaw;
   const email = s(row.email_normalized);
 
@@ -154,6 +158,8 @@ function DrawerContent({
 
   const createdAt = s(row.lead_created_at) || s(row.created_at);
   const source = s(row.source);
+  const rating = s(row.rating) || s(row.reitings);
+  const ratingNum = Number(rating);
 
   return (
     <div className="flex h-full flex-col">
@@ -162,7 +168,8 @@ function DrawerContent({
         <SheetTitle className="text-xl font-semibold tracking-tight">
           {fullName}
         </SheetTitle>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        {/* Row 1 — primary identifiers */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {ppv && (
             <Badge
               variant="outline"
@@ -194,7 +201,19 @@ function DrawerContent({
               </span>
             )}
           </div>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {rating && Number.isFinite(ratingNum) && ratingNum > 0 && (
+            <Badge
+              variant="outline"
+              className="h-7 rounded-md border-amber-500/40 bg-amber-50 px-2 text-[11px] font-semibold text-amber-700"
+            >
+              ★ {rating}
+            </Badge>
+          )}
+        </div>
+
+        {/* Row 2 — meta */}
+        {(source || createdAt) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
             {source && (
               <span>
                 <span className="text-muted-foreground/70">Avots: </span>
@@ -208,9 +227,11 @@ function DrawerContent({
               </span>
             )}
           </div>
-        </div>
+        )}
+
+        {/* Row 3 — tags */}
         {tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-1.5 flex flex-wrap gap-1">
             {tags.map((t) => (
               <span key={t} className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground">
                 {t}
@@ -218,22 +239,24 @@ function DrawerContent({
             ))}
           </div>
         )}
-        <div className="mt-3 flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-16 text-muted-foreground/70">Telefons:</span>
+
+        {/* Row 4 — contacts */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <div className="inline-flex items-center gap-1.5">
+            <Phone className="h-3 w-3 text-muted-foreground/70" />
             {phone ? (
-              <a href={`tel:${phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">
-                <Phone className="h-3 w-3" /> {phone}
+              <a href={`tel:${phone}`} className="text-primary hover:underline">
+                {phone}
               </a>
             ) : (
               <span className="text-muted-foreground">Nav telefona</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-16 text-muted-foreground/70">E-pasts:</span>
+          <div className="inline-flex items-center gap-1.5">
+            <Mail className="h-3 w-3 text-muted-foreground/70" />
             {email ? (
-              <a href={`mailto:${email}`} className="inline-flex items-center gap-1 text-primary hover:underline">
-                <Mail className="h-3 w-3" /> {email}
+              <a href={`mailto:${email}`} className="text-primary hover:underline">
+                {email}
               </a>
             ) : (
               <span className="text-muted-foreground">Nav e-pasta</span>
@@ -253,12 +276,22 @@ function DrawerContent({
             "rounded-lg border p-4",
             isHumanPrimary ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30",
           )}>
-            <div className="text-base font-semibold text-foreground">
+            <div className="text-lg font-semibold leading-tight text-foreground">
               {visibleAction || "—"}
             </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {visibleOwner && <span><span className="text-muted-foreground/70">Atbildīgais: </span>{visibleOwner}</span>}
-              {visibleDue && <span><span className="text-muted-foreground/70">Termiņš: </span>{fmtDateTime(visibleDue)}</span>}
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+              {visibleDue && (
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <CalendarClock className="h-4 w-4 text-primary" />
+                  {fmtDateTime(visibleDue)}
+                </span>
+              )}
+              {visibleOwner && (
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <User className="h-4 w-4 text-primary" />
+                  {visibleOwner}
+                </span>
+              )}
             </div>
           </div>
         </section>
@@ -286,10 +319,10 @@ function DrawerContent({
             Ātrās darbības
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <QuickBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" disabled={!phone} />
-            <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} />
-            <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} />
-            <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" />
+            <QuickBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" disabled={!phone} disabledTooltip="Nav telefona numura" />
+            <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} disabledTooltip="Nav telefona numura" />
+            <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} disabledTooltip="Nav telefona numura" />
+            <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" disabled={!email} disabledTooltip="Nav e-pasta adreses" />
             {isHumanPrimary ? (
               <QuickBtn
                 icon={<CheckCircle2 className="h-3.5 w-3.5" />}
@@ -318,12 +351,45 @@ function DrawerContent({
         </section>
 
         {/* Tabs */}
-        <Tabs defaultValue="komunikacija" className="pt-2">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="parskats" className="pt-2">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="parskats">Pārskats</TabsTrigger>
             <TabsTrigger value="komunikacija">Komunikācija</TabsTrigger>
             <TabsTrigger value="projekts">Projekts</TabsTrigger>
             <TabsTrigger value="vesture">Vēsture</TabsTrigger>
           </TabsList>
+          <TabsContent value="parskats" className="mt-3">
+            <OverviewGrid
+              items={[
+                { label: "Izveidots", value: createdAt ? fmtDateTime(createdAt) : "" },
+                { label: "Statuss", value: status },
+                { label: "Reitings", value: rating },
+                { label: "Avots", value: source },
+                { label: "Detalizēts avots", value: s(row.source_detailed) },
+                { label: "Atbildīgais", value: s(row.owner) || s(row.owner_name) },
+                {
+                  label: "Pēdējais kontakts",
+                  value: (() => {
+                    const v = s(row.last_contact_date) || s(row.last_contact_at);
+                    return v ? fmtDateTime(v) : "";
+                  })(),
+                },
+                { label: "Nākamā darbība", value: s(row.next_action) || visibleAction },
+                {
+                  label: "Termiņš",
+                  value: (() => {
+                    const v = s(row.next_action_due_date) || s(row.due_date);
+                    if (v) return fmtDateTime(v);
+                    return visibleDue ? fmtDateTime(visibleDue) : "";
+                  })(),
+                },
+                {
+                  label: "Atcelšanas iemesls",
+                  value: s(row.cancellation_reason) || s(row.cancel_reason),
+                },
+              ]}
+            />
+          </TabsContent>
           <TabsContent value="komunikacija" className="mt-3">
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
@@ -357,13 +423,15 @@ function QuickBtn({
   label,
   disabled,
   onClick,
+  disabledTooltip,
 }: {
   icon: React.ReactNode;
   label: string;
   disabled?: boolean;
   onClick?: () => void;
+  disabledTooltip?: string;
 }) {
-  return (
+  const btn = (
     <Button
       variant="outline"
       size="sm"
@@ -375,6 +443,44 @@ function QuickBtn({
       {icon}
       {label}
     </Button>
+  );
+  if (disabled && disabledTooltip) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">{btn}</span>
+          </TooltipTrigger>
+          <TooltipContent>{disabledTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return btn;
+}
+
+function OverviewGrid({ items }: { items: { label: string; value: string }[] }) {
+  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
+  if (visible.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+        Nav pārskata datu.
+      </div>
+    );
+  }
+  return (
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      {visible.map((i) => (
+        <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+            {i.label}
+          </dt>
+          <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
+            {i.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
