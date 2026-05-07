@@ -754,6 +754,12 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
     const quotedContainer = doc.createElement("div");
     let node: Node | null = firstQuoted;
     while (node && node.parentNode && node.parentNode !== root) {
+      const previousText = Array.from(node.parentNode.childNodes)
+        .slice(0, Array.from(node.parentNode.childNodes).indexOf(node))
+        .map((n) => n.textContent ?? "")
+        .join(" ")
+        .trim();
+      if (previousText.length > 8) break;
       node = node.parentNode;
     }
     if (!node) return { main: html, quoted: "" };
