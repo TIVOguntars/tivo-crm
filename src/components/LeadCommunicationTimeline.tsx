@@ -264,21 +264,34 @@ const QUOTE_REGEXES: RegExp[] = [
   /^-{2,}\s*Original Message\s*-{2,}/im,
   /^-{2,}\s*Forwarded message\s*-{2,}/im,
   /^-{2,}\s*Pārsūtītā ziņa\s*-{2,}/im,
+  /^-{2,}\s*Pārsūtīts ziņojums\s*-{2,}/im,
+  /^Begin forwarded message:/im,
+  /^Sākas pārsūtītais ziņojums:/im,
   /^_{5,}\s*$/m,
-  /^From:\s.+$/im,
-  /^Sent:\s.+$/im,
-  /^Subject:\s.+$/im,
-  /^To:\s.+$/im,
+  /^\s*From:\s.+$/im,
+  /^\s*Sent:\s.+$/im,
+  /^\s*Subject:\s.+$/im,
+  /^\s*To:\s.+$/im,
   /^Cc:\s.+$/im,
   /^Date:\s.+$/im,
-  /^On\s.+wrote:\s*$/im,
+  /^\s*On\s.+wrote:\s*$/im,
   /^On\s.+,\s.+wrote:/im,
+  /^On\s.+at\s.+,\s.+wrote:/im,
+  /^\d{1,2}\.\s.+rakstīja:/im,
+  /^.+\srakstīja:\s*$/im,
   /^Le\s.+a écrit\s*:$/im,
   /^Am\s.+schrieb\s.+:$/im,
   /^Den\s.+skrev\s.+:$/im,
+  /^Op\s.+schreef\s.+:$/im,
+  /^El\s.+escribió:\s*$/im,
+  /^Il giorno\s.+ha scritto:\s*$/im,
   /^Fra:\s.+$/im,
   /^Sendt:\s.+$/im,
   /^Emne:\s.+$/im,
+  /^Van:\s.+$/im,
+  /^Verzonden:\s.+$/im,
+  /^Aan:\s.+$/im,
+  /^Onderwerp:\s.+$/im,
   /^От:\s.+$/im,
   /^Тема:\s.+$/im,
   /^No:\s.+$/im,
@@ -290,6 +303,8 @@ const QUOTE_REGEXES: RegExp[] = [
 ];
 
 const MIME_GARBAGE_REGEX = /^(MIME-Version|Content-Type|Content-Transfer-Encoding|Content-Disposition|Content-ID|Content-Language|X-[\w-]+|DKIM-Signature|Return-Path|Received|Message-ID|References|In-Reply-To):/i;
+const COMPANY_FOOTER_REGEX = /(tivo\s*houses|tivohouses\.com|crm\.tivohouses\.com|sia\s+tivo|vienotais\s+reģ|reg\.?\s*nr|brīvības\s+gatve)/i;
+const SIGNATURE_START_REGEX = /^\s*(--\s*|sent from my iphone|sent from my ipad|get outlook for (ios|android)|outlook for ios|ar cieņu|cieņā|best regards|kind regards|med venlig hilsen|venlig hilsen|mvh\.?)\s*$/i;
 
 function metaRecord(comm: Row | null): Row {
   const meta = comm?.metadata;
@@ -396,14 +411,21 @@ function decodeBase64(input: string, charset: string): string {
 }
 
 function repairMojibake(input: string): string {
-  if (!/[ÃÂâ€Å]/.test(input)) return input;
+  let current = input
+    .replace(/\uFFFD/g, "")
+    .replace(/=C2=A0/gi, " ")
+    .replace(/=E2=80=99/gi, "’")
+    .replace(/=E2=80=9C/gi, "“")
+    .replace(/=E2=80=9D/gi, "”")
+    .replace(/=E2=80=93/gi, "–")
+    .replace(/=E2=80=94/gi, "—");
+  if (!/[ÃÂâ€Å]/.test(current)) return current;
   const cp1252: Record<string, number> = {
     "€": 0x80, "‚": 0x82, "ƒ": 0x83, "„": 0x84, "…": 0x85, "†": 0x86, "‡": 0x87,
     "ˆ": 0x88, "‰": 0x89, "Š": 0x8a, "‹": 0x8b, "Œ": 0x8c, "Ž": 0x8e, "‘": 0x91,
     "’": 0x92, "“": 0x93, "”": 0x94, "•": 0x95, "–": 0x96, "—": 0x97, "˜": 0x98,
     "™": 0x99, "š": 0x9a, "›": 0x9b, "œ": 0x9c, "ž": 0x9e, "Ÿ": 0x9f,
   };
-  let current = input;
   // Iterate up to 2 passes — sometimes content was double-encoded.
   for (let pass = 0; pass < 2; pass += 1) {
     const bytes: number[] = [];
@@ -589,22 +611,66 @@ function chooseEmailBodies(comm: Row | null): EmailBodies {
 }
 
 function splitQuotedText(text: string): { main: string; quoted: string } {
+  const normalized = cleanupReplyText(text);
   let cutAt = -1;
   for (const re of QUOTE_REGEXES) {
-    const m = text.match(re);
+    const m = normalized.match(re);
     if (m && m.index != null && m.index > 0 && (cutAt === -1 || m.index < cutAt)) {
       cutAt = m.index;
     }
   }
-  if (cutAt <= 0) return { main: text.trim(), quoted: "" };
+  if (cutAt <= 0) return { main: stripRepeatedFooters(normalized).trim(), quoted: "" };
   return {
-    main: text.slice(0, cutAt).trimEnd(),
-    quoted: text.slice(cutAt).trim(),
+    main: stripRepeatedFooters(normalized.slice(0, cutAt)).trimEnd(),
+    quoted: cleanupReplyText(normalized.slice(cutAt)).trim(),
   };
 }
 
+function cleanupReplyText(text: string): string {
+  return decodePayload(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\t\u00a0]+/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[>\s]*(From|Sent|Subject|To|Cc|Date|No|Kam|Nosūtīts|Tēma|Datums|Sūtītājs|Van|Verzonden|Aan|Onderwerp):/gi, "\n$1:")
+    .replace(/([^\n])\s{2,}(From|Sent|Subject|To|Cc|Date|No|Kam|Nosūtīts|Tēma|Datums|Sūtītājs|Van|Verzonden|Aan|Onderwerp):/gi, "$1\n$2:")
+    .replace(/^> ?/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+function stripRepeatedFooters(text: string): string {
+  const lines = text.split("\n");
+  let signatureAt = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    const rest = lines.slice(i, Math.min(lines.length, i + 10)).join("\n");
+    if (SIGNATURE_START_REGEX.test(line) || COMPANY_FOOTER_REGEX.test(rest)) {
+      signatureAt = i;
+      break;
+    }
+  }
+  if (signatureAt <= 0) return text;
+  const before = lines.slice(0, signatureAt).join("\n").trimEnd();
+  const seen = new Set<string>();
+  const signature = lines
+    .slice(signatureAt)
+    .filter((line) => {
+      const key = line.trim().toLowerCase().replace(/\s+/g, " ");
+      if (!key) return true;
+      if (!COMPANY_FOOTER_REGEX.test(line) && !SIGNATURE_START_REGEX.test(line)) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("\n")
+    .trim();
+  if (!signature || QUOTE_REGEXES.some((re) => re.test(signature.slice(0, 600)))) return text;
+  return `${before}\n\n${signature}`.trim();
+}
+
 function cleanPlainText(text: string): string {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const lines = cleanupReplyText(text).split("\n");
   const cleaned = lines
     .filter((line) => !MIME_GARBAGE_REGEX.test(line.trim()))
     .filter((line) => !/^--[\w='()+_,.\/:?-]{8,}--?$/.test(line.trim()))
@@ -615,12 +681,27 @@ function cleanPlainText(text: string): string {
   return cleaned;
 }
 
+function removeDuplicatedHtmlFooters(root: Element, quotedStart: Element): void {
+  const elements = Array.from(root.querySelectorAll("div,p,span,td"));
+  const seen = new Set<string>();
+  for (const el of elements) {
+    if (el.compareDocumentPosition(quotedStart) & Node.DOCUMENT_POSITION_PRECEDING) continue;
+    const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
+    if (!text || text.length > 260) continue;
+    if (!COMPANY_FOOTER_REGEX.test(text) && !SIGNATURE_START_REGEX.test(text)) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) el.remove();
+    else seen.add(key);
+  }
+}
+
 function splitQuotedHtml(html: string): { main: string; quoted: string } {
   if (typeof window === "undefined" || typeof DOMParser === "undefined") {
     return { main: html, quoted: "" };
   }
   try {
-    const doc = new DOMParser().parseFromString(`<div id="__r">${html}</div>`, "text/html");
+    const decodedHtml = decodePayload(html);
+    const doc = new DOMParser().parseFromString(`<div id="__r">${decodedHtml}</div>`, "text/html");
     const root = doc.getElementById("__r");
     if (!root) return { main: html, quoted: "" };
 
@@ -668,9 +749,18 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
 
     if (!firstQuoted) return { main: html, quoted: "" };
 
+    removeDuplicatedHtmlFooters(root, firstQuoted);
+
     const quotedContainer = doc.createElement("div");
     let node: Node | null = firstQuoted;
     while (node && node.parentNode && node.parentNode !== root) {
+      const siblings = Array.from(node.parentNode.childNodes) as Node[];
+      const previousText = siblings
+        .slice(0, siblings.indexOf(node))
+        .map((n) => n.textContent ?? "")
+        .join(" ")
+        .trim();
+      if (previousText.length > 8) break;
       node = node.parentNode;
     }
     if (!node) return { main: html, quoted: "" };
