@@ -168,9 +168,10 @@ function DrawerContent({
         <SheetTitle className="text-xl font-semibold tracking-tight">
           {fullName}
         </SheetTitle>
-        {/* Row 1 — primary identifiers */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {ppv && (
+        {/* Row 1 — identifiers + meta on one line */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {ppv && (
             <Badge
               variant="outline"
               className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
@@ -178,8 +179,8 @@ function DrawerContent({
               <User className="h-3.5 w-3.5 text-primary" />
               {ppv}
             </Badge>
-          )}
-          {country && (
+            )}
+            {country && (
             <Badge
               variant="outline"
               className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
@@ -187,47 +188,46 @@ function DrawerContent({
               <Globe2 className="h-3.5 w-3.5 text-primary" />
               {country}
             </Badge>
-          )}
-          {status && (
+            )}
+            {status && (
             <Badge variant="secondary" className="h-7 rounded-md px-2 text-[11px] font-medium">
               {status}
             </Badge>
-          )}
-          <div className="inline-flex items-center gap-1">
-            <PriorityBadge label={priority} />
-            {score > 0 && (
-              <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-                {score}
-              </span>
             )}
-          </div>
-          {rating && Number.isFinite(ratingNum) && ratingNum > 0 && (
+            <div className="inline-flex items-center gap-1">
+              <PriorityBadge label={priority} />
+              {score > 0 && (
+                <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                  {score}
+                </span>
+              )}
+            </div>
+            {rating && Number.isFinite(ratingNum) && ratingNum > 0 && (
             <Badge
               variant="outline"
               className="h-7 rounded-md border-amber-500/40 bg-amber-50 px-2 text-[11px] font-semibold text-amber-700"
             >
               ★ {rating}
             </Badge>
-          )}
-        </div>
-
-        {/* Row 2 — meta */}
-        {(source || createdAt) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
-            {source && (
-              <span>
-                <span className="text-muted-foreground/70">Avots: </span>
-                <span className="font-medium text-foreground">{source}</span>
-              </span>
-            )}
-            {createdAt && (
-              <span>
-                <span className="text-muted-foreground/70">Izveidots: </span>
-                <span className="font-medium text-foreground">{fmtDateTime(createdAt)}</span>
-              </span>
             )}
           </div>
-        )}
+          {(source || createdAt) && (
+            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+              {source && (
+                <span>
+                  <span className="text-muted-foreground/70">Avots: </span>
+                  <span className="font-medium text-foreground">{source}</span>
+                </span>
+              )}
+              {createdAt && (
+                <span>
+                  <span className="text-muted-foreground/70">Izveidots: </span>
+                  <span className="font-medium text-foreground">{fmtDateTime(createdAt)}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Row 3 — tags */}
         {tags.length > 0 && (
@@ -351,52 +351,33 @@ function DrawerContent({
         </section>
 
         {/* Tabs */}
-        <Tabs defaultValue="parskats" className="pt-2">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="parskats">Pārskats</TabsTrigger>
+        <Tabs defaultValue="komunikacija" className="pt-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="komunikacija">Komunikācija</TabsTrigger>
             <TabsTrigger value="projekts">Projekts</TabsTrigger>
             <TabsTrigger value="vesture">Vēsture</TabsTrigger>
           </TabsList>
-          <TabsContent value="parskats" className="mt-3">
-            <OverviewGrid
-              items={[
-                { label: "Izveidots", value: createdAt ? fmtDateTime(createdAt) : "" },
-                { label: "Statuss", value: status },
-                { label: "Reitings", value: rating },
-                { label: "Avots", value: source },
-                { label: "Detalizēts avots", value: s(row.source_detailed) },
-                { label: "Atbildīgais", value: s(row.owner) || s(row.owner_name) },
-                {
-                  label: "Pēdējais kontakts",
-                  value: (() => {
-                    const v = s(row.last_contact_date) || s(row.last_contact_at);
-                    return v ? fmtDateTime(v) : "";
-                  })(),
-                },
-                { label: "Nākamā darbība", value: s(row.next_action) || visibleAction },
-                {
-                  label: "Termiņš",
-                  value: (() => {
-                    const v = s(row.next_action_due_date) || s(row.due_date);
-                    if (v) return fmtDateTime(v);
-                    return visibleDue ? fmtDateTime(visibleDue) : "";
-                  })(),
-                },
-                {
-                  label: "Atcelšanas iemesls",
-                  value: s(row.cancellation_reason) || s(row.cancel_reason),
-                },
-              ]}
-            />
-          </TabsContent>
           <TabsContent value="komunikacija" className="mt-3">
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
           <TabsContent value="projekts" className="mt-3">
-            <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
-              Projektu dati vēl nav pievienoti.
-            </div>
+            <ProjectPanel
+              objekts={
+                s(row.objekts) ||
+                s(row.object) ||
+                s(row.project) ||
+                s(row.projekts) ||
+                s(row.object_name)
+              }
+              items={[
+                { label: "Objekts", value: s(row.objekts) || s(row.object) || s(row.project) || s(row.projekts) || s(row.object_name) },
+                { label: "Valsts", value: country },
+                { label: "Avots", value: source },
+                { label: "Statuss", value: status },
+                { label: "PPV", value: ppv },
+              ]}
+              tags={tags}
+            />
           </TabsContent>
           <TabsContent value="vesture" className="mt-3">
             <LeadActionHistory leadId={s(row.lead_id) || leadId} />
