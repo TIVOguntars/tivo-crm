@@ -270,7 +270,7 @@ function CommunicationViewerModal({
       fetchPublicTable({
         data: {
           table: "communications",
-          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,mailbox,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&limit=1`,
+          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&limit=1`,
         },
       }),
     enabled: open,
@@ -298,7 +298,8 @@ function CommunicationViewerModal({
   const toAddress = (() => {
     const t = comm?.to_address;
     if (Array.isArray(t)) return t.join(", ");
-    return s(t) || s(comm?.mailbox);
+    const meta = (comm?.metadata ?? null) as Record<string, unknown> | null;
+    return s(t) || s(meta?.mailbox);
   })();
   const dateStr = fmtDateTime(comm?.sent_at ?? comm?.received_at ?? comm?.created_at);
   const html = s(comm?.html_body);
