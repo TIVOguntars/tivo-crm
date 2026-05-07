@@ -238,6 +238,7 @@ function QueuePage() {
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [ppv, setPpv] = useState<string>("all");
+  const [tag, setTag] = useState<string>("all");
   const [q, setQ] = useState<string>("");
 
   const actionTypes = useMemo(
@@ -264,6 +265,11 @@ function QueuePage() {
     () => uniq(rows.map((r) => s(r.ppv_name))),
     [rows],
   );
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) for (const t of parseTags(r.tags)) set.add(t);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -277,6 +283,10 @@ function QueuePage() {
       if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
       if (country !== "all" && s(r.country) !== country) return false;
       if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
+      if (tag !== "all") {
+        const tags = parseTags(r.tags);
+        if (!tags.includes(tag)) return false;
+      }
       if (qq) {
         const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
         if (!hay.includes(qq)) return false;
@@ -302,7 +312,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, tag, q]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
