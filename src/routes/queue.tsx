@@ -27,6 +27,16 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { LeadDrawer } from "@/components/LeadDrawer";
 
+const STATUS_ORDER = ["Jauns", "Nesasniedzams", "Piesaistīšana", "Kvalificēts"];
+const mapStatus = (raw: string): string => {
+  if (raw === "Atlikts" || raw === "Piedāvājums") return "Kvalificēts";
+  return raw;
+};
+const statusSort = (label: string): number => {
+  const i = STATUS_ORDER.indexOf(label);
+  return i === -1 ? 99 : i;
+};
+
 export const Route = createFileRoute("/queue")({
   component: QueuePage,
   errorComponent: ({ error }) => (
@@ -250,6 +260,7 @@ function QueuePage() {
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const rows = (view.data?.rows ?? []) as Row[];
 
+
   const statusOptionsView = useCrmView(
     "lead_status_options",
     "select=value,label,sort_order&order=sort_order.asc",
@@ -336,7 +347,7 @@ function QueuePage() {
     if (
       !skip.leadStatus &&
       leadStatus !== "all" &&
-      s(r.legacy_lead_status) !== leadStatus
+      mapStatus(s(r.legacy_lead_status)) !== leadStatus
     )
       return false;
     if (!skip.priority && priority !== "all" && s(r.priority_label) !== priority)
@@ -424,15 +435,20 @@ function QueuePage() {
   }, [rows]);
 
   const leadStatusChips = useMemo(() => {
-    const exclude = new Set(["Nekvalificējas", "Nesasniedzams", "Atcelts", "Atkārtojas"]);
+    const exclude = new Set(["Nekvalificējas", "Atcelts", "Atkārtojas"]);
     const map = new Map<string, { label: string; sort: number }>();
     for (const r of rows) {
       if (r.show_in_status_quick_filter === false) continue;
-      const l = s(r.legacy_lead_status);
+      const l = mapStatus(s(r.legacy_lead_status));
       if (!l || exclude.has(l)) continue;
-      if (!map.has(l)) map.set(l, { label: l, sort: n(r.lead_status_sort) });
+      if (!map.has(l)) map.set(l, { label: l, sort: statusSort(l) });
     }
-    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
+    for (const l of STATUS_ORDER) {
+      if (!map.has(l)) map.set(l, { label: l, sort: statusSort(l) });
+    }
+    return Array.from(map.values())
+      .filter((x) => STATUS_ORDER.includes(x.label))
+      .sort((a, b) => a.sort - b.sort);
   }, [rows]);
 
   const dueCounts = useMemo(() => {
@@ -461,7 +477,7 @@ function QueuePage() {
     const c = new Map<string, number>();
     for (const r of rows) {
       if (!matchRow(r, { leadStatus: true })) continue;
-      const l = s(r.legacy_lead_status);
+      const l = mapStatus(s(r.legacy_lead_status));
       if (!l) continue;
       c.set(l, (c.get(l) ?? 0) + 1);
     }
@@ -698,7 +714,7 @@ function QueuePage() {
                       <TagsCell tags={tags} />
                     </TableCell>
                     <TableCell className="py-3 text-muted-foreground/80">
-                      {s(r.legacy_lead_status) || <span className="text-muted-foreground">—</span>}
+                      {mapStatus(s(r.legacy_lead_status)) || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <Button
@@ -872,7 +888,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "tags":
       return parseTags(r.tags).join(",");
     case "leadStatus": {
-      return s(r.legacy_lead_status).toLowerCase();
+      return mapStatus(s(r.legacy_lead_status)).toLowerCase();
     }
   }
 }
