@@ -54,19 +54,6 @@ function fmtDateTime(value: unknown): string {
   }).format(d);
 }
 
-function fmtDate(value: unknown): string {
-  const str = s(value);
-  if (!str) return "—";
-  const d = new Date(str);
-  if (Number.isNaN(d.getTime())) return str;
-  return new Intl.DateTimeFormat("lv-LV", {
-    timeZone: "Europe/Riga",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
 function PriorityBadge({ label }: { label: string }) {
   if (!label) return null;
   const tone =
@@ -165,16 +152,8 @@ function DrawerContent({
   const sisLabel = s(row.system_action_label);
   const sisDue = s(row.system_due_date);
 
-  // Pārskata lauki (fallback caur dažādiem nosaukumiem)
   const createdAt = s(row.lead_created_at) || s(row.created_at);
-  const rating = s(row.rating) || s(row.reitings);
   const source = s(row.source);
-  const sourceDetailed = s(row.source_detailed);
-  const owner = s(row.owner) || s(row.owner_name);
-  const lastContact = s(row.last_contact_date) || s(row.last_contact_at);
-  const nextActionLabel = s(row.next_action);
-  const nextDue = s(row.next_action_due_date) || s(row.due_date);
-  const cancelReason = s(row.cancellation_reason) || s(row.cancel_reason);
 
   return (
     <div className="flex h-full flex-col">
@@ -184,40 +163,52 @@ function DrawerContent({
           {fullName}
         </SheetTitle>
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {ppv && (
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+            >
+              <User className="h-3.5 w-3.5 text-primary" />
+              {ppv}
+            </Badge>
+          )}
+          {country && (
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+            >
+              <Globe2 className="h-3.5 w-3.5 text-primary" />
+              {country}
+            </Badge>
+          )}
           {status && (
-            <Badge variant="secondary" className="h-6 rounded px-2 text-[11px] font-medium">
+            <Badge variant="secondary" className="h-7 rounded-md px-2 text-[11px] font-medium">
               {status}
             </Badge>
           )}
-          <PriorityBadge label={priority} />
-          {score > 0 && (
-            <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-              {score}
-            </span>
-          )}
-        </div>
-        {(country || ppv) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {country && (
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-              >
-                <Globe2 className="h-3.5 w-3.5 text-primary" />
-                {country}
-              </Badge>
-            )}
-            {ppv && (
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-              >
-                <User className="h-3.5 w-3.5 text-primary" />
-                {ppv}
-              </Badge>
+          <div className="inline-flex items-center gap-1">
+            <PriorityBadge label={priority} />
+            {score > 0 && (
+              <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                {score}
+              </span>
             )}
           </div>
-        )}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {source && (
+              <span>
+                <span className="text-muted-foreground/70">Avots: </span>
+                <span className="font-medium text-foreground">{source}</span>
+              </span>
+            )}
+            {createdAt && (
+              <span>
+                <span className="text-muted-foreground/70">Izveidots: </span>
+                <span className="font-medium text-foreground">{fmtDateTime(createdAt)}</span>
+              </span>
+            )}
+          </div>
+        </div>
         {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {tags.map((t) => (
@@ -327,30 +318,12 @@ function DrawerContent({
         </section>
 
         {/* Tabs */}
-        <Tabs defaultValue="parskats" className="pt-2">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="parskats">Pārskats</TabsTrigger>
+        <Tabs defaultValue="komunikacija" className="pt-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="komunikacija">Komunikācija</TabsTrigger>
             <TabsTrigger value="projekts">Projekts</TabsTrigger>
             <TabsTrigger value="vesture">Vēsture</TabsTrigger>
           </TabsList>
-          <TabsContent value="parskats" className="mt-3">
-            <OverviewGrid
-              items={[
-                { label: "Izveidots", value: createdAt ? fmtDateTime(createdAt) : "" },
-                { label: "Statuss", value: status },
-                { label: "Reitings", value: rating },
-                { label: "Avots", value: source },
-                { label: "Detalizēts avots", value: sourceDetailed },
-                { label: "Atbildīgais", value: owner },
-                { label: "Pēdējais kontakts", value: lastContact ? fmtDateTime(lastContact) : "" },
-                { label: "Nākamā darbība", value: nextActionLabel || visibleAction },
-                { label: "Termiņš", value: nextDue ? fmtDate(nextDue) : visibleDue ? fmtDateTime(visibleDue) : "" },
-                { label: "Atcelšanas iemesls", value: cancelReason },
-              ]}
-              tags={tags}
-            />
-          </TabsContent>
           <TabsContent value="komunikacija" className="mt-3">
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
@@ -405,52 +378,3 @@ function QuickBtn({
   );
 }
 
-function OverviewGrid({
-  items,
-  tags,
-}: {
-  items: { label: string; value: string }[];
-  tags: string[];
-}) {
-  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
-  if (visible.length === 0 && tags.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
-        Nav pārskata datu.
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-        {visible.map((i) => (
-          <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
-            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-              {i.label}
-            </dt>
-            <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
-              {i.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {tags.length > 0 && (
-        <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-            Tagi
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
