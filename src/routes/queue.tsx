@@ -13,6 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
@@ -273,7 +282,7 @@ function QueuePage() {
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [ppv, setPpv] = useState<string>("all");
-  const [tag, setTag] = useState<string>("all");
+  const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
@@ -334,9 +343,11 @@ function QueuePage() {
     if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
     if (country !== "all" && s(r.country) !== country) return false;
     if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
-    if (tag !== "all") {
-      const tags = parseTags(r.tags);
-      if (!tags.includes(tag)) return false;
+    if (tags.length > 0) {
+      const rowTags = parseTags(r.tags);
+      for (const t of tags) {
+        if (!rowTags.includes(t)) return false;
+      }
     }
     if (qq) {
       const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
@@ -384,7 +395,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tag, q, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -431,7 +442,7 @@ function QueuePage() {
       c.set(k, (c.get(k) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tag, q]);
+  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tags, q]);
 
   const priorityCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -442,7 +453,7 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tag, q]);
+  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tags, q]);
 
   const leadStatusCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -453,7 +464,7 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tag, q]);
+  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tags, q]);
 
   const hasActiveFilters =
     actionType !== "all" ||
@@ -463,7 +474,7 @@ function QueuePage() {
     owner !== "all" ||
     country !== "all" ||
     ppv !== "all" ||
-    tag !== "all" ||
+    tags.length > 0 ||
     q.trim() !== "" ||
     sort !== null;
 
@@ -475,7 +486,7 @@ function QueuePage() {
     setOwner("all");
     setCountry("all");
     setPpv("all");
-    setTag("all");
+    setTags([]);
     setQ("");
     setSort(null);
   };
@@ -610,7 +621,7 @@ function QueuePage() {
                   <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
+                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
@@ -973,6 +984,61 @@ function HeaderOptionsSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function TagsMultiSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+}) {
+  const label =
+    value.length === 0
+      ? "Visi"
+      : value.length === 1
+        ? value[0]
+        : `${value.length} izvēlēti`;
+  const toggle = (t: string) => {
+    if (value.includes(t)) onChange(value.filter((x) => x !== t));
+    else onChange([...value, t]);
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-7 w-full min-w-0 items-center justify-between gap-1 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-64 w-56 overflow-y-auto">
+        {value.length > 0 && (
+          <>
+            <DropdownMenuItem onSelect={() => onChange([])} className="text-[11px]">
+              Notīrīt
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {options.map((o) => (
+          <DropdownMenuCheckboxItem
+            key={o}
+            checked={value.includes(o)}
+            onCheckedChange={() => toggle(o)}
+            onSelect={(e) => e.preventDefault()}
+            className="text-[11px]"
+          >
+            {o}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
