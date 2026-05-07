@@ -454,176 +454,144 @@ function LocalSelect({
   );
 }
 
-/* ---------------------- Lead Detail Drawer ---------------------- */
+/* ---------------------- Email Viewer Modal (read-only) ---------------------- */
 
-function LeadDetailDrawer({
+function getAttachments(comm: Record<string, unknown> | null): string[] {
+  if (!comm) return [];
+  const meta = (comm.metadata ?? null) as Record<string, unknown> | null;
+  if (!meta) return [];
+  let raw: unknown =
+    meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames ?? null;
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { return [raw]; }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (a && typeof a === "object") {
+        const o = a as Record<string, unknown>;
+        return String(o.filename ?? o.name ?? o.file ?? "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function EmailViewerModal({
   open,
   onClose,
   leadId,
-  selectedComm,
+  comm,
 }: {
   open: boolean;
   onClose: () => void;
   leadId: string | null;
-  selectedComm: Record<string, unknown> | null;
+  comm: Record<string, unknown> | null;
 }) {
-  const overviewQ = useAnalyticsView(
-    "leads_overview",
-    leadId ? `lead_id=eq.${encodeURIComponent(leadId)}&limit=1` : "",
+  if (!comm && !open) return null;
+
+  const subject = (comm?.subject as string | null) ?? "";
+  const fromAddress = (comm?.from_address as string | null) ?? "";
+  const toAddress = (() => {
+    const t = comm?.to_address;
+    if (Array.isArray(t)) return t.join(", ");
+    if (t == null) return "";
+    return String(t);
+  })();
+  const mailbox = (comm?.mailbox as string | null) ?? "";
+  const date = fmtDate(
+    (comm?.sent_at as string | null) ??
+      (comm?.received_at as string | null) ??
+      (comm?.created_at as string | null),
   );
-  const lead = ((overviewQ.data?.rows ?? [])[0] ?? null) as Record<string, unknown> | null;
-
-  const commsQuery = leadId
-    ? `lead_id=eq.${encodeURIComponent(leadId)}&select=id,direction,channel,subject,from_address,mailbox,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
-    : "";
-  const commsQ = useQuery({
-    queryKey: ["lead-comms-drawer", leadId, commsQuery],
-    queryFn: () =>
-      fetchPublicTable({
-        data: { table: "communications", query: commsQuery },
-      }),
-    enabled: !!leadId,
-    staleTime: 30_000,
-  });
-  const comms = (commsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
-
-  const selectedSubject = (selectedComm?.subject as string | null) ?? "";
-  const selectedBody =
-    (selectedComm?.text_body as string | null) ??
-    (selectedComm?.html_body as string | null) ??
-    "";
+  const html = (comm?.html_body as string | null) ?? "";
+  const text = (comm?.text_body as string | null) ?? "";
+  const attachments = getAttachments(comm);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Lead detaļas</SheetTitle>
-        </SheetHeader>
-
-        {!leadId ? (
-          <div className="mt-4 text-sm text-muted-foreground">Nav izvēlēta lead.</div>
-        ) : overviewQ.isLoading ? (
-          <div className="mt-4">
-            <LoadingState />
-          </div>
-        ) : (
-          <div className="mt-4 space-y-5">
-            {/* 1. Lead info */}
-            <section className="rounded-lg border border-border bg-card p-3">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Lead informācija
-              </h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                <DLine label="Vārds" value={lead?.full_name ?? lead?.name} />
-                <DLine label="Statuss" value={lead?.current_status ?? lead?.status} />
-                <DLine label="Email" value={lead?.email} />
-                <DLine label="Telefons" value={lead?.phone_raw ?? lead?.phone} />
-                <DLine label="Valsts" value={lead?.country} />
-                <DLine label="Avots" value={lead?.source} />
-                <DLine label="PPV" value={lead?.ppv_vards ?? lead?.ppv} />
-                <DLine label="Atbildīgais" value={lead?.owner} />
-              </dl>
-              <div className="mt-3">
-                <Button asChild size="sm" variant="outline">
-                  <a href={`/lead/${leadId}`}>Atvērt pilnu lead profilu</a>
-                </Button>
-              </div>
-            </section>
-
-            {/* 3. Selected message */}
-            {selectedComm && (
-              <section className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                  Izvēlētā ziņa
-                </h3>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                  <DLine label="Temats" value={selectedSubject} />
-                  <DLine label="Kanāls" value={selectedComm.channel} />
-                  <DLine label="No" value={selectedComm.from_address} />
-                  <DLine label="Mailbox" value={selectedComm.mailbox} />
-                  <DLine label="Statuss" value={selectedComm.current_status} />
-                  <DLine
-                    label="Datums"
-                    value={fmtDate(
-                      selectedComm.sent_at ?? selectedComm.received_at ?? selectedComm.created_at,
-                    )}
-                  />
-                </dl>
-                {selectedBody && (
-                  <div className="mt-3">
-                    <div className="mb-1 text-[11px] uppercase text-muted-foreground">Saturs</div>
-                    <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border border-border bg-background p-2 text-xs leading-relaxed text-foreground">
-                      {snippet(selectedBody, 4000)}
-                    </pre>
-                  </div>
-                )}
-              </section>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-hidden p-0 sm:rounded-lg">
+        <DialogHeader className="space-y-2 border-b border-border bg-muted/30 px-5 py-4">
+          <DialogTitle className="pr-8 text-base font-semibold">
+            {subject || "(bez temata)"}
+          </DialogTitle>
+          <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {fromAddress && (
+              <>
+                <dt className="uppercase tracking-wide">No</dt>
+                <dd className="truncate font-medium text-foreground">{fromAddress}</dd>
+              </>
             )}
+            {(toAddress || mailbox) && (
+              <>
+                <dt className="uppercase tracking-wide">Saņēmējs</dt>
+                <dd className="truncate font-medium text-foreground">
+                  {toAddress || mailbox}
+                </dd>
+              </>
+            )}
+            <dt className="uppercase tracking-wide">Datums</dt>
+            <dd className="font-medium text-foreground tabular-nums">{date}</dd>
+          </dl>
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+              {attachments.map((a, i) => (
+                <Badge key={i} variant="secondary" className="text-[11px] font-normal">
+                  {a}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </DialogHeader>
 
-            {/* 2. Full timeline */}
-            <section className="rounded-lg border border-border bg-card p-3">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Komunikāciju vēsture ({comms.length})
-              </h3>
-              {commsQ.isLoading ? (
-                <LoadingState />
-              ) : comms.length === 0 ? (
-                <div className="text-xs italic text-muted-foreground">Nav ierakstu</div>
-              ) : (
-                <ol className="space-y-2">
-                  {comms.map((c, i) => {
-                    const ts = c.sent_at ?? c.received_at ?? c.created_at;
-                    const ch = String(c.channel ?? "").toLowerCase();
-                    const subj = (c.subject as string | null) ?? "";
-                    const dir = String(c.direction ?? "");
-                    return (
-                      <li
-                        key={String(c.id ?? i)}
-                        className="flex gap-3 border-b border-border/60 pb-2 last:border-0"
-                      >
-                        <div className="w-32 shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {fmtDate(ts)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                            <Badge variant="secondary" className="text-[10px]">
-                              {CHANNEL_LV[ch] ?? ch}
-                            </Badge>
-                            <span className="text-muted-foreground">
-                              {dir === "inbound" ? "Ienākošs" : dir === "outbound" ? "Izejošs" : dir}
-                            </span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-foreground">
-                              {String(c.current_status ?? "—")}
-                            </span>
-                          </div>
-                          {subj && (
-                            <div className="mt-0.5 text-sm font-medium text-foreground">
-                              {subj}
-                            </div>
-                          )}
-                          {(() => {
-                            const body =
-                              (c.text_body as string | null) ??
-                              (c.html_body as string | null) ??
-                              "";
-                            return body ? (
-                              <div className="mt-0.5 text-xs text-muted-foreground">
-                                {snippet(body, 160)}
-                              </div>
-                            ) : null;
-                          })()}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </section>
+        <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+          {html ? (
+            <div
+              className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground [&_a]:text-primary [&_img]:max-w-full"
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          ) : text ? (
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+              {text}
+            </pre>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+              Šai ziņai nav satura.
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-row items-center justify-between gap-2 border-t border-border bg-muted/30 px-5 py-3 sm:justify-between">
+          <div>
+            {leadId && (
+              <Button asChild size="sm" variant="ghost">
+                <a href={`/lead/${leadId}`} className="gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Atvērt lead
+                </a>
+              </Button>
+            )}
           </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" disabled title="Drīzumā">
+              <Forward className="h-3.5 w-3.5" />
+              Pārsūtīt
+            </Button>
+            <Button size="sm" variant="default" disabled title="Drīzumā">
+              <Reply className="h-3.5 w-3.5" />
+              Atbildēt
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              <X className="h-3.5 w-3.5" />
+              Aizvērt
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
