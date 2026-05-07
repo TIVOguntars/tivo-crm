@@ -226,7 +226,11 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue_display", "limit=500");
+  // No hardcoded UI cap — fetch the full queue. PostgREST max-rows on the
+  // backend still applies as a safety net. The table itself is virtualized
+  // by the browser via the sticky-header scroll container, so 1000+ rows
+  // render without freezing.
+  const view = useCrmView("next_action_queue_display", "limit=10000");
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");
