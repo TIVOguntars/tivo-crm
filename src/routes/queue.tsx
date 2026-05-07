@@ -418,26 +418,27 @@ function QueuePage() {
                 const leadId = s(r.lead_id);
                 const pLabel = s(r.priority_label);
                 const isHigh = pLabel === "Augsta";
+                const tags = parseTags(r.tags);
                 return (
                   <TableRow
                     key={s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
-                      "h-7 text-xs",
+                      "text-xs",
                       isHigh &&
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-0.5">
-                      <PriorityBadge label={pLabel} />
+                    <TableCell className="py-2">
+                      <PriorityCell label={pLabel} score={n(r.lead_priority_score)} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap py-0.5 font-semibold">
+                    <TableCell className="whitespace-nowrap py-2 font-semibold">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-0.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-2">
                       {leadId ? (
                         <button
                           className="text-primary/90 hover:underline"
@@ -454,16 +455,19 @@ function QueuePage() {
                         s(r.full_name) || "—"
                       )}
                     </TableCell>
-                    <TableCell className="py-0.5">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-0.5">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-0.5">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2">
+                      <TagsCell tags={tags} />
+                    </TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-2">
                       <QueueBucketBadge
                         bucket={s(r.queue_bucket)}
                         label={s(r.queue_bucket_label) || s(r.queue_status)}
                       />
                     </TableCell>
-                    <TableCell className="py-0.5 text-right">
+                    <TableCell className="py-2 text-right">
                       <Button
                         size="sm"
                         variant="outline"
