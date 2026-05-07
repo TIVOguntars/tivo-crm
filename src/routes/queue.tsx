@@ -484,6 +484,43 @@ function FilterCell({ children }: { children?: React.ReactNode }) {
   return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
 }
 
+function FilterPill({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { v: string; l: string }[];
+}) {
+  const active = value !== "all";
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        className={cn(
+          "h-7 w-auto min-w-0 gap-1 rounded-full border px-2.5 text-[11px]",
+          active
+            ? "border-primary/40 bg-primary/10 text-foreground"
+            : "border-border bg-background text-muted-foreground",
+        )}
+      >
+        <span className="font-medium">{label}</span>
+        {active && <span className="text-foreground">: {value}</span>}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Visi</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.v} value={o.v}>
+            {o.l}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function HeaderSelect({
   value,
   onChange,
