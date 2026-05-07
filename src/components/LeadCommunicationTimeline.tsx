@@ -651,7 +651,19 @@ function stripRepeatedFooters(text: string): string {
   }
   if (signatureAt <= 0) return text;
   const before = lines.slice(0, signatureAt).join("\n").trimEnd();
-  const signature = lines.slice(signatureAt).join("\n").trim();
+  const seen = new Set<string>();
+  const signature = lines
+    .slice(signatureAt)
+    .filter((line) => {
+      const key = line.trim().toLowerCase().replace(/\s+/g, " ");
+      if (!key) return true;
+      if (!COMPANY_FOOTER_REGEX.test(line) && !SIGNATURE_START_REGEX.test(line)) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("\n")
+    .trim();
   if (!signature || QUOTE_REGEXES.some((re) => re.test(signature.slice(0, 600)))) return text;
   return `${before}\n\n${signature}`.trim();
 }
