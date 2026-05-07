@@ -268,3 +268,48 @@ export const fetchPublicTable = createServerFn({ method: "GET" })
       return { rows: [] as AnalyticsRow[], error: message };
     }
   });
+
+const CRM_VIEWS = ["next_action_queue"] as const;
+export type CrmView = (typeof CRM_VIEWS)[number];
+
+async function queryCrmView(
+  view: CrmView,
+  query: string,
+): Promise<AnalyticsRow[]> {
+  const { url, key } = getEnv();
+  const endpoint = `${url}/rest/v1/${view}${query ? `?${query}` : ""}`;
+  const res = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Accept-Profile": "crm",
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Neizdevās nolasīt crm.${view} (${res.status}): ${text.slice(0, 300)}`,
+    );
+  }
+  return (await res.json()) as AnalyticsRow[];
+}
+
+export const fetchCrmView = createServerFn({ method: "GET" })
+  .inputValidator((input: { view: CrmView; query?: string }) => {
+    if (!CRM_VIEWS.includes(input.view)) {
+      throw new Error(`Nezināms skats: ${input.view}`);
+    }
+    return { view: input.view, query: input.query ?? "" };
+  })
+  .handler(async ({ data }) => {
+    try {
+      const rows = await queryCrmView(data.view, data.query);
+      return { rows, error: null as string | null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Nezināma kļūda";
+      console.error("[crm]", message);
+      return { rows: [] as AnalyticsRow[], error: message };
+    }
+  });
