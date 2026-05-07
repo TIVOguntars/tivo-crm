@@ -501,9 +501,24 @@ function isRawMime(value: string): boolean {
 function chooseEmailBodies(comm: Row | null): EmailBodies {
   const meta = metaRecord(comm);
   const headers = headerString(comm);
-  const rawMime = firstString(meta.raw, meta.raw_email, meta.mime, meta.message_source, meta.source, meta.original);
-  const directRawMime = firstString(comm?.raw, comm?.raw_email, comm?.mime, comm?.message_source, comm?.source, comm?.original);
-  const mimeBodies = rawMime || directRawMime ? extractMimeBodies(rawMime || directRawMime, headers) : { html: "", text: "" };
+  // Only treat fields as raw MIME if they actually contain MIME structure.
+  // Fields like metadata.source often hold labels ("imap_reply_import",
+  // "smartsheet_email_notes_backfill") and must NOT be parsed as bodies.
+  const rawCandidates = [
+    meta.raw, meta.raw_email, meta.mime, meta.message_source,
+    comm?.raw, comm?.raw_email, comm?.mime, comm?.message_source,
+  ];
+  let rawMimeStr = "";
+  for (const c of rawCandidates) {
+    const v = stringFrom(c);
+    if (v && isRawMime(v)) { rawMimeStr = v; break; }
+  }
+  const mimeBodies = rawMimeStr ? extractMimeBodies(rawMimeStr, headers) : { html: "", text: "" };
+
+  // resend_payload (used by old viewer) — load explicitly
+  const resend = (meta.resend_payload && typeof meta.resend_payload === "object")
+    ? (meta.resend_payload as Record<string, unknown>)
+    : {};
 
   const htmlCandidates = [
     comm?.body_html,
@@ -515,9 +530,20 @@ function chooseEmailBodies(comm: Row | null): EmailBodies {
     comm?.html_body,
     meta.html_body,
     meta.html,
+    resend.html,
     mimeBodies.html,
   ];
-  const textCandidates = [comm?.body_text, comm?.text_body, meta.body_text, meta.text_body, meta.text, mimeBodies.text];
+  const textCandidates = [
+    comm?.body_text,
+    comm?.text_body,
+    meta.body_text,
+    meta.text_body,
+    meta.text,
+    resend.text,
+    comm?.content,
+    meta.content,
+    mimeBodies.text,
+  ];
 
   for (const candidate of htmlCandidates) {
     const decoded = decodePayload(stringFrom(candidate), headers).trim();
