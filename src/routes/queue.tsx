@@ -82,15 +82,23 @@ function uniq(values: string[]): string[] {
   );
 }
 
-function QueueStatusBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
-  const isOverdue = value.toLowerCase().includes("kavēt");
+function QueueBucketBadge({ bucket, label }: { bucket: string; label: string }) {
+  const text = label || bucket;
+  if (!text) return <span className="text-muted-foreground">—</span>;
+  const tone =
+    bucket === "overdue"
+      ? "bg-red-600 text-white border-transparent"
+      : bucket === "today"
+        ? "bg-amber-500 text-white border-transparent"
+        : bucket === "next_24h"
+          ? "bg-blue-600 text-white border-transparent"
+          : "";
   return (
     <Badge
-      variant={isOverdue ? "destructive" : "secondary"}
-      className={cn("font-medium", isOverdue && "bg-red-600 text-white")}
+      variant={bucket === "overdue" ? "destructive" : "secondary"}
+      className={cn("font-medium", tone)}
     >
-      {value}
+      {text}
     </Badge>
   );
 }
