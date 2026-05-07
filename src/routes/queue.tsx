@@ -97,13 +97,13 @@ function DueCell({ value }: { value: unknown }) {
   const state = dueState(value);
   const tone =
     state === "overdue"
-      ? "text-red-600 dark:text-red-400 font-semibold"
+      ? "text-red-700/80 dark:text-red-300/90 font-medium"
       : state === "today"
-        ? "text-orange-600 dark:text-orange-400 font-semibold"
+        ? "text-orange-700/80 dark:text-orange-300/90 font-medium"
         : state === "tomorrow"
-          ? "text-blue-600 dark:text-blue-400 font-semibold"
+          ? "text-sky-700/80 dark:text-sky-300/90 font-medium"
           : state === "week"
-            ? "text-foreground font-medium"
+            ? "text-muted-foreground"
             : state === "future"
               ? "text-muted-foreground"
               : "text-muted-foreground";
@@ -120,16 +120,16 @@ function PriorityBadge({ label }: { label: string }) {
   if (!label) return <span className="text-muted-foreground">—</span>;
   const tone =
     label === "Augsta"
-      ? "bg-red-600 text-white border-transparent"
+      ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60"
       : label === "Normāla"
-        ? "bg-orange-500 text-white border-transparent"
+        ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60"
         : label === "Zema"
-          ? "bg-slate-500 text-white border-transparent"
+          ? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700"
           : "";
   return (
     <Badge
       className={cn(
-        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none",
+        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none shadow-none",
         tone,
       )}
     >
@@ -173,10 +173,10 @@ function OwnerBadge({ value }: { value: string }) {
   return (
     <Badge
       className={cn(
-        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none",
+        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none shadow-none",
         isSystem
-          ? "bg-slate-700 text-white border-transparent dark:bg-slate-600"
-          : "bg-indigo-600 text-white border-transparent",
+          ? "bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800/70 dark:text-slate-200 dark:border-slate-700"
+          : "bg-muted text-foreground/80 border border-border dark:bg-slate-800/40 dark:text-slate-200 dark:border-slate-700",
       )}
     >
       {value}
