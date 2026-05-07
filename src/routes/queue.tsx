@@ -105,7 +105,7 @@ function ActionStatusBadge({ value }: { value: string }) {
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue", "limit=500");
+  const view = useCrmView("next_action_queue_ui", "limit=500");
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");
@@ -115,11 +115,11 @@ function QueuePage() {
   const [q, setQ] = useState<string>("");
 
   const actionTypes = useMemo(
-    () => uniq(rows.map((r) => s(r.action_type))),
+    () => uniq(rows.map((r) => s(r.action_label))),
     [rows],
   );
   const workflows = useMemo(
-    () => uniq(rows.map((r) => s(r.workflow_name))),
+    () => uniq(rows.map((r) => s(r.workflow_label))),
     [rows],
   );
   const queueStatuses = useMemo(
@@ -134,8 +134,8 @@ function QueuePage() {
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
     const list = rows.filter((r) => {
-      if (actionType !== "all" && s(r.action_type) !== actionType) return false;
-      if (workflow !== "all" && s(r.workflow_name) !== workflow) return false;
+      if (actionType !== "all" && s(r.action_label) !== actionType) return false;
+      if (workflow !== "all" && s(r.workflow_label) !== workflow) return false;
       if (queueStatus !== "all" && s(r.queue_status) !== queueStatus)
         return false;
       if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
@@ -159,16 +159,20 @@ function QueuePage() {
   }, [rows, actionType, workflow, queueStatus, leadStatus, q]);
 
   const kpis = useMemo(() => {
-    let pending = 0;
+    let next24h = 0;
     let overdue = 0;
     let today = 0;
     let doneToday = 0;
+    const now = Date.now();
+    const in24h = now + 24 * 60 * 60 * 1000;
     for (const r of rows) {
       const qs = s(r.queue_status).toLowerCase();
       const as = s(r.next_action_status).toLowerCase();
       if (qs.includes("kavēt")) overdue++;
-      if (as.includes("gaida") || qs.includes("gaida") || qs.includes("kavēt"))
-        pending++;
+      if (r.due_at) {
+        const t = new Date(String(r.due_at)).getTime();
+        if (Number.isFinite(t) && t >= now && t <= in24h) next24h++;
+      }
       if (isToday(r.due_at)) today++;
       if (
         (as.includes("pabeig") || qs.includes("pabeig")) &&
@@ -176,8 +180,13 @@ function QueuePage() {
       )
         doneToday++;
     }
-    return { pending, overdue, today, doneToday };
+    return { next24h, overdue, today, doneToday };
   }, [rows]);
+
+  const hasPriority = useMemo(
+    () => rows.some((r) => n(r.priority_score) > 0),
+    [rows],
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -187,7 +196,7 @@ function QueuePage() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Visi gaidošie" value={kpis.pending} tone="blue" />
+        <StatCard label="Nākamās 24h" value={kpis.next24h} tone="blue" />
         <StatCard label="Kavēti" value={kpis.overdue} tone="red" />
         <StatCard label="Šodien" value={kpis.today} tone="amber" />
         <StatCard label="Pabeigti šodien" value={kpis.doneToday} tone="neutral" />
@@ -237,34 +246,35 @@ function QueuePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-20">Prioritāte</TableHead>
-                <TableHead>Termiņš</TableHead>
-                <TableHead>Darbība</TableHead>
-                <TableHead>Lead</TableHead>
-                <TableHead>Objekts</TableHead>
-                <TableHead>Workflow</TableHead>
-                <TableHead>Solis</TableHead>
-                <TableHead>Lead statuss</TableHead>
-                <TableHead>Komunikācijas statuss</TableHead>
-                <TableHead>Objekta statuss</TableHead>
-                <TableHead>Darbības statuss</TableHead>
-                <TableHead>Rindas statuss</TableHead>
-                <TableHead className="text-right">Darbības</TableHead>
+                {hasPriority && <TableHead className="h-9 w-16">Prioritāte</TableHead>}
+                <TableHead className="h-9">Termiņš</TableHead>
+                <TableHead className="h-9">Darbība</TableHead>
+                <TableHead className="h-9">Lead</TableHead>
+                <TableHead className="h-9">Objekts</TableHead>
+                <TableHead className="h-9">Workflow</TableHead>
+                <TableHead className="h-9">Lead statuss</TableHead>
+                <TableHead className="h-9">Rindas statuss</TableHead>
+                <TableHead className="h-9 text-right">Darbības</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
                 return (
-                  <TableRow key={s(r.queue_id) || s(r.next_action_id) || i}>
-                    <TableCell className="font-medium tabular-nums">
-                      {n(r.priority_score) || "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs">
+                  <TableRow
+                    key={s(r.queue_id) || s(r.next_action_id) || i}
+                    className="h-8"
+                  >
+                    {hasPriority && (
+                      <TableCell className="py-1 font-medium tabular-nums">
+                        {n(r.priority_score) || "—"}
+                      </TableCell>
+                    )}
+                    <TableCell className="whitespace-nowrap py-1 text-xs">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
-                    <TableCell>{s(r.action_type) || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="py-1">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-1">
                       {leadId ? (
                         <button
                           className="text-primary hover:underline"
@@ -281,23 +291,18 @@ function QueuePage() {
                         s(r.full_name) || "—"
                       )}
                     </TableCell>
-                    <TableCell>{s(r.object_name) || "—"}</TableCell>
-                    <TableCell>{s(r.workflow_name) || "—"}</TableCell>
-                    <TableCell>{s(r.step_name) || "—"}</TableCell>
-                    <TableCell>{s(r.legacy_lead_status) || "—"}</TableCell>
-                    <TableCell>{s(r.communication_status) || "—"}</TableCell>
-                    <TableCell>{s(r.object_status) || "—"}</TableCell>
-                    <TableCell>
-                      <ActionStatusBadge value={s(r.next_action_status)} />
-                    </TableCell>
-                    <TableCell>
+                    <TableCell className="py-1">{s(r.object_name) || "—"}</TableCell>
+                    <TableCell className="py-1">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-1">{s(r.legacy_lead_status) || "—"}</TableCell>
+                    <TableCell className="py-1">
                       <QueueStatusBadge value={s(r.queue_status)} />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="py-1 text-right">
                       <div className="flex justify-end gap-1">
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-7 px-2 text-xs"
                           onClick={() =>
                             leadId &&
                             navigate({
@@ -308,10 +313,10 @@ function QueuePage() {
                         >
                           Atvērt
                         </Button>
-                        <Button size="sm" variant="ghost" disabled>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled>
                           Pabeigt
                         </Button>
-                        <Button size="sm" variant="ghost" disabled>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled>
                           Izlaist
                         </Button>
                       </div>
