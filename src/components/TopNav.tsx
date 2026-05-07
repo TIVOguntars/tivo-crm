@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BarChart3, Filter, ListChecks, MessageSquare, Users } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
+import tivoLogo from "@/assets/tivo-logo.png";
 
 const items = [
   { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
@@ -15,12 +16,8 @@ export function TopNav() {
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <BarChart3 className="h-4 w-4" />
-          </div>
-          <span className="text-sm font-semibold tracking-tight">
-            Analītika
-          </span>
+          <img src={tivoLogo} alt="TIVO" className="h-7 w-auto" />
+          <span className="text-sm font-semibold tracking-tight">CRM</span>
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto">
           {items.map((item) => (
