@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as QueueRouteImport } from './routes/queue'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
 import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
@@ -17,6 +18,11 @@ import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeadLeadIdRouteImport } from './routes/lead.$leadId'
 
+const QueueRoute = QueueRouteImport.update({
+  id: '/queue',
+  path: '/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadiRoute = LeadiRouteImport.update({
   id: '/leadi',
   path: '/leadi',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
+    | '/queue'
     | '/lead/$leadId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
+    | '/queue'
     | '/lead/$leadId'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/ienakosas-zinas'
     | '/komunikacijas'
     | '/leadi'
+    | '/queue'
     | '/lead/$leadId'
   fileRoutesById: FileRoutesById
 }
@@ -118,11 +130,19 @@ export interface RootRouteChildren {
   IenakosasZinasRoute: typeof IenakosasZinasRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
+  QueueRoute: typeof QueueRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/queue': {
+      id: '/queue'
+      path: '/queue'
+      fullPath: '/queue'
+      preLoaderRoute: typeof QueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/leadi': {
       id: '/leadi'
       path: '/leadi'
@@ -182,8 +202,18 @@ const rootRouteChildren: RootRouteChildren = {
   IenakosasZinasRoute: IenakosasZinasRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
+  QueueRoute: QueueRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
