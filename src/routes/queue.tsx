@@ -379,22 +379,24 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[110px]">
-                  <div className="flex items-center justify-between gap-1">
-                    <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
+                <HeadCell className="w-[92px]">
+                  <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[60px] text-right">
+                  <div className="flex justify-end">
+                    <SortButton label="Score" k="score" sort={sort} onClick={toggleSort} />
                   </div>
                 </HeadCell>
                 <HeadCell className="w-[100px]">
                   <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[64px]">
+                <HeadCell className="w-[60px]">
                   <SortButton label="Atbild." k="owner" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell>
                   <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="min-w-[220px]">
+                <HeadCell className="min-w-[280px]">
                   <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
@@ -403,7 +405,7 @@ function QueuePage() {
                 <HeadCell className="w-[64px] text-muted-foreground/70">
                   <SortButton label="Valsts" k="country" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[120px]">
+                <HeadCell className="w-[110px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
@@ -420,6 +422,7 @@ function QueuePage() {
                     <SelectItem value="Zema">Zema</SelectItem>
                   </HeaderSelect>
                 </FilterCell>
+                <FilterCell />
                 <FilterCell />
                 <FilterCell>
                   <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
@@ -459,25 +462,25 @@ function QueuePage() {
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-3">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <PriorityBadge label={pLabel} />
-                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-                          {score > 0 ? score : ""}
-                        </span>
-                      </div>
+                    <TableCell className="py-3.5">
+                      <PriorityBadge label={pLabel} />
                     </TableCell>
-                    <TableCell className="py-3">
+                    <TableCell className="py-3.5 text-right">
+                      <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                        {score > 0 ? score : "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3.5">
                       <DueCell value={r.due_at} />
                     </TableCell>
-                    <TableCell className="py-3">
-                      <OwnerBadge value={s(r.action_owner_label)} />
+                    <TableCell className="py-3.5">
+                      <OwnerBadge value={s(r.action_owner_label) || s(r.ppv_owner_label) || s(r.ppv_owner)} />
                     </TableCell>
-                    <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-3 align-top">
+                    <TableCell className="py-3.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-3.5 align-top">
                       {leadId ? (
                         <button
-                          className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
+                          className="line-clamp-2 max-w-[340px] text-left text-primary/90 hover:underline"
                           onClick={() =>
                             navigate({
                               to: "/lead/$leadId",
@@ -488,16 +491,16 @@ function QueuePage() {
                           {s(r.full_name) || "—"}
                         </button>
                       ) : (
-                        <span className="line-clamp-2 max-w-[280px]">{s(r.full_name) || "—"}</span>
+                        <span className="line-clamp-2 max-w-[340px]">{s(r.full_name) || "—"}</span>
                       )}
                     </TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-3">
+                    <TableCell className="py-3.5 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-3.5 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-3.5">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-3 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-3 text-right">
+                    <TableCell className="py-3.5 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-3.5 text-right">
                       <Button
                         size="sm"
                         variant="outline"
