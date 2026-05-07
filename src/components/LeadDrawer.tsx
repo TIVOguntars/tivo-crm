@@ -184,40 +184,52 @@ function DrawerContent({
           {fullName}
         </SheetTitle>
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {ppv && (
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+            >
+              <User className="h-3.5 w-3.5 text-primary" />
+              {ppv}
+            </Badge>
+          )}
+          {country && (
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+            >
+              <Globe2 className="h-3.5 w-3.5 text-primary" />
+              {country}
+            </Badge>
+          )}
           {status && (
-            <Badge variant="secondary" className="h-6 rounded px-2 text-[11px] font-medium">
+            <Badge variant="secondary" className="h-7 rounded-md px-2 text-[11px] font-medium">
               {status}
             </Badge>
           )}
-          <PriorityBadge label={priority} />
-          {score > 0 && (
-            <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-              {score}
-            </span>
-          )}
-        </div>
-        {(country || ppv) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {country && (
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-              >
-                <Globe2 className="h-3.5 w-3.5 text-primary" />
-                {country}
-              </Badge>
-            )}
-            {ppv && (
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-              >
-                <User className="h-3.5 w-3.5 text-primary" />
-                {ppv}
-              </Badge>
+          <div className="inline-flex items-center gap-1">
+            <PriorityBadge label={priority} />
+            {score > 0 && (
+              <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                {score}
+              </span>
             )}
           </div>
-        )}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {source && (
+              <span>
+                <span className="text-muted-foreground/70">Avots: </span>
+                <span className="font-medium text-foreground">{source}</span>
+              </span>
+            )}
+            {createdAt && (
+              <span>
+                <span className="text-muted-foreground/70">Izveidots: </span>
+                <span className="font-medium text-foreground">{fmtDateTime(createdAt)}</span>
+              </span>
+            )}
+          </div>
+        </div>
         {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {tags.map((t) => (
@@ -327,30 +339,12 @@ function DrawerContent({
         </section>
 
         {/* Tabs */}
-        <Tabs defaultValue="parskats" className="pt-2">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="parskats">Pārskats</TabsTrigger>
+        <Tabs defaultValue="komunikacija" className="pt-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="komunikacija">Komunikācija</TabsTrigger>
             <TabsTrigger value="projekts">Projekts</TabsTrigger>
             <TabsTrigger value="vesture">Vēsture</TabsTrigger>
           </TabsList>
-          <TabsContent value="parskats" className="mt-3">
-            <OverviewGrid
-              items={[
-                { label: "Izveidots", value: createdAt ? fmtDateTime(createdAt) : "" },
-                { label: "Statuss", value: status },
-                { label: "Reitings", value: rating },
-                { label: "Avots", value: source },
-                { label: "Detalizēts avots", value: sourceDetailed },
-                { label: "Atbildīgais", value: owner },
-                { label: "Pēdējais kontakts", value: lastContact ? fmtDateTime(lastContact) : "" },
-                { label: "Nākamā darbība", value: nextActionLabel || visibleAction },
-                { label: "Termiņš", value: nextDue ? fmtDate(nextDue) : visibleDue ? fmtDateTime(visibleDue) : "" },
-                { label: "Atcelšanas iemesls", value: cancelReason },
-              ]}
-              tags={tags}
-            />
-          </TabsContent>
           <TabsContent value="komunikacija" className="mt-3">
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
