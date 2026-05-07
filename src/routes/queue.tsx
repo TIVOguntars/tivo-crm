@@ -345,6 +345,7 @@ function QueuePage() {
     if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
     if (tags.length > 0) {
       const rowTags = parseTags(r.tags);
+      if (rowTags.length !== tags.length) return false;
       for (const t of tags) {
         if (!rowTags.includes(t)) return false;
       }
