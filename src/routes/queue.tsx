@@ -721,6 +721,49 @@ function FilterChip({
   );
 }
 
+function FilterCard({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "group relative flex h-[68px] w-full flex-col justify-between rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors",
+        active
+          ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30"
+          : "border-border hover:bg-muted/60",
+      )}
+    >
+      <span
+        className={cn(
+          "line-clamp-2 text-[11px] font-medium uppercase tracking-wide",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "self-end text-2xl font-semibold tabular-nums leading-none",
+          active ? "text-primary" : "text-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
 type SortKey =
   | "priority"
   | "score"
