@@ -548,6 +548,77 @@ function FilterCell({ children }: { children?: React.ReactNode }) {
   return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
 }
 
+type SortKey =
+  | "priority"
+  | "score"
+  | "due"
+  | "owner"
+  | "action"
+  | "lead"
+  | "ppv"
+  | "country"
+  | "tags"
+  | "workflow";
+
+function sortValue(r: Row, key: SortKey): string | number {
+  switch (key) {
+    case "priority":
+      return n(r.sort_priority);
+    case "score":
+      return n(r.lead_priority_score) || n(r.priority_score);
+    case "due":
+      return r.due_at ? new Date(String(r.due_at)).getTime() : 0;
+    case "owner":
+      return s(r.action_owner_label).toLowerCase();
+    case "action":
+      return s(r.action_label).toLowerCase();
+    case "lead":
+      return s(r.full_name).toLowerCase();
+    case "ppv":
+      return s(r.ppv_name).toLowerCase();
+    case "country":
+      return s(r.country).toLowerCase();
+    case "tags":
+      return parseTags(r.tags).join(",");
+    case "workflow":
+      return s(r.workflow_label).toLowerCase();
+  }
+}
+
+function SortButton({
+  label,
+  k,
+  sort,
+  onClick,
+  ariaLabel,
+}: {
+  label?: string;
+  k: SortKey;
+  sort: { key: SortKey; dir: "asc" | "desc" } | null;
+  onClick: (k: SortKey) => void;
+  ariaLabel?: string;
+}) {
+  const active = sort?.key === k;
+  const Icon = !active ? ArrowUpDown : sort!.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel || label}
+      onClick={() => onClick(k)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground",
+        active ? "text-foreground" : "text-muted-foreground",
+      )}
+    >
+      {label && <span>{label}</span>}
+      <Icon
+        className={cn("h-3 w-3", !active && "opacity-50")}
+        strokeWidth={2.25}
+      />
+    </button>
+  );
+}
+
 function FilterPill({
   label,
   value,
