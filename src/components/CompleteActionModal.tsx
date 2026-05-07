@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc, fetchCrmView } from "@/server/analytics";
 
 const NEXT_ACTIONS = [
   "Zvanīt",
@@ -82,6 +82,27 @@ export function CompleteActionModal({
 
   const hasNext = nextAction !== NONE && nextAction !== "";
   const dueRequiredMissing = hasNext && !due;
+
+  const ownersQuery = useQuery({
+    queryKey: ["crm", "action_owner_options"],
+    queryFn: () =>
+      fetchCrmView({ data: { view: "action_owner_options", query: "limit=500" } }),
+    enabled: open && hasNext,
+    staleTime: 5 * 60_000,
+  });
+
+  const ownerOptions = useMemo(() => {
+    const rows = ownersQuery.data?.rows ?? [];
+    const set = new Set<string>();
+    for (const r of rows) {
+      const v = r?.owner_label;
+      if (v != null) {
+        const s = String(v).trim();
+        if (s) set.add(s);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [ownersQuery.data]);
 
   const handleSubmit = async () => {
     if (!leadId) return;
@@ -164,11 +185,10 @@ export function CompleteActionModal({
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="owner">Atbildīgais</Label>
-                <Input
-                  id="owner"
+                <OwnerCombobox
                   value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
-                  placeholder="Neobligāti"
+                  onChange={setOwner}
+                  options={ownerOptions}
                 />
               </div>
               <div className="space-y-1.5">
