@@ -168,7 +168,7 @@ function TagsCell({ tags }: { tags: string[] }) {
 }
 
 function OwnerBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
+  if (!value || value === "Nav piešķirts") return <span className="text-muted-foreground">—</span>;
   const isSystem = value === "SIS";
   return (
     <Badge
