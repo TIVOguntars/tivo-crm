@@ -6,7 +6,8 @@ export function useCrmView(view: CrmView, query?: string, options?: { all?: bool
   return useQuery({
     queryKey: ["crm", view, query ?? "", all ? "all" : "page"],
     queryFn: () => fetchCrmView({ data: { view, query, all } }),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
