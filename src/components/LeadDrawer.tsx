@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Phone, MessageSquare, Mail, MessageCircle, CheckCircle2, CalendarClock, X } from "lucide-react";
+import { Phone, MessageSquare, Mail, MessageCircle, CheckCircle2, CalendarClock, Globe2, User } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -51,6 +51,19 @@ function fmtDateTime(value: unknown): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(d);
+}
+
+function fmtDate(value: unknown): string {
+  const str = s(value);
+  if (!str) return "—";
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return str;
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).format(d);
 }
 
@@ -138,7 +151,9 @@ function DrawerContent({
   const tags = parseTags(row.tags);
   const country = s(row.country);
   const ppv = s(row.ppv_name);
-  const phone = s(row.telefons_e164);
+  const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
+  const phoneRaw = s(row.telefons_raw) || s(row.phone_raw);
+  const phone = phoneE164 || phoneRaw;
   const email = s(row.email_normalized);
 
   const isHumanPrimary = b(row.visible_action_is_human);
@@ -149,6 +164,17 @@ function DrawerContent({
   const hasSis = b(row.has_background_system_action);
   const sisLabel = s(row.system_action_label);
   const sisDue = s(row.system_due_date);
+
+  // Pārskata lauki (fallback caur dažādiem nosaukumiem)
+  const createdAt = s(row.lead_created_at) || s(row.created_at);
+  const rating = s(row.rating) || s(row.reitings);
+  const source = s(row.source);
+  const sourceDetailed = s(row.source_detailed);
+  const owner = s(row.owner) || s(row.owner_name);
+  const lastContact = s(row.last_contact_date) || s(row.last_contact_at);
+  const nextActionLabel = s(row.next_action);
+  const nextDue = s(row.next_action_due_date) || s(row.due_date);
+  const cancelReason = s(row.cancellation_reason) || s(row.cancel_reason);
 
   return (
     <div className="flex h-full flex-col">
@@ -170,10 +196,28 @@ function DrawerContent({
             </span>
           )}
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {country && <span><span className="text-muted-foreground/70">Valsts: </span>{country}</span>}
-          {ppv && <span><span className="text-muted-foreground/70">PPV: </span>{ppv}</span>}
-        </div>
+        {(country || ppv) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {country && (
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+              >
+                <Globe2 className="h-3.5 w-3.5 text-primary" />
+                {country}
+              </Badge>
+            )}
+            {ppv && (
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
+              >
+                <User className="h-3.5 w-3.5 text-primary" />
+                {ppv}
+              </Badge>
+            )}
+          </div>
+        )}
         {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {tags.map((t) => (
@@ -290,14 +334,30 @@ function DrawerContent({
             <TabsTrigger value="projekts">Projekts</TabsTrigger>
             <TabsTrigger value="vesture">Vēsture</TabsTrigger>
           </TabsList>
-          <TabsContent value="parskats" className="mt-3 text-sm text-muted-foreground">
-            Pārskata saturs tiks pievienots.
+          <TabsContent value="parskats" className="mt-3">
+            <OverviewGrid
+              items={[
+                { label: "Izveidots", value: createdAt ? fmtDateTime(createdAt) : "" },
+                { label: "Statuss", value: status },
+                { label: "Reitings", value: rating },
+                { label: "Avots", value: source },
+                { label: "Detalizēts avots", value: sourceDetailed },
+                { label: "Atbildīgais", value: owner },
+                { label: "Pēdējais kontakts", value: lastContact ? fmtDateTime(lastContact) : "" },
+                { label: "Nākamā darbība", value: nextActionLabel || visibleAction },
+                { label: "Termiņš", value: nextDue ? fmtDate(nextDue) : visibleDue ? fmtDateTime(visibleDue) : "" },
+                { label: "Atcelšanas iemesls", value: cancelReason },
+              ]}
+              tags={tags}
+            />
           </TabsContent>
           <TabsContent value="komunikacija" className="mt-3">
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
-          <TabsContent value="projekts" className="mt-3 text-sm text-muted-foreground">
-            Projekta saturs tiks pievienots.
+          <TabsContent value="projekts" className="mt-3">
+            <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+              Projektu dati vēl nav pievienoti.
+            </div>
           </TabsContent>
           <TabsContent value="vesture" className="mt-3">
             <LeadActionHistory leadId={s(row.lead_id) || leadId} />
@@ -342,5 +402,55 @@ function QuickBtn({
       {icon}
       {label}
     </Button>
+  );
+}
+
+function OverviewGrid({
+  items,
+  tags,
+}: {
+  items: { label: string; value: string }[];
+  tags: string[];
+}) {
+  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
+  if (visible.length === 0 && tags.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+        Nav pārskata datu.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        {visible.map((i) => (
+          <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+              {i.label}
+            </dt>
+            <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
+              {i.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {tags.length > 0 && (
+        <div>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+            Tagi
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
