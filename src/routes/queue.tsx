@@ -339,21 +339,9 @@ function QueuePage() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Meklēt..."
-          className="h-7 w-full text-xs sm:w-48"
+          placeholder="Meklēt leadu vai objektu..."
+          className="h-7 w-full text-xs sm:w-72"
         />
-        <FilterPill label="Prioritāte" value={priority} onChange={setPriority}
-          options={[{v:"Augsta",l:"Augsta"},{v:"Normāla",l:"Normāla"},{v:"Zema",l:"Zema"}]} />
-        <FilterPill label="Atbildīgais" value={owner} onChange={setOwner}
-          options={owners.map((o)=>({v:o,l:o}))} />
-        <FilterPill label="Workflow" value={workflow} onChange={setWorkflow}
-          options={workflows.map((o)=>({v:o,l:o}))} />
-        <FilterPill label="Valsts" value={country} onChange={setCountry}
-          options={countries.map((o)=>({v:o,l:o}))} />
-        <FilterPill label="PPV" value={ppv} onChange={setPpv}
-          options={ppvs.map((o)=>({v:o,l:o}))} />
-        <FilterPill label="Tagi" value={tag} onChange={setTag}
-          options={allTags.map((o)=>({v:o,l:o}))} />
       </div>
 
       {view.isLoading ? (
@@ -366,11 +354,10 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead>
-              <tr className="sticky top-0 z-20 border-b border-border/70 bg-muted/90 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-                <HeadCell className="w-[96px]">Prioritāte</HeadCell>
-                <HeadCell className="w-[52px] text-right">Score</HeadCell>
-                <HeadCell className="w-[110px]">Termiņš</HeadCell>
+            <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
+              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
+                <HeadCell className="w-[110px]">Prioritāte</HeadCell>
+                <HeadCell className="w-[100px]">Termiņš</HeadCell>
                 <HeadCell className="w-[64px]">Atbild.</HeadCell>
                 <HeadCell>Darbība</HeadCell>
                 <HeadCell className="min-w-[220px]">Lead</HeadCell>
@@ -379,6 +366,37 @@ function QueuePage() {
                 <HeadCell className="w-[120px]">Tagi</HeadCell>
                 <HeadCell className="text-muted-foreground/70">Workflow</HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
+              </tr>
+              <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                <FilterCell>
+                  <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
+                    <SelectItem value="all">Visi</SelectItem>
+                    <SelectItem value="Augsta">Augsta</SelectItem>
+                    <SelectItem value="Normāla">Normāla</SelectItem>
+                    <SelectItem value="Zema">Zema</SelectItem>
+                  </HeaderSelect>
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={workflow} onChange={setWorkflow} options={workflows} />
+                </FilterCell>
+                <FilterCell />
               </tr>
             </thead>
             <TableBody>
@@ -397,20 +415,24 @@ function QueuePage() {
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-2.5">
-                      <PriorityBadge label={pLabel} />
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-1.5">
+                        <PriorityBadge label={pLabel} />
+                        {score > 0 && (
+                          <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                            {score}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-2.5 text-right tabular-nums text-muted-foreground">
-                      {score > 0 ? <span className="font-semibold text-foreground/80">{score}</span> : "—"}
-                    </TableCell>
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-3">
                       <DueCell value={r.due_at} />
                     </TableCell>
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-2.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-2.5 align-top">
+                    <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-3 align-top">
                       {leadId ? (
                         <button
                           className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
@@ -427,13 +449,13 @@ function QueuePage() {
                         <span className="line-clamp-2 max-w-[280px]">{s(r.full_name) || "—"}</span>
                       )}
                     </TableCell>
-                    <TableCell className="py-2.5 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-2.5 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-2.5 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-2.5 text-right">
+                    <TableCell className="py-3 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-3 text-right">
                       <Button
                         size="sm"
                         variant="outline"
