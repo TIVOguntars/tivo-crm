@@ -4,10 +4,6 @@ import { LogoutButton } from "@/components/AuthGate";
 import tivoLogo from "@/assets/tivo-logo.png";
 
 const items = [
-  { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
-  { to: "/funnel", label: "Funnel", icon: Filter, exact: false },
-  { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false },
-  { to: "/darba-rinda", label: "Leadi", icon: Users, exact: false },
   { to: "/queue", label: "Darba rinda", icon: ListChecks, exact: false },
 ] as const;
 
