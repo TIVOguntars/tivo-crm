@@ -345,7 +345,8 @@ function detectTransferEncoding(headers: string, body: string): "quoted-printabl
   if (encoding.includes("quoted-printable")) return "quoted-printable";
   if (encoding.includes("base64")) return "base64";
   if (/=[0-9A-F]{2}/i.test(body) || /=\r?\n/.test(body)) return "quoted-printable";
-  if (body.replace(/\s+/g, "").length > 80 && /^[A-Za-z0-9+/\s]+={0,2}$/.test(body.trim())) return "base64";
+  const compact = body.trim().replace(/\r?\n/g, "");
+  if (compact.length > 80 && compact.length % 4 !== 1 && !/[\t ]/.test(body.trim()) && /^[A-Za-z0-9+/]+={0,2}$/.test(compact)) return "base64";
   return "";
 }
 
