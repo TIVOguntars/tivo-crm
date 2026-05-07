@@ -229,3 +229,187 @@ function Stat({
     </span>
   );
 }
+
+/* ---------------------- Communication Viewer Modal ---------------------- */
+
+function getAttachments(comm: Row | null): string[] {
+  if (!comm) return [];
+  const meta = (comm.metadata ?? null) as Record<string, unknown> | null;
+  if (!meta) return [];
+  let raw: unknown =
+    meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames ?? null;
+  if (typeof raw === "string") {
+    const str = raw;
+    try { raw = JSON.parse(str); } catch { return [str]; }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (a && typeof a === "object") {
+        const o = a as Record<string, unknown>;
+        return String(o.filename ?? o.name ?? o.file ?? "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function CommunicationViewerModal({
+  communicationId,
+  onClose,
+}: {
+  communicationId: string | null;
+  onClose: () => void;
+}) {
+  const open = !!communicationId;
+
+  const commQ = useQuery({
+    queryKey: ["communication", communicationId],
+    queryFn: () =>
+      fetchPublicTable({
+        data: {
+          table: "communications",
+          query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,direction,channel,subject,from_address,mailbox,to_address,current_status,sent_at,received_at,created_at,text_body,html_body,metadata&limit=1`,
+        },
+      }),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const eventsQ = useQuery({
+    queryKey: ["communication-events", communicationId],
+    queryFn: () =>
+      fetchPublicTable({
+        data: {
+          table: "communication_events",
+          query: `communication_id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,event_type,event_timestamp&order=event_timestamp.asc&limit=100`,
+        },
+      }),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const comm = ((commQ.data?.rows ?? [])[0] ?? null) as Row | null;
+  const events = (eventsQ.data?.rows ?? []) as Row[];
+
+  const subject = s(comm?.subject) || "(bez temata)";
+  const fromAddress = s(comm?.from_address);
+  const toAddress = (() => {
+    const t = comm?.to_address;
+    if (Array.isArray(t)) return t.join(", ");
+    return s(t) || s(comm?.mailbox);
+  })();
+  const dateStr = fmtDateTime(comm?.sent_at ?? comm?.received_at ?? comm?.created_at);
+  const html = s(comm?.html_body);
+  const text = s(comm?.text_body);
+  const status = s(comm?.current_status);
+  const attachments = getAttachments(comm);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-hidden p-0 sm:rounded-lg">
+        <DialogHeader className="space-y-2 border-b border-border bg-muted/30 px-5 py-4">
+          <DialogTitle className="pr-8 text-base font-semibold">
+            {commQ.isLoading ? "Ielādē…" : subject}
+          </DialogTitle>
+          {!commQ.isLoading && comm && (
+            <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {fromAddress && (
+                <>
+                  <dt className="uppercase tracking-wide">No</dt>
+                  <dd className="truncate font-medium text-foreground">{fromAddress}</dd>
+                </>
+              )}
+              {toAddress && (
+                <>
+                  <dt className="uppercase tracking-wide">Saņēmējs</dt>
+                  <dd className="truncate font-medium text-foreground">{toAddress}</dd>
+                </>
+              )}
+              <dt className="uppercase tracking-wide">Datums</dt>
+              <dd className="font-medium text-foreground tabular-nums">{dateStr}</dd>
+              {status && (
+                <>
+                  <dt className="uppercase tracking-wide">Statuss</dt>
+                  <dd className="font-medium text-foreground">{status}</dd>
+                </>
+              )}
+            </dl>
+          )}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+              {attachments.map((a, i) => (
+                <Badge key={i} variant="secondary" className="text-[11px] font-normal">
+                  {a}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </DialogHeader>
+
+        <div className="max-h-[55vh] overflow-y-auto px-5 py-4">
+          {commQ.isLoading ? (
+            <LoadingState />
+          ) : commQ.data?.error ? (
+            <ErrorState message={commQ.data.error} />
+          ) : !comm ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+              Ziņa nav atrasta.
+            </div>
+          ) : html ? (
+            <div
+              className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground [&_a]:text-primary [&_img]:max-w-full"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          ) : text ? (
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+              {text}
+            </pre>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+              Šai ziņai nav satura.
+            </div>
+          )}
+
+          {events.length > 0 && (
+            <div className="mt-5 border-t border-border pt-3">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Notikumi ({events.length})
+              </div>
+              <ul className="space-y-1 text-xs">
+                {events.map((e, i) => (
+                  <li
+                    key={s(e.id) || i}
+                    className="flex items-center justify-between gap-3 border-b border-border/60 py-1 last:border-0"
+                  >
+                    <span className="font-medium text-foreground">{s(e.event_type)}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {fmtDateTime(e.event_timestamp)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-row items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
+          <Button size="sm" variant="outline" disabled title="Drīzumā">
+            <Forward className="h-3.5 w-3.5" />
+            Pārsūtīt
+          </Button>
+          <Button size="sm" variant="default" disabled title="Drīzumā">
+            <Reply className="h-3.5 w-3.5" />
+            Atbildēt
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
+            Aizvērt
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
