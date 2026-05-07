@@ -94,7 +94,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { pathname } = useLocation();
-  const hideFilters = pathname.startsWith("/lead/");
+  const hideFilters = pathname.startsWith("/lead/") || pathname === "/queue";
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background text-foreground">

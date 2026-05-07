@@ -237,7 +237,7 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue_ui", undefined, { all: true });
+  const view = useCrmView("next_action_queue_display", undefined, { all: true });
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");
@@ -274,6 +274,10 @@ function QueuePage() {
   );
   const owners = useMemo(
     () => uniq(rows.map((r) => s(r.action_owner_label))),
+    [rows],
+  );
+  const priorities = useMemo(
+    () => uniq(rows.map((r) => s(r.priority_label))),
     [rows],
   );
   const countries = useMemo(
@@ -332,8 +336,11 @@ function QueuePage() {
       const order: Record<string, number> = {
         overdue: 0,
         today: 1,
+        tomorrow: 2,
         next_24h: 2,
-        upcoming: 3,
+        this_week: 3,
+        upcoming: 4,
+        planned: 5,
       };
       const aB = order[s(a.queue_bucket)] ?? 99;
       const bB = order[s(b.queue_bucket)] ?? 99;
@@ -350,7 +357,10 @@ function QueuePage() {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
     for (const r of rows) {
       const b = s(r.queue_bucket);
-      if (b in c) (c as Record<string, number>)[b]++;
+      if (b === "overdue") c.overdue++;
+      else if (b === "today") c.today++;
+      else if (b === "tomorrow" || b === "next_24h") c.next_24h++;
+      else if (b === "this_week" || b === "upcoming" || b === "planned") c.upcoming++;
     }
     return c;
   }, [rows]);
@@ -424,12 +434,7 @@ function QueuePage() {
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
-                  <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
-                    <SelectItem value="all">Visi</SelectItem>
-                    <SelectItem value="Augsta">Augsta</SelectItem>
-                    <SelectItem value="Normāla">Normāla</SelectItem>
-                    <SelectItem value="Zema">Zema</SelectItem>
-                  </HeaderSelect>
+                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell />
                 <FilterCell>
@@ -463,7 +468,7 @@ function QueuePage() {
                 const score = n(r.lead_priority_score) || n(r.priority_score);
                 return (
                   <TableRow
-                    key={s(r.queue_id) || s(r.next_action_id) || i}
+                    key={s(r.id) || s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
                       "text-xs",
                       isHigh &&
