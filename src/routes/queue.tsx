@@ -462,9 +462,9 @@ function QueuePage() {
         description="Nākamās darbības ar leadiem"
       />
 
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <div className="mb-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {dueChips.map((c) => (
-          <FilterChip
+          <FilterCard
             key={c.key}
             label={c.label}
             count={dueCounts.get(c.key) ?? 0}
@@ -473,28 +473,29 @@ function QueuePage() {
           />
         ))}
       </div>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {priorityChips.map((c) => (
-          <FilterChip
-            key={`p-${c.label}`}
-            label={c.label}
-            count={priorityCounts.get(c.label) ?? 0}
-            active={priority === c.label}
-            onClick={() => setPriority(priority === c.label ? "all" : c.label)}
-          />
-        ))}
-        {priorityChips.length > 0 && leadStatusChips.length > 0 && (
-          <span className="mx-1 h-6 w-px self-center bg-border" />
-        )}
-        {leadStatusChips.map((c) => (
-          <FilterChip
-            key={`s-${c.label}`}
-            label={c.label}
-            count={leadStatusCounts.get(c.label) ?? 0}
-            active={leadStatus === c.label}
-            onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
-          />
-        ))}
+      <div className="mb-3 grid w-full grid-cols-1 gap-2 lg:grid-cols-7">
+        <div className="grid grid-cols-3 gap-2 lg:col-span-3 lg:border-r lg:border-border lg:pr-2">
+          {priorityChips.map((c) => (
+            <FilterCard
+              key={`p-${c.label}`}
+              label={c.label}
+              count={priorityCounts.get(c.label) ?? 0}
+              active={priority === c.label}
+              onClick={() => setPriority(priority === c.label ? "all" : c.label)}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-4">
+          {leadStatusChips.map((c) => (
+            <FilterCard
+              key={`s-${c.label}`}
+              label={c.label}
+              count={leadStatusCounts.get(c.label) ?? 0}
+              active={leadStatus === c.label}
+              onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -712,6 +713,49 @@ function FilterChip({
         className={cn(
           "rounded px-1 text-[10px] tabular-nums",
           active ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function FilterCard({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "group relative flex h-[68px] w-full flex-col justify-between rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors",
+        active
+          ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30"
+          : "border-border hover:bg-muted/60",
+      )}
+    >
+      <span
+        className={cn(
+          "line-clamp-2 text-[11px] font-medium uppercase tracking-wide",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "self-end text-2xl font-semibold tabular-nums leading-none",
+          active ? "text-primary" : "text-foreground",
         )}
       >
         {count}
