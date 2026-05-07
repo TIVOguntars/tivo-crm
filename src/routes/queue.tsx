@@ -125,6 +125,49 @@ function PriorityBadge({ label }: { label: string }) {
   );
 }
 
+function PriorityCell({ label, score }: { label: string; score: number }) {
+  if (!label && !score) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <PriorityBadge label={label} />
+      {score > 0 && (
+        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+          {score}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function parseTags(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((t) => String(t).trim().toLowerCase())
+      .filter(Boolean);
+  }
+  return String(value)
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function TagsCell({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <span
+          key={t}
+          className="inline-flex h-4 items-center rounded-sm bg-muted px-1 text-[10px] font-normal lowercase text-muted-foreground"
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function OwnerBadge({ value }: { value: string }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   const isSystem = value === "SIS";
@@ -195,6 +238,7 @@ function QueuePage() {
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [ppv, setPpv] = useState<string>("all");
+  const [tag, setTag] = useState<string>("all");
   const [q, setQ] = useState<string>("");
 
   const actionTypes = useMemo(
@@ -221,6 +265,11 @@ function QueuePage() {
     () => uniq(rows.map((r) => s(r.ppv_name))),
     [rows],
   );
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) for (const t of parseTags(r.tags)) set.add(t);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -234,6 +283,10 @@ function QueuePage() {
       if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
       if (country !== "all" && s(r.country) !== country) return false;
       if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
+      if (tag !== "all") {
+        const tags = parseTags(r.tags);
+        if (!tags.includes(tag)) return false;
+      }
       if (qq) {
         const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
         if (!hay.includes(qq)) return false;
@@ -259,7 +312,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, tag, q]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
@@ -305,20 +358,21 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-[backdrop-filter]:bg-muted/70 [&_tr]:border-b-2 [&_tr]:border-border">
-              <tr>
-                <HeadCell className="w-[110px]">Prioritāte</HeadCell>
+            <thead className="[&_tr]:bg-muted/90 supports-[backdrop-filter]:[&_tr]:bg-muted/80">
+              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur">
+                <HeadCell className="w-[130px]">Prioritāte</HeadCell>
                 <HeadCell className="w-[140px]">Termiņš</HeadCell>
                 <HeadCell className="w-[110px]">Atbildīgais</HeadCell>
                 <HeadCell>Darbība</HeadCell>
                 <HeadCell>Lead</HeadCell>
-                <HeadCell>PPV</HeadCell>
-                <HeadCell className="w-[80px]">Valsts</HeadCell>
-                <HeadCell>Workflow</HeadCell>
+                <HeadCell className="w-[180px]">Tagi</HeadCell>
+                <HeadCell className="text-muted-foreground/70">PPV</HeadCell>
+                <HeadCell className="w-[80px] text-muted-foreground/70">Valsts</HeadCell>
+                <HeadCell className="text-muted-foreground/70">Workflow</HeadCell>
                 <HeadCell className="w-[130px]">Statuss</HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="border-b border-border bg-muted/40">
+              <tr className="sticky top-8 z-20 border-b-2 border-border !bg-background/80 backdrop-blur">
                 <FilterCell>
                   <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
                     <SelectItem value="all">Visi</SelectItem>
@@ -335,6 +389,9 @@ function QueuePage() {
                   <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
                 </FilterCell>
                 <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
+                </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
@@ -361,26 +418,30 @@ function QueuePage() {
                 const leadId = s(r.lead_id);
                 const pLabel = s(r.priority_label);
                 const isHigh = pLabel === "Augsta";
+                const tags = parseTags(r.tags);
                 return (
                   <TableRow
                     key={s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
-                      "h-7 text-xs",
+                      "text-xs",
                       isHigh &&
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-0.5">
-                      <PriorityBadge label={pLabel} />
+                    <TableCell className="py-2">
+                      <PriorityCell
+                        label={pLabel}
+                        score={n(r.lead_priority_score) || n(r.priority_score)}
+                      />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap py-0.5 font-semibold">
+                    <TableCell className="whitespace-nowrap py-2 font-semibold">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-0.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-2">
                       {leadId ? (
                         <button
                           className="text-primary/90 hover:underline"
@@ -397,16 +458,19 @@ function QueuePage() {
                         s(r.full_name) || "—"
                       )}
                     </TableCell>
-                    <TableCell className="py-0.5">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-0.5">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-0.5">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-0.5">
+                    <TableCell className="py-2">
+                      <TagsCell tags={tags} />
+                    </TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-2">
                       <QueueBucketBadge
                         bucket={s(r.queue_bucket)}
                         label={s(r.queue_bucket_label) || s(r.queue_status)}
                       />
                     </TableCell>
-                    <TableCell className="py-0.5 text-right">
+                    <TableCell className="py-2 text-right">
                       <Button
                         size="sm"
                         variant="outline"
