@@ -165,16 +165,8 @@ function DrawerContent({
   const sisLabel = s(row.system_action_label);
   const sisDue = s(row.system_due_date);
 
-  // Pārskata lauki (fallback caur dažādiem nosaukumiem)
   const createdAt = s(row.lead_created_at) || s(row.created_at);
-  const rating = s(row.rating) || s(row.reitings);
   const source = s(row.source);
-  const sourceDetailed = s(row.source_detailed);
-  const owner = s(row.owner) || s(row.owner_name);
-  const lastContact = s(row.last_contact_date) || s(row.last_contact_at);
-  const nextActionLabel = s(row.next_action);
-  const nextDue = s(row.next_action_due_date) || s(row.due_date);
-  const cancelReason = s(row.cancellation_reason) || s(row.cancel_reason);
 
   return (
     <div className="flex h-full flex-col">
