@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { LeadCommunicationTimeline } from "@/components/LeadCommunicationTimeline";
 import { LeadActionHistory } from "@/components/LeadActionHistory";
+import { LeadProjects } from "@/components/LeadProjects";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { useState } from "react";
 
@@ -361,23 +362,7 @@ function DrawerContent({
             <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
           <TabsContent value="projekts" className="mt-3">
-            <ProjectPanel
-              objekts={
-                s(row.objekts) ||
-                s(row.object) ||
-                s(row.project) ||
-                s(row.projekts) ||
-                s(row.object_name)
-              }
-              items={[
-                { label: "Objekts", value: s(row.objekts) || s(row.object) || s(row.project) || s(row.projekts) || s(row.object_name) },
-                { label: "Valsts", value: country },
-                { label: "Avots", value: source },
-                { label: "Statuss", value: status },
-                { label: "PPV", value: ppv },
-              ]}
-              tags={tags}
-            />
+            <LeadProjects leadId={s(row.lead_id) || leadId} />
           </TabsContent>
           <TabsContent value="vesture" className="mt-3">
             <LeadActionHistory leadId={s(row.lead_id) || leadId} />
