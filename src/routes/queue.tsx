@@ -504,30 +504,3 @@ function HeaderOptionsSelect({
   );
 }
 
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">{label}: visi</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
