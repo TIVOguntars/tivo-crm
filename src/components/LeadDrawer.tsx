@@ -404,3 +404,53 @@ function QuickBtn({
     </Button>
   );
 }
+
+function OverviewGrid({
+  items,
+  tags,
+}: {
+  items: { label: string; value: string }[];
+  tags: string[];
+}) {
+  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
+  if (visible.length === 0 && tags.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+        Nav pārskata datu.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        {visible.map((i) => (
+          <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+              {i.label}
+            </dt>
+            <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
+              {i.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {tags.length > 0 && (
+        <div>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+            Tagi
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
