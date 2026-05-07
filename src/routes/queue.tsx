@@ -237,7 +237,7 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  const view = useCrmView("next_action_queue_display_enriched", undefined, { all: true });
+  const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
   const rows = (view.data?.rows ?? []) as Row[];
 
   const statusOptionsView = useCrmView(
@@ -267,7 +267,7 @@ function QueuePage() {
   }, [statusOptionsView.data]);
 
   const [actionType, setActionType] = useState<string>("all");
-  const [bucket, setBucket] = useState<string>("all");
+  const [dueFilter, setDueFilter] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
@@ -315,27 +315,38 @@ function QueuePage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
   }, [rows]);
 
-  const filtered = useMemo(() => {
+  const matchRow = (
+    r: Row,
+    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean } = {},
+  ): boolean => {
     const qq = q.trim().toLowerCase();
-    const list = rows.filter((r) => {
-      if (actionType !== "all" && s(r.action_label) !== actionType) return false;
-      if (bucket !== "all" && s(r.queue_bucket) !== bucket) return false;
-      if (leadStatus !== "all" && s(r.lead_status_label) !== leadStatus)
-        return false;
-      if (priority !== "all" && s(r.priority_label) !== priority) return false;
-      if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
-      if (country !== "all" && s(r.country) !== country) return false;
-      if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
-      if (tag !== "all") {
-        const tags = parseTags(r.tags);
-        if (!tags.includes(tag)) return false;
-      }
-      if (qq) {
-        const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
-        if (!hay.includes(qq)) return false;
-      }
-      return true;
-    });
+    if (actionType !== "all" && s(r.action_label) !== actionType) return false;
+    if (!skip.due && dueFilter !== "all" && s(r.due_filter_key) !== dueFilter)
+      return false;
+    if (
+      !skip.leadStatus &&
+      leadStatus !== "all" &&
+      s(r.lead_status_label) !== leadStatus
+    )
+      return false;
+    if (!skip.priority && priority !== "all" && s(r.priority_label) !== priority)
+      return false;
+    if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
+    if (country !== "all" && s(r.country) !== country) return false;
+    if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
+    if (tag !== "all") {
+      const tags = parseTags(r.tags);
+      if (!tags.includes(tag)) return false;
+    }
+    if (qq) {
+      const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
+      if (!hay.includes(qq)) return false;
+    }
+    return true;
+  };
+
+  const filtered = useMemo(() => {
+    const list = rows.filter((r) => matchRow(r));
     list.sort((a, b) => {
       if (sort) {
         const dir = sort.dir === "asc" ? 1 : -1;
@@ -373,19 +384,76 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, bucket, leadStatus, priority, owner, country, ppv, tag, q, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tag, q, sort]);
 
-  const kpis = useMemo(() => {
-    const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
+  // Derive chip definitions from data
+  const dueChips = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; sort: number }>();
     for (const r of rows) {
-      const b = s(r.queue_bucket);
-      if (b === "overdue") c.overdue++;
-      else if (b === "today") c.today++;
-      else if (b === "tomorrow" || b === "next_24h") c.next_24h++;
-      else if (b === "this_week" || b === "upcoming" || b === "planned") c.upcoming++;
+      const k = s(r.due_filter_key);
+      if (!k) continue;
+      if (!map.has(k))
+        map.set(k, { key: k, label: s(r.due_filter_label) || k, sort: n(r.due_filter_sort) });
+    }
+    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
+  }, [rows]);
+
+  const priorityChips = useMemo(() => {
+    const allow = ["Augsta", "Normāla", "Zema"];
+    const map = new Map<string, { label: string; sort: number }>();
+    for (const r of rows) {
+      const l = s(r.priority_label);
+      if (!allow.includes(l)) continue;
+      if (!map.has(l)) map.set(l, { label: l, sort: n(r.priority_filter_sort) });
+    }
+    for (const l of allow) if (!map.has(l)) map.set(l, { label: l, sort: 99 });
+    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
+  }, [rows]);
+
+  const leadStatusChips = useMemo(() => {
+    const exclude = new Set(["Nekvalificējas"]);
+    const map = new Map<string, { label: string; sort: number }>();
+    for (const r of rows) {
+      if (r.show_in_status_quick_filter === false) continue;
+      const l = s(r.lead_status_label);
+      if (!l || exclude.has(l)) continue;
+      if (!map.has(l)) map.set(l, { label: l, sort: n(r.lead_status_sort) });
+    }
+    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
+  }, [rows]);
+
+  const dueCounts = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const r of rows) {
+      if (!matchRow(r, { due: true })) continue;
+      const k = s(r.due_filter_key);
+      if (!k) continue;
+      c.set(k, (c.get(k) ?? 0) + 1);
     }
     return c;
-  }, [rows]);
+  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tag, q]);
+
+  const priorityCounts = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const r of rows) {
+      if (!matchRow(r, { priority: true })) continue;
+      const l = s(r.priority_label);
+      if (!l) continue;
+      c.set(l, (c.get(l) ?? 0) + 1);
+    }
+    return c;
+  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tag, q]);
+
+  const leadStatusCounts = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const r of rows) {
+      if (!matchRow(r, { leadStatus: true })) continue;
+      const l = s(r.lead_status_label);
+      if (!l) continue;
+      c.set(l, (c.get(l) ?? 0) + 1);
+    }
+    return c;
+  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tag, q]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -394,11 +462,39 @@ function QueuePage() {
         description="Nākamās darbības ar leadiem"
       />
 
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <MiniKpi label="Kavēti" value={kpis.overdue} tone="red" />
-        <MiniKpi label="Šodien" value={kpis.today} tone="amber" />
-        <MiniKpi label="Nākamās 24h" value={kpis.next_24h} tone="blue" />
-        <MiniKpi label="Plānots" value={kpis.upcoming} tone="neutral" />
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {dueChips.map((c) => (
+          <FilterChip
+            key={c.key}
+            label={c.label}
+            count={dueCounts.get(c.key) ?? 0}
+            active={dueFilter === c.key}
+            onClick={() => setDueFilter(dueFilter === c.key ? "all" : c.key)}
+          />
+        ))}
+      </div>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {priorityChips.map((c) => (
+          <FilterChip
+            key={`p-${c.label}`}
+            label={c.label}
+            count={priorityCounts.get(c.label) ?? 0}
+            active={priority === c.label}
+            onClick={() => setPriority(priority === c.label ? "all" : c.label)}
+          />
+        ))}
+        {priorityChips.length > 0 && leadStatusChips.length > 0 && (
+          <span className="mx-1 h-6 w-px self-center bg-border" />
+        )}
+        {leadStatusChips.map((c) => (
+          <FilterChip
+            key={`s-${c.label}`}
+            label={c.label}
+            count={leadStatusCounts.get(c.label) ?? 0}
+            active={leadStatus === c.label}
+            onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
+          />
+        ))}
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -586,6 +682,42 @@ function HeadCell({
 
 function FilterCell({ children }: { children?: React.ReactNode }) {
   return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors",
+        active
+          ? "border-primary/50 bg-primary/10 text-foreground"
+          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <span>{label}</span>
+      <span
+        className={cn(
+          "rounded px-1 text-[10px] tabular-nums",
+          active ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
 }
 
 type SortKey =
