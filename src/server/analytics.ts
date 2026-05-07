@@ -362,3 +362,53 @@ export const fetchCrmView = createServerFn({ method: "GET" })
       return { rows: [] as AnalyticsRow[], error: message };
     }
   });
+
+const CRM_RPCS = ["complete_human_action"] as const;
+export type CrmRpc = (typeof CRM_RPCS)[number];
+
+async function callCrmRpcRaw(
+  fn: CrmRpc,
+  body: Record<string, unknown>,
+): Promise<AnalyticsRow[]> {
+  const { url, key } = getEnv();
+  const endpoint = `${url}/rest/v1/rpc/${fn}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Accept-Profile": "crm",
+      "Content-Profile": "crm",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Neizdevās izsaukt crm.${fn} (${res.status}): ${text.slice(0, 300)}`,
+    );
+  }
+  const json = await res.json().catch(() => null);
+  if (json == null) return [];
+  return Array.isArray(json) ? (json as AnalyticsRow[]) : [json as AnalyticsRow];
+}
+
+export const callCrmRpc = createServerFn({ method: "POST" })
+  .inputValidator((input: { fn: CrmRpc; params: Record<string, unknown> }) => {
+    if (!CRM_RPCS.includes(input.fn)) {
+      throw new Error(`Nezināma crm RPC funkcija: ${input.fn}`);
+    }
+    return { fn: input.fn, params: input.params ?? {} };
+  })
+  .handler(async ({ data }) => {
+    try {
+      const rows = await callCrmRpcRaw(data.fn, data.params);
+      return { rows, error: null as string | null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Nezināma kļūda";
+      console.error("[crm rpc]", message);
+      return { rows: [] as AnalyticsRow[], error: message };
+    }
+  });
