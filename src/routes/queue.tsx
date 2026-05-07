@@ -13,6 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
@@ -273,7 +282,7 @@ function QueuePage() {
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [ppv, setPpv] = useState<string>("all");
-  const [tag, setTag] = useState<string>("all");
+  const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
@@ -334,9 +343,11 @@ function QueuePage() {
     if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
     if (country !== "all" && s(r.country) !== country) return false;
     if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
-    if (tag !== "all") {
-      const tags = parseTags(r.tags);
-      if (!tags.includes(tag)) return false;
+    if (tags.length > 0) {
+      const rowTags = parseTags(r.tags);
+      for (const t of tags) {
+        if (!rowTags.includes(t)) return false;
+      }
     }
     if (qq) {
       const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
@@ -384,7 +395,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tag, q, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -431,7 +442,7 @@ function QueuePage() {
       c.set(k, (c.get(k) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tag, q]);
+  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tags, q]);
 
   const priorityCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -442,7 +453,7 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tag, q]);
+  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tags, q]);
 
   const leadStatusCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -453,7 +464,7 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tag, q]);
+  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tags, q]);
 
   const hasActiveFilters =
     actionType !== "all" ||
@@ -463,7 +474,7 @@ function QueuePage() {
     owner !== "all" ||
     country !== "all" ||
     ppv !== "all" ||
-    tag !== "all" ||
+    tags.length > 0 ||
     q.trim() !== "" ||
     sort !== null;
 
@@ -475,7 +486,7 @@ function QueuePage() {
     setOwner("all");
     setCountry("all");
     setPpv("all");
-    setTag("all");
+    setTags([]);
     setQ("");
     setSort(null);
   };
