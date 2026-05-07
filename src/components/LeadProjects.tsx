@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, FileText, Calendar, Send, FileSignature, XCircle, PauseCircle, CheckCircle2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { fetchCrmView } from "@/server/analytics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,18 +7,15 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 
 type Row = Record<string, unknown>;
 
+const DASH = "—";
+
 function s(v: unknown): string {
   if (v == null) return "";
   return String(v);
 }
-function b(v: unknown): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") return v === "true" || v === "t" || v === "1";
-  return !!v;
-}
 function fmtDate(value: unknown): string {
   const str = s(value);
-  if (!str) return "Nav";
+  if (!str) return DASH;
   const d = new Date(str);
   if (Number.isNaN(d.getTime())) return str;
   return new Intl.DateTimeFormat("lv-LV", {
@@ -30,7 +27,7 @@ function fmtDate(value: unknown): string {
 }
 function or(v: unknown): string {
   const x = s(v).trim();
-  return x || "Nav";
+  return x || DASH;
 }
 function asArray(v: unknown): Row[] {
   if (Array.isArray(v)) return v as Row[];
@@ -43,6 +40,27 @@ function asArray(v: unknown): Row[] {
     }
   }
   return [];
+}
+
+const REAL_STATES = new Set([
+  "Pieprasījums",
+  "Piedāvājums",
+  "Līgums",
+  "Atcelts",
+  "Atlikts",
+  "Pabeigts",
+]);
+
+function deriveStatus(row: Row, offers: Row[], contracts: Row[]): string {
+  if (s(row.completed_at)) return "Pabeigts";
+  if (s(row.cancelled_at)) return "Atcelts";
+  if (s(row.postponed_at)) return "Atlikts";
+  if (contracts.length > 0) return "Līgums";
+  if (offers.length > 0) return "Piedāvājums";
+  if (s(row.request_at)) return "Pieprasījums";
+  const sales = s(row.sales_status);
+  if (sales && REAL_STATES.has(sales)) return sales;
+  return "";
 }
 
 export function LeadProjects({ leadId }: { leadId: string | null }) {
@@ -66,9 +84,9 @@ export function LeadProjects({ leadId }: { leadId: string | null }) {
   const rows = (q.data?.rows ?? []) as Row[];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {rows.length === 0 ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+        <div className="flex h-24 items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-4 text-center text-xs text-muted-foreground">
           Projekta informācija vēl nav pievienota.
         </div>
       ) : (
@@ -78,175 +96,124 @@ export function LeadProjects({ leadId }: { leadId: string | null }) {
       <Button
         variant="outline"
         size="sm"
-        className="w-full justify-center gap-1.5"
+        className="h-8 w-full justify-center gap-1.5 text-xs"
         disabled
         title="Objekta pievienošana būs nākamais solis"
       >
         <Plus className="h-3.5 w-3.5" />
         Pievienot objektu
       </Button>
-      <p className="text-center text-[11px] text-muted-foreground">
-        Objekta pievienošana būs nākamais solis
-      </p>
     </div>
   );
 }
 
 function ProjectCard({ row }: { row: Row }) {
-  const objectName = s(row.object_name) || "—";
+  const objectName = s(row.object_name) || DASH;
   const country = s(row.country);
-  const salesStatus = s(row.sales_status);
-  const isPrimary = b(row.is_primary_object);
   const offers = asArray(row.offers);
   const contracts = asArray(row.contracts);
+  const status = deriveStatus(row, offers, contracts);
 
   return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
+    <div className="rounded-md border border-border bg-card">
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted/30 px-4 py-2.5">
-        <div className="text-sm font-semibold text-foreground">{objectName}</div>
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
+        <div className="text-[13px] font-semibold text-foreground">{objectName}</div>
         {country && (
-          <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
+          <Badge variant="outline" className="h-4 rounded px-1 text-[10px] font-medium leading-none">
             {country}
           </Badge>
         )}
-        {salesStatus && (
-          <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
-            {salesStatus}
-          </Badge>
-        )}
-        {isPrimary && (
-          <Badge className="h-5 rounded-md bg-primary/15 px-1.5 text-[10px] font-medium text-primary border-transparent hover:bg-primary/20">
-            Primārais objekts
+        {status && (
+          <Badge variant="secondary" className="h-4 rounded px-1 text-[10px] font-medium leading-none">
+            {status}
           </Badge>
         )}
       </div>
 
-      {/* Main fields */}
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-2">
-        <Field icon={<MapPin className="h-3.5 w-3.5" />} label="Adrese" value={or(row.address)} />
-        <Field label="Zeme" value={or(row.land_status)} />
-        <Field label="Projekts" value={or(row.project_status)} />
-        <Field label="Kad grib būvēt" value={or(row.planned_building_text)} />
-        <Field label="Objekta statuss" value={or(row.sales_status)} />
-      </dl>
+      {/* Detail grid */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 px-2.5 py-2">
+        <Row label="Adrese" value={or(row.address)} />
+        <Row label="Zeme" value={or(row.land_status)} />
+        <Row label="Projekts" value={or(row.project_status)} />
+        <Row label="Kad grib būvēt" value={or(row.planned_building_text)} />
+      </div>
 
       {/* Timeline */}
-      <div className="space-y-1.5 border-t border-border/60 px-4 py-3">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Laika josla
-        </div>
-
-        <TimelineRow
-          icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Pieprasījums"
-          value={fmtDate(row.request_at)}
-        />
-
-        <TimelineGroup
-          icon={<Send className="h-3.5 w-3.5 text-muted-foreground" />}
+      <div className="border-t border-border/60 px-2.5 py-1.5 space-y-0.5">
+        <TLine label="Pieprasījums" value={fmtDate(row.request_at)} />
+        <TLineMulti
           label="Piedāvājumi"
           items={offers.map((o) => ({
-            primary: fmtDate(o.sent_at),
-            secondary: s(o.title) || s(o.offer_number) || s(o.status),
+            date: fmtDate(o.sent_at),
+            note: s(o.title) || s(o.offer_number) || s(o.status),
           }))}
         />
-
-        <TimelineGroup
-          icon={<FileSignature className="h-3.5 w-3.5 text-muted-foreground" />}
+        <TLineMulti
           label="Līgumi"
           items={contracts.map((c) => ({
-            primary: fmtDate(c.signed_at),
-            secondary: s(c.title) || s(c.contract_number) || s(c.status),
+            date: fmtDate(c.signed_at),
+            note: s(c.title) || s(c.contract_number) || s(c.status),
           }))}
         />
-
-        <TimelineRow
-          icon={<XCircle className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Atcelts"
-          value={fmtDate(row.cancelled_at)}
-        />
-        <TimelineRow
-          icon={<PauseCircle className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Atlikts"
-          value={fmtDate(row.postponed_at)}
-        />
-        <TimelineRow
-          icon={<CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />}
-          label="Pabeigts"
-          value={fmtDate(row.completed_at)}
-        />
+        <TLine label="Atcelts" value={fmtDate(row.cancelled_at)} />
+        <TLine label="Atlikts" value={fmtDate(row.postponed_at)} />
+        <TLine label="Pabeigts" value={fmtDate(row.completed_at)} />
       </div>
     </div>
   );
 }
 
-function Field({
-  icon,
-  label,
-  value,
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function Row({ label, value }: { label: string; value: string }) {
+  const muted = value === DASH;
   return (
-    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
-      <dt className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-        {icon}
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm font-medium text-foreground break-words">{value}</dd>
-    </div>
-  );
-}
-
-function TimelineRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 text-xs">
-      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-        {icon}
+    <div className="flex items-baseline gap-1.5 min-w-0 text-[12px] leading-tight">
+      <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground/80">
         {label}
       </span>
-      <span className="font-medium text-foreground tabular-nums">{value}</span>
+      <span className={`truncate font-medium ${muted ? "text-muted-foreground" : "text-foreground"}`}>
+        {value}
+      </span>
     </div>
   );
 }
 
-function TimelineGroup({
-  icon,
+function TLine({ label, value }: { label: string; value: string }) {
+  const muted = value === DASH;
+  return (
+    <div className="flex items-center justify-between gap-2 text-[11px] leading-tight">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`tabular-nums font-medium ${muted ? "text-muted-foreground" : "text-foreground"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TLineMulti({
   label,
   items,
 }: {
-  icon: React.ReactNode;
   label: string;
-  items: { primary: string; secondary?: string }[];
+  items: { date: string; note?: string }[];
 }) {
-  if (items.length === 0) {
-    return <TimelineRow icon={icon} label={label} value="Nav" />;
-  }
+  if (items.length === 0) return <TLine label={label} value={DASH} />;
   return (
-    <div className="text-xs">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {icon}
-        {label}
+    <div className="text-[11px] leading-tight">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="tabular-nums font-medium text-foreground">{items[0].date}</span>
       </div>
-      <div className="mt-1 ml-5 space-y-0.5">
-        {items.map((it, i) => (
-          <div key={i} className="flex items-center justify-between gap-2">
-            <span className="text-foreground/80 truncate">{it.secondary || "—"}</span>
-            <span className="font-medium text-foreground tabular-nums">{it.primary}</span>
-          </div>
-        ))}
-      </div>
+      {items.length > 1 && (
+        <div className="ml-2 mt-0.5 space-y-0.5">
+          {items.slice(1).map((it, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-muted-foreground">
+              <span className="truncate">{it.note || "·"}</span>
+              <span className="tabular-nums">{it.date}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
