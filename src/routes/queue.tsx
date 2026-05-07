@@ -110,7 +110,7 @@ function QueuePage() {
 
   const [actionType, setActionType] = useState<string>("all");
   const [workflow, setWorkflow] = useState<string>("all");
-  const [queueStatus, setQueueStatus] = useState<string>("all");
+  const [bucket, setBucket] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
   const [q, setQ] = useState<string>("");
 
@@ -120,10 +120,6 @@ function QueuePage() {
   );
   const workflows = useMemo(
     () => uniq(rows.map((r) => s(r.workflow_label))),
-    [rows],
-  );
-  const queueStatuses = useMemo(
-    () => uniq(rows.map((r) => s(r.queue_status))),
     [rows],
   );
   const leadStatuses = useMemo(
@@ -136,8 +132,7 @@ function QueuePage() {
     const list = rows.filter((r) => {
       if (actionType !== "all" && s(r.action_label) !== actionType) return false;
       if (workflow !== "all" && s(r.workflow_label) !== workflow) return false;
-      if (queueStatus !== "all" && s(r.queue_status) !== queueStatus)
-        return false;
+      if (bucket !== "all" && s(r.queue_bucket) !== bucket) return false;
       if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
         return false;
       if (qq) {
@@ -147,40 +142,30 @@ function QueuePage() {
       return true;
     });
     list.sort((a, b) => {
-      const aOver = s(a.queue_status).toLowerCase().includes("kavēt") ? 0 : 1;
-      const bOver = s(b.queue_status).toLowerCase().includes("kavēt") ? 0 : 1;
-      if (aOver !== bOver) return aOver - bOver;
+      const order: Record<string, number> = {
+        overdue: 0,
+        today: 1,
+        next_24h: 2,
+        upcoming: 3,
+      };
+      const aB = order[s(a.queue_bucket)] ?? 99;
+      const bB = order[s(b.queue_bucket)] ?? 99;
+      if (aB !== bB) return aB - bB;
       const aDue = a.due_at ? new Date(String(a.due_at)).getTime() : Infinity;
       const bDue = b.due_at ? new Date(String(b.due_at)).getTime() : Infinity;
       if (aDue !== bDue) return aDue - bDue;
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, queueStatus, leadStatus, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, q]);
 
   const kpis = useMemo(() => {
-    let next24h = 0;
-    let overdue = 0;
-    let today = 0;
-    let doneToday = 0;
-    const now = Date.now();
-    const in24h = now + 24 * 60 * 60 * 1000;
+    const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
     for (const r of rows) {
-      const qs = s(r.queue_status).toLowerCase();
-      const as = s(r.next_action_status).toLowerCase();
-      if (qs.includes("kavēt")) overdue++;
-      if (r.due_at) {
-        const t = new Date(String(r.due_at)).getTime();
-        if (Number.isFinite(t) && t >= now && t <= in24h) next24h++;
-      }
-      if (isToday(r.due_at)) today++;
-      if (
-        (as.includes("pabeig") || qs.includes("pabeig")) &&
-        isToday(r.completed_at ?? r.updated_at ?? r.due_at)
-      )
-        doneToday++;
+      const b = s(r.queue_bucket);
+      if (b in c) (c as Record<string, number>)[b]++;
     }
-    return { next24h, overdue, today, doneToday };
+    return c;
   }, [rows]);
 
   const hasPriority = useMemo(
@@ -196,10 +181,10 @@ function QueuePage() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Nākamās 24h" value={kpis.next24h} tone="blue" />
         <StatCard label="Kavēti" value={kpis.overdue} tone="red" />
         <StatCard label="Šodien" value={kpis.today} tone="amber" />
-        <StatCard label="Pabeigti šodien" value={kpis.doneToday} tone="neutral" />
+        <StatCard label="Nākamās 24h" value={kpis.next_24h} tone="blue" />
+        <StatCard label="Plānots" value={kpis.upcoming} tone="neutral" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -221,12 +206,18 @@ function QueuePage() {
           options={workflows}
           onChange={setWorkflow}
         />
-        <FilterSelect
-          label="Rindas statuss"
-          value={queueStatus}
-          options={queueStatuses}
-          onChange={setQueueStatus}
-        />
+        <Select value={bucket} onValueChange={setBucket}>
+          <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
+            <SelectValue placeholder="Laiks" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Laiks: visi</SelectItem>
+            <SelectItem value="overdue">Kavēti</SelectItem>
+            <SelectItem value="today">Šodien</SelectItem>
+            <SelectItem value="next_24h">Nākamās 24h</SelectItem>
+            <SelectItem value="upcoming">Plānots</SelectItem>
+          </SelectContent>
+        </Select>
         <FilterSelect
           label="Lead statuss"
           value={leadStatus}
@@ -295,7 +286,10 @@ function QueuePage() {
                     <TableCell className="py-1">{s(r.workflow_label) || "—"}</TableCell>
                     <TableCell className="py-1">{s(r.legacy_lead_status) || "—"}</TableCell>
                     <TableCell className="py-1">
-                      <QueueStatusBadge value={s(r.queue_status)} />
+                      <QueueBucketBadge
+                        bucket={s(r.queue_bucket)}
+                        label={s(r.queue_bucket_label) || s(r.queue_status)}
+                      />
                     </TableCell>
                     <TableCell className="py-1 text-right">
                       <div className="flex justify-end gap-1">
@@ -312,12 +306,6 @@ function QueuePage() {
                           }
                         >
                           Atvērt
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled>
-                          Pabeigt
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled>
-                          Izlaist
                         </Button>
                       </div>
                     </TableCell>
