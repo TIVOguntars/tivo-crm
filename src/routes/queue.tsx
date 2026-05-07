@@ -573,7 +573,7 @@ function QueuePage() {
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
-                    <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+                    <SelectTrigger className="h-6 w-full min-w-0 border-input bg-white px-1.5 text-[11px] text-slate-900 dark:bg-white dark:text-slate-900">
                       <SelectValue placeholder="Visi" />
                     </SelectTrigger>
                     <SelectContent>
@@ -599,7 +599,7 @@ function QueuePage() {
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Meklēt leadu vai objektu..."
-                      className="h-6 w-full rounded-md pl-6 pr-1.5 text-[11px]"
+                      className="h-6 w-full rounded-md border-input bg-white pl-6 pr-1.5 text-[11px] text-slate-900 placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </FilterCell>
@@ -620,7 +620,7 @@ function QueuePage() {
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="inline-flex h-6 w-full items-center justify-center gap-1 rounded-md border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-flex h-6 w-full items-center justify-center gap-1 rounded-md border border-input bg-white px-1.5 text-[10px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:bg-white dark:text-slate-700 dark:hover:bg-slate-100"
                       title="Notīrīt visus filtrus"
                     >
                       <X className="h-3 w-3" />
@@ -961,7 +961,7 @@ function HeaderOptionsSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+      <SelectTrigger className="h-6 w-full min-w-0 border-input bg-white px-1.5 text-[11px] text-slate-900 dark:bg-white dark:text-slate-900">
         <SelectValue placeholder="Visi" />
       </SelectTrigger>
       <SelectContent>
