@@ -112,7 +112,7 @@ function InboxPage() {
   const eventsQueryStr = useMemo(() => {
     const parts: string[] = [];
     parts.push(
-      `select=id,event_type,event_timestamp,communication_id,raw_payload,communications(id,lead_id,direction,channel,subject,from_address,mailbox,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata)`,
+      `select=id,event_type,event_timestamp,communication_id,raw_payload,communications(id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata)`,
     );
     parts.push(`event_type=in.(${INBOUND_EVENT_TYPES.join(",")})`);
     if (eventTypeFilter !== "all" && INBOUND_EVENT_TYPES.includes(eventTypeFilter as never)) {
@@ -500,7 +500,8 @@ function EmailViewerModal({
     if (t == null) return "";
     return String(t);
   })();
-  const mailbox = (comm?.mailbox as string | null) ?? "";
+  const meta = (comm?.metadata ?? null) as Record<string, unknown> | null;
+  const mailbox = meta && typeof meta.mailbox === "string" ? meta.mailbox : "";
   const date = fmtDate(
     (comm?.sent_at as string | null) ??
       (comm?.received_at as string | null) ??
