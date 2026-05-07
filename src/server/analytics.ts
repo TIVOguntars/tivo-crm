@@ -277,6 +277,7 @@ const CRM_VIEWS = [
   "lead_status_options",
   "next_action_queue_filter_ui",
   "lead_drawer_summary",
+  "lead_communication_timeline",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 

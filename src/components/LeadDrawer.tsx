@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
+import { LeadCommunicationTimeline } from "@/components/LeadCommunicationTimeline";
 
 type Row = Record<string, unknown>;
 
@@ -103,14 +104,14 @@ export function LeadDrawer({
         ) : !row ? (
           <div className="p-6 text-sm text-muted-foreground">Nav datu šim leadam.</div>
         ) : (
-          <DrawerContent row={row} />
+          <DrawerContent row={row} leadId={leadId} />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function DrawerContent({ row }: { row: Row }) {
+function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
   const fullName = s(row.full_name) || "—";
   const status = s(row.lead_status_label);
   const priority = s(row.priority_label);
@@ -245,8 +246,8 @@ function DrawerContent({ row }: { row: Row }) {
           <TabsContent value="parskats" className="mt-3 text-sm text-muted-foreground">
             Pārskata saturs tiks pievienots.
           </TabsContent>
-          <TabsContent value="komunikacija" className="mt-3 text-sm text-muted-foreground">
-            Komunikācijas saturs tiks pievienots.
+          <TabsContent value="komunikacija" className="mt-3">
+            <LeadCommunicationTimeline leadId={leadId} />
           </TabsContent>
           <TabsContent value="projekts" className="mt-3 text-sm text-muted-foreground">
             Projekta saturs tiks pievienots.
