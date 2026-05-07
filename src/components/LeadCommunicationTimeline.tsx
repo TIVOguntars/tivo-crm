@@ -419,10 +419,20 @@ function decodePayload(input: string, headers = ""): string {
 
 function decodeEncodedWords(input: string): string {
   return input.replace(/=\?([^?]+)\?([bqBQ])\?([^?]+)\?=/g, (_match, charset, mode, value) => {
-    const normalized = String(mode).toUpperCase() === "Q"
-      ? String(value).replace(/_/g, " ").replace(/=([0-9A-F]{2})/gi, (_m, hex) => String.fromCharCode(parseInt(hex, 16)))
-      : decodeBase64(String(value), normalizeCharset(String(charset)));
-    return decodePayload(normalized, `Content-Type: text/plain; charset=${charset}`);
+    const normalizedCharset = normalizeCharset(String(charset));
+    if (String(mode).toUpperCase() === "B") return decodeBase64(String(value), normalizedCharset);
+    const bytes: number[] = [];
+    const q = String(value).replace(/_/g, " ");
+    for (let i = 0; i < q.length; i += 1) {
+      const hex = q.slice(i + 1, i + 3);
+      if (q[i] === "=" && /^[0-9A-F]{2}$/i.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+      } else {
+        bytes.push(q.charCodeAt(i));
+      }
+    }
+    return decodeBytes(new Uint8Array(bytes), normalizedCharset);
   });
 }
 
