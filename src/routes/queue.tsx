@@ -299,61 +299,6 @@ function QueuePage() {
             placeholder="Meklēt..."
             className="h-7 w-full text-xs sm:w-56"
           />
-          <Select value={priority} onValueChange={setPriority}>
-            <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
-              <SelectValue placeholder="Prioritāte" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Prioritāte: visi</SelectItem>
-              <SelectItem value="Augsta">Augsta</SelectItem>
-              <SelectItem value="Normāla">Normāla</SelectItem>
-              <SelectItem value="Zema">Zema</SelectItem>
-            </SelectContent>
-          </Select>
-          <FilterSelect
-            label="Workflow"
-            value={workflow}
-            options={workflows}
-            onChange={setWorkflow}
-          />
-          <Select value={bucket} onValueChange={setBucket}>
-            <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
-              <SelectValue placeholder="Laiks" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Laiks: visi</SelectItem>
-              <SelectItem value="overdue">Kavēti</SelectItem>
-              <SelectItem value="today">Šodien</SelectItem>
-              <SelectItem value="next_24h">Nākamās 24h</SelectItem>
-              <SelectItem value="upcoming">Plānots</SelectItem>
-            </SelectContent>
-          </Select>
-          <FilterSelect
-            label="Lead statuss"
-            value={leadStatus}
-            options={leadStatuses}
-            onChange={setLeadStatus}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <FilterSelect
-            label="Atbildīgais"
-            value={owner}
-            options={owners}
-            onChange={setOwner}
-          />
-          <FilterSelect
-            label="PPV"
-            value={ppv}
-            options={ppvs}
-            onChange={setPpv}
-          />
-          <FilterSelect
-            label="Valsts"
-            value={country}
-            options={countries}
-            onChange={setCountry}
-          />
         </div>
       </div>
 
@@ -364,22 +309,60 @@ function QueuePage() {
       ) : filtered.length === 0 ? (
         <EmptyState label="Rindā nav ierakstu" />
       ) : (
-        <div className="rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="h-8 w-20 text-xs">Prioritāte</TableHead>
-                <TableHead className="h-8 text-xs">Termiņš</TableHead>
-                <TableHead className="h-8 text-xs">Darbība</TableHead>
-                <TableHead className="h-8 text-xs">Lead</TableHead>
-                <TableHead className="h-8 text-xs">Workflow</TableHead>
-                <TableHead className="h-8 w-16 text-xs">Atbildīgais</TableHead>
-                <TableHead className="h-8 w-14 text-xs">Valsts</TableHead>
-                <TableHead className="h-8 text-xs">PPV</TableHead>
-                <TableHead className="h-8 text-xs">Statuss</TableHead>
-                <TableHead className="h-8 w-20 text-right text-xs"></TableHead>
-              </TableRow>
-            </TableHeader>
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <table className="w-full caption-bottom text-sm">
+            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-[backdrop-filter]:bg-muted/70 [&_tr]:border-b-2 [&_tr]:border-border">
+              <tr>
+                <HeadCell className="w-[110px]">Prioritāte</HeadCell>
+                <HeadCell className="w-[140px]">Termiņš</HeadCell>
+                <HeadCell className="w-[110px]">Atbildīgais</HeadCell>
+                <HeadCell>Darbība</HeadCell>
+                <HeadCell>Lead</HeadCell>
+                <HeadCell>PPV</HeadCell>
+                <HeadCell className="w-[80px]">Valsts</HeadCell>
+                <HeadCell>Workflow</HeadCell>
+                <HeadCell className="w-[130px]">Statuss</HeadCell>
+                <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
+              </tr>
+              <tr className="border-b border-border bg-muted/40">
+                <FilterCell>
+                  <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
+                    <SelectItem value="all">Visi</SelectItem>
+                    <SelectItem value="Augsta">Augsta</SelectItem>
+                    <SelectItem value="Normāla">Normāla</SelectItem>
+                    <SelectItem value="Zema">Zema</SelectItem>
+                  </HeaderSelect>
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={workflow} onChange={setWorkflow} options={workflows} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderSelect value={bucket} onChange={setBucket} placeholder="Visi">
+                    <SelectItem value="all">Visi</SelectItem>
+                    <SelectItem value="overdue">Kavēti</SelectItem>
+                    <SelectItem value="today">Šodien</SelectItem>
+                    <SelectItem value="next_24h">Nākamās 24h</SelectItem>
+                    <SelectItem value="upcoming">Plānots</SelectItem>
+                  </HeaderSelect>
+                </FilterCell>
+                <FilterCell />
+              </tr>
+            </thead>
             <TableBody>
               {filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
@@ -397,14 +380,17 @@ function QueuePage() {
                     <TableCell className="py-0.5">
                       <PriorityBadge label={pLabel} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap py-0.5">
+                    <TableCell className="whitespace-nowrap py-0.5 font-semibold">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
-                    <TableCell className="py-0.5">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-0.5">
+                      <OwnerBadge value={s(r.action_owner_label)} />
+                    </TableCell>
+                    <TableCell className="py-0.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
                     <TableCell className="py-0.5">
                       {leadId ? (
                         <button
-                          className="text-primary hover:underline"
+                          className="text-primary/90 hover:underline"
                           onClick={() =>
                             navigate({
                               to: "/lead/$leadId",
@@ -418,12 +404,9 @@ function QueuePage() {
                         s(r.full_name) || "—"
                       )}
                     </TableCell>
-                    <TableCell className="py-0.5">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-0.5">
-                      <OwnerBadge value={s(r.action_owner_label)} />
-                    </TableCell>
-                    <TableCell className="py-0.5">{s(r.country) || "—"}</TableCell>
                     <TableCell className="py-0.5">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-0.5">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-0.5">{s(r.workflow_label) || "—"}</TableCell>
                     <TableCell className="py-0.5">
                       <QueueBucketBadge
                         bucket={s(r.queue_bucket)}
@@ -450,10 +433,81 @@ function QueuePage() {
                 );
               })}
             </TableBody>
-          </Table>
+          </table>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function HeadCell({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <th
+      className={cn(
+        "h-8 px-2 text-left align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+function FilterCell({ children }: { children?: React.ReactNode }) {
+  return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
+}
+
+function HeaderSelect({
+  value,
+  onChange,
+  placeholder,
+  children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  );
+}
+
+function HeaderOptionsSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+        <SelectValue placeholder="Visi" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Visi</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o} value={o}>
+            {o}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
