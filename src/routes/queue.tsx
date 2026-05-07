@@ -241,7 +241,6 @@ function QueuePage() {
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");
-  const [workflow, setWorkflow] = useState<string>("all");
   const [bucket, setBucket] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
@@ -262,10 +261,6 @@ function QueuePage() {
 
   const actionTypes = useMemo(
     () => uniq(rows.map((r) => s(r.action_label))),
-    [rows],
-  );
-  const workflows = useMemo(
-    () => uniq(rows.map((r) => s(r.workflow_label))),
     [rows],
   );
   const leadStatuses = useMemo(
@@ -298,7 +293,6 @@ function QueuePage() {
     const qq = q.trim().toLowerCase();
     const list = rows.filter((r) => {
       if (actionType !== "all" && s(r.action_label) !== actionType) return false;
-      if (workflow !== "all" && s(r.workflow_label) !== workflow) return false;
       if (bucket !== "all" && s(r.queue_bucket) !== bucket) return false;
       if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
         return false;
@@ -351,7 +345,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, priority, owner, country, ppv, tag, q, sort]);
+  }, [rows, actionType, bucket, leadStatus, priority, owner, country, ppv, tag, q, sort]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
@@ -428,7 +422,7 @@ function QueuePage() {
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
-                  <SortButton label="Workflow" k="workflow" sort={sort} onClick={toggleSort} />
+                  <SortButton label="Lead statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
@@ -454,7 +448,7 @@ function QueuePage() {
                   <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect value={workflow} onChange={setWorkflow} options={workflows} />
+                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
                 </FilterCell>
                 <FilterCell />
               </tr>
@@ -512,7 +506,7 @@ function QueuePage() {
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-3 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground/80">{s(r.legacy_lead_status) || "—"}</TableCell>
                     <TableCell className="py-3 text-right">
                       <Button
                         size="sm"
@@ -574,7 +568,7 @@ type SortKey =
   | "ppv"
   | "country"
   | "tags"
-  | "workflow";
+  | "leadStatus";
 
 function sortValue(r: Row, key: SortKey): string | number {
   switch (key) {
@@ -596,8 +590,8 @@ function sortValue(r: Row, key: SortKey): string | number {
       return s(r.country).toLowerCase();
     case "tags":
       return parseTags(r.tags).join(",");
-    case "workflow":
-      return s(r.workflow_label).toLowerCase();
+    case "leadStatus":
+      return s(r.legacy_lead_status).toLowerCase();
   }
 }
 
