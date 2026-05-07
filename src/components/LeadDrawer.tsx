@@ -147,7 +147,7 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
           <PriorityBadge label={priority} />
           {score > 0 && (
             <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-              Score {score}
+              {score}
             </span>
           )}
         </div>
