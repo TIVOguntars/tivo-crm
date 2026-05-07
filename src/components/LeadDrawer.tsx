@@ -164,21 +164,27 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
             ))}
           </div>
         )}
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {phone ? (
-            <a href={`tel:${phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">
-              <Phone className="h-3 w-3" /> {phone}
-            </a>
-          ) : (
-            <span className="text-muted-foreground">Nav telefona</span>
-          )}
-          {email ? (
-            <a href={`mailto:${email}`} className="inline-flex items-center gap-1 text-primary hover:underline">
-              <Mail className="h-3 w-3" /> {email}
-            </a>
-          ) : (
-            <span className="text-muted-foreground">Nav e-pasta</span>
-          )}
+        <div className="mt-3 flex flex-col gap-1 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-16 text-muted-foreground/70">Telefons:</span>
+            {phone ? (
+              <a href={`tel:${phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">
+                <Phone className="h-3 w-3" /> {phone}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">Nav telefona</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 text-muted-foreground/70">E-pasts:</span>
+            {email ? (
+              <a href={`mailto:${email}`} className="inline-flex items-center gap-1 text-primary hover:underline">
+                <Mail className="h-3 w-3" /> {email}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">Nav e-pasta</span>
+            )}
+          </div>
         </div>
       </SheetHeader>
 
@@ -206,14 +212,14 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
         {/* SIS background */}
         {hasSis && (
           <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
               SIS automatizācija
             </h3>
-            <div className="rounded-md border border-dashed border-border bg-background p-3 text-xs">
-              <div className="font-medium text-foreground">{sisLabel || "—"}</div>
+            <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
+              <div className="text-foreground/80">{sisLabel || "—"}</div>
               {sisDue && (
-                <div className="mt-1 text-muted-foreground">
-                  Termiņš: {fmtDateTime(sisDue)}
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  Fonā ieplānots: {fmtDateTime(sisDue)}
                 </div>
               )}
             </div>
@@ -226,9 +232,9 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
             Ātrās darbības
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <QuickBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" />
-            <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" />
-            <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
+            <QuickBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" disabled={!phone} />
+            <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} />
+            <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} />
             <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" />
             <QuickBtn icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Pabeigt darbību" />
             <QuickBtn icon={<CalendarClock className="h-3.5 w-3.5" />} label="Pārcelt termiņu" />
@@ -261,9 +267,15 @@ function DrawerContent({ row, leadId }: { row: Row; leadId: string | null }) {
   );
 }
 
-function QuickBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
+function QuickBtn({ icon, label, disabled }: { icon: React.ReactNode; label: string; disabled?: boolean }) {
   return (
-    <Button variant="outline" size="sm" className="h-8 justify-start gap-1.5 text-xs font-normal" type="button">
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-8 justify-start gap-1.5 text-xs font-normal disabled:opacity-50 disabled:cursor-not-allowed"
+      type="button"
+      disabled={disabled}
+    >
       {icon}
       {label}
     </Button>
