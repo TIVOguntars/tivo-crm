@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +120,73 @@ function PriorityBadge({ label }: { label: string }) {
         : label === "Zema"
           ? "bg-muted text-muted-foreground border-transparent"
           : "";
-  return <Badge className={cn("font-medium", tone)}>{label}</Badge>;
+  return (
+    <Badge
+      className={cn(
+        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none",
+        tone,
+      )}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+function OwnerBadge({ value }: { value: string }) {
+  if (!value) return <span className="text-muted-foreground">—</span>;
+  const isSystem = value === "SIS";
+  return (
+    <Badge
+      className={cn(
+        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none",
+        isSystem
+          ? "bg-slate-700 text-white border-transparent dark:bg-slate-600"
+          : "bg-indigo-600 text-white border-transparent",
+      )}
+    >
+      {value}
+    </Badge>
+  );
+}
+
+function MiniKpi({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "red" | "amber" | "blue" | "neutral";
+}) {
+  const valueTone =
+    tone === "red"
+      ? "text-red-600 dark:text-red-400"
+      : tone === "amber"
+        ? "text-amber-700 dark:text-amber-400"
+        : tone === "blue"
+          ? "text-blue-600 dark:text-blue-400"
+          : "text-foreground";
+  const bar =
+    tone === "red"
+      ? "bg-red-500"
+      : tone === "amber"
+        ? "bg-amber-500"
+        : tone === "blue"
+          ? "bg-blue-500"
+          : "bg-border";
+  return (
+    <div className="relative rounded-md border border-border bg-card px-3 py-2 shadow-sm">
+      <div className={cn("absolute inset-y-0 left-0 w-0.5 rounded-l-md", bar)} />
+      <div className="flex items-baseline justify-between gap-2 pl-1">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <span className={cn("text-xl font-semibold tabular-nums leading-none", valueTone)}>
+          {value}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function QueuePage() {
@@ -219,79 +284,77 @@ function QueuePage() {
         description="Nākamās darbības ar leadiem"
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Kavēti" value={kpis.overdue} tone="red" />
-        <StatCard label="Šodien" value={kpis.today} tone="amber" />
-        <StatCard label="Nākamās 24h" value={kpis.next_24h} tone="blue" />
-        <StatCard label="Plānots" value={kpis.upcoming} tone="neutral" />
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MiniKpi label="Kavēti" value={kpis.overdue} tone="red" />
+        <MiniKpi label="Šodien" value={kpis.today} tone="amber" />
+        <MiniKpi label="Nākamās 24h" value={kpis.next_24h} tone="blue" />
+        <MiniKpi label="Plānots" value={kpis.upcoming} tone="neutral" />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Meklēt pēc lead vai objekta..."
-          className="h-8 w-full sm:w-64"
-        />
-        <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
-            <SelectValue placeholder="Prioritāte" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Prioritāte: visi</SelectItem>
-            <SelectItem value="Augsta">Augsta</SelectItem>
-            <SelectItem value="Normāla">Normāla</SelectItem>
-            <SelectItem value="Zema">Zema</SelectItem>
-          </SelectContent>
-        </Select>
-        <FilterSelect
-          label="Darbības tips"
-          value={actionType}
-          options={actionTypes}
-          onChange={setActionType}
-        />
-        <FilterSelect
-          label="Workflow"
-          value={workflow}
-          options={workflows}
-          onChange={setWorkflow}
-        />
-        <Select value={bucket} onValueChange={setBucket}>
-          <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
-            <SelectValue placeholder="Laiks" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Laiks: visi</SelectItem>
-            <SelectItem value="overdue">Kavēti</SelectItem>
-            <SelectItem value="today">Šodien</SelectItem>
-            <SelectItem value="next_24h">Nākamās 24h</SelectItem>
-            <SelectItem value="upcoming">Plānots</SelectItem>
-          </SelectContent>
-        </Select>
-        <FilterSelect
-          label="Lead statuss"
-          value={leadStatus}
-          options={leadStatuses}
-          onChange={setLeadStatus}
-        />
-        <FilterSelect
-          label="Atbildīgais"
-          value={owner}
-          options={owners}
-          onChange={setOwner}
-        />
-        <FilterSelect
-          label="Valsts"
-          value={country}
-          options={countries}
-          onChange={setCountry}
-        />
-        <FilterSelect
-          label="PPV"
-          value={ppv}
-          options={ppvs}
-          onChange={setPpv}
-        />
+      <div className="mb-3 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Meklēt..."
+            className="h-7 w-full text-xs sm:w-56"
+          />
+          <Select value={priority} onValueChange={setPriority}>
+            <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
+              <SelectValue placeholder="Prioritāte" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Prioritāte: visi</SelectItem>
+              <SelectItem value="Augsta">Augsta</SelectItem>
+              <SelectItem value="Normāla">Normāla</SelectItem>
+              <SelectItem value="Zema">Zema</SelectItem>
+            </SelectContent>
+          </Select>
+          <FilterSelect
+            label="Workflow"
+            value={workflow}
+            options={workflows}
+            onChange={setWorkflow}
+          />
+          <Select value={bucket} onValueChange={setBucket}>
+            <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
+              <SelectValue placeholder="Laiks" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Laiks: visi</SelectItem>
+              <SelectItem value="overdue">Kavēti</SelectItem>
+              <SelectItem value="today">Šodien</SelectItem>
+              <SelectItem value="next_24h">Nākamās 24h</SelectItem>
+              <SelectItem value="upcoming">Plānots</SelectItem>
+            </SelectContent>
+          </Select>
+          <FilterSelect
+            label="Lead statuss"
+            value={leadStatus}
+            options={leadStatuses}
+            onChange={setLeadStatus}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterSelect
+            label="Atbildīgais"
+            value={owner}
+            options={owners}
+            onChange={setOwner}
+          />
+          <FilterSelect
+            label="PPV"
+            value={ppv}
+            options={ppvs}
+            onChange={setPpv}
+          />
+          <FilterSelect
+            label="Valsts"
+            value={country}
+            options={countries}
+            onChange={setCountry}
+          />
+        </div>
       </div>
 
       {view.isLoading ? (
@@ -305,19 +368,16 @@ function QueuePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="h-9 w-24">Prioritāte</TableHead>
-                <TableHead className="h-9 w-16">Score</TableHead>
-                <TableHead className="h-9">Termiņš</TableHead>
-                <TableHead className="h-9">Darbība</TableHead>
-                <TableHead className="h-9">Lead</TableHead>
-                <TableHead className="h-9">Objekts</TableHead>
-                <TableHead className="h-9">Workflow</TableHead>
-                <TableHead className="h-9">Atbildīgais</TableHead>
-                <TableHead className="h-9">Valsts</TableHead>
-                <TableHead className="h-9">PPV</TableHead>
-                <TableHead className="h-9">Lead statuss</TableHead>
-                <TableHead className="h-9">Rindas statuss</TableHead>
-                <TableHead className="h-9 text-right">Darbības</TableHead>
+                <TableHead className="h-8 w-20 text-xs">Prioritāte</TableHead>
+                <TableHead className="h-8 text-xs">Termiņš</TableHead>
+                <TableHead className="h-8 text-xs">Darbība</TableHead>
+                <TableHead className="h-8 text-xs">Lead</TableHead>
+                <TableHead className="h-8 text-xs">Workflow</TableHead>
+                <TableHead className="h-8 w-16 text-xs">Atbildīgais</TableHead>
+                <TableHead className="h-8 w-14 text-xs">Valsts</TableHead>
+                <TableHead className="h-8 text-xs">PPV</TableHead>
+                <TableHead className="h-8 text-xs">Statuss</TableHead>
+                <TableHead className="h-8 w-20 text-right text-xs"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -329,22 +389,19 @@ function QueuePage() {
                   <TableRow
                     key={s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
-                      "h-8",
+                      "h-7 text-xs",
                       isHigh &&
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-1">
+                    <TableCell className="py-0.5">
                       <PriorityBadge label={pLabel} />
                     </TableCell>
-                    <TableCell className="py-1 tabular-nums text-xs">
-                      {n(r.lead_priority_score) || "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap py-1 text-xs">
+                    <TableCell className="whitespace-nowrap py-0.5">
                       {fmtDateTime(r.due_at)}
                     </TableCell>
-                    <TableCell className="py-1">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-1">
+                    <TableCell className="py-0.5">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-0.5">
                       {leadId ? (
                         <button
                           className="text-primary hover:underline"
@@ -361,47 +418,33 @@ function QueuePage() {
                         s(r.full_name) || "—"
                       )}
                     </TableCell>
-                    <TableCell className="py-1">{s(r.object_name) || "—"}</TableCell>
-                    <TableCell className="py-1">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-1">
-                      {(() => {
-                        const ol = s(r.action_owner_label);
-                        if (!ol) return <span className="text-muted-foreground">—</span>;
-                        if (ol === "SIS")
-                          return (
-                            <Badge variant="outline" className="font-medium">
-                              SIS · auto
-                            </Badge>
-                          );
-                        return ol;
-                      })()}
+                    <TableCell className="py-0.5">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-0.5">
+                      <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-1 text-xs">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-1 text-xs">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-1">{s(r.legacy_lead_status) || "—"}</TableCell>
-                    <TableCell className="py-1">
+                    <TableCell className="py-0.5">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-0.5">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-0.5">
                       <QueueBucketBadge
                         bucket={s(r.queue_bucket)}
                         label={s(r.queue_bucket_label) || s(r.queue_status)}
                       />
                     </TableCell>
-                    <TableCell className="py-1 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                          onClick={() =>
-                            leadId &&
-                            navigate({
-                              to: "/lead/$leadId",
-                              params: { leadId },
-                            })
-                          }
-                        >
-                          Atvērt
-                        </Button>
-                      </div>
+                    <TableCell className="py-0.5 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() =>
+                          leadId &&
+                          navigate({
+                            to: "/lead/$leadId",
+                            params: { leadId },
+                          })
+                        }
+                      >
+                        Atvērt
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
