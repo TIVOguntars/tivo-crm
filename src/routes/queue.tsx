@@ -1,7 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AlertCircle, Clock, ListChecks, CheckCircle2 } from "lucide-react";
-
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
@@ -189,26 +187,10 @@ function QueuePage() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          title="Visi gaidošie"
-          value={kpis.pending.toString()}
-          icon={<ListChecks className="h-4 w-4" />}
-        />
-        <StatCard
-          title="Kavēti"
-          value={kpis.overdue.toString()}
-          icon={<AlertCircle className="h-4 w-4 text-red-600" />}
-        />
-        <StatCard
-          title="Šodien"
-          value={kpis.today.toString()}
-          icon={<Clock className="h-4 w-4" />}
-        />
-        <StatCard
-          title="Pabeigti šodien"
-          value={kpis.doneToday.toString()}
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-        />
+        <StatCard label="Visi gaidošie" value={kpis.pending} tone="blue" />
+        <StatCard label="Kavēti" value={kpis.overdue} tone="red" />
+        <StatCard label="Šodien" value={kpis.today} tone="amber" />
+        <StatCard label="Pabeigti šodien" value={kpis.doneToday} tone="neutral" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -249,7 +231,7 @@ function QueuePage() {
       ) : view.data?.error ? (
         <ErrorState message={view.data.error} />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Rindā nav ierakstu" />
+        <EmptyState label="Rindā nav ierakstu" />
       ) : (
         <div className="rounded-lg border border-border bg-card">
           <Table>
