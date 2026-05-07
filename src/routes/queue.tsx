@@ -462,9 +462,9 @@ function QueuePage() {
         description="Nākamās darbības ar leadiem"
       />
 
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <div className="mb-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {dueChips.map((c) => (
-          <FilterChip
+          <FilterCard
             key={c.key}
             label={c.label}
             count={dueCounts.get(c.key) ?? 0}
@@ -473,28 +473,29 @@ function QueuePage() {
           />
         ))}
       </div>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {priorityChips.map((c) => (
-          <FilterChip
-            key={`p-${c.label}`}
-            label={c.label}
-            count={priorityCounts.get(c.label) ?? 0}
-            active={priority === c.label}
-            onClick={() => setPriority(priority === c.label ? "all" : c.label)}
-          />
-        ))}
-        {priorityChips.length > 0 && leadStatusChips.length > 0 && (
-          <span className="mx-1 h-6 w-px self-center bg-border" />
-        )}
-        {leadStatusChips.map((c) => (
-          <FilterChip
-            key={`s-${c.label}`}
-            label={c.label}
-            count={leadStatusCounts.get(c.label) ?? 0}
-            active={leadStatus === c.label}
-            onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
-          />
-        ))}
+      <div className="mb-3 grid w-full grid-cols-1 gap-2 lg:grid-cols-7">
+        <div className="grid grid-cols-3 gap-2 lg:col-span-3 lg:border-r lg:border-border lg:pr-2">
+          {priorityChips.map((c) => (
+            <FilterCard
+              key={`p-${c.label}`}
+              label={c.label}
+              count={priorityCounts.get(c.label) ?? 0}
+              active={priority === c.label}
+              onClick={() => setPriority(priority === c.label ? "all" : c.label)}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-4">
+          {leadStatusChips.map((c) => (
+            <FilterCard
+              key={`s-${c.label}`}
+              label={c.label}
+              count={leadStatusCounts.get(c.label) ?? 0}
+              active={leadStatus === c.label}
+              onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
