@@ -276,6 +276,7 @@ const CRM_VIEWS = [
   "next_action_queue_display_enriched",
   "lead_status_options",
   "next_action_queue_filter_ui",
+  "lead_drawer_summary",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
