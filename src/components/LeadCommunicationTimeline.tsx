@@ -345,6 +345,7 @@ function detectTransferEncoding(headers: string, body: string): "quoted-printabl
   if (encoding.includes("quoted-printable")) return "quoted-printable";
   if (encoding.includes("base64")) return "base64";
   if (/=[0-9A-F]{2}/i.test(body) || /=\r?\n/.test(body)) return "quoted-printable";
+  if (body.replace(/\s+/g, "").length > 80 && /^[A-Za-z0-9+/\s]+={0,2}$/.test(body.trim())) return "base64";
   return "";
 }
 
@@ -411,9 +412,18 @@ function decodePayload(input: string, headers = ""): string {
   const raw = input.replace(/^\uFEFF/, "");
   const charset = detectCharset(headers, raw);
   const encoding = detectTransferEncoding(headers, raw);
-  if (encoding === "quoted-printable") return repairMojibake(decodeQuotedPrintable(raw, charset));
-  if (encoding === "base64") return repairMojibake(decodeBase64(raw, charset));
-  return repairMojibake(raw);
+  if (encoding === "quoted-printable") return decodeEncodedWords(repairMojibake(decodeQuotedPrintable(raw, charset)));
+  if (encoding === "base64") return decodeEncodedWords(repairMojibake(decodeBase64(raw, charset)));
+  return decodeEncodedWords(repairMojibake(raw));
+}
+
+function decodeEncodedWords(input: string): string {
+  return input.replace(/=\?([^?]+)\?([bqBQ])\?([^?]+)\?=/g, (_match, charset, mode, value) => {
+    const normalized = String(mode).toUpperCase() === "Q"
+      ? String(value).replace(/_/g, " ").replace(/=([0-9A-F]{2})/gi, (_m, hex) => String.fromCharCode(parseInt(hex, 16)))
+      : decodeBase64(String(value), normalizeCharset(String(charset)));
+    return decodePayload(normalized, `Content-Type: text/plain; charset=${charset}`);
+  });
 }
 
 function parseHeaders(block: string): Row {
@@ -481,14 +491,17 @@ function chooseEmailBodies(comm: Row | null): EmailBodies {
   const meta = metaRecord(comm);
   const headers = headerString(comm);
   const rawMime = firstString(meta.raw, meta.raw_email, meta.mime, meta.message_source, meta.source, meta.original);
-  const mimeBodies = rawMime ? extractMimeBodies(rawMime, headers) : { html: "", text: "" };
+  const directRawMime = firstString(comm?.raw, comm?.raw_email, comm?.mime, comm?.message_source, comm?.source, comm?.original);
+  const mimeBodies = rawMime || directRawMime ? extractMimeBodies(rawMime || directRawMime, headers) : { html: "", text: "" };
 
   const htmlCandidates = [
     comm?.body_html,
-    comm?.html_body,
+    comm?.parsed_html,
+    comm?.rendered_html,
     meta.body_html,
     meta.parsed_html,
     meta.rendered_html,
+    comm?.html_body,
     meta.html_body,
     meta.html,
     mimeBodies.html,
