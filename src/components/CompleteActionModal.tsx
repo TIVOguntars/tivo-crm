@@ -49,12 +49,16 @@ export function CompleteActionModal({
   onOpenChange,
   leadId,
   defaultOwner,
+  isHumanPrimary,
+  visibleAction,
   onCompleted,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   leadId: string | null;
   defaultOwner: string;
+  isHumanPrimary?: boolean;
+  visibleAction?: string;
   onCompleted: () => void;
 }) {
   const qc = useQueryClient();
@@ -81,6 +85,10 @@ export function CompleteActionModal({
 
   const handleSubmit = async () => {
     if (!leadId) return;
+    if (!isHumanPrimary || !visibleAction || !visibleAction.trim()) {
+      setError("Šim leadam nav aktīvas cilvēka darbības.");
+      return;
+    }
     if (dueRequiredMissing) {
       setError("Termiņš ir obligāts, ja izvēlēta nākamā darbība.");
       return;

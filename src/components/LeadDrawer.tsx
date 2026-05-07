@@ -9,6 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -253,12 +254,29 @@ function DrawerContent({
             <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} />
             <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} />
             <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" />
-            <QuickBtn
-              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-              label="Pabeigt darbību"
-              onClick={() => setCompleteOpen(true)}
-              disabled={!leadId}
-            />
+            {isHumanPrimary ? (
+              <QuickBtn
+                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                label="Pabeigt darbību"
+                onClick={() => setCompleteOpen(true)}
+                disabled={!leadId}
+              />
+            ) : (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <QuickBtn
+                        icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                        label="Pabeigt darbību"
+                        disabled
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Nav cilvēka darbības, ko pabeigt</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <QuickBtn icon={<CalendarClock className="h-3.5 w-3.5" />} label="Pārcelt termiņu" />
           </div>
         </section>
@@ -288,8 +306,10 @@ function DrawerContent({
       <CompleteActionModal
         open={completeOpen}
         onOpenChange={setCompleteOpen}
-        leadId={leadId}
+        leadId={s(row.lead_id) || leadId}
         defaultOwner={visibleOwner}
+        isHumanPrimary={isHumanPrimary}
+        visibleAction={visibleAction}
         onCompleted={() => {
           if (leadId && onActionCompleted) onActionCompleted(leadId);
         }}
