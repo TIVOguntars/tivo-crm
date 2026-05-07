@@ -668,12 +668,6 @@ function HeadCell({
   className?: string;
   children?: React.ReactNode;
 }) {
-  className,
-  children,
-}: {
-  className?: string;
-  children?: React.ReactNode;
-}) {
   return (
     <th
       className={cn(
