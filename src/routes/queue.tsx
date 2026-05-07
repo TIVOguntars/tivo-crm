@@ -621,7 +621,7 @@ function QueuePage() {
                   <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
+                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
