@@ -97,13 +97,13 @@ function DueCell({ value }: { value: unknown }) {
   const state = dueState(value);
   const tone =
     state === "overdue"
-      ? "text-red-700/80 dark:text-red-300/90 font-medium"
+      ? "text-red-600 dark:text-red-400 font-semibold"
       : state === "today"
-        ? "text-orange-700/80 dark:text-orange-300/90 font-medium"
+        ? "text-orange-600 dark:text-orange-400 font-semibold"
         : state === "tomorrow"
-          ? "text-sky-700/80 dark:text-sky-300/90 font-medium"
+          ? "text-blue-600 dark:text-blue-400 font-semibold"
           : state === "week"
-            ? "text-muted-foreground"
+            ? "text-foreground font-medium"
             : state === "future"
               ? "text-muted-foreground"
               : "text-muted-foreground";
@@ -120,16 +120,16 @@ function PriorityBadge({ label }: { label: string }) {
   if (!label) return <span className="text-muted-foreground">—</span>;
   const tone =
     label === "Augsta"
-      ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60"
+      ? "bg-red-600 text-white border-transparent"
       : label === "Normāla"
-        ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60"
+        ? "bg-orange-500 text-white border-transparent"
         : label === "Zema"
-          ? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700"
+          ? "bg-slate-500 text-white border-transparent"
           : "";
   return (
     <Badge
       className={cn(
-        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none shadow-none",
+        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none",
         tone,
       )}
     >
@@ -168,15 +168,15 @@ function TagsCell({ tags }: { tags: string[] }) {
 }
 
 function OwnerBadge({ value }: { value: string }) {
-  if (!value || value === "Nav piešķirts") return <span className="text-muted-foreground">—</span>;
+  if (!value) return <span className="text-muted-foreground">—</span>;
   const isSystem = value === "SIS";
   return (
     <Badge
       className={cn(
-        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none shadow-none",
+        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none",
         isSystem
-          ? "bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800/70 dark:text-slate-200 dark:border-slate-700"
-          : "bg-muted text-foreground/80 border border-border dark:bg-slate-800/40 dark:text-slate-200 dark:border-slate-700",
+          ? "bg-slate-700 text-white border-transparent dark:bg-slate-600"
+          : "bg-indigo-600 text-white border-transparent",
       )}
     >
       {value}
@@ -226,11 +226,7 @@ function MiniKpi({
 
 function QueuePage() {
   const navigate = useNavigate();
-  // No hardcoded UI cap — fetch the full queue. PostgREST max-rows on the
-  // backend still applies as a safety net. The table itself is virtualized
-  // by the browser via the sticky-header scroll container, so 1000+ rows
-  // render without freezing.
-  const view = useCrmView("next_action_queue_display", "limit=10000");
+  const view = useCrmView("next_action_queue_ui", "limit=500");
   const rows = (view.data?.rows ?? []) as Row[];
 
   const [actionType, setActionType] = useState<string>("all");
@@ -383,24 +379,22 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[92px]">
-                  <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[60px] text-right">
-                  <div className="flex justify-end">
-                    <SortButton label="Score" k="score" sort={sort} onClick={toggleSort} />
+                <HeadCell className="w-[110px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
+                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
                   </div>
                 </HeadCell>
                 <HeadCell className="w-[100px]">
                   <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[60px]">
+                <HeadCell className="w-[64px]">
                   <SortButton label="Atbild." k="owner" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell>
                   <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="min-w-[280px]">
+                <HeadCell className="min-w-[220px]">
                   <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
@@ -409,7 +403,7 @@ function QueuePage() {
                 <HeadCell className="w-[64px] text-muted-foreground/70">
                   <SortButton label="Valsts" k="country" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[110px]">
+                <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
@@ -426,7 +420,6 @@ function QueuePage() {
                     <SelectItem value="Zema">Zema</SelectItem>
                   </HeaderSelect>
                 </FilterCell>
-                <FilterCell />
                 <FilterCell />
                 <FilterCell>
                   <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
@@ -466,25 +459,25 @@ function QueuePage() {
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-3.5">
-                      <PriorityBadge label={pLabel} />
+                    <TableCell className="py-3">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <PriorityBadge label={pLabel} />
+                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                          {score > 0 ? score : ""}
+                        </span>
+                      </div>
                     </TableCell>
-                    <TableCell className="py-3.5 text-right">
-                      <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-                        {score > 0 ? score : "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="py-3">
                       <DueCell value={r.due_at} />
                     </TableCell>
-                    <TableCell className="py-3.5">
-                      <OwnerBadge value={s(r.action_owner_label) || s(r.ppv_owner_label) || s(r.ppv_owner)} />
+                    <TableCell className="py-3">
+                      <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-3.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-3.5 align-top">
+                    <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-3 align-top">
                       {leadId ? (
                         <button
-                          className="line-clamp-2 max-w-[340px] text-left text-primary/90 hover:underline"
+                          className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
                           onClick={() =>
                             navigate({
                               to: "/lead/$leadId",
@@ -495,16 +488,16 @@ function QueuePage() {
                           {s(r.full_name) || "—"}
                         </button>
                       ) : (
-                        <span className="line-clamp-2 max-w-[340px]">{s(r.full_name) || "—"}</span>
+                        <span className="line-clamp-2 max-w-[280px]">{s(r.full_name) || "—"}</span>
                       )}
                     </TableCell>
-                    <TableCell className="py-3.5 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-3.5 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-3.5 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-3.5 text-right">
+                    <TableCell className="py-3 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-3 text-right">
                       <Button
                         size="sm"
                         variant="outline"
