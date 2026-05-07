@@ -411,14 +411,21 @@ function decodeBase64(input: string, charset: string): string {
 }
 
 function repairMojibake(input: string): string {
-  if (!/[ÃÂâ€Å]/.test(input)) return input;
+  let current = input
+    .replace(/\uFFFD/g, "")
+    .replace(/=C2=A0/gi, " ")
+    .replace(/=E2=80=99/gi, "’")
+    .replace(/=E2=80=9C/gi, "“")
+    .replace(/=E2=80=9D/gi, "”")
+    .replace(/=E2=80=93/gi, "–")
+    .replace(/=E2=80=94/gi, "—");
+  if (!/[ÃÂâ€Å]/.test(current)) return current;
   const cp1252: Record<string, number> = {
     "€": 0x80, "‚": 0x82, "ƒ": 0x83, "„": 0x84, "…": 0x85, "†": 0x86, "‡": 0x87,
     "ˆ": 0x88, "‰": 0x89, "Š": 0x8a, "‹": 0x8b, "Œ": 0x8c, "Ž": 0x8e, "‘": 0x91,
     "’": 0x92, "“": 0x93, "”": 0x94, "•": 0x95, "–": 0x96, "—": 0x97, "˜": 0x98,
     "™": 0x99, "š": 0x9a, "›": 0x9b, "œ": 0x9c, "ž": 0x9e, "Ÿ": 0x9f,
   };
-  let current = input;
   // Iterate up to 2 passes — sometimes content was double-encoded.
   for (let pass = 0; pass < 2; pass += 1) {
     const bytes: number[] = [];
