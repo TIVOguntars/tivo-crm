@@ -987,3 +987,58 @@ function HeaderOptionsSelect({
   );
 }
 
+function TagsMultiSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+}) {
+  const label =
+    value.length === 0
+      ? "Visi"
+      : value.length === 1
+        ? value[0]
+        : `${value.length} izvēlēti`;
+  const toggle = (t: string) => {
+    if (value.includes(t)) onChange(value.filter((x) => x !== t));
+    else onChange([...value, t]);
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-7 w-full min-w-0 items-center justify-between gap-1 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-64 w-56 overflow-y-auto">
+        {value.length > 0 && (
+          <>
+            <DropdownMenuItem onSelect={() => onChange([])} className="text-[11px]">
+              Notīrīt
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {options.map((o) => (
+          <DropdownMenuCheckboxItem
+            key={o}
+            checked={value.includes(o)}
+            onCheckedChange={() => toggle(o)}
+            onSelect={(e) => e.preventDefault()}
+            className="text-[11px]"
+          >
+            {o}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
