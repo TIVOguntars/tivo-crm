@@ -27,6 +27,16 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { LeadDrawer } from "@/components/LeadDrawer";
 
+const STATUS_ORDER = ["Jauns", "Nesasniedzams", "Piesaistīšana", "Kvalificēts"];
+const mapStatus = (raw: string): string => {
+  if (raw === "Atlikts" || raw === "Piedāvājums") return "Kvalificēts";
+  return raw;
+};
+const statusSort = (label: string): number => {
+  const i = STATUS_ORDER.indexOf(label);
+  return i === -1 ? 99 : i;
+};
+
 export const Route = createFileRoute("/queue")({
   component: QueuePage,
   errorComponent: ({ error }) => (
