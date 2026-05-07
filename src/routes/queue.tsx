@@ -53,53 +53,65 @@ function fmtDateTime(v: unknown): string {
   }).format(d);
 }
 
-function isToday(v: unknown): boolean {
-  if (!v) return false;
+function fmtDate(v: unknown): string {
+  if (!v) return "—";
   const d = new Date(String(v));
-  if (Number.isNaN(d.getTime())) return false;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: RIGA_TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
+
+function rigaDateKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: RIGA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+type DueState = "overdue" | "today" | "tomorrow" | "week" | "future" | "none";
+
+function dueState(v: unknown): DueState {
+  if (!v) return "none";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return "none";
   const now = new Date();
-  const fmt = (x: Date) =>
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: RIGA_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(x);
-  return fmt(d) === fmt(now);
+  const dk = rigaDateKey(d);
+  const today = rigaDateKey(now);
+  const tomorrow = rigaDateKey(new Date(now.getTime() + 86400000));
+  if (d.getTime() < now.getTime() && dk !== today) return "overdue";
+  if (dk === today) return "today";
+  if (dk === tomorrow) return "tomorrow";
+  const diff = (d.getTime() - now.getTime()) / 86400000;
+  if (diff <= 7) return "week";
+  return "future";
+}
+
+function DueCell({ value }: { value: unknown }) {
+  const state = dueState(value);
+  const tone =
+    state === "overdue"
+      ? "text-red-600 dark:text-red-400 font-semibold"
+      : state === "today"
+        ? "text-orange-600 dark:text-orange-400 font-semibold"
+        : state === "tomorrow"
+          ? "text-blue-600 dark:text-blue-400 font-semibold"
+          : state === "week"
+            ? "text-foreground font-medium"
+            : state === "future"
+              ? "text-muted-foreground"
+              : "text-muted-foreground";
+  return <span className={cn("whitespace-nowrap tabular-nums", tone)}>{fmtDate(value)}</span>;
 }
 
 function uniq(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "lv"),
-  );
-}
-
-function QueueBucketBadge({ bucket, label }: { bucket: string; label: string }) {
-  const text = label || bucket;
-  if (!text) return <span className="text-muted-foreground">—</span>;
-  const tone =
-    bucket === "overdue"
-      ? "bg-red-600 text-white border-transparent"
-      : bucket === "today"
-        ? "bg-amber-500 text-white border-transparent"
-        : bucket === "next_24h"
-          ? "bg-blue-600 text-white border-transparent"
-          : "";
-  return (
-    <Badge
-      variant={bucket === "overdue" ? "destructive" : "secondary"}
-      className={cn("font-medium", tone)}
-    >
-      {text}
-    </Badge>
-  );
-}
-
-function ActionStatusBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
-  const isWaiting = value.toLowerCase().includes("gaida");
-  return (
-    <Badge variant={isWaiting ? "outline" : "secondary"}>{value}</Badge>
   );
 }
 
@@ -111,7 +123,7 @@ function PriorityBadge({ label }: { label: string }) {
       : label === "Normāla"
         ? "bg-orange-500 text-white border-transparent"
         : label === "Zema"
-          ? "bg-muted text-muted-foreground border-transparent"
+          ? "bg-slate-500 text-white border-transparent"
           : "";
   return (
     <Badge
@@ -122,20 +134,6 @@ function PriorityBadge({ label }: { label: string }) {
     >
       {label}
     </Badge>
-  );
-}
-
-function PriorityCell({ label, score }: { label: string; score: number }) {
-  if (!label && !score) return <span className="text-muted-foreground">—</span>;
-  return (
-    <div className="flex items-center gap-1.5">
-      <PriorityBadge label={label} />
-      {score > 0 && (
-        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {score}
-        </span>
-      )}
-    </div>
   );
 }
 
