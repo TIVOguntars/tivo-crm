@@ -53,53 +53,65 @@ function fmtDateTime(v: unknown): string {
   }).format(d);
 }
 
-function isToday(v: unknown): boolean {
-  if (!v) return false;
+function fmtDate(v: unknown): string {
+  if (!v) return "—";
   const d = new Date(String(v));
-  if (Number.isNaN(d.getTime())) return false;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: RIGA_TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
+
+function rigaDateKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: RIGA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+type DueState = "overdue" | "today" | "tomorrow" | "week" | "future" | "none";
+
+function dueState(v: unknown): DueState {
+  if (!v) return "none";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return "none";
   const now = new Date();
-  const fmt = (x: Date) =>
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: RIGA_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(x);
-  return fmt(d) === fmt(now);
+  const dk = rigaDateKey(d);
+  const today = rigaDateKey(now);
+  const tomorrow = rigaDateKey(new Date(now.getTime() + 86400000));
+  if (d.getTime() < now.getTime() && dk !== today) return "overdue";
+  if (dk === today) return "today";
+  if (dk === tomorrow) return "tomorrow";
+  const diff = (d.getTime() - now.getTime()) / 86400000;
+  if (diff <= 7) return "week";
+  return "future";
+}
+
+function DueCell({ value }: { value: unknown }) {
+  const state = dueState(value);
+  const tone =
+    state === "overdue"
+      ? "text-red-600 dark:text-red-400 font-semibold"
+      : state === "today"
+        ? "text-orange-600 dark:text-orange-400 font-semibold"
+        : state === "tomorrow"
+          ? "text-blue-600 dark:text-blue-400 font-semibold"
+          : state === "week"
+            ? "text-foreground font-medium"
+            : state === "future"
+              ? "text-muted-foreground"
+              : "text-muted-foreground";
+  return <span className={cn("whitespace-nowrap tabular-nums", tone)}>{fmtDate(value)}</span>;
 }
 
 function uniq(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "lv"),
-  );
-}
-
-function QueueBucketBadge({ bucket, label }: { bucket: string; label: string }) {
-  const text = label || bucket;
-  if (!text) return <span className="text-muted-foreground">—</span>;
-  const tone =
-    bucket === "overdue"
-      ? "bg-red-600 text-white border-transparent"
-      : bucket === "today"
-        ? "bg-amber-500 text-white border-transparent"
-        : bucket === "next_24h"
-          ? "bg-blue-600 text-white border-transparent"
-          : "";
-  return (
-    <Badge
-      variant={bucket === "overdue" ? "destructive" : "secondary"}
-      className={cn("font-medium", tone)}
-    >
-      {text}
-    </Badge>
-  );
-}
-
-function ActionStatusBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
-  const isWaiting = value.toLowerCase().includes("gaida");
-  return (
-    <Badge variant={isWaiting ? "outline" : "secondary"}>{value}</Badge>
   );
 }
 
@@ -111,7 +123,7 @@ function PriorityBadge({ label }: { label: string }) {
       : label === "Normāla"
         ? "bg-orange-500 text-white border-transparent"
         : label === "Zema"
-          ? "bg-muted text-muted-foreground border-transparent"
+          ? "bg-slate-500 text-white border-transparent"
           : "";
   return (
     <Badge
@@ -122,20 +134,6 @@ function PriorityBadge({ label }: { label: string }) {
     >
       {label}
     </Badge>
-  );
-}
-
-function PriorityCell({ label, score }: { label: string; score: number }) {
-  if (!label && !score) return <span className="text-muted-foreground">—</span>;
-  return (
-    <div className="flex items-center gap-1.5">
-      <PriorityBadge label={label} />
-      {score > 0 && (
-        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {score}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -337,15 +335,25 @@ function QueuePage() {
         <MiniKpi label="Plānots" value={kpis.upcoming} tone="neutral" />
       </div>
 
-      <div className="mb-3 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Meklēt..."
-            className="h-7 w-full text-xs sm:w-56"
-          />
-        </div>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Meklēt..."
+          className="h-7 w-full text-xs sm:w-48"
+        />
+        <FilterPill label="Prioritāte" value={priority} onChange={setPriority}
+          options={[{v:"Augsta",l:"Augsta"},{v:"Normāla",l:"Normāla"},{v:"Zema",l:"Zema"}]} />
+        <FilterPill label="Atbildīgais" value={owner} onChange={setOwner}
+          options={owners.map((o)=>({v:o,l:o}))} />
+        <FilterPill label="Workflow" value={workflow} onChange={setWorkflow}
+          options={workflows.map((o)=>({v:o,l:o}))} />
+        <FilterPill label="Valsts" value={country} onChange={setCountry}
+          options={countries.map((o)=>({v:o,l:o}))} />
+        <FilterPill label="PPV" value={ppv} onChange={setPpv}
+          options={ppvs.map((o)=>({v:o,l:o}))} />
+        <FilterPill label="Tagi" value={tag} onChange={setTag}
+          options={allTags.map((o)=>({v:o,l:o}))} />
       </div>
 
       {view.isLoading ? (
@@ -358,59 +366,19 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:bg-muted/90 supports-[backdrop-filter]:[&_tr]:bg-muted/80">
-              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur">
-                <HeadCell className="w-[130px]">Prioritāte</HeadCell>
-                <HeadCell className="w-[140px]">Termiņš</HeadCell>
-                <HeadCell className="w-[110px]">Atbildīgais</HeadCell>
+            <thead>
+              <tr className="sticky top-0 z-20 border-b border-border/70 bg-muted/90 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                <HeadCell className="w-[96px]">Prioritāte</HeadCell>
+                <HeadCell className="w-[52px] text-right">Score</HeadCell>
+                <HeadCell className="w-[110px]">Termiņš</HeadCell>
+                <HeadCell className="w-[64px]">Atbild.</HeadCell>
                 <HeadCell>Darbība</HeadCell>
-                <HeadCell>Lead</HeadCell>
-                <HeadCell className="w-[180px]">Tagi</HeadCell>
+                <HeadCell className="min-w-[220px]">Lead</HeadCell>
                 <HeadCell className="text-muted-foreground/70">PPV</HeadCell>
-                <HeadCell className="w-[80px] text-muted-foreground/70">Valsts</HeadCell>
+                <HeadCell className="w-[64px] text-muted-foreground/70">Valsts</HeadCell>
+                <HeadCell className="w-[120px]">Tagi</HeadCell>
                 <HeadCell className="text-muted-foreground/70">Workflow</HeadCell>
-                <HeadCell className="w-[130px]">Statuss</HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
-              </tr>
-              <tr className="sticky top-8 z-20 border-b-2 border-border !bg-background/80 backdrop-blur">
-                <FilterCell>
-                  <HeaderSelect value={priority} onChange={setPriority} placeholder="Visi">
-                    <SelectItem value="all">Visi</SelectItem>
-                    <SelectItem value="Augsta">Augsta</SelectItem>
-                    <SelectItem value="Normāla">Normāla</SelectItem>
-                    <SelectItem value="Zema">Zema</SelectItem>
-                  </HeaderSelect>
-                </FilterCell>
-                <FilterCell />
-                <FilterCell>
-                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
-                </FilterCell>
-                <FilterCell />
-                <FilterCell>
-                  <HeaderOptionsSelect value={tag} onChange={setTag} options={allTags} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={workflow} onChange={setWorkflow} options={workflows} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderSelect value={bucket} onChange={setBucket} placeholder="Visi">
-                    <SelectItem value="all">Visi</SelectItem>
-                    <SelectItem value="overdue">Kavēti</SelectItem>
-                    <SelectItem value="today">Šodien</SelectItem>
-                    <SelectItem value="next_24h">Nākamās 24h</SelectItem>
-                    <SelectItem value="upcoming">Plānots</SelectItem>
-                  </HeaderSelect>
-                </FilterCell>
-                <FilterCell />
               </tr>
             </thead>
             <TableBody>
@@ -419,6 +387,7 @@ function QueuePage() {
                 const pLabel = s(r.priority_label);
                 const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
+                const score = n(r.lead_priority_score) || n(r.priority_score);
                 return (
                   <TableRow
                     key={s(r.queue_id) || s(r.next_action_id) || i}
@@ -428,23 +397,23 @@ function QueuePage() {
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                   >
-                    <TableCell className="py-2">
-                      <PriorityCell
-                        label={pLabel}
-                        score={n(r.lead_priority_score) || n(r.priority_score)}
-                      />
+                    <TableCell className="py-2.5">
+                      <PriorityBadge label={pLabel} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap py-2 font-semibold">
-                      {fmtDateTime(r.due_at)}
+                    <TableCell className="py-2.5 text-right tabular-nums text-muted-foreground">
+                      {score > 0 ? <span className="font-semibold text-foreground/80">{score}</span> : "—"}
                     </TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="py-2.5">
+                      <DueCell value={r.due_at} />
+                    </TableCell>
+                    <TableCell className="py-2.5">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-2 font-semibold">{s(r.action_label) || "—"}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="py-2.5 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-2.5 align-top">
                       {leadId ? (
                         <button
-                          className="text-primary/90 hover:underline"
+                          className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
                           onClick={() =>
                             navigate({
                               to: "/lead/$leadId",
@@ -455,22 +424,16 @@ function QueuePage() {
                           {s(r.full_name) || "—"}
                         </button>
                       ) : (
-                        s(r.full_name) || "—"
+                        <span className="line-clamp-2 max-w-[280px]">{s(r.full_name) || "—"}</span>
                       )}
                     </TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="py-2.5 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-2.5 text-muted-foreground">{s(r.country) || "—"}</TableCell>
+                    <TableCell className="py-2.5">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-2 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-2 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-2 text-muted-foreground">{s(r.workflow_label) || "—"}</TableCell>
-                    <TableCell className="py-2">
-                      <QueueBucketBadge
-                        bucket={s(r.queue_bucket)}
-                        label={s(r.queue_bucket_label) || s(r.queue_status)}
-                      />
-                    </TableCell>
-                    <TableCell className="py-2 text-right">
+                    <TableCell className="py-2.5 text-muted-foreground/80">{s(r.workflow_label) || "—"}</TableCell>
+                    <TableCell className="py-2.5 text-right">
                       <Button
                         size="sm"
                         variant="outline"
@@ -519,6 +482,43 @@ function HeadCell({
 
 function FilterCell({ children }: { children?: React.ReactNode }) {
   return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
+}
+
+function FilterPill({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { v: string; l: string }[];
+}) {
+  const active = value !== "all";
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        className={cn(
+          "h-7 w-auto min-w-0 gap-1 rounded-full border px-2.5 text-[11px]",
+          active
+            ? "border-primary/40 bg-primary/10 text-foreground"
+            : "border-border bg-background text-muted-foreground",
+        )}
+      >
+        <span className="font-medium">{label}</span>
+        {active && <span className="text-foreground">: {value}</span>}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Visi</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.v} value={o.v}>
+            {o.l}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function HeaderSelect({
