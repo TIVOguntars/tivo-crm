@@ -611,22 +611,53 @@ function chooseEmailBodies(comm: Row | null): EmailBodies {
 }
 
 function splitQuotedText(text: string): { main: string; quoted: string } {
+  const normalized = cleanupReplyText(text);
   let cutAt = -1;
   for (const re of QUOTE_REGEXES) {
-    const m = text.match(re);
+    const m = normalized.match(re);
     if (m && m.index != null && m.index > 0 && (cutAt === -1 || m.index < cutAt)) {
       cutAt = m.index;
     }
   }
-  if (cutAt <= 0) return { main: text.trim(), quoted: "" };
+  if (cutAt <= 0) return { main: stripRepeatedFooters(normalized).trim(), quoted: "" };
   return {
-    main: text.slice(0, cutAt).trimEnd(),
-    quoted: text.slice(cutAt).trim(),
+    main: stripRepeatedFooters(normalized.slice(0, cutAt)).trimEnd(),
+    quoted: cleanupReplyText(normalized.slice(cutAt)).trim(),
   };
 }
 
+function cleanupReplyText(text: string): string {
+  return decodePayload(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\t\u00a0]+/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[>\s]*(From|Sent|Subject|To|Cc|Date|No|Kam|Nosūtīts|Tēma|Datums|Sūtītājs|Van|Verzonden|Aan|Onderwerp):/gi, "\n$1:")
+    .replace(/^> ?/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+function stripRepeatedFooters(text: string): string {
+  const lines = text.split("\n");
+  let signatureAt = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    const rest = lines.slice(i, Math.min(lines.length, i + 10)).join("\n");
+    if (SIGNATURE_START_REGEX.test(line) || COMPANY_FOOTER_REGEX.test(rest)) {
+      signatureAt = i;
+      break;
+    }
+  }
+  if (signatureAt <= 0) return text;
+  const before = lines.slice(0, signatureAt).join("\n").trimEnd();
+  const signature = lines.slice(signatureAt).join("\n").trim();
+  if (!signature || QUOTE_REGEXES.some((re) => re.test(signature.slice(0, 600)))) return text;
+  return `${before}\n\n${signature}`.trim();
+}
+
 function cleanPlainText(text: string): string {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const lines = cleanupReplyText(text).split("\n");
   const cleaned = lines
     .filter((line) => !MIME_GARBAGE_REGEX.test(line.trim()))
     .filter((line) => !/^--[\w='()+_,.\/:?-]{8,}--?$/.test(line.trim()))
