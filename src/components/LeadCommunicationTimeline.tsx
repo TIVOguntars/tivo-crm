@@ -1,7 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, CheckCircle2, MousePointerClick, MessageSquareReply, AlertTriangle } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CheckCircle2, MousePointerClick, MessageSquareReply, AlertTriangle, Paperclip, Reply, Forward, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { fetchCrmView } from "@/server/analytics";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { fetchCrmView, fetchPublicTable } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
 
@@ -53,6 +62,8 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
     staleTime: 30_000,
   });
 
+  const [viewerId, setViewerId] = useState<string | null>(null);
+
   if (view.isLoading) return <LoadingState />;
   if (view.data?.error) return <ErrorState message={view.data.error} />;
 
@@ -66,15 +77,25 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
   }
 
   return (
-    <ol className="relative space-y-3 border-l border-border pl-4">
-      {rows.map((row, idx) => (
-        <TimelineItem key={s(row.communication_id) || s(row.timeline_at) + idx} row={row} />
-      ))}
-    </ol>
+    <>
+      <ol className="relative space-y-3 border-l border-border pl-4">
+        {rows.map((row, idx) => (
+          <TimelineItem
+            key={s(row.communication_id) || s(row.timeline_at) + idx}
+            row={row}
+            onOpen={(id) => setViewerId(id)}
+          />
+        ))}
+      </ol>
+      <CommunicationViewerModal
+        communicationId={viewerId}
+        onClose={() => setViewerId(null)}
+      />
+    </>
   );
 }
 
-function TimelineItem({ row }: { row: Row }) {
+function TimelineItem({ row, onOpen }: { row: Row; onOpen: (id: string) => void }) {
   const inbound = isInbound(row);
   const channel = s(row.channel) || s(row.timeline_channel);
   const label = s(row.timeline_label);
@@ -84,6 +105,7 @@ function TimelineItem({ row }: { row: Row }) {
   const latestEvent = s(row.latest_event_type);
   const fromAddress = s(row.from_address);
   const isEmail = channel.toLowerCase().includes("email") || channel.toLowerCase().includes("e-pasts");
+  const commId = s(row.communication_id);
 
   const delivered = num(row.delivered_count);
   const clicked = num(row.clicked_count);
@@ -106,9 +128,20 @@ function TimelineItem({ row }: { row: Row }) {
         )}
       </span>
       <div
+        role={commId ? "button" : undefined}
+        tabIndex={commId ? 0 : undefined}
+        onClick={() => commId && onOpen(commId)}
+        onKeyDown={(e) => {
+          if (commId && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onOpen(commId);
+          }
+        }}
         className={cn(
-          "rounded-md border p-3",
+          "rounded-md border p-3 transition-colors",
           inbound ? "border-primary/30 bg-primary/5" : "border-border bg-background",
+          commId &&
+            "cursor-pointer hover:border-primary/60 hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
