@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -455,6 +455,31 @@ function QueuePage() {
     return c;
   }, [rows, actionType, dueFilter, priority, owner, country, ppv, tag, q]);
 
+  const hasActiveFilters =
+    actionType !== "all" ||
+    dueFilter !== "all" ||
+    leadStatus !== "all" ||
+    priority !== "all" ||
+    owner !== "all" ||
+    country !== "all" ||
+    ppv !== "all" ||
+    tag !== "all" ||
+    q.trim() !== "" ||
+    sort !== null;
+
+  const clearAllFilters = () => {
+    setActionType("all");
+    setDueFilter("all");
+    setLeadStatus("all");
+    setPriority("all");
+    setOwner("all");
+    setCountry("all");
+    setPpv("all");
+    setTag("all");
+    setQ("");
+    setSort(null);
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <PageHeader
@@ -496,15 +521,6 @@ function QueuePage() {
             />
           ))}
         </div>
-      </div>
-
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Meklēt leadu vai objektu..."
-          className="h-7 w-full text-xs sm:w-72"
-        />
       </div>
 
       {view.isLoading ? (
@@ -555,14 +571,31 @@ function QueuePage() {
                 <FilterCell>
                   <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
-                <FilterCell />
+                <FilterCell>
+                  <HeaderOptionsSelect
+                    value={dueFilter}
+                    onChange={setDueFilter}
+                    options={dueChips.map((c) => c.label)}
+                    valueMap={Object.fromEntries(dueChips.map((c) => [c.label, c.key]))}
+                  />
+                </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
                 </FilterCell>
-                <FilterCell />
+                <FilterCell>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Meklēt leadu vai objektu..."
+                      className="h-6 w-full rounded-md pl-6 pr-1.5 text-[11px]"
+                    />
+                  </div>
+                </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
@@ -575,7 +608,19 @@ function QueuePage() {
                 <FilterCell>
                   <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
                 </FilterCell>
-                <FilterCell />
+                <FilterCell>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="inline-flex h-6 w-full items-center justify-center gap-1 rounded-md border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Notīrīt visus filtrus"
+                    >
+                      <X className="h-3 w-3" />
+                      <span>Notīrīt</span>
+                    </button>
+                  ) : null}
+                </FilterCell>
               </tr>
             </thead>
             <TableBody>
