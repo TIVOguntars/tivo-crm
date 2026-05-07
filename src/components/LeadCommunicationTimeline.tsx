@@ -262,12 +262,17 @@ type EmailBodies = { html: string; text: string };
 
 const QUOTE_REGEXES: RegExp[] = [
   /^-{2,}\s*Original Message\s*-{2,}/im,
+  /^-{2,}\s*Forwarded message\s*-{2,}/im,
+  /^-{2,}\s*Pārsūtītā ziņa\s*-{2,}/im,
   /^_{5,}\s*$/m,
   /^From:\s.+$/im,
   /^Sent:\s.+$/im,
   /^Subject:\s.+$/im,
   /^To:\s.+$/im,
+  /^Cc:\s.+$/im,
+  /^Date:\s.+$/im,
   /^On\s.+wrote:\s*$/im,
+  /^On\s.+,\s.+wrote:/im,
   /^Le\s.+a écrit\s*:$/im,
   /^Am\s.+schrieb\s.+:$/im,
   /^Den\s.+skrev\s.+:$/im,
@@ -280,6 +285,8 @@ const QUOTE_REGEXES: RegExp[] = [
   /^Kam:\s.+$/im,
   /^Nosūtīts:\s.+$/im,
   /^Tēma:\s.+$/im,
+  /^Datums:\s.+$/im,
+  /^Sūtītājs:\s.+$/im,
 ];
 
 const MIME_GARBAGE_REGEX = /^(MIME-Version|Content-Type|Content-Transfer-Encoding|Content-Disposition|Content-ID|Content-Language|X-[\w-]+|DKIM-Signature|Return-Path|Received|Message-ID|References|In-Reply-To):/i;
@@ -389,24 +396,34 @@ function decodeBase64(input: string, charset: string): string {
 }
 
 function repairMojibake(input: string): string {
-  if (!/[ÃÂâ€]/.test(input)) return input;
+  if (!/[ÃÂâ€Å]/.test(input)) return input;
   const cp1252: Record<string, number> = {
     "€": 0x80, "‚": 0x82, "ƒ": 0x83, "„": 0x84, "…": 0x85, "†": 0x86, "‡": 0x87,
     "ˆ": 0x88, "‰": 0x89, "Š": 0x8a, "‹": 0x8b, "Œ": 0x8c, "Ž": 0x8e, "‘": 0x91,
     "’": 0x92, "“": 0x93, "”": 0x94, "•": 0x95, "–": 0x96, "—": 0x97, "˜": 0x98,
     "™": 0x99, "š": 0x9a, "›": 0x9b, "œ": 0x9c, "ž": 0x9e, "Ÿ": 0x9f,
   };
-  const bytes: number[] = [];
-  for (const char of input) {
-    const code = char.charCodeAt(0);
-    if (cp1252[char] != null) bytes.push(cp1252[char]);
-    else if (code <= 0xff) bytes.push(code);
-    else bytes.push(...new TextEncoder().encode(char));
+  let current = input;
+  // Iterate up to 2 passes — sometimes content was double-encoded.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const bytes: number[] = [];
+    for (const char of current) {
+      const code = char.charCodeAt(0);
+      if (cp1252[char] != null) bytes.push(cp1252[char]);
+      else if (code <= 0xff) bytes.push(code);
+      else bytes.push(...new TextEncoder().encode(char));
+    }
+    const repaired = decodeBytes(new Uint8Array(bytes), "utf-8");
+    const before = (current.match(/[ÃÂÅ�]/g) ?? []).length;
+    const after = (repaired.match(/[ÃÂÅ�]/g) ?? []).length;
+    if (after < before) {
+      current = repaired;
+      if (after === 0) break;
+    } else {
+      break;
+    }
   }
-  const repaired = decodeBytes(new Uint8Array(bytes), "utf-8");
-  const before = (input.match(/[ÃÂ�]/g) ?? []).length;
-  const after = (repaired.match(/[ÃÂ�]/g) ?? []).length;
-  return after < before ? repaired : input;
+  return current;
 }
 
 function decodePayload(input: string, headers = ""): string {
@@ -615,6 +632,8 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
       "div#OLK_SRC_BODY_SECTION",
       "div.OutlookMessageHeader",
       "div[id^='divRplyFwdMsg']",
+      "div[id^='appendonsend']",
+      "div[id^='reply-intro']",
       "hr#stopSpelling",
     ];
     let firstQuoted: Element | null = null;
@@ -626,8 +645,25 @@ function splitQuotedHtml(html: string): { main: string; quoted: string } {
     }
 
     if (!firstQuoted) {
-      const elements = Array.from(root.querySelectorAll("div,p,span,td,table,hr"));
-      firstQuoted = elements.find((el) => QUOTE_REGEXES.some((re) => re.test((el.textContent ?? "").trim()))) ?? null;
+      // Walk top-level children only — find first one whose own text starts a reply header.
+      const children = Array.from(root.children);
+      for (const child of children) {
+        const txt = (child.textContent ?? "").trim();
+        if (!txt) continue;
+        const head = txt.slice(0, 400);
+        if (QUOTE_REGEXES.some((re) => re.test(head))) {
+          firstQuoted = child;
+          break;
+        }
+      }
+      // Fallback: any descendant whose own (short) text matches.
+      if (!firstQuoted) {
+        const elements = Array.from(root.querySelectorAll("div,p,span,td,table,hr,b,strong"));
+        firstQuoted = elements.find((el) => {
+          const t = (el.textContent ?? "").trim();
+          return t.length > 0 && t.length < 600 && QUOTE_REGEXES.some((re) => re.test(t));
+        }) ?? null;
+      }
     }
 
     if (!firstQuoted) return { main: html, quoted: "" };
