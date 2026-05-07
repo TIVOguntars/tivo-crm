@@ -365,8 +365,10 @@ function QueuePage() {
       const aB = order[s(a.queue_bucket)] ?? 99;
       const bB = order[s(b.queue_bucket)] ?? 99;
       if (aB !== bB) return aB - bB;
-      const aDue = a.due_at ? new Date(String(a.due_at)).getTime() : Infinity;
-      const bDue = b.due_at ? new Date(String(b.due_at)).getTime() : Infinity;
+      const aDueRaw = a.effective_due_at ?? a.due_at;
+      const bDueRaw = b.effective_due_at ?? b.due_at;
+      const aDue = aDueRaw ? new Date(String(aDueRaw)).getTime() : Infinity;
+      const bDue = bDueRaw ? new Date(String(bDueRaw)).getTime() : Infinity;
       if (aDue !== bDue) return aDue - bDue;
       return n(b.priority_score) - n(a.priority_score);
     });
@@ -504,7 +506,7 @@ function QueuePage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-3">
-                      <DueCell value={r.due_at} />
+                      <DueCell value={r.effective_due_at ?? r.due_at} />
                     </TableCell>
                     <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
@@ -604,8 +606,10 @@ function sortValue(r: Row, key: SortKey): string | number {
       return n(r.sort_priority);
     case "score":
       return n(r.lead_priority_score) || n(r.priority_score);
-    case "due":
-      return r.due_at ? new Date(String(r.due_at)).getTime() : 0;
+    case "due": {
+      const v = r.effective_due_at ?? r.due_at;
+      return v ? new Date(String(v)).getTime() : 0;
+    }
     case "owner":
       return s(r.action_owner_label).toLowerCase();
     case "action":
@@ -618,8 +622,11 @@ function sortValue(r: Row, key: SortKey): string | number {
       return s(r.country).toLowerCase();
     case "tags":
       return parseTags(r.tags).join(",");
-    case "leadStatus":
+    case "leadStatus": {
+      const so = r.lead_status_sort;
+      if (so != null && so !== "") return n(so);
       return s(r.lead_status_label).toLowerCase();
+    }
   }
 }
 
