@@ -111,6 +111,19 @@ function ActionStatusBadge({ value }: { value: string }) {
   );
 }
 
+function PriorityBadge({ label }: { label: string }) {
+  if (!label) return <span className="text-muted-foreground">—</span>;
+  const tone =
+    label === "Augsta"
+      ? "bg-red-600 text-white border-transparent"
+      : label === "Normāla"
+        ? "bg-orange-500 text-white border-transparent"
+        : label === "Zema"
+          ? "bg-muted text-muted-foreground border-transparent"
+          : "";
+  return <Badge className={cn("font-medium", tone)}>{label}</Badge>;
+}
+
 function QueuePage() {
   const navigate = useNavigate();
   const view = useCrmView("next_action_queue_ui", "limit=500");
@@ -120,6 +133,7 @@ function QueuePage() {
   const [workflow, setWorkflow] = useState<string>("all");
   const [bucket, setBucket] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
+  const [priority, setPriority] = useState<string>("all");
   const [q, setQ] = useState<string>("");
 
   const actionTypes = useMemo(
@@ -143,6 +157,7 @@ function QueuePage() {
       if (bucket !== "all" && s(r.queue_bucket) !== bucket) return false;
       if (leadStatus !== "all" && s(r.legacy_lead_status) !== leadStatus)
         return false;
+      if (priority !== "all" && s(r.priority_label) !== priority) return false;
       if (qq) {
         const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
         if (!hay.includes(qq)) return false;
@@ -150,6 +165,9 @@ function QueuePage() {
       return true;
     });
     list.sort((a, b) => {
+      const aSp = n(a.sort_priority);
+      const bSp = n(b.sort_priority);
+      if (aSp !== bSp) return bSp - aSp;
       const order: Record<string, number> = {
         overdue: 0,
         today: 1,
@@ -165,7 +183,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, workflow, bucket, leadStatus, q]);
+  }, [rows, actionType, workflow, bucket, leadStatus, priority, q]);
 
   const kpis = useMemo(() => {
     const c = { overdue: 0, today: 0, next_24h: 0, upcoming: 0 };
@@ -202,6 +220,17 @@ function QueuePage() {
           placeholder="Meklēt pēc lead vai objekta..."
           className="h-8 w-full sm:w-64"
         />
+        <Select value={priority} onValueChange={setPriority}>
+          <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
+            <SelectValue placeholder="Prioritāte" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Prioritāte: visi</SelectItem>
+            <SelectItem value="Augsta">Augsta</SelectItem>
+            <SelectItem value="Normāla">Normāla</SelectItem>
+            <SelectItem value="Zema">Zema</SelectItem>
+          </SelectContent>
+        </Select>
         <FilterSelect
           label="Darbības tips"
           value={actionType}
@@ -245,6 +274,8 @@ function QueuePage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="h-9 w-24">Prioritāte</TableHead>
+                <TableHead className="h-9 w-16">Score</TableHead>
                 {hasPriority && <TableHead className="h-9 w-16">Prioritāte</TableHead>}
                 <TableHead className="h-9">Termiņš</TableHead>
                 <TableHead className="h-9">Darbība</TableHead>
@@ -259,11 +290,23 @@ function QueuePage() {
             <TableBody>
               {filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
+                const pLabel = s(r.priority_label);
+                const isHigh = pLabel === "Augsta";
                 return (
                   <TableRow
                     key={s(r.queue_id) || s(r.next_action_id) || i}
-                    className="h-8"
+                    className={cn(
+                      "h-8",
+                      isHigh &&
+                        "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
+                    )}
                   >
+                    <TableCell className="py-1">
+                      <PriorityBadge label={pLabel} />
+                    </TableCell>
+                    <TableCell className="py-1 tabular-nums text-xs">
+                      {n(r.lead_priority_score) || "—"}
+                    </TableCell>
                     {hasPriority && (
                       <TableCell className="py-1 font-medium tabular-nums">
                         {n(r.priority_score) || "—"}
