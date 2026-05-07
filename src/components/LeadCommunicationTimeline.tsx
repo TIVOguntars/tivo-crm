@@ -82,12 +82,13 @@ function TimelineItem({ row }: { row: Row }) {
   const preview = s(row.message_preview);
   const status = s(row.current_status);
   const latestEvent = s(row.latest_event_type);
+  const fromAddress = s(row.from_address);
+  const isEmail = channel.toLowerCase().includes("email") || channel.toLowerCase().includes("e-pasts");
 
   const delivered = num(row.delivered_count);
   const clicked = num(row.clicked_count);
   const replied = num(row.replied_count);
   const failed = num(row.failed_count);
-  const isEmail = channel.toLowerCase().includes("email") || channel.toLowerCase().includes("e-pasts");
   const showStats = !inbound && isEmail && (delivered + clicked + replied + failed > 0);
 
   return (
@@ -126,6 +127,12 @@ function TimelineItem({ row }: { row: Row }) {
 
         {subject && (
           <div className="mt-1.5 text-sm font-medium text-foreground">{subject}</div>
+        )}
+        {inbound && isEmail && fromAddress && (
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            <span className="text-muted-foreground/70">No: </span>
+            <span className="font-medium text-foreground">{fromAddress}</span>
+          </div>
         )}
         {preview && (
           <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
