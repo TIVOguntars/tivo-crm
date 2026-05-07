@@ -250,15 +250,6 @@ function QueuePage() {
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const rows = (view.data?.rows ?? []) as Row[];
 
-  const STATUS_ORDER = ["Jauns", "Nesasniedzams", "Piesaistīšana", "Kvalificēts"];
-  const mapStatus = (raw: string): string => {
-    if (raw === "Atlikts" || raw === "Piedāvājums") return "Kvalificēts";
-    return raw;
-  };
-  const statusSort = (label: string): number => {
-    const i = STATUS_ORDER.indexOf(label);
-    return i === -1 ? 99 : i;
-  };
 
   const statusOptionsView = useCrmView(
     "lead_status_options",
