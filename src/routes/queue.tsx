@@ -572,12 +572,19 @@ function QueuePage() {
                   <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect
-                    value={dueFilter}
-                    onChange={setDueFilter}
-                    options={dueChips.map((c) => c.label)}
-                    valueMap={Object.fromEntries(dueChips.map((c) => [c.label, c.key]))}
-                  />
+                  <Select value={dueFilter} onValueChange={setDueFilter}>
+                    <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
+                      <SelectValue placeholder="Visi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Visi</SelectItem>
+                      {dueChips.map((c) => (
+                        <SelectItem key={c.key} value={c.key}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
