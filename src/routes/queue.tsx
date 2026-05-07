@@ -573,7 +573,7 @@ function QueuePage() {
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
-                    <SelectTrigger className="h-6 w-full min-w-0 border-input bg-white px-1.5 text-[11px] font-normal text-slate-900 dark:bg-white dark:text-slate-900">
+                    <SelectTrigger className="h-7 w-full min-w-0 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900">
                       <SelectValue placeholder="Visi" />
                     </SelectTrigger>
                     <SelectContent>
@@ -599,7 +599,7 @@ function QueuePage() {
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Meklēt leadu vai objektu..."
-                      className="h-6 w-full rounded-md border-input bg-white pl-6 pr-1.5 text-[11px] font-normal text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
+                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </FilterCell>
@@ -620,7 +620,7 @@ function QueuePage() {
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="inline-flex h-6 w-full items-center justify-center gap-1 rounded-md border border-input bg-white px-1.5 text-[10px] font-normal text-slate-700 transition-colors hover:bg-slate-50 dark:bg-white dark:text-slate-700 dark:hover:bg-slate-100"
+                      className="inline-flex h-7 w-full items-center justify-center gap-1 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-700 transition-colors hover:bg-slate-50 dark:bg-white dark:text-slate-700 dark:hover:bg-slate-100"
                       title="Notīrīt visus filtrus"
                     >
                       <X className="h-3 w-3" />
@@ -961,7 +961,7 @@ function HeaderOptionsSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-6 w-full min-w-0 border-input bg-white px-1.5 text-[11px] font-normal text-slate-900 dark:bg-white dark:text-slate-900">
+      <SelectTrigger className="h-7 w-full min-w-0 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900">
         <SelectValue placeholder="Visi" />
       </SelectTrigger>
       <SelectContent>
