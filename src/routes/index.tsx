@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
   ResponsiveContainer,
@@ -20,6 +20,9 @@ import { LeadStatusByDay } from "@/components/LeadStatusByDay";
 import { ChannelSummaryTable } from "@/components/ChannelSummaryTable";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    throw redirect({ to: "/queue" });
+  },
   component: PārskatsPage,
 });
 
