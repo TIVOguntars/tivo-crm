@@ -434,8 +434,6 @@ async function callAnalyticsRpcRaw(
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
-      "Accept-Profile": "analytics",
-      "Content-Profile": "analytics",
       "Content-Type": "application/json",
       Accept: "application/json",
     },
