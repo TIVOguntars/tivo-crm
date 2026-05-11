@@ -106,9 +106,9 @@ function PārskatsPage() {
               tone="red"
             />
             <StatCard
-              label="Aktīvi workflow soļi"
+              label="Ieplānotās komunikācijas"
               value={fmt(num(summary.active_or_pending_workflow_steps))}
-              hint={`Pabeigti: ${fmt(num(summary.completed_workflow_steps))}`}
+              hint={`Nosūtītās komunikācijas: ${fmt(num(summary.completed_workflow_steps))}`}
               tone="yellow"
             />
             <StatCard
