@@ -39,6 +39,8 @@ const RPC_FUNCTIONS = [
   "get_status_changes_daily",
   "get_funnel_conversion_daily",
   "get_follow_up_counts",
+  "get_dashboard_summary",
+  "get_dashboard_kpis",
 ] as const;
 
 export type AnalyticsRpc = (typeof RPC_FUNCTIONS)[number];
@@ -415,3 +417,49 @@ export const callCrmRpc = createServerFn({ method: "POST" })
       return { rows: [] as AnalyticsRow[], error: message };
     }
   });
+
+/**
+ * Dashboard analytics RPC wrappers.
+ * All dashboard analytics MUST come from these RPC functions — never read
+ * directly from public tables for dashboard data.
+ */
+async function callAnalyticsRpcRaw(
+  fn: AnalyticsRpc,
+  body: Record<string, unknown> = {},
+): Promise<unknown> {
+  const { url, key } = getEnv();
+  const endpoint = `${url}/rest/v1/rpc/${fn}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Accept-Profile": "analytics",
+      "Content-Profile": "analytics",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `RPC ${fn} failed (${res.status}): ${text.slice(0, 300)}`,
+    );
+  }
+  return res.json();
+}
+
+export const fetchDashboardSummary = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const data = (await callAnalyticsRpcRaw("get_dashboard_summary")) as AnalyticsRow;
+    return data;
+  },
+);
+
+export const fetchDashboardKpis = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const data = (await callAnalyticsRpcRaw("get_dashboard_kpis")) as AnalyticsRow;
+    return data;
+  },
+);
