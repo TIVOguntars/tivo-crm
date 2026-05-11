@@ -71,6 +71,7 @@ export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
     return parts.join("&");
   }, [search]);
 
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
 
   const rows: Row[] = useMemo(() => {

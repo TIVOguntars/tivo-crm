@@ -36,6 +36,7 @@ export function ConversionsCards({ search }: { search: FiltersSearch }) {
     return parts.join("&");
   }, [from, to]);
 
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const { data, isLoading, error } = useAnalyticsView("email_conversions", query);
 
   const totals = useMemo(() => {

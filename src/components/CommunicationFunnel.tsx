@@ -50,6 +50,7 @@ export function CommunicationFunnel({ search }: { search: FiltersSearch }) {
     return { ...base, p_channels: null as string[] | null };
   }, [search]);
 
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const query = useAnalyticsRpc("get_communication_funnel", filters);
 
   const channels: ChannelRow[] = useMemo(() => {

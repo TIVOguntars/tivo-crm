@@ -46,6 +46,7 @@ const COLUMNS: Array<{ key: string; label: string; type: "text" | "num" | "pct" 
 function KomunikācijasPage() {
   const search = Route.useSearch();
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const channels = useAnalyticsRpc("get_channel_summary_v2", filters);
 
   const totals = useMemo(() => {

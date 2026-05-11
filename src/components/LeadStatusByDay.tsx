@@ -55,6 +55,7 @@ function colorFor(status: string, idx: number): string {
 
 export function LeadStatusByDay({ search }: { search: FiltersSearch }) {
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const { data, isLoading, error } = useAnalyticsRpc(
     "get_status_changes_daily",
     filters,
