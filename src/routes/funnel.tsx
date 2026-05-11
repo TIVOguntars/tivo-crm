@@ -85,7 +85,9 @@ function StageList({
 function FunnelPage() {
   const search = Route.useSearch();
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const activeQuery = useAnalyticsRpc("get_funnel", filters);
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const acquisitionQuery = useAnalyticsRpc("get_acquisition_funnel", filters);
 
   const { reach } = useMemo(() => {

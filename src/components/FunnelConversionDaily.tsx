@@ -42,6 +42,7 @@ function toPercent(v: unknown): number {
 
 export function FunnelConversionDaily({ search }: { search: FiltersSearch }) {
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
+  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
   const { data, isLoading, error } = useAnalyticsRpc(
     "get_funnel_conversion_daily",
     filters,
