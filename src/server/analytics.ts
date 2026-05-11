@@ -39,6 +39,8 @@ const RPC_FUNCTIONS = [
   "get_status_changes_daily",
   "get_funnel_conversion_daily",
   "get_follow_up_counts",
+  "get_dashboard_summary",
+  "get_dashboard_kpis",
 ] as const;
 
 export type AnalyticsRpc = (typeof RPC_FUNCTIONS)[number];
