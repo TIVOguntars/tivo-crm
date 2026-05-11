@@ -1,10 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Filter, ListChecks, MessageSquare, Users } from "lucide-react";
+import { BarChart3, Filter, ListChecks, MessageSquare } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
 import tivoLogo from "@/assets/tivo-logo.png";
 
 const items = [
+  { to: "/", label: "Pārskats", icon: BarChart3, exact: true },
   { to: "/queue", label: "Darba rinda", icon: ListChecks, exact: false },
+  { to: "/funnel", label: "Funnel", icon: Filter, exact: false },
+  { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false },
 ] as const;
 
 export function TopNav() {
