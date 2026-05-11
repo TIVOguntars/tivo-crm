@@ -161,12 +161,78 @@ function KpiSection({ title, data }: { title: string; data: unknown }) {
   );
 }
 
-function formatValue(v: unknown): string {
-  if (v == null) return "—";
-  if (typeof v === "number") return fmt(v);
+const KEY_LABELS: Record<string, string> = {
+  total_leads: "Kopā leadi",
+  lead_count: "Leadu skaits",
+  first_lead_at: "Pirmais leads",
+  latest_lead_at: "Jaunākais leads",
+  has_email_count: "Ar e-pastu",
+  has_phone_count: "Ar telefonu",
+  mobile_phone_count: "Mobilie numuri",
+  validated_phone_count: "Validēti numuri",
+  reachable_rate_percent: "Sasniedzamība %",
+  missing_email_count: "Trūkst e-pasts",
+  missing_phone_count: "Trūkst telefons",
+  complete_contact_data_percent: "Pilni kontakti %",
+  reply_rate_percent: "Atbilžu %",
+  click_rate_percent: "Klikšķu %",
+  delivery_rate_percent: "Piegādes %",
+  engagement_rate_percent: "Iesaistes %",
+  active_or_pending_steps: "Ieplānotās komunikācijas",
+  completed_steps: "Nosūtītās komunikācijas",
+  failed_steps: "Neizdevušās",
+  total_steps: "Kopā soļi",
+  step_type: "Tips",
+  avg_completion_minutes: "Vidējais ilgums (min)",
+  channel: "Kanāls",
+  status: "Statuss",
+  date: "Datums",
+  owner: "Atbildīgais",
+  source: "Avots",
+  country: "Valsts",
+};
+
+const ISO_DATETIME_RE =
+  /^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/;
+
+function formatDateTime(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isPercentKey(k?: string): boolean {
+  if (!k) return false;
+  return /percent|_pct$|rate/i.test(k);
+}
+
+function isContactCompletenessKey(k?: string): boolean {
+  if (!k) return false;
+  return /complete_contact|contact_data_percent/i.test(k);
+}
+
+function formatValue(v: unknown, key?: string): string {
+  if (v == null || v === "") {
+    if (isContactCompletenessKey(key)) return "Nav kontaktinformācijas";
+    if (isPercentKey(key)) return "Nav datu";
+    return "—";
+  }
+  if (typeof v === "string" && ISO_DATETIME_RE.test(v)) {
+    return formatDateTime(v);
+  }
+  if (typeof v === "number") {
+    if (v === 0 && isContactCompletenessKey(key)) return "Nav kontaktinformācijas";
+    if (isPercentKey(key)) return `${v.toFixed(1)}%`;
+    return fmt(v);
+  }
   if (typeof v === "string") {
     const n = Number(v);
-    if (Number.isFinite(n) && v.trim() !== "") return fmt(n);
+    if (Number.isFinite(n) && v.trim() !== "") {
+      if (n === 0 && isContactCompletenessKey(key)) return "Nav kontaktinformācijas";
+      if (isPercentKey(key)) return `${n.toFixed(1)}%`;
+      return fmt(n);
+    }
     return v;
   }
   if (typeof v === "boolean") return v ? "Jā" : "Nē";
@@ -174,7 +240,9 @@ function formatValue(v: unknown): string {
 }
 
 function humanizeKey(k: string): string {
-  return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (KEY_LABELS[k]) return KEY_LABELS[k];
+  const spaced = k.replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 function KpiKeyValue({ obj }: { obj: Record<string, unknown> }) {
@@ -183,9 +251,11 @@ function KpiKeyValue({ obj }: { obj: Record<string, unknown> }) {
   return (
     <dl className="divide-y divide-border">
       {entries.map(([k, v]) => (
-        <div key={k} className="flex items-center justify-between py-2 text-sm">
+        <div key={k} className="flex items-center justify-between gap-4 py-2 text-sm">
           <dt className="text-muted-foreground">{humanizeKey(k)}</dt>
-          <dd className="tabular-nums text-foreground">{formatValue(v)}</dd>
+          <dd className="tabular-nums text-foreground text-right">
+            {formatValue(v, k)}
+          </dd>
         </div>
       ))}
     </dl>
@@ -204,9 +274,9 @@ function KpiTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+          <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
             {cols.map((c) => (
-              <th key={c} className="px-2 py-2 font-medium">
+              <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">
                 {humanizeKey(c)}
               </th>
             ))}
@@ -216,8 +286,11 @@ function KpiTable({ rows }: { rows: Array<Record<string, unknown>> }) {
           {rows.map((r, i) => (
             <tr key={i} className="border-b border-border/50 last:border-0">
               {cols.map((c) => (
-                <td key={c} className="px-2 py-2 tabular-nums text-foreground">
-                  {formatValue(r[c])}
+                <td
+                  key={c}
+                  className="whitespace-nowrap px-3 py-2 tabular-nums text-foreground"
+                >
+                  {formatValue(r[c], c)}
                 </td>
               ))}
             </tr>
