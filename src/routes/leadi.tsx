@@ -1006,7 +1006,47 @@ function LeadiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((l) => {
+                  {QUEUE_DEFS.flatMap((q) => {
+                    const items = queues[q.id];
+                    if (items.length === 0) return [];
+                    const collapsed =
+                      collapsedQueues[q.id] ?? q.defaultCollapsed;
+                    const header = (
+                      <tr
+                        key={`qh-${q.id}`}
+                        className="sticky top-[33px] z-[5]"
+                      >
+                        <td colSpan={9} className="p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleQueue(q.id)}
+                            className={cn(
+                              "flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-left text-[11px] uppercase tracking-wide text-foreground backdrop-blur transition-colors hover:bg-muted/70",
+                              q.accent,
+                            )}
+                          >
+                            {collapsed ? (
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                q.dot,
+                              )}
+                              aria-hidden
+                            />
+                            <span className="font-semibold">{q.label}</span>
+                            <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                              {items.length}
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                    if (collapsed) return [header];
+                    const rows = items.map((l) => {
                     const isSel = selected.has(l.lead_id);
                     const isActive = drawerOpen && drawerLeadId === l.lead_id;
                     const dueT = parseDate(l.next_action_due);
@@ -1258,6 +1298,8 @@ function LeadiPage() {
                         </td>
                       </tr>
                     );
+                    });
+                    return [header, ...rows];
                   })}
                 </tbody>
               </table>
@@ -1267,7 +1309,7 @@ function LeadiPage() {
             <span>
               Rāda {sorted.length} no {leads.length}
             </span>
-            <span>Kārtots pēc termiņa, tad pēdējās aktivitātes</span>
+            <span>Sagrupēts pa operacionālajām rindām</span>
           </div>
         </div>
       )}
