@@ -168,6 +168,11 @@ const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
+// Single shared grid template for header, queue separator and data rows.
+// Columns: selection | lead | status | owner | ppv | next_action | last_activity | tags | actions
+const LEADS_GRID =
+  "grid grid-cols-[40px_minmax(260px,1.5fr)_130px_130px_70px_170px_170px_170px_120px]";
+
 function relativeTime(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
