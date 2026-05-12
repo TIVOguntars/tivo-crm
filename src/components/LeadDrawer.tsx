@@ -195,11 +195,13 @@ export function LeadDrawer({
   open,
   onOpenChange,
   onActionCompleted,
+  onPatch,
 }: {
   leadId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onActionCompleted?: (leadId: string) => void;
+  onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
   const [tab, setTab] = useState<TabKey>("parskats");
 
@@ -243,6 +245,7 @@ export function LeadDrawer({
             tab={tab}
             setTab={setTab}
             onActionCompleted={onActionCompleted}
+            onPatch={onPatch}
           />
         )}
       </SheetContent>
@@ -256,21 +259,31 @@ function DrawerBody({
   tab,
   setTab,
   onActionCompleted,
+  onPatch,
 }: {
   row: Row;
   leadId: string | null;
   tab: TabKey;
   setTab: (t: TabKey) => void;
   onActionCompleted?: (leadId: string) => void;
+  onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
 
+  // Optimistic local overrides (status/owner). Drawer reflects them immediately
+  // and propagates to the parent table via onPatch.
+  const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({});
+  const applyPatch = (patch: Record<string, unknown>) => {
+    setLocalPatch((prev) => ({ ...prev, ...patch }));
+    if (realLeadId && onPatch) onPatch(realLeadId, patch);
+  };
+
   const realLeadId = s(row.lead_id) || leadId;
   const displayName = leadDisplayName(row, realLeadId);
-  const status = s(row.lead_status_label);
+  const status = s(localPatch.status ?? row.lead_status_label);
   const priority = s(row.priority_label);
-  const owner = s(row.visible_action_owner);
-  const ppv = s(row.ppv_name);
+  const owner = s(localPatch.owner ?? row.visible_action_owner);
+  const ppv = s(localPatch.ppv ?? row.ppv_name);
   const country = s(row.country);
   const tags = parseTags(row.tags);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
@@ -475,7 +488,7 @@ function DrawerBody({
                 "Nesasniedzams",
                 "Zaudēts",
               ].map((st) => (
-                <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+                <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -527,9 +540,14 @@ function DrawerBody({
             />
           )}
           {tab === "komunikacijas" && (
-            <Suspense fallback={<LoadingState />}>
-              <LeadCommunicationTimeline leadId={realLeadId} />
-            </Suspense>
+            <CommunicationsTab
+              leadId={realLeadId}
+              hasEmail={!!email}
+              hasPhone={!!phone}
+              onSent={() =>
+                applyPatch({ last_activity: new Date().toISOString() })
+              }
+            />
           )}
           {tab === "uzdevumi" && (
             <TasksTab
@@ -591,7 +609,7 @@ function DrawerBody({
               "Nesasniedzams",
               "Zaudēts",
             ].map((st) => (
-              <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+              <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -1165,5 +1183,117 @@ function DataTab(props: {
         dati netiek attēloti.
       </p>
     </Section>
+  );
+}
+
+/* ----------------------------- Communications tab ----------------------------- */
+
+const COMPOSER_MODES = [
+  { key: "email", label: "Email", icon: Mail },
+  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { key: "sms", label: "SMS", icon: Send },
+  { key: "note", label: "Piezīme", icon: StickyNote },
+] as const;
+type ComposerMode = (typeof COMPOSER_MODES)[number]["key"];
+
+function CommunicationsTab({
+  leadId,
+  hasEmail,
+  hasPhone,
+  onSent,
+}: {
+  leadId: string | null;
+  hasEmail: boolean;
+  hasPhone: boolean;
+  onSent: () => void;
+}) {
+  const [mode, setMode] = useState<ComposerMode>("note");
+  const [text, setText] = useState("");
+
+  const isDisabled =
+    (mode === "email" && !hasEmail) ||
+    ((mode === "whatsapp" || mode === "sms") && !hasPhone);
+
+  const placeholder =
+    mode === "note"
+      ? "Iekšēja piezīme komandai…"
+      : mode === "email"
+        ? "Email saturs…"
+        : mode === "whatsapp"
+          ? "WhatsApp ziņa…"
+          : "SMS ziņa…";
+
+  const submit = () => {
+    if (!text.trim() || isDisabled) return;
+    // Optimistic: clear composer + bump timestamps. Backend wiring TBD.
+    setText("");
+    onSent();
+  };
+
+  return (
+    <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <Suspense fallback={<LoadingState />}>
+          <LeadCommunicationTimeline leadId={leadId} />
+        </Suspense>
+      </div>
+      <div className="sticky bottom-0 border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
+        <div className="mb-1.5 flex items-center gap-0.5">
+          {COMPOSER_MODES.map((m) => {
+            const Icon = m.icon;
+            const active = mode === m.key;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setMode(m.key)}
+                className={cn(
+                  "inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium transition-colors",
+                  active
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
+            }}
+            placeholder={isDisabled ? "Trūkst kontakta šim kanālam" : placeholder}
+            disabled={isDisabled}
+            rows={2}
+            className="min-h-[44px] flex-1 resize-none rounded border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          />
+          <div className="flex flex-col items-end gap-1">
+            <button
+              type="button"
+              disabled
+              className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted-foreground opacity-60"
+              title="Drīzumā"
+            >
+              <Plus className="h-3 w-3" />
+              Pielikums
+            </button>
+            <Button
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={submit}
+              disabled={!text.trim() || isDisabled}
+            >
+              <Send className="h-3.5 w-3.5" />
+              Sūtīt
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
