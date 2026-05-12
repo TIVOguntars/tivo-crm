@@ -771,17 +771,41 @@ function LeadiPage() {
                 <tbody>
                   {sorted.map((l) => {
                     const isSel = selected.has(l.lead_id);
+                    const isActive = drawerOpen && drawerLeadId === l.lead_id;
+                    const dueT = parseDate(l.next_action_due);
+                    const isOverdue = dueT != null && dueT < Date.now();
+                    const isHot = l.tags.some((t) =>
+                      /^(hot|karst)/i.test(t),
+                    );
+                    const hasUnread = l.unread_replies > 0;
+                    const noContact = !parseDate(l.last_activity);
+                    // Priority cascade: overdue > hot > unread > no-contact
+                    const accentClass = isOverdue
+                      ? "before:bg-rose-500/70"
+                      : isHot
+                        ? "before:bg-orange-500/70"
+                        : hasUnread
+                          ? "before:bg-blue-500/70"
+                          : noContact
+                            ? "before:bg-muted-foreground/30"
+                            : "before:bg-transparent";
                     return (
                       <tr
                         key={l.lead_id}
                         onClick={() => openLead(l.lead_id)}
                         className={cn(
-                          "group cursor-pointer border-b border-border/60 transition-colors",
-                          isSel ? "bg-primary/5" : "hover:bg-muted/40",
+                          "group relative cursor-pointer border-b border-border/30 transition-colors",
+                          "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
+                          accentClass,
+                          isActive
+                            ? "bg-primary/[0.06] shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                            : isSel
+                              ? "bg-primary/[0.04]"
+                              : "hover:bg-muted/30",
                         )}
                       >
                         <td
-                          className="px-2 py-1.5"
+                          className="px-2 py-1"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Checkbox
@@ -790,12 +814,27 @@ function LeadiPage() {
                             className="h-3.5 w-3.5"
                           />
                         </td>
-                        <td className="max-w-[260px] px-2 py-1.5">
-                          <div className="truncate font-medium text-foreground">
-                            {l.name || (
-                              <span className="text-muted-foreground">
-                                Bez nosaukuma
-                              </span>
+                        <td className="max-w-[260px] px-2 py-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                              {l.name || (
+                                <span className="font-normal text-muted-foreground">
+                                  Bez nosaukuma
+                                </span>
+                              )}
+                            </span>
+                            {hasUnread && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                                    aria-label="Nelasīta atbilde"
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  Nelasītas atbildes: {l.unread_replies}
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground">
@@ -803,10 +842,10 @@ function LeadiPage() {
                             {l.country ? ` • ${l.country}` : ""}
                           </div>
                         </td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-1">
                           <StatusBadge value={l.status} />
                         </td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-1">
                           {l.owner ? (
                             <div className="flex items-center gap-1.5">
                               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-secondary-foreground">
@@ -820,12 +859,12 @@ function LeadiPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-foreground">
+                        <td className="px-2 py-1 text-foreground">
                           {l.ppv || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="max-w-[280px] px-2 py-1.5">
+                        <td className="max-w-[280px] px-2 py-1">
                           {l.next_action ? (
                             <div className="flex items-center gap-2">
                               <span className="truncate text-foreground">
@@ -856,10 +895,10 @@ function LeadiPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
+                        <td className="px-2 py-1 text-muted-foreground">
                           {relativeTime(l.last_activity)}
                         </td>
-                        <td className="max-w-[180px] px-2 py-1.5">
+                        <td className="max-w-[180px] px-2 py-1">
                           {l.tags.length === 0 ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
@@ -886,10 +925,10 @@ function LeadiPage() {
                           )}
                         </td>
                         <td
-                          className="px-2 py-1.5 text-right"
+                          className="px-2 py-1 text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
                             <RowAction
                               icon={<Phone className="h-3.5 w-3.5" />}
                               label="Zvanīt"
@@ -941,6 +980,7 @@ function LeadiPage() {
         leadId={drawerLeadId}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onPatch={patchLead}
       />
     </TooltipProvider>
   );
