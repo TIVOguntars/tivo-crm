@@ -348,12 +348,12 @@ function KpiTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     }, new Set()),
   );
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="w-full">
+      <table className="w-full table-fixed text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
             {cols.map((c) => (
-              <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">
+              <th key={c} className="break-words px-3 py-2 font-medium">
                 {humanizeKey(c)}
               </th>
             ))}
@@ -365,7 +365,7 @@ function KpiTable({ rows }: { rows: Array<Record<string, unknown>> }) {
               {cols.map((c) => (
                 <td
                   key={c}
-                  className="whitespace-nowrap px-3 py-2 tabular-nums text-foreground"
+                  className="break-words px-3 py-2 tabular-nums text-foreground"
                 >
                   {formatValue(r[c], c)}
                 </td>
