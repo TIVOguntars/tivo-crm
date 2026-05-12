@@ -14,6 +14,7 @@ import {
   Filter,
   Columns3,
   ChevronDown,
+  ChevronRight,
   X,
   Search,
   AlertTriangle,
@@ -361,6 +362,33 @@ function LeadiPage() {
   // resolves, so drawer mutations reflect immediately without table reload.
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
+  // Persisted queue collapse state
+  const [collapsedQueues, setCollapsedQueues] = useState<Record<string, boolean>>(
+    () => {
+      if (typeof window === "undefined") return {};
+      try {
+        const raw = window.localStorage.getItem("leadi.collapsedQueues");
+        return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      } catch {
+        return {};
+      }
+    },
+  );
+  const toggleQueue = useCallback((id: string) => {
+    setCollapsedQueues((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        window.localStorage.setItem(
+          "leadi.collapsedQueues",
+          JSON.stringify(next),
+        );
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   const overviewQuery = useMemo(
     () =>
       ["select=*", "order=created_at.desc.nullslast", `limit=${PAGE_SIZE}`].join(
@@ -585,6 +613,102 @@ function LeadiPage() {
     });
     return copy;
   }, [filtered]);
+
+  /* ----------------------- Queue grouping ----------------------- */
+  type QueueId =
+    | "unread"
+    | "overdue"
+    | "waiting"
+    | "active"
+    | "no_contact"
+    | "other";
+  const QUEUE_DEFS: {
+    id: QueueId;
+    label: string;
+    accent: string;
+    dot: string;
+    defaultCollapsed: boolean;
+  }[] = [
+    {
+      id: "unread",
+      label: "Nepieciešama reakcija",
+      accent: "border-l-blue-500/70",
+      dot: "bg-blue-500",
+      defaultCollapsed: false,
+    },
+    {
+      id: "overdue",
+      label: "Kavēti",
+      accent: "border-l-rose-500/70",
+      dot: "bg-rose-500",
+      defaultCollapsed: false,
+    },
+    {
+      id: "waiting",
+      label: "Gaidām klientu",
+      accent: "border-l-amber-500/70",
+      dot: "bg-amber-500",
+      defaultCollapsed: false,
+    },
+    {
+      id: "active",
+      label: "Aktīvi",
+      accent: "border-l-emerald-500/60",
+      dot: "bg-emerald-500",
+      defaultCollapsed: true,
+    },
+    {
+      id: "no_contact",
+      label: "Bez kontakta",
+      accent: "border-l-muted-foreground/40",
+      dot: "bg-muted-foreground/60",
+      defaultCollapsed: true,
+    },
+    {
+      id: "other",
+      label: "Citi",
+      accent: "border-l-border",
+      dot: "bg-muted-foreground/40",
+      defaultCollapsed: true,
+    },
+  ];
+
+  const queues = useMemo(() => {
+    const buckets: Record<QueueId, Lead[]> = {
+      unread: [],
+      overdue: [],
+      waiting: [],
+      active: [],
+      no_contact: [],
+      other: [],
+    };
+    const now = Date.now();
+    for (const l of sorted) {
+      if (l.has_unread_reply) {
+        buckets.unread.push(l);
+        continue;
+      }
+      const dueT = parseDate(l.next_action_due);
+      if (dueT != null && dueT < now) {
+        buckets.overdue.push(l);
+        continue;
+      }
+      if (l.communication_state === "waiting") {
+        buckets.waiting.push(l);
+        continue;
+      }
+      if (l.communication_state === "active") {
+        buckets.active.push(l);
+        continue;
+      }
+      if (l.communication_state === "no_contact") {
+        buckets.no_contact.push(l);
+        continue;
+      }
+      buckets.other.push(l);
+    }
+    return buckets;
+  }, [sorted]);
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
@@ -882,7 +1006,47 @@ function LeadiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((l) => {
+                  {QUEUE_DEFS.flatMap((q) => {
+                    const items = queues[q.id];
+                    if (items.length === 0) return [];
+                    const collapsed =
+                      collapsedQueues[q.id] ?? q.defaultCollapsed;
+                    const header = (
+                      <tr
+                        key={`qh-${q.id}`}
+                        className="sticky top-[33px] z-[5]"
+                      >
+                        <td colSpan={9} className="p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleQueue(q.id)}
+                            className={cn(
+                              "flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-left text-[11px] uppercase tracking-wide text-foreground backdrop-blur transition-colors hover:bg-muted/70",
+                              q.accent,
+                            )}
+                          >
+                            {collapsed ? (
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                q.dot,
+                              )}
+                              aria-hidden
+                            />
+                            <span className="font-semibold">{q.label}</span>
+                            <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                              {items.length}
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                    if (collapsed) return [header];
+                    const rows = items.map((l) => {
                     const isSel = selected.has(l.lead_id);
                     const isActive = drawerOpen && drawerLeadId === l.lead_id;
                     const dueT = parseDate(l.next_action_due);
@@ -1134,6 +1298,8 @@ function LeadiPage() {
                         </td>
                       </tr>
                     );
+                    });
+                    return [header, ...rows];
                   })}
                 </tbody>
               </table>
@@ -1143,7 +1309,7 @@ function LeadiPage() {
             <span>
               Rāda {sorted.length} no {leads.length}
             </span>
-            <span>Kārtots pēc termiņa, tad pēdējās aktivitātes</span>
+            <span>Sagrupēts pa operacionālajām rindām</span>
           </div>
         </div>
       )}
