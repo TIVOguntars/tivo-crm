@@ -24,6 +24,11 @@ const VIEWS = [
   "email_conversions",
   "email_click_performance",
   "email_click_summary",
+  "dashboard_kpi_overview",
+  "ppv_performance",
+  "country_distribution",
+  "data_quality",
+  "workflow_health",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
