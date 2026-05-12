@@ -866,6 +866,15 @@ function LeadiPage() {
   };
   const clearSelected = () => setSelected(new Set());
 
+  const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
+    setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
+
+  const bumpActivity = useCallback(
+    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
+    [patchLead],
+  );
+
   const openLead = useCallback(
     (id: string) => {
       setDrawerLeadId(id);
@@ -968,10 +977,6 @@ function LeadiPage() {
   void phoneRef;
   void emailRef;
 
-  const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
-    setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }, []);
-
   const patchMany = useCallback(
     (ids: string[], patch: BulkPatch) => {
       setPatches((prev) => {
@@ -1005,11 +1010,6 @@ function LeadiPage() {
     leadsPatched.forEach((l) => (m[l.lead_id] = l.status));
     return m;
   }, [leadsPatched]);
-
-  const bumpActivity = useCallback(
-    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
-    [patchLead],
-  );
 
   return (
     <TooltipProvider delayDuration={150}>
