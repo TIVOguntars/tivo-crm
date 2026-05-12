@@ -1,34 +1,77 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState, useCallback } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { Eye } from "lucide-react";
+import {
+  Phone,
+  MessageCircle,
+  Mail,
+  CheckSquare,
+  StickyNote,
+  Plus,
+  Upload,
+  Bookmark,
+  Filter,
+  Columns3,
+  ChevronDown,
+  X,
+  Search,
+  AlertTriangle,
+} from "lucide-react";
 
-import { PageHeader } from "@/components/PageHeader";
-import { SearchInput } from "@/components/SearchInput";
-import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { LoadingState, ErrorState } from "@/components/DataState";
+import { LeadDrawer } from "@/components/LeadDrawer";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { cn } from "@/lib/utils";
 import type { FiltersSearch } from "@/lib/filters";
 
-/* ----------------------- Route + search params ----------------------- */
+/* ----------------------- Saved views ----------------------- */
 
-const SEGMENTS = [
+const VIEWS = [
   "all",
+  "mani",
   "jauni",
-  "nesasniedzami",
-  "ar_reakciju",
-  "hot",
-  "nokaveti",
-  "pieprasijums_piedavajums",
-  "ligumi",
+  "sodien",
+  "bez_kontakta",
+  "karstie",
+  "konflikti",
 ] as const;
-type Segment = (typeof SEGMENTS)[number];
+type View = (typeof VIEWS)[number];
+
+const VIEW_LABELS: Record<View, string> = {
+  all: "Visi",
+  mani: "Mani",
+  jauni: "Jauni",
+  sodien: "Šodien",
+  bez_kontakta: "Bez kontakta",
+  karstie: "Karstie",
+  konflikti: "Konflikti",
+};
 
 const leadiSearchSchema = z.object({
-  status: fallback(z.string().optional(), undefined),
-  seg: fallback(z.enum(SEGMENTS), "all").default("all"),
+  seg: fallback(z.enum(VIEWS), "all").default("all"),
+  status: fallback(z.array(z.string()), []).default([]),
+  q: fallback(z.string().optional(), undefined),
+  countries: fallback(z.array(z.string()), []).default([]),
+  sources: fallback(z.array(z.string()), []).default([]),
+  owners: fallback(z.array(z.string()), []).default([]),
+  ppvs: fallback(z.array(z.string()), []).default([]),
+  tags: fallback(z.array(z.string()), []).default([]),
 });
 
 export const Route = createFileRoute("/leadi")({
@@ -36,39 +79,33 @@ export const Route = createFileRoute("/leadi")({
   component: LeadiPage,
 });
 
-/* ---------------------------- Types ---------------------------- */
+/* ----------------------- Types & helpers ----------------------- */
 
 type Row = Record<string, unknown>;
+const PAGE_SIZE = 300;
 
 interface Lead {
   lead_id: string;
-  display_name: string;
-  email: string;
+  name: string;
   phone: string;
+  email: string;
   country: string;
   source: string;
   status: string;
   owner: string;
   ppv: string;
   next_action: string;
-  next_action_due_date: string | null;
-  last_contact_date: string | null;
-  automation_step: string;
-  automation_date: string | null;
+  next_action_due: string | null;
+  last_activity: string | null;
   tags: string[];
   created_at: string | null;
 }
-
-const PAGE_SIZE = 200;
-
-/* ----------------------- Helpers ----------------------- */
 
 function s(v: unknown): string {
   if (v == null) return "";
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
-
 function asTags(v: unknown): string[] {
   if (Array.isArray(v)) return v.map((t) => String(t).trim()).filter(Boolean);
   if (v == null) return [];
@@ -77,100 +114,111 @@ function asTags(v: unknown): string[] {
     .map((t) => t.trim())
     .filter(Boolean);
 }
-
-function leadDisplayName(row: Row, leadId: string): string {
-  return s(row.name) || s(row.object_name) || (leadId ? `Lead #${leadId}` : "");
-}
-
 function parseDate(v: unknown): number | null {
   if (v == null || v === "") return null;
   const t = new Date(String(v)).getTime();
   return Number.isFinite(t) ? t : null;
 }
+function isUuidLike(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    v.trim(),
+  );
+}
+function leadDisplayName(r: Row): string {
+  const n = s(r.name) || s(r.object_name) || s(r.display_name);
+  if (n && !isUuidLike(n)) return n;
+  return "";
+}
+function initials(name: string): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
+}
 
-function fmtDate(v: string | null): string {
+const MS_MIN = 60_000;
+const MS_HOUR = 60 * MS_MIN;
+const MS_DAY = 24 * MS_HOUR;
+
+function relativeTime(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
-  return new Date(t).toLocaleDateString("lv-LV");
-}
-
-function fmtDateTime(v: string | null): string {
-  const t = parseDate(v);
-  if (t == null) return "—";
-  return new Date(t).toLocaleString("lv-LV", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-const MS_DAY = 24 * 60 * 60 * 1000;
-
-function dueClass(due: string | null): string {
-  const t = parseDate(due);
-  if (t == null) return "text-muted-foreground";
-  const diff = t - Date.now();
-  if (diff < 0) return "text-destructive font-medium";
-  if (diff < MS_DAY * 2) return "text-amber-600 dark:text-amber-400 font-medium";
-  return "text-foreground";
-}
-
-/* ----------------------- Segments ----------------------- */
-
-const NEW_STATUSES = new Set(["Jauns", "Jauns lead", "Jauns leads"]);
-const UNREACHABLE_STATUSES = new Set([
-  "Nesasniedzams",
-  "Nesasniegts",
-  "Bounced",
-  "Nederīgs e-pasts",
-]);
-const REQUEST_OFFER_STATUSES = new Set([
-  "Pieprasījums",
-  "Piedāvājums",
-  "Pieprasijums",
-  "Piedavajums",
-]);
-const CONTRACT_STATUSES = new Set(["Līgums", "Ligums", "Contract"]);
-
-function passesSegment(lead: Lead, seg: Segment): boolean {
-  switch (seg) {
-    case "all":
-      return true;
-    case "jauni":
-      return NEW_STATUSES.has(lead.status);
-    case "nesasniedzami":
-      return UNREACHABLE_STATUSES.has(lead.status);
-    case "ar_reakciju":
-      return Boolean(parseDate(lead.last_contact_date));
-    case "hot":
-      return lead.tags.some((t) => t.toLowerCase() === "hot");
-    case "nokaveti": {
-      const t = parseDate(lead.next_action_due_date);
-      return t != null && t < Date.now();
-    }
-    case "pieprasijums_piedavajums":
-      return REQUEST_OFFER_STATUSES.has(lead.status);
-    case "ligumi":
-      return CONTRACT_STATUSES.has(lead.status);
+  const diff = Date.now() - t;
+  if (diff < 0) {
+    const ahead = -diff;
+    if (ahead < MS_HOUR) return `pēc ${Math.max(1, Math.round(ahead / MS_MIN))}m`;
+    if (ahead < MS_DAY) return `pēc ${Math.round(ahead / MS_HOUR)}h`;
+    return `pēc ${Math.round(ahead / MS_DAY)}d`;
   }
+  if (diff < 5 * MS_MIN) return "tikko";
+  if (diff < MS_HOUR) return `pirms ${Math.round(diff / MS_MIN)}m`;
+  if (diff < 6 * MS_HOUR) return `pirms ${Math.round(diff / MS_HOUR)}h`;
+  const now = new Date();
+  const then = new Date(t);
+  const sameDay =
+    now.getFullYear() === then.getFullYear() &&
+    now.getMonth() === then.getMonth() &&
+    now.getDate() === then.getDate();
+  if (sameDay) return "šodien";
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  const isYest =
+    yest.getFullYear() === then.getFullYear() &&
+    yest.getMonth() === then.getMonth() &&
+    yest.getDate() === then.getDate();
+  if (isYest) return "vakar";
+  const days = Math.round(diff / MS_DAY);
+  if (days < 30) return `${days}d`;
+  if (days < 365) return `${Math.round(days / 30)}mēn`;
+  return `${Math.round(days / 365)}g`;
 }
 
-const SEGMENT_LABELS: Record<Segment, string> = {
-  all: "Visi",
-  jauni: "Jauni",
-  nesasniedzami: "Nesasniedzami",
-  ar_reakciju: "Ar reakciju",
-  hot: "Hot",
-  nokaveti: "Nokavēti termiņi",
-  pieprasijums_piedavajums: "Pieprasījums / Piedāvājums",
-  ligumi: "Līgumi",
-};
+function isSameDay(t: number, now = Date.now()): boolean {
+  const a = new Date(t);
+  const b = new Date(now);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-/* ----------------------- Filter dropdown ----------------------- */
+/* ----------------------- Status badge ----------------------- */
 
-function MultiSelect({
+function statusTone(status: string): string {
+  const k = status.toLowerCase();
+  if (!k) return "bg-muted text-muted-foreground border-transparent";
+  if (k.includes("jauns"))
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
+  if (k.includes("līgum") || k.includes("ligum") || k.includes("won") || k.includes("contract"))
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+  if (k.includes("piedāvāj") || k.includes("piedavaj") || k.includes("pieprasīj") || k.includes("pieprasij"))
+    return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30";
+  if (k.includes("sarunās") || k.includes("sarunas") || k.includes("aktīv") || k.includes("aktiv"))
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
+  if (k.includes("nesasn") || k.includes("bounce") || k.includes("nederīg") || k.includes("zaud"))
+    return "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
+  if (k.includes("konflikt"))
+    return "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
+  return "bg-secondary text-secondary-foreground border-transparent";
+}
+
+function StatusBadge({ value }: { value: string }) {
+  if (!value) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 items-center rounded border px-1.5 text-[11px] font-medium leading-none",
+        statusTone(value),
+      )}
+    >
+      {value}
+    </span>
+  );
+}
+
+/* ----------------------- Filter chip popover ----------------------- */
+
+function FilterChip({
   label,
   options,
   value,
@@ -179,59 +227,118 @@ function MultiSelect({
   label: string;
   options: string[];
   value: string[];
-  onChange: (next: string[]) => void;
+  onChange: (v: string[]) => void;
 }) {
-  const selected = new Set(value);
+  const [q, setQ] = useState("");
+  const filtered = useMemo(
+    () =>
+      options.filter((o) =>
+        q ? o.toLowerCase().includes(q.toLowerCase()) : true,
+      ),
+    [options, q],
+  );
+  const toggle = (opt: string) => {
+    if (value.includes(opt)) onChange(value.filter((v) => v !== opt));
+    else onChange([...value, opt]);
+  };
+  const active = value.length > 0;
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <select
-        multiple
-        value={value}
-        onChange={(e) => {
-          const next = Array.from(e.target.selectedOptions).map((o) => o.value);
-          onChange(next);
-        }}
-        className="h-20 min-w-[140px] rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-            {selected.has(opt) ? " ✓" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+            active
+              ? "border-primary/40 bg-primary/10 text-foreground"
+              : "border-border bg-background text-foreground hover:bg-muted/50",
+          )}
+        >
+          <span className="font-medium">{label}</span>
+          {active && (
+            <span className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {value.length}
+            </span>
+          )}
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-0">
+        <div className="border-b border-border p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={`Meklēt: ${label.toLowerCase()}`}
+              className="h-7 w-full rounded border border-input bg-background pl-7 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        </div>
+        <div className="max-h-64 overflow-y-auto py-1">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+              Nav rezultātu
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <label
+                key={opt}
+                className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-muted/50"
+              >
+                <Checkbox
+                  checked={value.includes(opt)}
+                  onCheckedChange={() => toggle(opt)}
+                  className="h-3.5 w-3.5"
+                />
+                <span className="truncate text-foreground">{opt}</span>
+              </label>
+            ))
+          )}
+        </div>
+        {active && (
+          <div className="border-t border-border p-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-full justify-center text-xs"
+              onClick={() => onChange([])}
+            >
+              Notīrīt
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
 /* ----------------------- Page ----------------------- */
 
 function LeadiPage() {
-  const search = Route.useSearch() as FiltersSearch & { status?: string; seg: Segment };
+  const search = Route.useSearch();
   const navigate = useNavigate();
 
+  const seg: View = (search.seg as View) ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
-  const selectedCountries = search.countries ?? [];
-  const selectedSources = search.sources ?? [];
-  const selectedOwners = search.owners ?? [];
-  const selectedPpvs = search.ppvs ?? [];
-  const selectedTags = search.tags ?? [];
-  const selectedStatus = search.status;
-  const seg: Segment = search.seg ?? "all";
+  const fStatus = search.status ?? [];
+  const fOwners = search.owners ?? [];
+  const fPpvs = search.ppvs ?? [];
+  const fCountries = search.countries ?? [];
+  const fTags = search.tags ?? [];
 
-  /* Pull a wide page of overview rows; client-side filters/sort. */
-  const overviewQuery = useMemo(() => {
-    return [
-      "select=*",
-      "order=created_at.desc.nullslast",
-      `limit=${PAGE_SIZE}`,
-    ].join("&");
-  }, []);
+  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Source migrated from analytics.leads_overview (no schema permission)
-  // to crm.next_action_queue_display_enriched. Field reads use
-  // lead_drawer_summary naming with legacy fallbacks.
+  const overviewQuery = useMemo(
+    () =>
+      ["select=*", "order=created_at.desc.nullslast", `limit=${PAGE_SIZE}`].join(
+        "&",
+      ),
+    [],
+  );
+
   const overview = useCrmView(
     "next_action_queue_display_enriched",
     overviewQuery,
@@ -242,35 +349,34 @@ function LeadiPage() {
     (overview.error as Error | null)?.message || overview.data?.error;
   const loading = overview.isLoading;
 
-  /* Map rows to typed leads */
   const leads = useMemo<Lead[]>(() => {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
       .map((r) => {
         const id = s(r.lead_id);
         if (!id) return null;
+        const phone = s(
+          r.telefons_e164 || r.telefons_raw || r.phone_e164 || r.phone_raw,
+        );
+        const next_action_due = s(r.visible_action_due_at) || null;
+        const last_activity =
+          s(r.last_contact_date) ||
+          s(r.last_communication_at) ||
+          s(r.updated_at) ||
+          null;
         return {
           lead_id: id,
-          display_name: leadDisplayName(r, id),
+          name: leadDisplayName(r),
+          phone,
           email: s(r.email_normalized || r.email),
-          phone: s(
-            r.telefons_e164 ||
-              r.telefons_raw ||
-              r.phone_e164 ||
-              r.phone_raw,
-          ),
           country: s(r.country),
           source: s(r.source),
           status: s(r.lead_status_label || r.status),
           owner: s(r.visible_action_owner || r.owner),
           ppv: s(r.ppv_name || r.ppv_vards),
           next_action: s(r.visible_action || r.next_action),
-          next_action_due_date:
-            s(r.visible_action_due_at || r.next_action_due_date) || null,
-          last_contact_date: s(r.last_contact_date) || null,
-          automation_step: s(r.system_action_label || r.automation_step),
-          automation_date:
-            s(r.system_due_date || r.automation_date) || null,
+          next_action_due,
+          last_activity,
           tags: asTags(r.tags),
           created_at: s(r.created_at) || null,
         } as Lead;
@@ -278,426 +384,592 @@ function LeadiPage() {
       .filter((x): x is Lead => x !== null);
   }, [overview.data]);
 
-  /* Filter options from the dataset itself (fallback for filter_options). */
   const options = useMemo(() => {
     const fo = (filterOptions.data?.rows ?? [])[0] as Row | undefined;
-
-    const fromArray = (v: unknown): string[] =>
+    const fromArr = (v: unknown) =>
       Array.isArray(v) ? v.map(String).filter(Boolean) : [];
-
     const dedupe = (arr: string[]) =>
       Array.from(new Set(arr.filter(Boolean))).sort((a, b) =>
         a.localeCompare(b, "lv"),
       );
-
     return {
       statuses: dedupe(
-        fromArray(fo?.statuses).length > 0
-          ? fromArray(fo?.statuses)
+        fromArr(fo?.statuses).length
+          ? fromArr(fo?.statuses)
           : leads.map((l) => l.status),
       ),
       countries: dedupe(
-        fromArray(fo?.countries).length > 0
-          ? fromArray(fo?.countries)
+        fromArr(fo?.countries).length
+          ? fromArr(fo?.countries)
           : leads.map((l) => l.country),
       ),
-      sources: dedupe(
-        fromArray(fo?.sources).length > 0
-          ? fromArray(fo?.sources)
-          : leads.map((l) => l.source),
-      ),
       owners: dedupe(
-        fromArray(fo?.owners).length > 0
-          ? fromArray(fo?.owners)
+        fromArr(fo?.owners).length
+          ? fromArr(fo?.owners)
           : leads.map((l) => l.owner),
       ),
       ppvs: dedupe(
-        fromArray(fo?.ppvs).length > 0
-          ? fromArray(fo?.ppvs)
-          : leads.map((l) => l.ppv),
+        fromArr(fo?.ppvs).length ? fromArr(fo?.ppvs) : leads.map((l) => l.ppv),
       ),
       tags: dedupe(leads.flatMap((l) => l.tags)),
     };
   }, [filterOptions.data, leads]);
 
-  /* Apply filters + segment + search */
   const filtered = useMemo(() => {
-    const tagSel = selectedTags.map((t) => t.toLowerCase());
-
+    const tagsLower = fTags.map((t) => t.toLowerCase());
     return leads.filter((l) => {
-      if (selectedStatus && l.status !== selectedStatus) return false;
-      if (selectedCountries.length && !selectedCountries.includes(l.country))
-        return false;
-      if (selectedSources.length && !selectedSources.includes(l.source))
-        return false;
-      if (selectedOwners.length && !selectedOwners.includes(l.owner))
-        return false;
-      if (selectedPpvs.length && !selectedPpvs.includes(l.ppv)) return false;
-
-      if (tagSel.length) {
+      if (fStatus.length && !fStatus.includes(l.status)) return false;
+      if (fOwners.length && !fOwners.includes(l.owner)) return false;
+      if (fPpvs.length && !fPpvs.includes(l.ppv)) return false;
+      if (fCountries.length && !fCountries.includes(l.country)) return false;
+      if (tagsLower.length) {
         const lower = l.tags.map((t) => t.toLowerCase());
-        if (!tagSel.every((t) => lower.includes(t))) return false;
+        if (!tagsLower.every((t) => lower.includes(t))) return false;
       }
-
-      if (!passesSegment(l, seg)) return false;
-
+      // segments
+      switch (seg) {
+        case "all":
+          break;
+        case "mani":
+          // No identity context — treat as no filter rather than fake data
+          break;
+        case "jauni":
+          if (!/jauns/i.test(l.status)) return false;
+          break;
+        case "sodien": {
+          const t = parseDate(l.created_at);
+          if (t == null || !isSameDay(t)) return false;
+          break;
+        }
+        case "bez_kontakta":
+          if (parseDate(l.last_activity) != null) return false;
+          break;
+        case "karstie":
+          if (
+            !l.tags.some((t) => /^(hot|karst)/i.test(t)) &&
+            !/karst/i.test(l.status)
+          )
+            return false;
+          break;
+        case "konflikti":
+          if (
+            !l.tags.some((t) => /konflikt/i.test(t)) &&
+            !/konflikt/i.test(l.status)
+          )
+            return false;
+          break;
+      }
       if (q) {
-        const hay = `${l.display_name} ${l.email} ${l.phone}`.toLowerCase();
+        const hay =
+          `${l.name} ${l.email} ${l.phone} ${l.next_action}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [
-    leads,
-    selectedStatus,
-    selectedCountries,
-    selectedSources,
-    selectedOwners,
-    selectedPpvs,
-    selectedTags,
-    seg,
-    q,
-  ]);
+  }, [leads, fStatus, fOwners, fPpvs, fCountries, fTags, seg, q]);
 
-  /* Sort: due asc nullslast → last_contact_date asc → created_at desc */
   const sorted = useMemo(() => {
     const copy = [...filtered];
     copy.sort((a, b) => {
-      const aDue = parseDate(a.next_action_due_date);
-      const bDue = parseDate(b.next_action_due_date);
+      const aDue = parseDate(a.next_action_due);
+      const bDue = parseDate(b.next_action_due);
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
-        if (aDue !== bDue) return aDue - bDue;
+        return aDue - bDue;
       }
-      const aLast = parseDate(a.last_contact_date);
-      const bLast = parseDate(b.last_contact_date);
-      if (aLast !== bLast) {
-        if (aLast == null) return 1;
-        if (bLast == null) return -1;
-        if (aLast !== bLast) return aLast - bLast;
-      }
-      const aCreated = parseDate(a.created_at) ?? 0;
-      const bCreated = parseDate(b.created_at) ?? 0;
-      return bCreated - aCreated;
+      const aL = parseDate(a.last_activity) ?? 0;
+      const bL = parseDate(b.last_activity) ?? 0;
+      return bL - aL;
     });
     return copy;
   }, [filtered]);
 
-  const setSegment = (next: Segment) => {
-    navigate({
-      to: "/leadi",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        seg: next === "all" ? undefined : next,
-      })) as never,
-      replace: true,
-    });
-  };
+  const setSearch = useCallback(
+    (patch: Record<string, unknown>) => {
+      navigate({
+        to: "/leadi",
+        search: ((prev: Record<string, unknown>) => ({ ...prev, ...patch })) as never,
+        replace: true,
+      });
+    },
+    [navigate],
+  );
 
-  const setStatus = (next: string | undefined) => {
-    navigate({
-      to: "/leadi",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        status: next || undefined,
-      })) as never,
-      replace: true,
+  const clearFilters = () =>
+    setSearch({
+      seg: undefined,
+      status: [],
+      countries: [],
+      owners: [],
+      ppvs: [],
+      tags: [],
+      q: undefined,
     });
-  };
-
-  const setMulti = (
-    key: "countries" | "sources" | "owners" | "ppvs" | "tags",
-    value: string[],
-  ) => {
-    navigate({
-      to: "/leadi",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        [key]: value.length ? value : [],
-      })) as never,
-      replace: true,
-    });
-  };
-
-  const clearFilters = () => {
-    navigate({
-      to: "/leadi",
-      search: ((prev: Record<string, unknown>) => ({
-        ...prev,
-        status: undefined,
-        countries: [],
-        sources: [],
-        owners: [],
-        ppvs: [],
-        tags: [],
-        seg: undefined,
-        q: undefined,
-      })) as never,
-      replace: true,
-    });
-  };
 
   const hasAnyFilter =
-    !!selectedStatus ||
-    selectedCountries.length > 0 ||
-    selectedSources.length > 0 ||
-    selectedOwners.length > 0 ||
-    selectedPpvs.length > 0 ||
-    selectedTags.length > 0 ||
     seg !== "all" ||
+    fStatus.length > 0 ||
+    fOwners.length > 0 ||
+    fPpvs.length > 0 ||
+    fCountries.length > 0 ||
+    fTags.length > 0 ||
     !!q;
 
+  const allVisibleSelected =
+    sorted.length > 0 && sorted.every((l) => selected.has(l.lead_id));
+  const toggleAll = () => {
+    if (allVisibleSelected) {
+      const next = new Set(selected);
+      sorted.forEach((l) => next.delete(l.lead_id));
+      setSelected(next);
+    } else {
+      const next = new Set(selected);
+      sorted.forEach((l) => next.add(l.lead_id));
+      setSelected(next);
+    }
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  const clearSelected = () => setSelected(new Set());
+
+  const openLead = (id: string) => {
+    setDrawerLeadId(id);
+    setDrawerOpen(true);
+  };
+
   return (
-    <>
-      <PageHeader
-        title="Leadi"
-        description="Darba saraksts: visi leadi ar termiņiem un kontaktiem."
-      >
-        <SearchInput />
-      </PageHeader>
+    <TooltipProvider delayDuration={150}>
+      {/* Page header */}
+      <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            Leadi
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Operacionālā leadu darba vide
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+            <Bookmark className="h-3.5 w-3.5" />
+            Saglabāt skatu
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+            <Upload className="h-3.5 w-3.5" />
+            Importēt
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            Jauns leads
+          </Button>
+        </div>
+      </header>
 
-      {/* Quick segments */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {SEGMENTS.map((sg) => (
-          <button
-            key={sg}
-            type="button"
-            onClick={() => setSegment(sg)}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              seg === sg
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-foreground hover:bg-secondary/40"
-            }`}
-          >
-            {SEGMENT_LABELS[sg]}
-          </button>
-        ))}
-      </div>
+      {/* Sticky operational bar */}
+      <div className="sticky top-0 z-20 -mx-4 mb-3 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Saved views */}
+          <div className="flex flex-wrap items-center gap-1">
+            {VIEWS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setSearch({ seg: v === "all" ? undefined : v })}
+                className={cn(
+                  "h-7 rounded-md border px-2.5 text-xs transition-colors",
+                  seg === v
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-foreground hover:bg-muted/50",
+                )}
+              >
+                {VIEW_LABELS[v]}
+              </button>
+            ))}
+          </div>
 
-      {/* Filter bar */}
-      <div className="mb-4 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Statuss</span>
-            <select
-              value={selectedStatus ?? ""}
-              onChange={(e) => setStatus(e.target.value || undefined)}
-              className="h-8 min-w-[160px] rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Visi</option>
-              {options.statuses.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="mx-1 h-5 w-px bg-border" aria-hidden />
 
-          <MultiSelect
-            label="Atbildīgais"
-            options={options.owners}
-            value={selectedOwners}
-            onChange={(v) => setMulti("owners", v)}
-          />
-          <MultiSelect
-            label="PPV"
-            options={options.ppvs}
-            value={selectedPpvs}
-            onChange={(v) => setMulti("ppvs", v)}
-          />
-          <MultiSelect
-            label="Valsts"
-            options={options.countries}
-            value={selectedCountries}
-            onChange={(v) => setMulti("countries", v)}
-          />
-          <MultiSelect
-            label="Avots"
-            options={options.sources}
-            value={selectedSources}
-            onChange={(v) => setMulti("sources", v)}
-          />
-          <MultiSelect
-            label="Tags"
-            options={options.tags}
-            value={selectedTags}
-            onChange={(v) => setMulti("tags", v)}
-          />
+          {/* Search */}
+          <div className="relative min-w-[260px] flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search.q ?? ""}
+              onChange={(e) => setSearch({ q: e.target.value || undefined })}
+              placeholder="Meklēt pēc vārda, telefona, email vai objekta"
+              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
 
-          {hasAnyFilter && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8"
-              onClick={clearFilters}
-            >
-              Notīrīt filtrus
+          {/* Filter chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+            <FilterChip
+              label="Statuss"
+              options={options.statuses}
+              value={fStatus}
+              onChange={(v) => setSearch({ status: v })}
+            />
+            <FilterChip
+              label="Atbildīgais"
+              options={options.owners}
+              value={fOwners}
+              onChange={(v) => setSearch({ owners: v })}
+            />
+            <FilterChip
+              label="PPV"
+              options={options.ppvs}
+              value={fPpvs}
+              onChange={(v) => setSearch({ ppvs: v })}
+            />
+            <FilterChip
+              label="Valsts"
+              options={options.countries}
+              value={fCountries}
+              onChange={(v) => setSearch({ countries: v })}
+            />
+            <FilterChip
+              label="Tags"
+              options={options.tags}
+              value={fTags}
+              onChange={(v) => setSearch({ tags: v })}
+            />
+            {hasAnyFilter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={clearFilters}
+              >
+                <X className="h-3 w-3" />
+                Notīrīt
+              </Button>
+            )}
+          </div>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+              <Columns3 className="h-3.5 w-3.5" />
+              Kolonnas
             </Button>
-          )}
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
+              Bulk darbības
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5">
+          <span className="text-xs font-medium text-foreground">
+            Atlasīti: {selected.size}
+          </span>
+          <div className="mx-1 h-4 w-px bg-border" aria-hidden />
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            Mainīt statusu
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            Piešķirt atbildīgo
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            Piešķirt PPV
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            Izveidot uzdevumu
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            Sūtīt ziņu
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-7 text-xs text-muted-foreground"
+            onClick={clearSelected}
+          >
+            Atcelt
+          </Button>
+        </div>
+      )}
 
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && loading && <LoadingState />}
 
       {!errorMsg && !loading && (
-        <div className="rounded-lg border border-border bg-card shadow-sm">
-          <header className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Leadi{" "}
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                  ({sorted.length})
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Kārtots pēc termiņa, tad pēdējās saziņas, tad izveides datuma.
-              </p>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Rāda pirmos {PAGE_SIZE}
-            </span>
-          </header>
-
+        <div className="overflow-hidden rounded-md border border-border bg-card">
           {sorted.length === 0 ? (
-            <div className="p-8">
-              <EmptyState />
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="text-sm font-medium text-foreground">
+                Nav atrastu leadu
+              </div>
+              {hasAnyFilter && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={clearFilters}
+                >
+                  Notīrīt filtrus
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1400px] text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">Vārds / Uzvārds</th>
-                    <th className="px-3 py-2 text-left font-medium">Email</th>
-                    <th className="px-3 py-2 text-left font-medium">Telefons</th>
-                    <th className="px-3 py-2 text-left font-medium">Valsts</th>
-                    <th className="px-3 py-2 text-left font-medium">Avots</th>
-                    <th className="px-3 py-2 text-left font-medium">Statuss</th>
-                    <th className="px-3 py-2 text-left font-medium">Atbildīgais</th>
-                    <th className="px-3 py-2 text-left font-medium">PPV</th>
-                    <th className="px-3 py-2 text-left font-medium">Nākamā darbība</th>
-                    <th className="px-3 py-2 text-left font-medium">Termiņš</th>
-                    <th className="px-3 py-2 text-left font-medium">Pēdējā saziņa</th>
-                    <th className="px-3 py-2 text-left font-medium">Automatizācija</th>
-                    <th className="px-3 py-2 text-left font-medium">Aut. datums</th>
-                    <th className="px-3 py-2 text-left font-medium">Tags</th>
-                    <th className="px-3 py-2 text-right font-medium" aria-label="Darbības" />
+            <div className="max-h-[calc(100vh-220px)] overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur">
+                  <tr className="border-b border-border">
+                    <th className="w-8 px-2 py-2">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        onCheckedChange={toggleAll}
+                        className="h-3.5 w-3.5"
+                      />
+                    </th>
+                    <th className="px-2 py-2 text-left font-medium">Lead</th>
+                    <th className="px-2 py-2 text-left font-medium">Statuss</th>
+                    <th className="px-2 py-2 text-left font-medium">
+                      Atbildīgais
+                    </th>
+                    <th className="px-2 py-2 text-left font-medium">PPV</th>
+                    <th className="px-2 py-2 text-left font-medium">
+                      Nākamā darbība
+                    </th>
+                    <th className="px-2 py-2 text-left font-medium">
+                      Pēdējā aktivitāte
+                    </th>
+                    <th className="px-2 py-2 text-left font-medium">Tags</th>
+                    <th
+                      className="w-[120px] px-2 py-2 text-right font-medium"
+                      aria-label="Darbības"
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((lead) => (
-                    <tr
-                      key={lead.lead_id}
-                      className="border-t border-border hover:bg-secondary/30"
-                    >
-                      <td className="px-3 py-2 font-medium text-foreground">
-                        {lead.display_name || (
-                          <span className="text-muted-foreground">—</span>
+                  {sorted.map((l) => {
+                    const isSel = selected.has(l.lead_id);
+                    return (
+                      <tr
+                        key={l.lead_id}
+                        onClick={() => openLead(l.lead_id)}
+                        className={cn(
+                          "group cursor-pointer border-b border-border/60 transition-colors",
+                          isSel ? "bg-primary/5" : "hover:bg-muted/40",
                         )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.email ? (
-                          <a
-                            href={`mailto:${lead.email}`}
-                            className="text-primary hover:underline"
-                          >
-                            {lead.email}
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {lead.phone || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.country || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.source || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.status || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.owner || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.ppv || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.next_action || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td
-                        className={`px-3 py-2 tabular-nums ${dueClass(lead.next_action_due_date)}`}
                       >
-                        {fmtDate(lead.next_action_due_date)}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {fmtDateTime(lead.last_contact_date)}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.automation_step || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-foreground">
-                        {fmtDate(lead.automation_date)}
-                      </td>
-                      <td className="px-3 py-2 text-foreground">
-                        {lead.tags.length === 0 ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {lead.tags.map((t) => (
-                              <span
-                                key={t}
-                                className={`rounded-full px-2 py-0.5 text-[11px] ${
-                                  t.toLowerCase() === "hot"
-                                    ? "bg-destructive/15 text-destructive"
-                                    : "bg-secondary text-secondary-foreground"
-                                }`}
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link
-                          to="/lead/$leadId"
-                          params={{ leadId: lead.lead_id }}
-                          className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary/50"
-                          title="Atvērt leadu"
+                        <td
+                          className="px-2 py-1.5"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                          <Checkbox
+                            checked={isSel}
+                            onCheckedChange={() => toggleOne(l.lead_id)}
+                            className="h-3.5 w-3.5"
+                          />
+                        </td>
+                        <td className="max-w-[260px] px-2 py-1.5">
+                          <div className="truncate font-medium text-foreground">
+                            {l.name || (
+                              <span className="text-muted-foreground">
+                                Bez nosaukuma
+                              </span>
+                            )}
+                          </div>
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {l.phone || "—"}
+                            {l.country ? ` • ${l.country}` : ""}
+                          </div>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <StatusBadge value={l.status} />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {l.owner ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-secondary-foreground">
+                                {initials(l.owner)}
+                              </span>
+                              <span className="truncate text-foreground">
+                                {l.owner}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          {l.ppv || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="max-w-[280px] px-2 py-1.5">
+                          {l.next_action ? (
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-foreground">
+                                {l.next_action}
+                              </span>
+                              {l.next_action_due && (
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                    (() => {
+                                      const t = parseDate(l.next_action_due);
+                                      if (t == null)
+                                        return "bg-muted text-muted-foreground";
+                                      const diff = t - Date.now();
+                                      if (diff < 0)
+                                        return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+                                      if (diff < 2 * MS_DAY)
+                                        return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+                                      return "bg-muted text-muted-foreground";
+                                    })(),
+                                  )}
+                                >
+                                  {relativeTime(l.next_action_due)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-muted-foreground">
+                          {relativeTime(l.last_activity)}
+                        </td>
+                        <td className="max-w-[180px] px-2 py-1.5">
+                          {l.tags.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {l.tags.slice(0, 3).map((t) => (
+                                <span
+                                  key={t}
+                                  className={cn(
+                                    "inline-flex h-4 items-center rounded px-1 text-[10px] lowercase",
+                                    /^(hot|karst)/i.test(t)
+                                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                                      : "bg-muted text-muted-foreground",
+                                  )}
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                              {l.tags.length > 3 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{l.tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td
+                          className="px-2 py-1.5 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                            <RowAction
+                              icon={<Phone className="h-3.5 w-3.5" />}
+                              label="Zvanīt"
+                              href={l.phone ? `tel:${l.phone}` : undefined}
+                            />
+                            <RowAction
+                              icon={<MessageCircle className="h-3.5 w-3.5" />}
+                              label="WhatsApp"
+                              href={
+                                l.phone
+                                  ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
+                                  : undefined
+                              }
+                            />
+                            <RowAction
+                              icon={<Mail className="h-3.5 w-3.5" />}
+                              label="E-pasts"
+                              href={l.email ? `mailto:${l.email}` : undefined}
+                            />
+                            <RowAction
+                              icon={<CheckSquare className="h-3.5 w-3.5" />}
+                              label="Uzdevums"
+                              onClick={() => openLead(l.lead_id)}
+                            />
+                            <RowAction
+                              icon={<StickyNote className="h-3.5 w-3.5" />}
+                              label="Piezīme"
+                              onClick={() => openLead(l.lead_id)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
+          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground">
+            <span>
+              Rāda {sorted.length} no {leads.length}
+            </span>
+            <span>Kārtots pēc termiņa, tad pēdējās aktivitātes</span>
+          </div>
         </div>
       )}
-    </>
+
+      <LeadDrawer
+        leadId={drawerLeadId}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
+    </TooltipProvider>
   );
 }
+
+function RowAction({
+  icon,
+  label,
+  href,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const disabled = !href && !onClick;
+  const className = cn(
+    "inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors",
+    disabled
+      ? "cursor-not-allowed opacity-40"
+      : "hover:border-border hover:bg-background hover:text-foreground",
+  );
+  const content = href ? (
+    <a href={href} className={className} aria-label={label}>
+      {icon}
+    </a>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={className}
+      aria-label={label}
+    >
+      {icon}
+    </button>
+  );
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+// Compact import-time consumed reference — keeps Badge in bundle for future bulk badges.
+void Badge;
