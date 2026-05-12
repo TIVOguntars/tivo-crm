@@ -540,9 +540,14 @@ function DrawerBody({
             />
           )}
           {tab === "komunikacijas" && (
-            <Suspense fallback={<LoadingState />}>
-              <LeadCommunicationTimeline leadId={realLeadId} />
-            </Suspense>
+            <CommunicationsTab
+              leadId={realLeadId}
+              hasEmail={!!email}
+              hasPhone={!!phone}
+              onSent={() =>
+                applyPatch({ last_activity: new Date().toISOString() })
+              }
+            />
           )}
           {tab === "uzdevumi" && (
             <TasksTab
