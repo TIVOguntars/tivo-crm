@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Phone,
@@ -10,15 +10,11 @@ import {
   User,
   Globe2,
   MoreHorizontal,
-  ListChecks,
   Save,
   Send,
   Combine,
   Plus,
   ChevronDown,
-  Clock,
-  AlertTriangle,
-  X,
   Sparkles,
 } from "lucide-react";
 import {
@@ -34,7 +30,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
