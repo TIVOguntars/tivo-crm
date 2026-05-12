@@ -1727,24 +1727,6 @@ function RowAction({
   );
 }
 
-function QueueHeaderAction({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 text-[10px] font-medium normal-case text-foreground transition-colors hover:bg-muted"
-    >
-      {label}
-    </button>
-  );
-}
-
 function formatWait(min: number): string {
   if (min < 1) return "<1m";
   if (min < 60) return `${min}m`;
