@@ -244,24 +244,9 @@ function LeadProfilePage() {
     [comms],
   );
   const hasComms = commIds.length > 0;
-  const eventsByCommIdQueryStr = hasComms
-    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&order=event_timestamp.asc&limit=2000`
-    : "";
-  const eventsByCommIdQ = usePublicTable("communication_events", eventsByCommIdQueryStr, {
-    enabled: hasComms,
-    fresh: true,
-  });
-  // Also fetch all events for this lead — many events (delivered/opened/clicked
-  // /replied) may have a NULL communication_id and only carry lead_id +
-  // metadata back-references. Without this, the timeline would only show
-  // "sent" events whose communication_id equals the row id.
-  const eventsByLeadQueryStr = currentLeadId
-    ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&order=event_timestamp.asc&limit=2000`
-    : "";
-  const eventsByLeadQ = usePublicTable("communication_events", eventsByLeadQueryStr, {
-    enabled: !!currentLeadId,
-    fresh: true,
-  });
+  // public.communication_events is not exposed via the CRM API layer
+  // (permission denied). Operational UI no longer reads raw event rows; the
+  // communications timeline renders message rows only.
 
   const trackingLinksQueryStr = hasComms
     ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&select=id,communication_id,link_key,tracking_code,original_url,destination_url,metadata&limit=2000`
