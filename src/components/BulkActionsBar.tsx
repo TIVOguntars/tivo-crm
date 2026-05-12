@@ -188,7 +188,7 @@ function ActionButton({
 }
 
 function useBulkRpc() {
-  const fn = useServerFn(callCrmRpc);
+  const call = useServerFn(callCrmRpc);
   return useMutation({
     mutationFn: async (input: {
       fn:
@@ -199,7 +199,7 @@ function useBulkRpc() {
         | "log_lead_communication";
       params: Record<string, unknown>;
     }) => {
-      const res = await fn({ data: input });
+      const res = await call({ data: input });
       if (res.error) throw new Error(res.error);
       return res.rows;
     },
@@ -261,9 +261,9 @@ function BulkStatusAction({
       await m.mutateAsync({
         fn: "bulk_change_lead_status",
         params: {
-          p_lead_ids: selectedIds,
-          p_status: value,
-          p_reason: reason || null,
+          lead_ids: selectedIds,
+          new_status: value,
+          reason: reason || null,
         },
       });
       toast.success(`Statuss atjaunināts: ${selectedIds.length}`);
@@ -350,7 +350,7 @@ function BulkOwnerAction({
     try {
       await m.mutateAsync({
         fn: "bulk_assign_owner",
-        params: { p_lead_ids: selectedIds, p_owner: owner },
+        params: { lead_ids: selectedIds, owner_id: owner },
       });
       toast.success(`Atbildīgais piešķirts: ${selectedIds.length}`);
       setOpen(false);
@@ -405,7 +405,7 @@ function BulkPpvAction({
     try {
       await m.mutateAsync({
         fn: "bulk_assign_ppv",
-        params: { p_lead_ids: selectedIds, p_ppv: ppv },
+        params: { lead_ids: selectedIds, ppv_user_id: ppv },
       });
       toast.success(`PPV piešķirts: ${selectedIds.length}`);
       setOpen(false);
@@ -462,11 +462,11 @@ function BulkTaskAction({
       await m.mutateAsync({
         fn: "bulk_create_task",
         params: {
-          p_lead_ids: selectedIds,
-          p_title: title.trim(),
-          p_due_at: due || null,
-          p_owner: owner || null,
-          p_note: note || null,
+          lead_ids: selectedIds,
+          title: title.trim(),
+          due_at: due ? new Date(due).toISOString() : null,
+          owner_id: owner || null,
+          note: note || null,
         },
       });
       onPatchMany(selectedIds, {
@@ -558,15 +558,23 @@ function BulkMessageAction({
   const submit = async () => {
     if (!body.trim()) return;
     try {
-      await m.mutateAsync({
-        fn: "log_lead_communication",
-        params: {
-          p_lead_ids: selectedIds,
-          p_channel: channel,
-          p_subject: subject || null,
-          p_body: body.trim(),
-        },
-      });
+      const summary =
+        channel === "email" && subject.trim()
+          ? `${subject.trim()} — ${body.trim()}`
+          : body.trim();
+      await Promise.all(
+        selectedIds.map((id) =>
+          m.mutateAsync({
+            fn: "log_lead_communication",
+            params: {
+              lead_id: id,
+              channel,
+              direction: "outbound",
+              summary,
+            },
+          }),
+        ),
+      );
       onPatchMany(selectedIds, {
         last_activity: new Date().toISOString(),
       });
