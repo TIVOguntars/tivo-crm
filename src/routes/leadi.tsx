@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import {
@@ -18,6 +18,8 @@ import {
   X,
   Search,
   AlertTriangle,
+  Zap,
+  ArrowDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
