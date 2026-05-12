@@ -1024,6 +1024,24 @@ function LeadiPage() {
           </p>
         </div>
         <div className="flex items-center gap-1.5">
+          <label
+            className={cn(
+              "inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border px-2 text-xs transition-colors",
+              autoNext
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "border-border bg-background text-foreground hover:bg-muted/50",
+            )}
+            title="Pēc darbības atvērt nākamo leadu šajā rindā"
+          >
+            <input
+              type="checkbox"
+              checked={autoNext}
+              onChange={(e) => setAutoNext(e.target.checked)}
+              className="sr-only"
+            />
+            <Zap className={cn("h-3.5 w-3.5", autoNext && "text-primary")} />
+            <span>Auto-next</span>
+          </label>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
             <Bookmark className="h-3.5 w-3.5" />
             Saglabāt skatu
@@ -1218,31 +1236,74 @@ function LeadiPage() {
                         className="sticky top-[33px] z-[5]"
                       >
                         <td colSpan={9} className="p-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleQueue(q.id)}
+                          <div
                             className={cn(
-                              "flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-left text-[11px] uppercase tracking-wide text-foreground backdrop-blur transition-colors hover:bg-muted/70",
+                              "group/qh flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-[11px] uppercase tracking-wide text-foreground backdrop-blur",
                               q.accent,
                             )}
                           >
-                            {collapsed ? (
-                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                q.dot,
+                            <button
+                              type="button"
+                              onClick={() => toggleQueue(q.id)}
+                              className="flex flex-1 items-center gap-2 text-left transition-colors hover:text-foreground"
+                              aria-label={
+                                collapsed ? "Izvērst rindu" : "Sakļaut rindu"
+                              }
+                            >
+                              {collapsed ? (
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
                               )}
-                              aria-hidden
-                            />
-                            <span className="font-semibold">{q.label}</span>
-                            <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-                              {items.length}
-                            </span>
-                          </button>
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  q.dot,
+                                )}
+                                aria-hidden
+                              />
+                              <span className="font-semibold">{q.label}</span>
+                              <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                                {queueMetrics[q.id]?.count ?? items.length}
+                              </span>
+                              {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
+                                <span
+                                  className={cn(
+                                    "inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium normal-case",
+                                    q.id === "unread"
+                                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                      : "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                                  )}
+                                  title="Pārkāpts SLA"
+                                >
+                                  {queueMetrics[q.id]!.breach} SLA
+                                </span>
+                              )}
+                              {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
+                                <span className="text-[10px] font-normal normal-case text-muted-foreground">
+                                  vid. {formatWait(queueMetrics[q.id]!.avgWaitMin)}
+                                </span>
+                              )}
+                            </button>
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100">
+                              <QueueHeaderAction
+                                label="Atvērt pirmo"
+                                onClick={() => openLead(items[0].lead_id)}
+                              />
+                              <QueueHeaderAction
+                                label={
+                                  q.id === "overdue"
+                                    ? "Atlasīt kavētos"
+                                    : "Atlasīt visus"
+                                }
+                                onClick={() => {
+                                  const next = new Set(selected);
+                                  items.forEach((l) => next.add(l.lead_id));
+                                  setSelected(next);
+                                }}
+                              />
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1520,6 +1581,7 @@ function LeadiPage() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onPatch={patchLead}
+        onActionCompleted={handleActionCompleted}
       />
     </TooltipProvider>
   );
