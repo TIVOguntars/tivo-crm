@@ -707,16 +707,18 @@ function LeadiPage() {
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
-              <Columns3 className="h-3.5 w-3.5" />
-              Kolonnas
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
-              Bulk darbības
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </div>
+          {selected.size === 0 && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Columns3 className="h-3.5 w-3.5" />
+                Kolonnas
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
