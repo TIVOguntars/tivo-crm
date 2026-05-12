@@ -391,6 +391,27 @@ function LeadiPage() {
     });
   }, []);
 
+  // Auto-next mode (default on for unread queue)
+  const [autoNext, setAutoNext] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const v = window.localStorage.getItem("leadi.autoNext");
+      return v == null ? true : v === "1";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("leadi.autoNext", autoNext ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [autoNext]);
+
+  // Keyboard navigation cursor (index into the visible flat list)
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
+
   const overviewQuery = useMemo(
     () =>
       ["select=*", "order=created_at.desc.nullslast", `limit=${PAGE_SIZE}`].join(
