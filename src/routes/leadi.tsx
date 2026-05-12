@@ -861,8 +861,8 @@ function LeadiPage() {
                           <div className="flex items-center gap-1.5">
                             <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
                               {l.name || (
-                                <span className="font-normal text-muted-foreground">
-                                  Bez nosaukuma
+                                <span className="font-normal italic text-muted-foreground">
+                                  Neidentificēts leads
                                 </span>
                               )}
                             </span>
@@ -881,8 +881,7 @@ function LeadiPage() {
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground">
-                            {l.phone || "—"}
-                            {l.country ? ` • ${l.country}` : ""}
+                            {l.secondary || "—"}
                           </div>
                         </td>
                         <td className="px-2 py-1">
@@ -908,35 +907,40 @@ function LeadiPage() {
                           )}
                         </td>
                         <td className="max-w-[280px] px-2 py-1">
-                          {l.next_action ? (
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-foreground">
-                                {l.next_action}
-                              </span>
-                              {l.next_action_due && (
-                                <span
-                                  className={cn(
-                                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                    (() => {
-                                      const t = parseDate(l.next_action_due);
-                                      if (t == null)
-                                        return "bg-muted text-muted-foreground";
-                                      const diff = t - Date.now();
-                                      if (diff < 0)
-                                        return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
-                                      if (diff < 2 * MS_DAY)
-                                        return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-                                      return "bg-muted text-muted-foreground";
-                                    })(),
-                                  )}
-                                >
-                                  {relativeTime(l.next_action_due)}
-                                </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "truncate",
+                                isOverdue
+                                  ? "font-medium text-rose-700 dark:text-rose-300"
+                                  : l.next_action
+                                    ? "text-foreground"
+                                    : "text-muted-foreground",
                               )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                            >
+                              {l.next_action || "Nav darbības"}
+                            </span>
+                            {l.next_action_due && (
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                  (() => {
+                                    const t = parseDate(l.next_action_due);
+                                    if (t == null)
+                                      return "bg-muted text-muted-foreground";
+                                    const diff = t - Date.now();
+                                    if (diff < 0)
+                                      return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+                                    if (diff < 2 * MS_DAY)
+                                      return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+                                    return "bg-muted text-muted-foreground";
+                                  })(),
+                                )}
+                              >
+                                {relativeTime(l.next_action_due)}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-1 text-muted-foreground">
                           {relativeTime(l.last_activity)}
