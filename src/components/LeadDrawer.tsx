@@ -1,33 +1,75 @@
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, MessageSquare, Mail, MessageCircle, CheckCircle2, CalendarClock, Globe2, User } from "lucide-react";
+import {
+  Phone,
+  MessageCircle,
+  Mail,
+  CheckSquare,
+  StickyNote,
+  CalendarClock,
+  User,
+  Globe2,
+  MoreHorizontal,
+  ListChecks,
+  Save,
+  Send,
+  Combine,
+  Plus,
+  ChevronDown,
+  Clock,
+  AlertTriangle,
+  X,
+  Sparkles,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
-import { LeadCommunicationTimeline } from "@/components/LeadCommunicationTimeline";
-import { LeadActionHistory } from "@/components/LeadActionHistory";
-import { LeadProjects } from "@/components/LeadProjects";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
-import { useState } from "react";
+
+const LeadCommunicationTimeline = lazy(() =>
+  import("@/components/LeadCommunicationTimeline").then((m) => ({
+    default: m.LeadCommunicationTimeline,
+  })),
+);
+const LeadActionHistory = lazy(() =>
+  import("@/components/LeadActionHistory").then((m) => ({
+    default: m.LeadActionHistory,
+  })),
+);
+const LeadProjects = lazy(() =>
+  import("@/components/LeadProjects").then((m) => ({
+    default: m.LeadProjects,
+  })),
+);
+
+/* ----------------------------- helpers ----------------------------- */
 
 type Row = Record<string, unknown>;
 
 function s(v: unknown): string {
   if (v == null) return "";
   return String(v);
-}
-function n(v: unknown): number {
-  const x = typeof v === "string" ? parseFloat(v) : Number(v);
-  return Number.isFinite(x) ? x : 0;
 }
 function b(v: unknown): boolean {
   if (typeof v === "boolean") return v;
@@ -36,45 +78,122 @@ function b(v: unknown): boolean {
 }
 function parseTags(value: unknown): string[] {
   if (!value) return [];
-  if (Array.isArray(value)) return value.map((t) => String(t).trim().toLowerCase()).filter(Boolean);
-  return String(value).split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
+  if (Array.isArray(value))
+    return value.map((t) => String(t).trim()).filter(Boolean);
+  return String(value)
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+function parseDate(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const t = new Date(String(v)).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+const MS_MIN = 60_000;
+const MS_HOUR = 60 * MS_MIN;
+const MS_DAY = 24 * MS_HOUR;
+
+function relativeTime(v: unknown): string {
+  const t = parseDate(v);
+  if (t == null) return "—";
+  const diff = Date.now() - t;
+  if (diff < 0) {
+    const ahead = -diff;
+    if (ahead < MS_HOUR)
+      return `pēc ${Math.max(1, Math.round(ahead / MS_MIN))}m`;
+    if (ahead < MS_DAY) return `pēc ${Math.round(ahead / MS_HOUR)}h`;
+    return `pēc ${Math.round(ahead / MS_DAY)}d`;
+  }
+  if (diff < 5 * MS_MIN) return "tikko";
+  if (diff < MS_HOUR) return `pirms ${Math.round(diff / MS_MIN)}m`;
+  if (diff < 6 * MS_HOUR) return `pirms ${Math.round(diff / MS_HOUR)}h`;
+  const now = new Date();
+  const then = new Date(t);
+  const sameDay =
+    now.getFullYear() === then.getFullYear() &&
+    now.getMonth() === then.getMonth() &&
+    now.getDate() === then.getDate();
+  if (sameDay) return "šodien";
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (
+    yest.getFullYear() === then.getFullYear() &&
+    yest.getMonth() === then.getMonth() &&
+    yest.getDate() === then.getDate()
+  )
+    return "vakar";
+  const days = Math.round(diff / MS_DAY);
+  if (days < 30) return `pirms ${days}d`;
+  if (days < 365) return `pirms ${Math.round(days / 30)}mēn`;
+  return `pirms ${Math.round(days / 365)}g`;
 }
 
-function leadDisplayName(row: Row, leadId: string | null): string {
-  return s(row.name) || (leadId ? `Lead #${leadId}` : "—");
-}
-
-function fmtDateTime(value: unknown): string {
-  const str = s(value);
-  if (!str) return "—";
-  const d = new Date(str);
-  if (Number.isNaN(d.getTime())) return str;
-  return new Intl.DateTimeFormat("lv-LV", {
-    timeZone: "Europe/Riga",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
-}
-
-function PriorityBadge({ label }: { label: string }) {
-  if (!label) return null;
-  const tone =
-    label === "Augsta"
-      ? "bg-red-600 text-white border-transparent"
-      : label === "Normāla"
-        ? "bg-orange-500 text-white border-transparent"
-        : label === "Zema"
-          ? "bg-slate-500 text-white border-transparent"
-          : "";
-  return (
-    <Badge className={cn("h-6 rounded px-2 py-0 text-[11px] font-medium leading-none", tone)}>
-      {label}
-    </Badge>
+function isUuidLike(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    v.trim(),
   );
 }
+function leadDisplayName(row: Row, leadId: string | null): string {
+  const n = s(row.name) || s(row.object_name) || s(row.display_name);
+  if (n && !isUuidLike(n)) return n;
+  return leadId ? `Leads #${leadId.slice(0, 6)}` : "—";
+}
+function initials(name: string): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
+}
+
+function statusTone(status: string): string {
+  const k = status.toLowerCase();
+  if (!k) return "bg-muted text-muted-foreground border-transparent";
+  if (k.includes("jauns"))
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
+  if (
+    k.includes("līgum") ||
+    k.includes("ligum") ||
+    k.includes("won") ||
+    k.includes("contract")
+  )
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+  if (
+    k.includes("piedāvāj") ||
+    k.includes("piedavaj") ||
+    k.includes("pieprasīj") ||
+    k.includes("pieprasij")
+  )
+    return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30";
+  if (
+    k.includes("sarunās") ||
+    k.includes("sarunas") ||
+    k.includes("aktīv") ||
+    k.includes("aktiv")
+  )
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
+  if (
+    k.includes("nesasn") ||
+    k.includes("bounce") ||
+    k.includes("nederīg") ||
+    k.includes("zaud")
+  )
+    return "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
+  if (k.includes("konflikt"))
+    return "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
+  return "bg-secondary text-secondary-foreground border-transparent";
+}
+
+/* ----------------------------- component ----------------------------- */
+
+const TABS = [
+  { key: "parskats", label: "Pārskats" },
+  { key: "komunikacijas", label: "Komunikācijas" },
+  { key: "uzdevumi", label: "Uzdevumi" },
+  { key: "objekti", label: "Objekti" },
+  { key: "vesture", label: "Vēsture" },
+  { key: "dati", label: "Dati" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
 
 export function LeadDrawer({
   leadId,
@@ -87,6 +206,8 @@ export function LeadDrawer({
   onOpenChange: (open: boolean) => void;
   onActionCompleted?: (leadId: string) => void;
 }) {
+  const [tab, setTab] = useState<TabKey>("parskats");
+
   const view = useQuery({
     queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
     queryFn: () =>
@@ -106,18 +227,26 @@ export function LeadDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-y-auto p-0 sm:max-w-none md:w-[40vw] md:min-w-[520px]"
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[540px]"
       >
         {view.isLoading ? (
-          <div className="p-6"><LoadingState /></div>
+          <div className="p-6">
+            <LoadingState />
+          </div>
         ) : view.data?.error ? (
-          <div className="p-6"><ErrorState message={view.data.error} /></div>
+          <div className="p-6">
+            <ErrorState message={view.data.error} />
+          </div>
         ) : !row ? (
-          <div className="p-6 text-sm text-muted-foreground">Nav datu šim leadam.</div>
+          <div className="p-6 text-sm text-muted-foreground">
+            Nav datu šim leadam.
+          </div>
         ) : (
-          <DrawerContent
+          <DrawerBody
             row={row}
             leadId={leadId}
+            tab={tab}
+            setTab={setTab}
             onActionCompleted={onActionCompleted}
           />
         )}
@@ -126,23 +255,29 @@ export function LeadDrawer({
   );
 }
 
-function DrawerContent({
+function DrawerBody({
   row,
   leadId,
+  tab,
+  setTab,
   onActionCompleted,
 }: {
   row: Row;
   leadId: string | null;
+  tab: TabKey;
+  setTab: (t: TabKey) => void;
   onActionCompleted?: (leadId: string) => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
-  const displayName = leadDisplayName(row, leadId);
+
+  const realLeadId = s(row.lead_id) || leadId;
+  const displayName = leadDisplayName(row, realLeadId);
   const status = s(row.lead_status_label);
   const priority = s(row.priority_label);
-  const score = n(row.lead_priority_score);
-  const tags = parseTags(row.tags);
-  const country = s(row.country);
+  const owner = s(row.visible_action_owner);
   const ppv = s(row.ppv_name);
+  const country = s(row.country);
+  const tags = parseTags(row.tags);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
   const phoneRaw =
     s(row.telefons_raw) ||
@@ -151,358 +286,889 @@ function DrawerContent({
     s(row.telefons);
   const phone = phoneE164 || phoneRaw;
   const email = s(row.email_normalized);
+  const source = s(row.source);
+  const importSource = s(row.import_source) || s(row.lead_source);
 
-  const isHumanPrimary = b(row.visible_action_is_human);
   const visibleAction = s(row.visible_action);
-  const visibleOwner = s(row.visible_action_owner);
   const visibleDue = s(row.visible_action_due_at);
-
-  const hasSis = b(row.has_background_system_action);
+  const isHumanPrimary = b(row.visible_action_is_human);
   const sisLabel = s(row.system_action_label);
   const sisDue = s(row.system_due_date);
 
-  const createdAt = s(row.created_at);
-  const source = s(row.source);
-  const rating = s(row.rating) || s(row.reitings);
-  const ratingNum = Number(rating);
+  const lastContact =
+    s(row.last_contact_date) ||
+    s(row.last_communication_at) ||
+    s(row.last_inbound_at);
+  const lastReply = s(row.last_inbound_at) || s(row.last_reply_at);
+  const unreadReplies = s(row.unread_replies) || s(row.unread_count);
+  const nextFollowup = visibleDue || sisDue;
+
+  const waPhone = phone.replace(/[^0-9]/g, "");
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <SheetHeader className="border-b border-border bg-muted/30 px-6 py-4 text-left">
-        <SheetTitle className="text-xl font-semibold tracking-tight">
-          {displayName}
-        </SheetTitle>
-        {/* Row 1 — identifiers + meta on one line */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {ppv && (
-            <Badge
-              variant="outline"
-              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-            >
-              <User className="h-3.5 w-3.5 text-primary" />
-              {ppv}
-            </Badge>
-            )}
-            {country && (
-            <Badge
-              variant="outline"
-              className="h-7 gap-1.5 rounded-md border-border bg-background px-2.5 text-[12px] font-semibold text-foreground"
-            >
-              <Globe2 className="h-3.5 w-3.5 text-primary" />
-              {country}
-            </Badge>
-            )}
-            {status && (
-            <Badge variant="secondary" className="h-7 rounded-md px-2 text-[11px] font-medium">
-              {status}
-            </Badge>
-            )}
-            <div className="inline-flex items-center gap-1">
-              <PriorityBadge label={priority} />
-              {score > 0 && (
-                <span className="inline-flex h-6 items-center rounded bg-background px-2 text-[11px] font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-                  {score}
+    <TooltipProvider delayDuration={150}>
+      {/* ============== STICKY HEADER ============== */}
+      <SheetHeader className="space-y-2 border-b border-border bg-card px-4 pb-3 pt-4 text-left">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <SheetTitle className="truncate text-base font-semibold leading-tight">
+                {displayName}
+              </SheetTitle>
+              {status && (
+                <span
+                  className={cn(
+                    "inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px] font-medium leading-none",
+                    statusTone(status),
+                  )}
+                >
+                  {status}
                 </span>
               )}
             </div>
-            {rating && Number.isFinite(ratingNum) && ratingNum > 0 && (
-            <Badge
-              variant="outline"
-              className="h-7 rounded-md border-amber-500/40 bg-amber-50 px-2 text-[11px] font-semibold text-amber-700"
-            >
-              ★ {rating}
-            </Badge>
-            )}
-          </div>
-          {(source || createdAt) && (
-            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
-              {source && (
-                <span>
-                  <span className="text-muted-foreground/70">Avots: </span>
-                  <span className="font-medium text-foreground">{source}</span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+              {phone && (
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  <a
+                    href={`tel:${phone}`}
+                    className="text-foreground hover:underline"
+                  >
+                    {phone}
+                  </a>
                 </span>
               )}
-              {createdAt && (
-                <span>
-                  <span className="text-muted-foreground/70">Izveidots: </span>
-                  <span className="font-medium text-foreground">{fmtDateTime(createdAt)}</span>
+              {email && (
+                <span className="inline-flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  <a
+                    href={`mailto:${email}`}
+                    className="truncate text-foreground hover:underline"
+                  >
+                    {email}
+                  </a>
                 </span>
+              )}
+              {country && (
+                <span className="inline-flex items-center gap-1">
+                  <Globe2 className="h-3 w-3" />
+                  {country}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconBtn
+              icon={<Phone className="h-3.5 w-3.5" />}
+              label="Zvanīt"
+              href={phone ? `tel:${phone}` : undefined}
+            />
+            <IconBtn
+              icon={<MessageCircle className="h-3.5 w-3.5" />}
+              label="WhatsApp"
+              href={waPhone ? `https://wa.me/${waPhone}` : undefined}
+            />
+            <IconBtn
+              icon={<Mail className="h-3.5 w-3.5" />}
+              label="E-pasts"
+              href={email ? `mailto:${email}` : undefined}
+            />
+            <IconBtn
+              icon={<CheckSquare className="h-3.5 w-3.5" />}
+              label="Izveidot uzdevumu"
+              onClick={() => setCompleteOpen(true)}
+              disabled={!realLeadId}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Vairāk"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem>Pievienot tagu</DropdownMenuItem>
+                <DropdownMenuItem>Mainīt atbildīgo</DropdownMenuItem>
+                <DropdownMenuItem>Pārcelt termiņu</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive">
+                  Apvienot ar...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* meta chips */}
+        <div className="flex flex-wrap items-center gap-1">
+          {owner && (
+            <Chip>
+              <User className="h-3 w-3" />
+              <span className="font-medium">{owner}</span>
+            </Chip>
+          )}
+          {ppv && (
+            <Chip>
+              <Sparkles className="h-3 w-3" />
+              <span>PPV: {ppv}</span>
+            </Chip>
+          )}
+          {priority && (
+            <span
+              className={cn(
+                "inline-flex h-5 items-center rounded px-1.5 text-[10px] font-medium",
+                priority === "Augsta"
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  : priority === "Normāla"
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
+              {priority}
+            </span>
+          )}
+          {tags.slice(0, 4).map((t) => (
+            <span
+              key={t}
+              className="inline-flex h-5 items-center rounded bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+          {tags.length > 4 && (
+            <span className="text-[10px] text-muted-foreground">
+              +{tags.length - 4}
+            </span>
+          )}
+        </div>
+
+        {/* quick actions row */}
+        <div className="flex flex-wrap items-center gap-1 pt-1">
+          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => setTab("komunikacijas")} />
+          <QuickAction icon={<Phone className="h-3 w-3" />} label="Zvans" href={phone ? `tel:${phone}` : undefined} />
+          <QuickAction
+            icon={<MessageCircle className="h-3 w-3" />}
+            label="WhatsApp"
+            href={waPhone ? `https://wa.me/${waPhone}` : undefined}
+          />
+          <QuickAction icon={<Mail className="h-3 w-3" />} label="Email" href={email ? `mailto:${email}` : undefined} />
+          <QuickAction
+            icon={<CheckSquare className="h-3 w-3" />}
+            label="Uzdevums"
+            onClick={() => setCompleteOpen(true)}
+            disabled={!realLeadId}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 items-center gap-1 rounded border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-muted/60"
+              >
+                Mainīt statusu
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              {[
+                "Jauns",
+                "Sarunās",
+                "Pieprasījums",
+                "Piedāvājums",
+                "Līgums",
+                "Nesasniedzams",
+                "Zaudēts",
+              ].map((st) => (
+                <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </SheetHeader>
+
+      {/* ============== STICKY TABS ============== */}
+      <nav className="flex shrink-0 items-center gap-0 border-b border-border bg-background px-2">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "relative h-9 px-3 text-xs font-medium transition-colors",
+              tab === t.key
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+            {tab === t.key && (
+              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* ============== SCROLLABLE CONTENT ============== */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-3">
+          {tab === "parskats" && (
+            <OverviewTab
+              status={status}
+              owner={owner}
+              ppv={ppv}
+              source={source}
+              tags={tags}
+              visibleAction={visibleAction}
+              visibleDue={visibleDue}
+              isHumanPrimary={isHumanPrimary}
+              sisLabel={sisLabel}
+              sisDue={sisDue}
+              lastContact={lastContact}
+              lastReply={lastReply}
+              unreadReplies={unreadReplies}
+              nextFollowup={nextFollowup}
+              leadId={realLeadId}
+            />
+          )}
+          {tab === "komunikacijas" && (
+            <Suspense fallback={<LoadingState />}>
+              <LeadCommunicationTimeline leadId={realLeadId} />
+            </Suspense>
+          )}
+          {tab === "uzdevumi" && (
+            <TasksTab
+              leadId={realLeadId}
+              visibleAction={visibleAction}
+              visibleDue={visibleDue}
+              owner={owner}
+              isHuman={isHumanPrimary}
+              sisLabel={sisLabel}
+              sisDue={sisDue}
+              onComplete={() => setCompleteOpen(true)}
+            />
+          )}
+          {tab === "objekti" && (
+            <Suspense fallback={<LoadingState />}>
+              <LeadProjects leadId={realLeadId} />
+            </Suspense>
+          )}
+          {tab === "vesture" && (
+            <Suspense fallback={<LoadingState />}>
+              <LeadActionHistory leadId={realLeadId} />
+            </Suspense>
+          )}
+          {tab === "dati" && (
+            <DataTab
+              phoneE164={phoneE164}
+              phoneRaw={phoneRaw}
+              email={email}
+              source={source}
+              country={country}
+              importSource={importSource}
+              owner={owner}
+              ppv={ppv}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ============== STICKY BOTTOM BAR ============== */}
+      <footer className="flex shrink-0 items-center gap-1 border-t border-border bg-card px-3 py-2">
+        <Button size="sm" className="h-7 gap-1 text-xs">
+          <Save className="h-3.5 w-3.5" />
+          Saglabāt
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs">
+              Mainīt statusu
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            {[
+              "Jauns",
+              "Sarunās",
+              "Pieprasījums",
+              "Piedāvājums",
+              "Līgums",
+              "Nesasniedzams",
+              "Zaudēts",
+            ].map((st) => (
+              <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 text-xs"
+            onClick={() => setCompleteOpen(true)}
+            disabled={!realLeadId}
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+            Uzdevums
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 text-xs"
+            onClick={() => setTab("komunikacijas")}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Sūtīt ziņu
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs">
+            <Combine className="h-3.5 w-3.5" />
+            Merge
+          </Button>
+        </div>
+      </footer>
+
+      <CompleteActionModal
+        open={completeOpen}
+        onOpenChange={setCompleteOpen}
+        leadId={realLeadId}
+        defaultOwner={owner}
+        isHumanPrimary={isHumanPrimary}
+        visibleAction={visibleAction}
+        onCompleted={() => {
+          if (realLeadId && onActionCompleted) onActionCompleted(realLeadId);
+        }}
+      />
+    </TooltipProvider>
+  );
+}
+
+/* ----------------------------- subcomponents ----------------------------- */
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex h-5 items-center gap-1 rounded border border-border bg-background px-1.5 text-[11px] text-foreground">
+      {children}
+    </span>
+  );
+}
+
+function IconBtn({
+  icon,
+  label,
+  href,
+  onClick,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const isDisabled = disabled || (!href && !onClick);
+  const cls = cn(
+    "inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors",
+    isDisabled
+      ? "cursor-not-allowed opacity-40"
+      : "hover:bg-muted hover:text-foreground",
+  );
+  const inner = href && !isDisabled ? (
+    <a href={href} className={cls} aria-label={label}>
+      {icon}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} disabled={isDisabled} className={cls} aria-label={label}>
+      {icon}
+    </button>
+  );
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  href,
+  onClick,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const isDisabled = disabled || (!href && !onClick);
+  const cls = cn(
+    "inline-flex h-7 items-center gap-1.5 rounded border border-border bg-background px-2 text-[11px] font-medium transition-colors",
+    isDisabled
+      ? "cursor-not-allowed opacity-40 text-muted-foreground"
+      : "text-foreground hover:bg-muted/60",
+  );
+  if (href && !isDisabled) {
+    return (
+      <a href={href} className={cls}>
+        {icon}
+        {label}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={isDisabled} className={cls}>
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function Section({
+  title,
+  right,
+  children,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-4">
+      <div className="mb-1.5 flex items-center justify-between">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function KeyVal({ k, v }: { k: string; v: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/40 py-1 text-xs last:border-0">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="text-right font-medium text-foreground">{v || "—"}</span>
+    </div>
+  );
+}
+
+/* ----------------------------- Overview tab ----------------------------- */
+
+function OverviewTab(props: {
+  status: string;
+  owner: string;
+  ppv: string;
+  source: string;
+  tags: string[];
+  visibleAction: string;
+  visibleDue: string;
+  isHumanPrimary: boolean;
+  sisLabel: string;
+  sisDue: string;
+  lastContact: string;
+  lastReply: string;
+  unreadReplies: string;
+  nextFollowup: string;
+  leadId: string | null;
+}) {
+  const dueT = parseDate(props.visibleDue);
+  const overdue = dueT != null && dueT < Date.now();
+  const today =
+    dueT != null &&
+    new Date(dueT).toDateString() === new Date().toDateString();
+
+  return (
+    <>
+      <Section title="Lead kopsavilkums">
+        <div className="rounded-md border border-border bg-card px-3 py-2">
+          <KeyVal
+            k="Statuss"
+            v={
+              props.status ? (
+                <span
+                  className={cn(
+                    "inline-flex h-5 items-center rounded border px-1.5 text-[11px] font-medium",
+                    statusTone(props.status),
+                  )}
+                >
+                  {props.status}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <KeyVal
+            k="Atbildīgais"
+            v={
+              props.owner ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
+                    {initials(props.owner)}
+                  </span>
+                  {props.owner}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <KeyVal k="PPV" v={props.ppv} />
+          <KeyVal k="Avots" v={props.source} />
+          <KeyVal
+            k="Tagi"
+            v={
+              props.tags.length === 0 ? (
+                "—"
+              ) : (
+                <div className="flex flex-wrap justify-end gap-1">
+                  {props.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex h-4 items-center rounded bg-muted px-1 text-[10px] lowercase text-muted-foreground"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )
+            }
+          />
+        </div>
+      </Section>
+
+      <Section title="Nākamās darbības">
+        <div className="space-y-1.5">
+          {props.visibleAction ? (
+            <div
+              className={cn(
+                "rounded-md border px-3 py-2",
+                overdue
+                  ? "border-rose-500/40 bg-rose-500/5"
+                  : today
+                    ? "border-amber-500/40 bg-amber-500/5"
+                    : "border-border bg-card",
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-foreground">
+                    {props.visibleAction}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                    {props.visibleDue && (
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarClock className="h-3 w-3" />
+                        {relativeTime(props.visibleDue)}
+                      </span>
+                    )}
+                    {props.isHumanPrimary && (
+                      <span className="inline-flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Cilvēka darbība
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={cn(
+                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                    overdue
+                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                      : today
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                        : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {overdue ? "Nokavēts" : today ? "Šodien" : "Plānots"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <EmptyRow text="Nav plānotu darbību" />
+          )}
+          {props.sisLabel && (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground/80">SIS: </span>
+              {props.sisLabel}
+              {props.sisDue && (
+                <span className="ml-2">{relativeTime(props.sisDue)}</span>
               )}
             </div>
           )}
         </div>
+      </Section>
 
-        {/* Row 3 — tags */}
-        {tags.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <span key={t} className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground">
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Row 4 — contacts */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <div className="inline-flex items-center gap-1.5">
-            <Phone className="h-3 w-3 text-muted-foreground/70" />
-            {phone ? (
-              <a href={`tel:${phone}`} className="text-primary hover:underline">
-                {phone}
-              </a>
-            ) : (
-              <span className="text-muted-foreground">Nav telefona</span>
-            )}
-          </div>
-          <div className="inline-flex items-center gap-1.5">
-            <Mail className="h-3 w-3 text-muted-foreground/70" />
-            {email ? (
-              <a href={`mailto:${email}`} className="text-primary hover:underline">
-                {email}
-              </a>
-            ) : (
-              <span className="text-muted-foreground">Nav e-pasta</span>
-            )}
-          </div>
+      <Section title="Komunikācijas kopsavilkums">
+        <div className="grid grid-cols-2 gap-1.5">
+          <SummaryTile
+            label="Pēdējais kontakts"
+            value={relativeTime(props.lastContact)}
+          />
+          <SummaryTile
+            label="Pēdējā atbilde"
+            value={relativeTime(props.lastReply)}
+          />
+          <SummaryTile
+            label="Nelasītas atbildes"
+            value={props.unreadReplies || "0"}
+          />
+          <SummaryTile
+            label="Nākamais follow-up"
+            value={relativeTime(props.nextFollowup)}
+          />
         </div>
-      </SheetHeader>
+      </Section>
 
-      {/* Body */}
-      <div className="flex-1 space-y-4 px-6 py-4">
-        {/* Primary action */}
-        <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Nākamā darbība
-          </h3>
-          <div className={cn(
-            "rounded-lg border p-4",
-            isHumanPrimary ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30",
-          )}>
-            <div className="text-lg font-semibold leading-tight text-foreground">
-              {visibleAction || "—"}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
-              {visibleDue && (
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                  <CalendarClock className="h-4 w-4 text-primary" />
-                  {fmtDateTime(visibleDue)}
-                </span>
-              )}
-              {visibleOwner && (
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                  <User className="h-4 w-4 text-primary" />
-                  {visibleOwner}
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
+      <Section title="Piezīmes">
+        <NotesPreview leadId={props.leadId} />
+      </Section>
+    </>
+  );
+}
 
-        {/* SIS background */}
-        {hasSis && (
-          <section>
-            <h3 className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-              SIS automatizācija
-            </h3>
-            <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
-              <div className="text-foreground/80">{sisLabel || "—"}</div>
-              {sisDue && (
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  Fonā ieplānots: {fmtDateTime(sisDue)}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Quick actions */}
-        <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Ātrās darbības
-          </h3>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <QuickBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" disabled={!phone} disabledTooltip="Nav telefona numura" />
-            <QuickBtn icon={<MessageSquare className="h-3.5 w-3.5" />} label="SMS" disabled={!phone} disabledTooltip="Nav telefona numura" />
-            <QuickBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" disabled={!phone} disabledTooltip="Nav telefona numura" />
-            <QuickBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" disabled={!email} disabledTooltip="Nav e-pasta adreses" />
-            {isHumanPrimary ? (
-              <QuickBtn
-                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                label="Pabeigt darbību"
-                onClick={() => setCompleteOpen(true)}
-                disabled={!leadId}
-              />
-            ) : (
-              <TooltipProvider delayDuration={150}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <QuickBtn
-                        icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                        label="Pabeigt darbību"
-                        disabled
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Nav cilvēka darbības, ko pabeigt</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <QuickBtn icon={<CalendarClock className="h-3.5 w-3.5" />} label="Pārcelt termiņu" />
-          </div>
-        </section>
-
-        {/* Tabs */}
-        <Tabs defaultValue="komunikacija" className="pt-2">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="komunikacija">Komunikācija</TabsTrigger>
-            <TabsTrigger value="projekts">Projekts</TabsTrigger>
-            <TabsTrigger value="vesture">Vēsture</TabsTrigger>
-          </TabsList>
-          <TabsContent value="komunikacija" className="mt-3">
-            <LeadCommunicationTimeline leadId={leadId} />
-          </TabsContent>
-          <TabsContent value="projekts" className="mt-3">
-            <LeadProjects leadId={s(row.lead_id) || leadId} />
-          </TabsContent>
-          <TabsContent value="vesture" className="mt-3">
-            <LeadActionHistory leadId={s(row.lead_id) || leadId} />
-          </TabsContent>
-        </Tabs>
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card px-2.5 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
       </div>
-      <CompleteActionModal
-        open={completeOpen}
-        onOpenChange={setCompleteOpen}
-        leadId={s(row.lead_id) || leadId}
-        defaultOwner={visibleOwner}
-        isHumanPrimary={isHumanPrimary}
-        visibleAction={visibleAction}
-        onCompleted={() => {
-          if (leadId && onActionCompleted) onActionCompleted(leadId);
-        }}
-      />
+      <div className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </div>
     </div>
   );
 }
 
-function QuickBtn({
-  icon,
-  label,
-  disabled,
-  onClick,
-  disabledTooltip,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  disabled?: boolean;
-  onClick?: () => void;
-  disabledTooltip?: string;
-}) {
-  const btn = (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-8 justify-start gap-1.5 text-xs font-normal disabled:opacity-50 disabled:cursor-not-allowed"
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {icon}
-      {label}
-    </Button>
-  );
-  if (disabled && disabledTooltip) {
-    return (
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex">{btn}</span>
-          </TooltipTrigger>
-          <TooltipContent>{disabledTooltip}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-  return btn;
-}
-
-function OverviewGrid({ items }: { items: { label: string; value: string }[] }) {
-  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
-  if (visible.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
-        Nav pārskata datu.
-      </div>
-    );
-  }
+function EmptyRow({ text }: { text: string }) {
   return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-      {visible.map((i) => (
-        <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
-          <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-            {i.label}
-          </dt>
-          <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
-            {i.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-center text-[11px] text-muted-foreground">
+      {text}
+    </div>
   );
 }
 
-function ProjectPanel({
-  objekts,
-  items,
-  tags,
-}: {
-  objekts: string;
-  items: { label: string; value: string }[];
-  tags: string[];
-}) {
-  const visible = items.filter((i) => i.value && i.value.trim().length > 0);
-  if (!objekts) {
+function NotesPreview({ leadId }: { leadId: string | null }) {
+  const q = useQuery({
+    queryKey: ["crm", "action_history_notes", leadId ?? ""],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "action_history",
+          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&order=completed_at.desc&limit=5`,
+        },
+      }),
+    enabled: !!leadId,
+    staleTime: 30_000,
+  });
+
+  if (!leadId) return <EmptyRow text="Nav piezīmju" />;
+  if (q.isLoading)
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
-        Projekta informācija vēl nav pievienota.
-      </div>
+      <div className="text-[11px] text-muted-foreground">Ielādē…</div>
     );
-  }
+  const rows = (q.data?.rows ?? []) as Row[];
+  if (rows.length === 0) return <EmptyRow text="Vēl nav piezīmju" />;
+
+  return (
+    <ul className="space-y-1.5">
+      {rows.map((r, i) => {
+        const note = s(r.note) || s(r.action_label) || s(r.outcome);
+        if (!note) return null;
+        return (
+          <li
+            key={i}
+            className="rounded-md border border-border bg-card px-2.5 py-1.5"
+          >
+            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+              <span className="truncate">{s(r.action_owner) || "Sistēma"}</span>
+              <span>{relativeTime(r.completed_at)}</span>
+            </div>
+            <div className="mt-0.5 line-clamp-2 text-xs text-foreground">
+              {note}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ----------------------------- Tasks tab ----------------------------- */
+
+function TasksTab({
+  leadId,
+  visibleAction,
+  visibleDue,
+  owner,
+  isHuman,
+  sisLabel,
+  sisDue,
+  onComplete,
+}: {
+  leadId: string | null;
+  visibleAction: string;
+  visibleDue: string;
+  owner: string;
+  isHuman: boolean;
+  sisLabel: string;
+  sisDue: string;
+  onComplete: () => void;
+}) {
+  const dueT = parseDate(visibleDue);
+  const overdue = dueT != null && dueT < Date.now();
+  const today =
+    dueT != null &&
+    new Date(dueT).toDateString() === new Date().toDateString();
+
   return (
     <div className="space-y-3">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-        {visible.map((i) => (
-          <div key={i.label} className="rounded-md border border-border/60 bg-card px-3 py-2">
-            <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-              {i.label}
-            </dt>
-            <dd className="mt-0.5 text-sm font-medium text-foreground break-words">
-              {i.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {tags.length > 0 && (
-        <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-            Tagi
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <Section title="Aktīvie uzdevumi">
+        <ul className="space-y-1">
+          {visibleAction ? (
+            <TaskRow
+              title={visibleAction}
+              owner={owner}
+              dueLabel={
+                overdue
+                  ? "Nokavēts"
+                  : today
+                    ? "Šodien"
+                    : visibleDue
+                      ? relativeTime(visibleDue)
+                      : "—"
+              }
+              dueTone={overdue ? "danger" : today ? "warn" : "muted"}
+              onCheck={onComplete}
+              human={isHuman}
+            />
+          ) : (
+            <EmptyRow text="Nav aktīvu uzdevumu" />
+          )}
+          {sisLabel && (
+            <TaskRow
+              title={sisLabel}
+              owner="Sistēma"
+              dueLabel={sisDue ? relativeTime(sisDue) : "—"}
+              dueTone="muted"
+              human={false}
+            />
+          )}
+        </ul>
+      </Section>
+
+      <Section title="Vēsturiski uzdevumi">
+        <Suspense fallback={<LoadingState />}>
+          <LeadActionHistory leadId={leadId} />
+        </Suspense>
+      </Section>
+
+      <div className="sticky bottom-0 -mx-4 mt-2 border-t border-border bg-background/95 px-4 py-2 backdrop-blur">
+        <button
+          type="button"
+          onClick={onComplete}
+          disabled={!leadId}
+          className="inline-flex h-7 w-full items-center justify-center gap-1 rounded border border-dashed border-border bg-background text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Jauns uzdevums
+        </button>
+      </div>
     </div>
   );
 }
 
+function TaskRow({
+  title,
+  owner,
+  dueLabel,
+  dueTone,
+  onCheck,
+  human,
+}: {
+  title: string;
+  owner: string;
+  dueLabel: string;
+  dueTone: "danger" | "warn" | "muted";
+  onCheck?: () => void;
+  human?: boolean;
+}) {
+  return (
+    <li className="flex items-start gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+      <button
+        type="button"
+        onClick={onCheck}
+        disabled={!onCheck}
+        className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded border border-border text-transparent hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Pabeigt"
+      >
+        <CheckSquare className="h-3 w-3" />
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-xs font-medium text-foreground">
+          {title}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <User className="h-2.5 w-2.5" />
+            {owner || "—"}
+          </span>
+          {human === false && (
+            <span className="inline-flex items-center gap-1">
+              <Sparkles className="h-2.5 w-2.5" />
+              Auto
+            </span>
+          )}
+        </div>
+      </div>
+      <span
+        className={cn(
+          "shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
+          dueTone === "danger"
+            ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+            : dueTone === "warn"
+              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              : "bg-muted text-muted-foreground",
+        )}
+      >
+        {dueLabel}
+      </span>
+    </li>
+  );
+}
+
+/* ----------------------------- Data tab ----------------------------- */
+
+function DataTab(props: {
+  phoneE164: string;
+  phoneRaw: string;
+  email: string;
+  source: string;
+  country: string;
+  importSource: string;
+  owner: string;
+  ppv: string;
+}) {
+  return (
+    <Section title="Strukturētie dati">
+      <div className="rounded-md border border-border bg-card px-3 py-2">
+        <KeyVal k="Normalizēts telefons" v={props.phoneE164 || "—"} />
+        <KeyVal k="Telefons (oriģ.)" v={props.phoneRaw || "—"} />
+        <KeyVal k="Validēts e-pasts" v={props.email || "—"} />
+        <KeyVal k="Avots" v={props.source} />
+        <KeyVal k="Valsts" v={props.country} />
+        <KeyVal k="Importa avots" v={props.importSource} />
+        <KeyVal k="Atbildīgais" v={props.owner} />
+        <KeyVal k="PPV" v={props.ppv} />
+      </div>
+      <p className="mt-2 text-[10px] text-muted-foreground">
+        Rāda tikai validētos un normalizētos CRM laukus. Neapstrādāti payload
+        dati netiek attēloti.
+      </p>
+    </Section>
+  );
+}
