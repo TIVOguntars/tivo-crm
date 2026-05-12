@@ -283,6 +283,7 @@ const CRM_VIEWS = [
   "action_owner_options",
   "action_history",
   "lead_project_overview",
+  "communications",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
