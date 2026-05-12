@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCrmView } from "@/hooks/useCrmView";
 import { usePublicTable } from "@/hooks/usePublicTable";
 
 export const Route = createFileRoute("/lead/$leadId")({
@@ -190,9 +191,10 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(null);
 
-  // Galvenie lead dati
-  const overviewQ = useAnalyticsView(
-    "leads_overview",
+  // Galvenie lead dati — migrēts no analytics.leads_overview uz
+  // crm.lead_drawer_summary (analytics shēmas piekļuve liegta).
+  const overviewQ = useCrmView(
+    "lead_drawer_summary",
     `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
   );
 
@@ -437,16 +439,25 @@ function LeadProfilePage() {
 
   const fullNameRaw = pick(profile, "full_name", "name");
   const fullName = fullNameRaw ? String(fullNameRaw) : `Lead #${leadId}`;
-  const status = pick(profile, "status", "current_status");
+  const status = pick(profile, "lead_status_label", "status", "current_status");
   const rating = pick(profile, "rating");
-  const priority = pick(priorityRow, "priority") ?? pick(profile, "priority");
+  const priority =
+    pick(priorityRow, "priority") ??
+    pick(profile, "priority_label", "priority");
   const tagsRaw = pick(profile, "tags");
   const tagsStr = isEmptyValue(tagsRaw) ? "" : fmt(tagsRaw);
-  const ppv = pick(profile, "ppv_vards", "ppv", "ppv_name");
-  const owner = pick(profile, "owner", "owner_name");
+  const ppv = pick(profile, "ppv_name", "ppv_vards", "ppv");
+  const owner = pick(profile, "visible_action_owner", "owner", "owner_name");
 
-  const email = pick(profile, "email");
-  const phone = pick(profile, "phone_raw", "phone");
+  const email = pick(profile, "email_normalized", "email");
+  const phone = pick(
+    profile,
+    "telefons_e164",
+    "telefons_raw",
+    "phone_e164",
+    "phone_raw",
+    "phone",
+  );
   const country = pick(profile, "country");
   const source = pick(profile, "source");
   const sourceDetailed = pick(profile, "source_detailed");
@@ -462,11 +473,13 @@ function LeadProfilePage() {
   const formaZinaNoLead = pick(profile, "forma_zina_no_lead");
 
   // Darba info
-  const nextActionRaw = pick(profile, "next_action");
+  const nextActionRaw = pick(profile, "visible_action", "next_action");
   const nextActionTr = nextActionRaw
     ? (NEXT_ACTION_LV[String(nextActionRaw).trim().toLowerCase()] ?? String(nextActionRaw))
     : "";
-  const termins = fmtDate(pick(profile, "next_action_due_date", "due_date"));
+  const termins = fmtDate(
+    pick(profile, "visible_action_due_at", "next_action_due_date", "due_date"),
+  );
   const lastContact = fmtDate(pick(profile, "last_contact_date", "last_contact_at"));
   const automatizacija = pick(profile, "automation", "automation_name", "automation_status");
   const automatizacijasDatums = fmtDate(pick(profile, "automation_date", "automation_at"));
