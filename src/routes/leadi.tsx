@@ -197,7 +197,7 @@ function relativeTime(v: string | null): string {
   if (isYest) return "vakar";
   const days = Math.round(diff / MS_DAY);
   if (days < 30) return `${days}d`;
-  if (days < 365) return `${Math.round(days / 30)}mēn`;
+  if (days < 365) return `${Math.round(days / 30)}m`;
   return `${Math.round(days / 365)}g`;
 }
 
