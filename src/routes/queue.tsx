@@ -171,6 +171,10 @@ function parseTags(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function leadLabel(row: Row): string {
+  return s(row.name) || s(row.object_name) || (s(row.lead_id) ? `Lead #${s(row.lead_id)}` : "—");
+}
+
 function TagsCell({ tags }: { tags: string[] }) {
   if (tags.length === 0) return <span className="text-muted-foreground">—</span>;
   return (
@@ -363,7 +367,7 @@ function QueuePage() {
       }
     }
     if (qq) {
-      const hay = `${s(r.full_name)} ${s(r.object_name)}`.toLowerCase();
+      const hay = `${leadLabel(r)} ${s(r.object_name)}`.toLowerCase();
       if (!hay.includes(qq)) return false;
     }
     return true;
@@ -702,10 +706,10 @@ function QueuePage() {
                           className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
                           onClick={() => setDrawerLeadId(leadId)}
                         >
-                          {s(r.full_name) || "—"}
+                          {leadLabel(r)}
                         </button>
                       ) : (
-                        <span className="line-clamp-2 max-w-[280px]">{s(r.full_name) || "—"}</span>
+                        <span className="line-clamp-2 max-w-[280px]">{leadLabel(r)}</span>
                       )}
                     </TableCell>
                     <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
@@ -880,7 +884,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "action":
       return s(r.action_label).toLowerCase();
     case "lead":
-      return s(r.full_name).toLowerCase();
+      return leadLabel(r).toLowerCase();
     case "ppv":
       return s(r.ppv_name).toLowerCase();
     case "country":

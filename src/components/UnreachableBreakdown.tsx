@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCrmView } from "@/hooks/useCrmView";
 import { resolveDateRange, type FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
 const NOT_REACHED = "Nesasniedzams";
 
-type Dim = "country" | "ppv_vards" | "source_detailed";
+type Dim = "country" | "ppv_name" | "action_source";
 type SortKey =
   | "label"
   | "notReached"
@@ -17,8 +17,8 @@ type SortKey =
 
 const DIM_LABELS: Record<Dim, { label: string; columnHeader: string }> = {
   country: { label: "Valsts", columnHeader: "Valsts" },
-  ppv_vards: { label: "PPV", columnHeader: "PPV" },
-  source_detailed: { label: "Kanāls", columnHeader: "Kanāls" },
+  ppv_name: { label: "PPV", columnHeader: "PPV" },
+  action_source: { label: "Kanāls", columnHeader: "Kanāls" },
 };
 
 interface Row {
@@ -43,32 +43,34 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
   const query = useMemo(() => {
     const { from, to } = resolveDateRange(search);
     const parts: string[] = [
-      "select=country,ppv_vards,source_detailed,status",
+      "select=country,ppv_name,action_source,lead_status_label",
       "limit=10000",
     ];
-    if (from) parts.push(`lead_created_date=gte.${from}`);
-    if (to) parts.push(`lead_created_date=lte.${to}`);
+    if (from) parts.push(`created_at=gte.${from}`);
+    if (to) parts.push(`created_at=lte.${to}`);
     if (search.countries.length > 0)
       parts.push(
         `country=in.(${search.countries.map(encodeURIComponent).join(",")})`,
       );
     if (search.sources.length > 0)
       parts.push(
-        `source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
+        `action_source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
       );
     if (search.owners.length > 0)
       parts.push(
-        `owner=in.(${search.owners.map(encodeURIComponent).join(",")})`,
+        `action_owner_label=in.(${search.owners.map(encodeURIComponent).join(",")})`,
       );
     if (search.ppvs.length > 0)
       parts.push(
-        `ppv_vards=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
+        `ppv_name=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
       );
     return parts.join("&");
   }, [search]);
 
-  // TODO: migrate this analytics page to analytics.get_dashboard_kpis()
-  const { data, isLoading, error } = useAnalyticsView("leads_overview", query);
+  const { data, isLoading, error } = useCrmView(
+    "next_action_queue_display_enriched",
+    query,
+  );
 
   const { rows, totalAll, totalNotReachedAll } = useMemo(() => {
     const records = (data?.rows ?? []) as Array<Record<string, unknown>>;
@@ -81,7 +83,7 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
       const raw = r[dim];
       const key =
         raw == null || String(raw).trim() === "" ? "—" : String(raw);
-      const status = String(r.status ?? "");
+      const status = String(r.lead_status_label ?? "");
       const b = buckets.get(key) ?? { total: 0, notReached: 0 };
       b.total += 1;
       if (status === NOT_REACHED) {

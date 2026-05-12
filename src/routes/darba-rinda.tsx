@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 const SORT_KEYS = [
   "default",
   "ppv",
-  "full_name",
+  "display_name",
   "status",
   "rating",
   "email",
@@ -74,7 +74,7 @@ type Row = Record<string, unknown>;
 
 interface Lead {
   lead_id: string;
-  full_name: string;
+  display_name: string;
   email: string;
   phone: string;
   country: string;
@@ -114,6 +114,10 @@ function asTags(v: unknown): string[] {
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
+}
+
+function leadDisplayName(row: Row, leadId: string): string {
+  return s(row.name) || s(row.object_name) || (leadId ? `Lead #${leadId}` : "");
 }
 
 function parseDate(v: unknown): number | null {
@@ -476,7 +480,7 @@ function DarbaRindaPage() {
         if (!id) return null;
         return {
           lead_id: id,
-          full_name: s(r.full_name || r.name),
+          display_name: leadDisplayName(r, id),
           email: s(r.email_normalized || r.email),
           phone: s(
             r.telefons_e164 ||
@@ -550,7 +554,7 @@ function DarbaRindaPage() {
       if (!passesSegment(l, seg)) return false;
       if (!passesRatingBucket(l, rb)) return false;
       if (q) {
-        const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
+        const hay = `${l.display_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -616,8 +620,8 @@ function DarbaRindaPage() {
           );
         case "ppv":
           return cmpString(a.ppv, b.ppv) * dirMul;
-        case "full_name":
-          return cmpString(a.full_name, b.full_name) * dirMul;
+        case "display_name":
+          return cmpString(a.display_name, b.display_name) * dirMul;
         case "status":
           return cmpString(a.status, b.status) * dirMul;
         case "email":
@@ -834,7 +838,7 @@ function DarbaRindaPage() {
               <tr>
                 <th className="w-6 px-2 py-1.5" aria-label="Izvērst" />
                 <SortHeader label="PPV" k="ppv" active={sortKey} dir={sortDir} onSort={handleSort} align="center" />
-                <SortHeader label="Vārds / Uzvārds" k="full_name" active={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortHeader label="Vārds / Uzvārds" k="display_name" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Email" k="email" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tags" k="tags" active={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortHeader label="Telefons" k="phone" active={sortKey} dir={sortDir} onSort={handleSort} />
@@ -879,9 +883,9 @@ function DarbaRindaPage() {
                           )}
                         </td>
                         <td className="px-1.5 py-1.5 font-medium text-foreground">
-                          {lead.full_name ? (
+                          {lead.display_name ? (
                             <span className="line-clamp-2 break-words leading-tight">
-                              {lead.full_name}
+                              {lead.display_name}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">—</span>

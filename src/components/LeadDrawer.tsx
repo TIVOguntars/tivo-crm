@@ -40,6 +40,10 @@ function parseTags(value: unknown): string[] {
   return String(value).split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
 }
 
+function leadDisplayName(row: Row, leadId: string | null): string {
+  return s(row.name) || (leadId ? `Lead #${leadId}` : "—");
+}
+
 function fmtDateTime(value: unknown): string {
   const str = s(value);
   if (!str) return "—";
@@ -132,7 +136,7 @@ function DrawerContent({
   onActionCompleted?: (leadId: string) => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
-  const fullName = s(row.full_name) || "—";
+  const displayName = leadDisplayName(row, leadId);
   const status = s(row.lead_status_label);
   const priority = s(row.priority_label);
   const score = n(row.lead_priority_score);
@@ -167,7 +171,7 @@ function DrawerContent({
       {/* Header */}
       <SheetHeader className="border-b border-border bg-muted/30 px-6 py-4 text-left">
         <SheetTitle className="text-xl font-semibold tracking-tight">
-          {fullName}
+          {displayName}
         </SheetTitle>
         {/* Row 1 — identifiers + meta on one line */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

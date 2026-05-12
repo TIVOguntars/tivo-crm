@@ -437,7 +437,7 @@ function LeadProfilePage() {
 
   /* ------ lauku izvilkšana ------ */
 
-  const fullNameRaw = pick(profile, "full_name", "name");
+  const fullNameRaw = pick(profile, "name");
   const fullName = fullNameRaw ? String(fullNameRaw) : `Lead #${leadId}`;
   const status = pick(profile, "lead_status_label", "status", "current_status");
   const rating = pick(profile, "rating");

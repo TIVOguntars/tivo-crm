@@ -42,7 +42,7 @@ type Row = Record<string, unknown>;
 
 interface Lead {
   lead_id: string;
-  full_name: string;
+  display_name: string;
   email: string;
   phone: string;
   country: string;
@@ -76,6 +76,10 @@ function asTags(v: unknown): string[] {
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
+}
+
+function leadDisplayName(row: Row, leadId: string): string {
+  return s(row.name) || s(row.object_name) || (leadId ? `Lead #${leadId}` : "");
 }
 
 function parseDate(v: unknown): number | null {
@@ -247,7 +251,7 @@ function LeadiPage() {
         if (!id) return null;
         return {
           lead_id: id,
-          full_name: s(r.full_name || r.name),
+          display_name: leadDisplayName(r, id),
           email: s(r.email_normalized || r.email),
           phone: s(
             r.telefons_e164 ||
@@ -338,7 +342,7 @@ function LeadiPage() {
       if (!passesSegment(l, seg)) return false;
 
       if (q) {
-        const hay = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
+        const hay = `${l.display_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -589,7 +593,7 @@ function LeadiPage() {
                       className="border-t border-border hover:bg-secondary/30"
                     >
                       <td className="px-3 py-2 font-medium text-foreground">
-                        {lead.full_name || (
+                        {lead.display_name || (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>

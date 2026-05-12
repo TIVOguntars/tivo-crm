@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { useCrmView } from "@/hooks/useCrmView";
 import { fetchPublicTable } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
@@ -373,7 +372,7 @@ function InboxPage() {
                           {fmtDate(ev.event_timestamp)}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.full_name ?? lead?.name ?? "—")}
+                          {String(lead?.name ?? (leadId ? `Lead #${leadId}` : "—"))}
                         </td>
                         <td className="px-3 py-2 text-foreground">
                           {String(lead?.email ?? "—")}
