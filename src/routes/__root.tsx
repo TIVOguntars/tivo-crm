@@ -12,7 +12,6 @@ import { zodValidator } from "@tanstack/zod-adapter";
 
 import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
-import { FilterBar } from "../components/FilterBar";
 import { filtersSearchSchema } from "@/lib/filters";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -94,13 +93,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { pathname } = useLocation();
-  const hideFilters = pathname.startsWith("/lead/") || pathname === "/queue";
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background text-foreground">
         <TopNav />
-        {!hideFilters && <FilterBar />}
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
           <Outlet />
         </main>
