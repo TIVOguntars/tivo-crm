@@ -453,17 +453,3 @@ async function callAnalyticsRpcRaw(
   }
   return res.json();
 }
-
-export const fetchDashboardSummary = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const data = (await callAnalyticsRpcRaw("get_dashboard_summary")) as AnalyticsRow;
-    return data;
-  },
-);
-
-export const fetchDashboardKpis = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const data = (await callAnalyticsRpcRaw("get_dashboard_kpis")) as AnalyticsRow;
-    return data;
-  },
-);
