@@ -866,10 +866,107 @@ function LeadiPage() {
   };
   const clearSelected = () => setSelected(new Set());
 
-  const openLead = (id: string) => {
-    setDrawerLeadId(id);
-    setDrawerOpen(true);
-  };
+  const openLead = useCallback(
+    (id: string) => {
+      setDrawerLeadId(id);
+      setDrawerOpen(true);
+      const idx = visibleRows.findIndex((l) => l.lead_id === id);
+      if (idx >= 0) setActiveIdx(idx);
+    },
+    [visibleRows],
+  );
+
+  // Auto-next: after a workflow action completes inside the drawer,
+  // advance to the next lead in the same queue (or close if none left).
+  const handleActionCompleted = useCallback(
+    (leadId: string) => {
+      bumpActivity(leadId);
+      if (!autoNext) return;
+      const qid = leadQueueMap[leadId];
+      if (!qid) return;
+      const peers = (queues as Record<string, Lead[]>)[qid] ?? [];
+      const i = peers.findIndex((l) => l.lead_id === leadId);
+      const next = peers[i + 1] ?? peers.find((l) => l.lead_id !== leadId);
+      if (next) {
+        openLead(next.lead_id);
+      } else {
+        setDrawerOpen(false);
+      }
+    },
+    [autoNext, leadQueueMap, queues, openLead, bumpActivity],
+  );
+
+  // Keyboard workflow
+  const phoneRef = useRef<string>("");
+  const emailRef = useRef<string>("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      )
+        return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Escape") {
+        if (drawerOpen) {
+          setDrawerOpen(false);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        if (visibleRows.length === 0) return;
+        setActiveIdx((i) => Math.min(visibleRows.length - 1, i + 1));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        if (visibleRows.length === 0) return;
+        setActiveIdx((i) => (i <= 0 ? 0 : i - 1));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Enter") {
+        const row = visibleRows[activeIdx];
+        if (row) {
+          openLead(row.lead_id);
+          e.preventDefault();
+        }
+        return;
+      }
+      const row = visibleRows[activeIdx];
+      if (!row) return;
+      const k = e.key.toLowerCase();
+      if (k === "w" && row.phone) {
+        window.open(
+          `https://wa.me/${row.phone.replace(/[^0-9]/g, "")}`,
+          "_blank",
+        );
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "e" && row.email) {
+        window.location.href = `mailto:${row.email}`;
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "c" && row.phone) {
+        window.location.href = `tel:${row.phone}`;
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "t" || k === "r" || k === "s" || k === "a") {
+        // T = task, R = reply, S = status, A = assign — open drawer
+        openLead(row.lead_id);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeIdx, visibleRows, drawerOpen, openLead, bumpActivity]);
+  // suppress unused-ref lint
+  void phoneRef;
+  void emailRef;
 
   const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
