@@ -90,6 +90,7 @@ interface Lead {
   phone: string;
   email: string;
   country: string;
+  secondary: string;
   source: string;
   status: string;
   owner: string;
