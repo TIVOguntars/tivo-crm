@@ -56,7 +56,7 @@ interface Lead {
   automation_step: string;
   automation_date: string | null;
   tags: string[];
-  lead_created_at: string | null;
+  created_at: string | null;
 }
 
 const PAGE_SIZE = 200;
@@ -224,7 +224,7 @@ function LeadiPage() {
   const overviewQuery = useMemo(() => {
     return [
       "select=*",
-      "order=lead_created_at.desc.nullslast",
+      "order=created_at.desc.nullslast",
       `limit=${PAGE_SIZE}`,
     ].join("&");
   }, []);
@@ -272,7 +272,7 @@ function LeadiPage() {
           automation_date:
             s(r.system_due_date || r.automation_date) || null,
           tags: asTags(r.tags),
-          lead_created_at: s(r.lead_created_at) || null,
+          created_at: s(r.created_at) || null,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
@@ -359,7 +359,7 @@ function LeadiPage() {
     q,
   ]);
 
-  /* Sort: due asc nullslast → last_contact_date asc → lead_created_at desc */
+  /* Sort: due asc nullslast → last_contact_date asc → created_at desc */
   const sorted = useMemo(() => {
     const copy = [...filtered];
     copy.sort((a, b) => {
@@ -377,8 +377,8 @@ function LeadiPage() {
         if (bLast == null) return -1;
         if (aLast !== bLast) return aLast - bLast;
       }
-      const aCreated = parseDate(a.lead_created_at) ?? 0;
-      const bCreated = parseDate(b.lead_created_at) ?? 0;
+      const aCreated = parseDate(a.created_at) ?? 0;
+      const bCreated = parseDate(b.created_at) ?? 0;
       return bCreated - aCreated;
     });
     return copy;
