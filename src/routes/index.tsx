@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useDashboardSummary,
   useDashboardKpis,
@@ -28,10 +31,15 @@ function pct(n: number): string {
 type SummaryShape = {
   total_leads?: number;
   won_count?: number;
+  qualified_count?: number;
   conversion_rate_percent?: number;
   reachable_rate_percent?: number;
   complete_contact_data_percent?: number;
   missing_contact_count?: number;
+  missing_email_count?: number;
+  missing_phone_count?: number;
+  import_conflicts_count?: number;
+  validation_issues_count?: number;
   open_tasks_count?: number;
   high_priority_open_tasks_count?: number;
   active_or_pending_workflow_steps?: number;
@@ -54,6 +62,7 @@ type KpisShape = {
 function PārskatsPage() {
   const summaryQ = useDashboardSummary();
   const kpisQ = useDashboardKpis();
+  const qc = useQueryClient();
 
   const summary = (summaryQ.data ?? {}) as SummaryShape;
   const kpis = (kpisQ.data ?? {}) as KpisShape;
@@ -63,79 +72,145 @@ function PārskatsPage() {
     (kpisQ.error as Error | null)?.message ||
     null;
   const loading = summaryQ.isLoading || kpisQ.isLoading;
+  const refreshing = summaryQ.isFetching || kpisQ.isFetching;
+
+  const validationIssues =
+    summary.validation_issues_count ??
+    (summary.missing_email_count != null || summary.missing_phone_count != null
+      ? num(summary.missing_email_count) + num(summary.missing_phone_count)
+      : summary.missing_contact_count);
 
   return (
     <>
       <PageHeader
         title="Pārskats"
         description="Galvenie KPI rādītāji par leadiem, konversijām un komunikāciju."
-      />
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
+            qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
+          }}
+          disabled={refreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Atjaunot
+        </Button>
+      </PageHeader>
 
       {error && <ErrorState message={error} />}
       {!error && loading && <LoadingState />}
 
       {!error && !loading && (
-        <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Kopā leadi"
-              value={fmt(num(summary.total_leads))}
-              tone="blue"
-            />
-            <StatCard
-              label="Iegūti (won)"
-              value={fmt(num(summary.won_count))}
-              hint={`Konversija: ${pct(num(summary.conversion_rate_percent))}`}
-              tone="purple"
-            />
-            <StatCard
-              label="Sasniedzamība"
-              value={pct(num(summary.reachable_rate_percent))}
-              tone="amber"
-            />
-            <StatCard
-              label="Pilni kontakti"
-              value={pct(num(summary.complete_contact_data_percent))}
-              hint={`Trūkst: ${fmt(num(summary.missing_contact_count))}`}
-              tone="orange"
-            />
-            <StatCard
-              label="Atvērti uzdevumi"
-              value={fmt(num(summary.open_tasks_count))}
-              hint={`Augsta prioritāte: ${fmt(num(summary.high_priority_open_tasks_count))}`}
-              tone="red"
-            />
-            <StatCard
-              label="Ieplānotās komunikācijas"
-              value={fmt(num(summary.active_or_pending_workflow_steps))}
-              hint={`Nosūtītās komunikācijas: ${fmt(num(summary.completed_workflow_steps))}`}
-              tone="yellow"
-            />
-            <StatCard
-              label="Atbildes"
-              value={fmt(num(summary.reply_events))}
-              tone="blue"
-            />
-            <StatCard
-              label="Klikšķi"
-              value={fmt(num(summary.click_events))}
-              tone="purple"
-            />
-          </div>
+        <div className="space-y-8">
+          {/* Primary KPI row */}
+          <SectionGroup label="Galvenie rādītāji">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard
+                label="Kopā leadi"
+                value={fmt(num(summary.total_leads))}
+              />
+              <StatCard
+                label="Kvalificēti"
+                value={
+                  summary.qualified_count != null
+                    ? fmt(num(summary.qualified_count))
+                    : "—"
+                }
+              />
+              <StatCard
+                label="Iegūti"
+                value={fmt(num(summary.won_count))}
+                hint={`Konversija: ${pct(num(summary.conversion_rate_percent))}`}
+              />
+              <StatCard
+                label="Sasniedzamība"
+                value={pct(num(summary.reachable_rate_percent))}
+                hint={`Pilni kontakti: ${pct(num(summary.complete_contact_data_percent))}`}
+              />
+            </div>
+          </SectionGroup>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <KpiSection title="Funnel" data={kpis.funnel} />
-            <KpiSection title="Konversija" data={kpis.conversion} />
-            <KpiSection title="Sasniedzamība" data={kpis.reachability} />
-            <KpiSection title="Datu kvalitāte" data={kpis.data_quality} />
-            <KpiSection title="Komandas slodze" data={kpis.team_workload} />
-            <KpiSection title="Workflow ātrums" data={kpis.workflow_speed} />
-            <KpiSection title="Atbilžu rādītājs" data={kpis.reply_rate} />
-            <KpiSection title="Klikšķu rādītājs" data={kpis.click_rate} />
-          </div>
-        </>
+          {/* Secondary KPI row */}
+          <SectionGroup label="Operatīvie rādītāji">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+              <StatCard
+                label="Atvērti uzdevumi"
+                value={fmt(num(summary.open_tasks_count))}
+                hint={`Augsta: ${fmt(num(summary.high_priority_open_tasks_count))}`}
+              />
+              <StatCard
+                label="Plānotās komunikācijas"
+                value={fmt(num(summary.active_or_pending_workflow_steps))}
+                hint={`Nosūtītās: ${fmt(num(summary.completed_workflow_steps))}`}
+              />
+              <StatCard
+                label="Atbildes"
+                value={fmt(num(summary.reply_events))}
+              />
+              <StatCard
+                label="Klikšķi"
+                value={fmt(num(summary.click_events))}
+              />
+              <StatCard
+                label="Importa konflikti"
+                value={
+                  summary.import_conflicts_count != null
+                    ? fmt(num(summary.import_conflicts_count))
+                    : "—"
+                }
+              />
+              <StatCard
+                label="Validācijas problēmas"
+                value={
+                  validationIssues != null ? fmt(num(validationIssues)) : "—"
+                }
+              />
+            </div>
+          </SectionGroup>
+
+          {/* Analytics section */}
+          <SectionGroup label="Analītika">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <KpiSection title="Funnel" data={kpis.funnel} />
+              <KpiSection title="Konversijas trends" data={kpis.conversion} />
+              <KpiSection title="Sasniedzamības kvalitāte" data={kpis.reachability} />
+              <KpiSection title="Komandas slodze" data={kpis.team_workload} />
+            </div>
+          </SectionGroup>
+
+          {/* Operational insights */}
+          <SectionGroup label="Operatīvie ieskati">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <KpiSection title="Workflow veselība" data={kpis.workflow_speed} />
+              <KpiSection title="Atbilžu rādītājs" data={kpis.reply_rate} />
+              <KpiSection title="Klikšķu rādītājs" data={kpis.click_rate} />
+              <KpiSection title="Datu kvalitāte" data={kpis.data_quality} />
+            </div>
+          </SectionGroup>
+        </div>
       )}
     </>
+  );
+}
+
+function SectionGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </h2>
+      {children}
+    </section>
   );
 }
 
@@ -146,10 +221,12 @@ function KpiSection({ title, data }: { title: string; data: unknown }) {
     (typeof data === "object" && Object.keys(data as object).length === 0);
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
+    <section className="flex h-full flex-col rounded-xl border border-border bg-card p-5">
+      <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
       {empty ? (
-        <EmptyState />
+        <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border/70 py-6 text-xs text-muted-foreground">
+          Nav datu
+        </div>
       ) : Array.isArray(data) ? (
         <KpiTable rows={data as Array<Record<string, unknown>>} />
       ) : typeof data === "object" ? (
