@@ -90,7 +90,7 @@ export function TopNav() {
               <DropdownMenuTrigger
                 className={`${linkClass} ${
                   darbsActive
-                    ? "bg-secondary text-foreground"
+                    ? "bg-secondary text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                 }`}
               >
@@ -102,9 +102,10 @@ export function TopNav() {
                 {(() => {
                   const operational = visibleDarbs.filter((i) => !adminDarbsRoutes.has(i.to));
                   const admin = visibleDarbs.filter((i) => adminDarbsRoutes.has(i.to));
-                  const renderItem = (item: NavItem) => {
+                  const renderItem = (item: NavItem, opts?: { subtle?: boolean }) => {
                     const isActive =
                       pathname === item.to || pathname.startsWith(item.to + "/");
+                    const subtle = opts?.subtle && !isActive;
                     return (
                       <DropdownMenuItem key={item.to} asChild>
                         <Link
@@ -112,10 +113,16 @@ export function TopNav() {
                           className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors cursor-pointer ${
                             isActive
                               ? "bg-secondary text-foreground font-medium"
+                              : subtle
+                              ? "text-muted-foreground/70 hover:bg-secondary/50 hover:text-foreground focus:bg-secondary/50 focus:text-foreground"
                               : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground focus:bg-secondary/60 focus:text-foreground"
                           }`}
                         >
-                          <item.icon className={`h-4 w-4 ${isActive ? "text-foreground" : ""}`} />
+                          <item.icon
+                            className={`h-4 w-4 ${
+                              isActive ? "text-foreground" : subtle ? "opacity-70" : ""
+                            }`}
+                          />
                           <span className="flex-1">{item.label}</span>
                           {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
                         </Link>
@@ -124,9 +131,16 @@ export function TopNav() {
                   };
                   return (
                     <>
-                      {operational.map(renderItem)}
-                      {operational.length > 0 && admin.length > 0 && <DropdownMenuSeparator />}
-                      {admin.map(renderItem)}
+                      {operational.map((i) => renderItem(i))}
+                      {operational.length > 0 && admin.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 pb-1 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                            Admin
+                          </div>
+                        </>
+                      )}
+                      {admin.map((i) => renderItem(i, { subtle: true }))}
                     </>
                   );
                 })()}
