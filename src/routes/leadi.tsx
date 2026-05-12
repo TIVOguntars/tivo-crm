@@ -98,6 +98,7 @@ interface Lead {
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
+  unread_replies: number;
 }
 
 function s(v: unknown): string {
@@ -329,6 +330,9 @@ function LeadiPage() {
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Optimistic per-row patches keyed by lead_id; applied after server data
+  // resolves, so drawer mutations reflect immediately without table reload.
+  const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
   const overviewQuery = useMemo(
     () =>
@@ -383,6 +387,14 @@ function LeadiPage() {
       .filter((x): x is Lead => x !== null);
   }, [overview.data]);
 
+  // Apply optimistic patches on top of server data
+  const leadsPatched = useMemo(() => {
+    if (Object.keys(patches).length === 0) return leads;
+    return leads.map((l) =>
+      patches[l.lead_id] ? { ...l, ...patches[l.lead_id] } : l,
+    );
+  }, [leads, patches]);
+
   const options = useMemo(() => {
     const fo = (filterOptions.data?.rows ?? [])[0] as Row | undefined;
     const fromArr = (v: unknown) =>
@@ -395,28 +407,28 @@ function LeadiPage() {
       statuses: dedupe(
         fromArr(fo?.statuses).length
           ? fromArr(fo?.statuses)
-          : leads.map((l) => l.status),
+          : leadsPatched.map((l) => l.status),
       ),
       countries: dedupe(
         fromArr(fo?.countries).length
           ? fromArr(fo?.countries)
-          : leads.map((l) => l.country),
+          : leadsPatched.map((l) => l.country),
       ),
       owners: dedupe(
         fromArr(fo?.owners).length
           ? fromArr(fo?.owners)
-          : leads.map((l) => l.owner),
+          : leadsPatched.map((l) => l.owner),
       ),
       ppvs: dedupe(
         fromArr(fo?.ppvs).length ? fromArr(fo?.ppvs) : leads.map((l) => l.ppv),
       ),
-      tags: dedupe(leads.flatMap((l) => l.tags)),
+      tags: dedupe(leadsPatched.flatMap((l) => l.tags)),
     };
-  }, [filterOptions.data, leads]);
+  }, [filterOptions.data, leads, leadsPatched]);
 
   const filtered = useMemo(() => {
     const tagsLower = fTags.map((t) => t.toLowerCase());
-    return leads.filter((l) => {
+    return leadsPatched.filter((l) => {
       if (fStatus.length && !fStatus.includes(l.status)) return false;
       if (fOwners.length && !fOwners.includes(l.owner)) return false;
       if (fPpvs.length && !fPpvs.includes(l.ppv)) return false;
@@ -465,7 +477,7 @@ function LeadiPage() {
       }
       return true;
     });
-  }, [leads, fStatus, fOwners, fPpvs, fCountries, fTags, seg, q]);
+  }, [leadsPatched, fStatus, fOwners, fPpvs, fCountries, fTags, seg, q]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
@@ -540,6 +552,10 @@ function LeadiPage() {
     setDrawerLeadId(id);
     setDrawerOpen(true);
   };
+
+  const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
+    setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
 
   return (
     <TooltipProvider delayDuration={150}>
