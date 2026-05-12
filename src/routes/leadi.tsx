@@ -958,6 +958,7 @@ function LeadiPage() {
                               icon={<Phone className="h-3.5 w-3.5" />}
                               label="Zvanīt"
                               href={l.phone ? `tel:${l.phone}` : undefined}
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<MessageCircle className="h-3.5 w-3.5" />}
@@ -967,11 +968,13 @@ function LeadiPage() {
                                   ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
                                   : undefined
                               }
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<Mail className="h-3.5 w-3.5" />}
                               label="E-pasts"
                               href={l.email ? `mailto:${l.email}` : undefined}
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<CheckSquare className="h-3.5 w-3.5" />}
@@ -1016,11 +1019,13 @@ function RowAction({
   label,
   href,
   onClick,
+  onActivate,
 }: {
   icon: React.ReactNode;
   label: string;
   href?: string;
   onClick?: () => void;
+  onActivate?: () => void;
 }) {
   const disabled = !href && !onClick;
   const className = cn(
@@ -1030,13 +1035,21 @@ function RowAction({
       : "hover:border-border hover:bg-background hover:text-foreground",
   );
   const content = href ? (
-    <a href={href} className={className} aria-label={label}>
+    <a
+      href={href}
+      className={className}
+      aria-label={label}
+      onClick={() => onActivate?.()}
+    >
       {icon}
     </a>
   ) : (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        onActivate?.();
+        onClick?.();
+      }}
       disabled={disabled}
       className={className}
       aria-label={label}
