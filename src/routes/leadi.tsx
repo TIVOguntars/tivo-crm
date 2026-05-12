@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import {
@@ -18,6 +18,7 @@ import {
   X,
   Search,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -389,6 +390,27 @@ function LeadiPage() {
     });
   }, []);
 
+  // Auto-next mode (default on for unread queue)
+  const [autoNext, setAutoNext] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const v = window.localStorage.getItem("leadi.autoNext");
+      return v == null ? true : v === "1";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("leadi.autoNext", autoNext ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [autoNext]);
+
+  // Keyboard navigation cursor (index into the visible flat list)
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
+
   const overviewQuery = useMemo(
     () =>
       ["select=*", "order=created_at.desc.nullslast", `limit=${PAGE_SIZE}`].join(
@@ -710,6 +732,87 @@ function LeadiPage() {
     return buckets;
   }, [sorted]);
 
+  // Per-queue operational metrics
+  type QueueMetrics = {
+    count: number;
+    breach: number;
+    avgWaitMin: number;
+  };
+  const queueMetrics = useMemo<Record<string, QueueMetrics>>(() => {
+    const now = Date.now();
+    const out: Record<string, QueueMetrics> = {};
+    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
+      const items = queues[qid];
+      let breach = 0;
+      let waitSum = 0;
+      let waitN = 0;
+      for (const l of items) {
+        // SLA reference: unread → time since last reply; overdue → time past due;
+        // waiting → since last outbound; others → since last activity.
+        let waitMs = 0;
+        if (qid === "unread") {
+          const t =
+            parseDate(l.last_reply_at) ??
+            parseDate(l.last_inbound_at) ??
+            parseDate(l.last_communication_at) ??
+            parseDate(l.created_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 4 * MS_HOUR) breach += 1;
+        } else if (qid === "overdue") {
+          const t = parseDate(l.next_action_due);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 7 * MS_DAY) breach += 1;
+        } else if (qid === "waiting") {
+          const t =
+            parseDate(l.last_outbound_at) ??
+            parseDate(l.last_communication_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 3 * MS_DAY) breach += 1;
+        } else {
+          const t =
+            parseDate(l.last_communication_at) ??
+            parseDate(l.last_activity) ??
+            parseDate(l.created_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+        }
+        if (waitMs > 0) {
+          waitSum += waitMs;
+          waitN += 1;
+        }
+      }
+      out[qid as string] = {
+        count: items.length,
+        breach,
+        avgWaitMin: waitN ? Math.round(waitSum / waitN / MS_MIN) : 0,
+      };
+    });
+    return out;
+  }, [queues]);
+
+  // Flat visible row order (respects collapse) — drives keyboard nav and auto-next
+  const visibleRows = useMemo<Lead[]>(() => {
+    const out: Lead[] = [];
+    for (const q of QUEUE_DEFS) {
+      const items = queues[q.id];
+      if (items.length === 0) continue;
+      const collapsed = collapsedQueues[q.id] ?? q.defaultCollapsed;
+      if (collapsed) continue;
+      out.push(...items);
+    }
+    return out;
+  }, [queues, collapsedQueues]);
+
+  // Map lead_id → its queue id (for auto-next)
+  const leadQueueMap = useMemo<Record<string, string>>(() => {
+    const m: Record<string, string> = {};
+    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
+      queues[qid].forEach((l) => {
+        m[l.lead_id] = qid as string;
+      });
+    });
+    return m;
+  }, [queues]);
+
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
       navigate({
@@ -762,14 +865,116 @@ function LeadiPage() {
   };
   const clearSelected = () => setSelected(new Set());
 
-  const openLead = (id: string) => {
-    setDrawerLeadId(id);
-    setDrawerOpen(true);
-  };
-
   const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
+
+  const bumpActivity = useCallback(
+    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
+    [patchLead],
+  );
+
+  const openLead = useCallback(
+    (id: string) => {
+      setDrawerLeadId(id);
+      setDrawerOpen(true);
+      const idx = visibleRows.findIndex((l) => l.lead_id === id);
+      if (idx >= 0) setActiveIdx(idx);
+    },
+    [visibleRows],
+  );
+
+  // Auto-next: after a workflow action completes inside the drawer,
+  // advance to the next lead in the same queue (or close if none left).
+  const handleActionCompleted = useCallback(
+    (leadId: string) => {
+      bumpActivity(leadId);
+      if (!autoNext) return;
+      const qid = leadQueueMap[leadId];
+      if (!qid) return;
+      const peers = (queues as Record<string, Lead[]>)[qid] ?? [];
+      const i = peers.findIndex((l) => l.lead_id === leadId);
+      const next = peers[i + 1] ?? peers.find((l) => l.lead_id !== leadId);
+      if (next) {
+        openLead(next.lead_id);
+      } else {
+        setDrawerOpen(false);
+      }
+    },
+    [autoNext, leadQueueMap, queues, openLead, bumpActivity],
+  );
+
+  // Keyboard workflow
+  const phoneRef = useRef<string>("");
+  const emailRef = useRef<string>("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      )
+        return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Escape") {
+        if (drawerOpen) {
+          setDrawerOpen(false);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        if (visibleRows.length === 0) return;
+        setActiveIdx((i) => Math.min(visibleRows.length - 1, i + 1));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        if (visibleRows.length === 0) return;
+        setActiveIdx((i) => (i <= 0 ? 0 : i - 1));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Enter") {
+        const row = visibleRows[activeIdx];
+        if (row) {
+          openLead(row.lead_id);
+          e.preventDefault();
+        }
+        return;
+      }
+      const row = visibleRows[activeIdx];
+      if (!row) return;
+      const k = e.key.toLowerCase();
+      if (k === "w" && row.phone) {
+        window.open(
+          `https://wa.me/${row.phone.replace(/[^0-9]/g, "")}`,
+          "_blank",
+        );
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "e" && row.email) {
+        window.location.href = `mailto:${row.email}`;
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "c" && row.phone) {
+        window.location.href = `tel:${row.phone}`;
+        bumpActivity(row.lead_id);
+        e.preventDefault();
+      } else if (k === "t" || k === "r" || k === "s" || k === "a") {
+        // T = task, R = reply, S = status, A = assign — open drawer
+        openLead(row.lead_id);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeIdx, visibleRows, drawerOpen, openLead, bumpActivity]);
+  // suppress unused-ref lint
+  void phoneRef;
+  void emailRef;
 
   const patchMany = useCallback(
     (ids: string[], patch: BulkPatch) => {
@@ -805,11 +1010,6 @@ function LeadiPage() {
     return m;
   }, [leadsPatched]);
 
-  const bumpActivity = useCallback(
-    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
-    [patchLead],
-  );
-
   return (
     <TooltipProvider delayDuration={150}>
       {/* Page header */}
@@ -823,6 +1023,24 @@ function LeadiPage() {
           </p>
         </div>
         <div className="flex items-center gap-1.5">
+          <label
+            className={cn(
+              "inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border px-2 text-xs transition-colors",
+              autoNext
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "border-border bg-background text-foreground hover:bg-muted/50",
+            )}
+            title="Pēc darbības atvērt nākamo leadu šajā rindā"
+          >
+            <input
+              type="checkbox"
+              checked={autoNext}
+              onChange={(e) => setAutoNext(e.target.checked)}
+              className="sr-only"
+            />
+            <Zap className={cn("h-3.5 w-3.5", autoNext && "text-primary")} />
+            <span>Auto-next</span>
+          </label>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
             <Bookmark className="h-3.5 w-3.5" />
             Saglabāt skatu
@@ -1017,31 +1235,74 @@ function LeadiPage() {
                         className="sticky top-[33px] z-[5]"
                       >
                         <td colSpan={9} className="p-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleQueue(q.id)}
+                          <div
                             className={cn(
-                              "flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-left text-[11px] uppercase tracking-wide text-foreground backdrop-blur transition-colors hover:bg-muted/70",
+                              "group/qh flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-[11px] uppercase tracking-wide text-foreground backdrop-blur",
                               q.accent,
                             )}
                           >
-                            {collapsed ? (
-                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                q.dot,
+                            <button
+                              type="button"
+                              onClick={() => toggleQueue(q.id)}
+                              className="flex flex-1 items-center gap-2 text-left transition-colors hover:text-foreground"
+                              aria-label={
+                                collapsed ? "Izvērst rindu" : "Sakļaut rindu"
+                              }
+                            >
+                              {collapsed ? (
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
                               )}
-                              aria-hidden
-                            />
-                            <span className="font-semibold">{q.label}</span>
-                            <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-                              {items.length}
-                            </span>
-                          </button>
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  q.dot,
+                                )}
+                                aria-hidden
+                              />
+                              <span className="font-semibold">{q.label}</span>
+                              <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                                {queueMetrics[q.id]?.count ?? items.length}
+                              </span>
+                              {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
+                                <span
+                                  className={cn(
+                                    "inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium normal-case",
+                                    q.id === "unread"
+                                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                      : "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                                  )}
+                                  title="Pārkāpts SLA"
+                                >
+                                  {queueMetrics[q.id]!.breach} SLA
+                                </span>
+                              )}
+                              {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
+                                <span className="text-[10px] font-normal normal-case text-muted-foreground">
+                                  vid. {formatWait(queueMetrics[q.id]!.avgWaitMin)}
+                                </span>
+                              )}
+                            </button>
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100">
+                              <QueueHeaderAction
+                                label="Atvērt pirmo"
+                                onClick={() => openLead(items[0].lead_id)}
+                              />
+                              <QueueHeaderAction
+                                label={
+                                  q.id === "overdue"
+                                    ? "Atlasīt kavētos"
+                                    : "Atlasīt visus"
+                                }
+                                onClick={() => {
+                                  const next = new Set(selected);
+                                  items.forEach((l) => next.add(l.lead_id));
+                                  setSelected(next);
+                                }}
+                              />
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1081,6 +1342,57 @@ function LeadiPage() {
                     const commTimeSrc = l.has_unread_reply
                       ? l.last_reply_at
                       : l.last_communication_at || l.last_activity || l.created_at;
+                    const isCursor =
+                      visibleRows[activeIdx]?.lead_id === l.lead_id;
+                    // SLA chip
+                    const now = Date.now();
+                    let slaChip: { label: string; tone: string } | null = null;
+                    if (q.id === "unread") {
+                      const t =
+                        parseDate(l.last_reply_at) ??
+                        parseDate(l.last_inbound_at) ??
+                        parseDate(l.last_communication_at);
+                      if (t != null) {
+                        const w = now - t;
+                        if (w > 4 * MS_HOUR)
+                          slaChip = {
+                            label: "SLA",
+                            tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                          };
+                        else if (w > MS_HOUR)
+                          slaChip = {
+                            label: "4h",
+                            tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                          };
+                        else if (w > 15 * MS_MIN)
+                          slaChip = {
+                            label: "1h",
+                            tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+                          };
+                        else
+                          slaChip = {
+                            label: "<15m",
+                            tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                          };
+                      }
+                    } else if (q.id === "overdue" && dueT != null) {
+                      const w = now - dueT;
+                      if (w > 7 * MS_DAY)
+                        slaChip = {
+                          label: "7d+",
+                          tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                        };
+                      else if (w > 3 * MS_DAY)
+                        slaChip = {
+                          label: "3d",
+                          tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                        };
+                      else
+                        slaChip = {
+                          label: "1d",
+                          tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+                        };
+                    }
                     return (
                       <tr
                         key={l.lead_id}
@@ -1094,6 +1406,9 @@ function LeadiPage() {
                             : isSel
                               ? "bg-primary/[0.04]"
                               : "hover:bg-muted/30",
+                          isCursor &&
+                            !isActive &&
+                            "ring-1 ring-inset ring-primary/40",
                         )}
                       >
                         <td
@@ -1148,8 +1463,21 @@ function LeadiPage() {
                               </Tooltip>
                             )}
                           </div>
-                          <div className="truncate text-[11px] text-muted-foreground">
-                            {l.secondary || "—"}
+                          <div className="flex items-center gap-1.5">
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {l.secondary || "—"}
+                            </div>
+                            {slaChip && (
+                              <span
+                                className={cn(
+                                  "inline-flex h-4 shrink-0 items-center rounded px-1 text-[10px] font-medium leading-none",
+                                  slaChip.tone,
+                                )}
+                                title="SLA"
+                              >
+                                {slaChip.label}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-2 py-1">
@@ -1319,6 +1647,7 @@ function LeadiPage() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onPatch={patchLead}
+        onActionCompleted={handleActionCompleted}
       />
     </TooltipProvider>
   );
@@ -1373,5 +1702,31 @@ function RowAction({
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
   );
+}
+
+function QueueHeaderAction({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 text-[10px] font-medium normal-case text-foreground transition-colors hover:bg-muted"
+    >
+      {label}
+    </button>
+  );
+}
+
+function formatWait(min: number): string {
+  if (min < 60) return `${min}m`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}d`;
 }
 
