@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { LeadDrawer } from "@/components/LeadDrawer";
+import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
@@ -558,6 +559,45 @@ function LeadiPage() {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
 
+  const patchMany = useCallback(
+    (ids: string[], patch: BulkPatch) => {
+      setPatches((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => {
+          next[id] = { ...next[id], ...(patch as Partial<Lead>) };
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const rollbackMany = useCallback(
+    (ids: string[], previous: Record<string, BulkPatch>) => {
+      setPatches((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => {
+          const p = previous[id];
+          if (!p) return;
+          next[id] = { ...next[id], ...(p as Partial<Lead>) };
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const currentStatusMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    leadsPatched.forEach((l) => (m[l.lead_id] = l.status));
+    return m;
+  }, [leadsPatched]);
+
+  const bumpActivity = useCallback(
+    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
+    [patchLead],
+  );
+
   return (
     <TooltipProvider delayDuration={150}>
       {/* Page header */}
@@ -682,35 +722,18 @@ function LeadiPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5">
-          <span className="text-xs font-medium text-foreground">
-            Atlasīti: {selected.size}
-          </span>
-          <div className="mx-1 h-4 w-px bg-border" aria-hidden />
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Mainīt statusu
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Piešķirt atbildīgo
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Piešķirt PPV
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Izveidot uzdevumu
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Sūtīt ziņu
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto h-7 text-xs text-muted-foreground"
-            onClick={clearSelected}
-          >
-            Atcelt
-          </Button>
-        </div>
+        <BulkActionsBar
+          selectedIds={Array.from(selected)}
+          options={{
+            statuses: options.statuses,
+            owners: options.owners,
+            ppvs: options.ppvs,
+          }}
+          currentStatus={currentStatusMap}
+          onClear={clearSelected}
+          onPatchMany={patchMany}
+          onRollbackMany={rollbackMany}
+        />
       )}
 
       {errorMsg && <ErrorState message={errorMsg} />}
