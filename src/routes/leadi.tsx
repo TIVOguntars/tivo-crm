@@ -1415,10 +1415,10 @@ function LeadiPage() {
                                 <TooltipTrigger asChild>
                                   <span
                                     className={cn(
-                                      "inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded px-1 text-[10px] font-medium leading-none",
+                                      "inline-flex h-3.5 min-w-[14px] shrink-0 items-center justify-center rounded-sm px-1 text-[10px] leading-none tabular-nums",
                                       hasUnread
-                                        ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                                        : "bg-muted text-muted-foreground",
+                                        ? "text-blue-600/90 dark:text-blue-300/90"
+                                        : "text-muted-foreground/80",
                                     )}
                                   >
                                     {l.reply_count}
@@ -1430,21 +1430,8 @@ function LeadiPage() {
                               </Tooltip>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="truncate text-[11px] text-muted-foreground">
-                              {l.secondary || "—"}
-                            </div>
-                            {slaChip && (
-                              <span
-                                className={cn(
-                                  "inline-flex h-4 shrink-0 items-center rounded px-1 text-[10px] font-medium leading-none",
-                                  slaChip.tone,
-                                )}
-                                title="SLA"
-                              >
-                                {slaChip.label}
-                              </span>
-                            )}
+                          <div className="truncate text-[11px] text-muted-foreground/80">
+                            {l.country || "—"}
                           </div>
                         </td>
                         <td className="px-2 py-1">
