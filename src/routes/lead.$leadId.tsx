@@ -281,12 +281,9 @@ function LeadProfilePage() {
       seen.add(key);
       allEvents.push(ev);
     };
-    for (const ev of (eventsByCommIdQ.data?.rows ?? []) as Array<Record<string, unknown>>) {
-      pushEv(ev);
-    }
-    for (const ev of (eventsByLeadQ.data?.rows ?? []) as Array<Record<string, unknown>>) {
-      pushEv(ev);
-    }
+    // Events source removed: public.communication_events is no longer
+    // accessible from operational UI. allEvents stays empty; matching
+    // logic below safely degrades to empty per-comm event lists.
 
     const evMeta = (ev: Record<string, unknown>): Record<string, unknown> | null => {
       const m = ev.metadata;
@@ -405,7 +402,7 @@ function LeadProfilePage() {
       map.set(cid, list);
     }
     return map;
-  }, [eventsByCommIdQ.data, eventsByLeadQ.data, hasComms, comms, sortedCommsAsc]);
+  }, [hasComms, comms, sortedCommsAsc]);
 
   const trackingLinksByComm = useMemo(() => {
     const map = new Map<string, Array<Record<string, unknown>>>();
@@ -682,7 +679,7 @@ function LeadProfilePage() {
               error={commsError}
               eventsByComm={eventsByComm}
               trackingLinksByComm={trackingLinksByComm}
-              eventsLoading={(hasComms && eventsByCommIdQ.isLoading) || (!!currentLeadId && eventsByLeadQ.isLoading)}
+              eventsLoading={false}
               onOpenEmail={(c) => setOpenComm(c)}
             />
           </section>
