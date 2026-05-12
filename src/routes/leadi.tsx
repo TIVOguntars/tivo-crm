@@ -168,6 +168,11 @@ const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
+// Single shared grid template for header, queue separator and data rows.
+// Columns: selection | lead | status | owner | ppv | next_action | last_activity | tags | actions
+const LEADS_GRID =
+  "grid grid-cols-[40px_minmax(260px,1.5fr)_130px_130px_70px_170px_170px_170px_120px]";
+
 function relativeTime(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
@@ -1194,47 +1199,42 @@ function LeadiPage() {
             </div>
           ) : (
             <div className="max-h-[calc(100vh-220px)] overflow-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur">
-                  <tr className="border-b border-border">
-                    <th className="w-8 px-2 py-2">
+              <div role="table" className={cn("min-w-[1170px] text-xs")}> 
+                <div
+                  role="rowgroup"
+                  className="sticky top-0 z-10 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur"
+                >
+                  <div role="row" className={cn(LEADS_GRID, "border-b border-border")}>
+                    <div role="columnheader" className="px-2 py-2 flex items-center">
                       <Checkbox
                         checked={allVisibleSelected}
                         onCheckedChange={toggleAll}
                         className="h-3.5 w-3.5"
                       />
-                    </th>
-                    <th className="px-2 py-2 text-left font-medium">Lead</th>
-                    <th className="px-2 py-2 text-left font-medium">Statuss</th>
-                    <th className="px-2 py-2 text-left font-medium">
-                      Atbildīgais
-                    </th>
-                    <th className="px-2 py-2 text-left font-medium">PPV</th>
-                    <th className="px-2 py-2 text-left font-medium">
-                      Nākamā darbība
-                    </th>
-                    <th className="px-2 py-2 text-left font-medium">
-                      Pēdējā aktivitāte
-                    </th>
-                    <th className="px-2 py-2 text-left font-medium">Tags</th>
-                    <th
-                      className="w-[120px] px-2 py-2 text-right font-medium"
-                      aria-label="Darbības"
-                    />
-                  </tr>
-                </thead>
-                <tbody>
+                    </div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Lead</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Statuss</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Atbildīgais</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">PPV</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Nākamā darbība</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Pēdējā aktivitāte</div>
+                    <div role="columnheader" className="px-2 py-2 font-medium">Tags</div>
+                    <div role="columnheader" className="px-2 py-2 text-right font-medium" aria-label="Darbības" />
+                  </div>
+                </div>
+                <div role="rowgroup">
                   {QUEUE_DEFS.flatMap((q) => {
                     const items = queues[q.id];
                     if (items.length === 0) return [];
                     const collapsed =
                       collapsedQueues[q.id] ?? q.defaultCollapsed;
                     const header = (
-                      <tr
+                      <div
                         key={`qh-${q.id}`}
-                        className="group/qh border-t border-border/40"
+                        role="row"
+                        className={cn(LEADS_GRID, "group/qh border-t border-border/40")}
                       >
-                        <td colSpan={9} className="p-0">
+                        <div role="cell" style={{ gridColumn: "1 / -1" }} className="p-0">
                           <div className="flex items-center justify-between gap-3 px-3 py-0.5 text-[10.5px] leading-none text-muted-foreground/80">
                             <button
                               type="button"
@@ -1319,8 +1319,8 @@ function LeadiPage() {
                               </div>
                             </div>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                     if (collapsed) return [header];
                     const rows = items.map((l) => {
@@ -1361,10 +1361,12 @@ function LeadiPage() {
                     const isCursor =
                       visibleRows[activeIdx]?.lead_id === l.lead_id;
                     return (
-                      <tr
+                      <div
                         key={l.lead_id}
+                        role="row"
                         onClick={() => openLead(l.lead_id)}
                         className={cn(
+                          LEADS_GRID,
                           "group relative cursor-pointer border-b border-border/30 transition-colors",
                           "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
                           accentClass,
@@ -1378,8 +1380,9 @@ function LeadiPage() {
                             "ring-1 ring-inset ring-primary/40",
                         )}
                       >
-                        <td
-                          className="px-2 py-1"
+                        <div
+                          role="cell"
+                          className="px-2 py-1 flex items-center"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Checkbox
@@ -1387,8 +1390,8 @@ function LeadiPage() {
                             onCheckedChange={() => toggleOne(l.lead_id)}
                             className="h-3.5 w-3.5"
                           />
-                        </td>
-                        <td className="max-w-[260px] px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1">
                           <div className="flex items-center gap-1.5">
                             <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
                               {l.name || (
@@ -1433,11 +1436,11 @@ function LeadiPage() {
                           <div className="truncate text-[11px] text-muted-foreground/80">
                             {l.country || "—"}
                           </div>
-                        </td>
-                        <td className="px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1 flex items-center">
                           <StatusBadge value={l.status} />
-                        </td>
-                        <td className="px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1 flex items-center">
                           {l.owner ? (
                             <div className="flex items-center gap-1.5">
                               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-secondary-foreground">
@@ -1450,13 +1453,13 @@ function LeadiPage() {
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
-                        </td>
-                        <td className="px-2 py-1 text-foreground">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1 text-foreground flex items-center">
                           {l.ppv || (
                             <span className="text-muted-foreground">—</span>
                           )}
-                        </td>
-                        <td className="max-w-[280px] px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1">
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
@@ -1491,8 +1494,8 @@ function LeadiPage() {
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1">
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
@@ -1512,8 +1515,8 @@ function LeadiPage() {
                               {relativeTime(commTimeSrc)}
                             </span>
                           </div>
-                        </td>
-                        <td className="max-w-[180px] px-2 py-1">
+                        </div>
+                        <div role="cell" className="min-w-0 px-2 py-1">
                           {l.tags.length === 0 ? (
                             <span className="text-muted-foreground/60">—</span>
                           ) : (
@@ -1538,9 +1541,10 @@ function LeadiPage() {
                               )}
                             </div>
                           )}
-                        </td>
-                        <td
-                          className="px-2 py-1 text-right"
+                        </div>
+                        <div
+                          role="cell"
+                          className="min-w-0 px-2 py-1 flex items-center justify-end"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
@@ -1577,14 +1581,14 @@ function LeadiPage() {
                               onClick={() => openLead(l.lead_id)}
                             />
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                     });
                     return [header, ...rows];
                   })}
-                </tbody>
-              </table>
+                </div>
+              </div>
             </div>
           )}
           <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground">
