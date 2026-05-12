@@ -1473,17 +1473,17 @@ function LeadiPage() {
                             {l.next_action_due && (
                               <span
                                 className={cn(
-                                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                  "shrink-0 text-[10px] tabular-nums",
                                   (() => {
                                     const t = parseDate(l.next_action_due);
                                     if (t == null)
-                                      return "bg-muted text-muted-foreground";
+                                      return "text-muted-foreground/70";
                                     const diff = t - Date.now();
                                     if (diff < 0)
-                                      return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+                                      return "text-rose-600/90 dark:text-rose-300/90";
                                     if (diff < 2 * MS_DAY)
-                                      return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-                                    return "bg-muted text-muted-foreground";
+                                      return "text-amber-600/90 dark:text-amber-300/90";
+                                    return "text-muted-foreground/70";
                                   })(),
                                 )}
                               >
@@ -1496,43 +1496,43 @@ function LeadiPage() {
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
-                                "text-[12px]",
+                                "text-[11.5px]",
                                 l.has_unread_reply
-                                  ? "font-medium text-blue-700 dark:text-blue-300"
+                                  ? "text-blue-600/90 dark:text-blue-300/90"
                                   : l.communication_state === "waiting"
-                                    ? "text-amber-700 dark:text-amber-300"
+                                    ? "text-amber-600/90 dark:text-amber-300/90"
                                     : l.communication_state === "active"
-                                      ? "text-emerald-700 dark:text-emerald-300"
-                                      : "text-muted-foreground",
+                                      ? "text-emerald-600/90 dark:text-emerald-300/90"
+                                      : "text-muted-foreground/80",
                               )}
                             >
                               {commLabel ?? "Nav kontakta"}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
                               {relativeTime(commTimeSrc)}
                             </span>
                           </div>
                         </td>
                         <td className="max-w-[180px] px-2 py-1">
                           {l.tags.length === 0 ? (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground/60">—</span>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-0.5">
                               {l.tags.slice(0, 3).map((t) => (
                                 <span
                                   key={t}
                                   className={cn(
-                                    "inline-flex h-4 items-center rounded px-1 text-[10px] lowercase",
+                                    "inline-flex h-3.5 items-center rounded-sm px-1 text-[10px] lowercase leading-none",
                                     /^(hot|karst)/i.test(t)
-                                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                                      : "bg-muted text-muted-foreground",
+                                      ? "text-rose-600/80 dark:text-rose-300/80 ring-1 ring-inset ring-rose-500/20"
+                                      : "text-muted-foreground/70 ring-1 ring-inset ring-border/60",
                                   )}
                                 >
                                   {t}
                                 </span>
                               ))}
                               {l.tags.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-[10px] text-muted-foreground/60">
                                   +{l.tags.length - 3}
                                 </span>
                               )}
