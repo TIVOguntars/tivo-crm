@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import { useCrmView } from "@/hooks/useCrmView";
-import { fetchPublicTable } from "@/server/analytics";
+import { fetchCrmView } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
 
@@ -30,20 +30,9 @@ export const Route = createFileRoute("/ienakosas-zinas")({
   component: InboxPage,
 });
 
-const INBOUND_EVENT_TYPES = [
-  "replied",
-  "inbound_received",
-  "clicked",
-  "call_answered",
-  "call_completed",
-] as const;
-
 const EVENT_TYPE_LV: Record<string, string> = {
-  replied: "Atbilde",
   inbound_received: "Saņemts",
-  clicked: "Klikšķis",
-  call_answered: "Atbildēts zvans",
-  call_completed: "Pabeigts zvans",
+  replied: "Atbilde",
 };
 
 const CHANNEL_LV: Record<string, string> = {
@@ -94,10 +83,9 @@ function InboxPage() {
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
 
   const channelFilter = search.channel ?? "all";
-  const eventTypeFilter = search.eventType ?? "all";
   const statusFilter = search.status ?? "all";
 
-  const setLocal = (key: "channel" | "eventType" | "status", value: string) => {
+  const setLocal = (key: "channel" | "status", value: string) => {
     navigate({
       to: ".",
       search: ((prev: Record<string, unknown>) => ({
@@ -108,34 +96,62 @@ function InboxPage() {
     });
   };
 
-  // Build PostgREST query for communication_events
-  const eventsQueryStr = useMemo(() => {
-    const parts: string[] = [];
-    parts.push(
-      `select=id,event_type,event_timestamp,communication_id,raw_payload,communications(id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata)`,
-    );
-    parts.push(`event_type=in.(${INBOUND_EVENT_TYPES.join(",")})`);
-    if (eventTypeFilter !== "all" && INBOUND_EVENT_TYPES.includes(eventTypeFilter as never)) {
-      // Override the in() filter with the more specific selection
-      parts[parts.length - 1] = `event_type=eq.${eventTypeFilter}`;
-    }
-    if (filters.p_from) parts.push(`event_timestamp=gte.${filters.p_from}`);
-    if (filters.p_to) parts.push(`event_timestamp=lte.${filters.p_to}T23:59:59`);
-    parts.push(`order=event_timestamp.desc.nullslast`);
-    parts.push(`limit=500`);
+  // Build PostgREST query for crm.communications (inbound only).
+  // Replaces former public.communication_events read (permission denied;
+  // events table is not exposed via the CRM API layer).
+  const commsQueryStr = useMemo(() => {
+    const parts: string[] = [
+      "select=*",
+      "direction=eq.inbound",
+    ];
+    if (filters.p_from) parts.push(`created_at=gte.${filters.p_from}`);
+    if (filters.p_to) parts.push(`created_at=lte.${filters.p_to}T23:59:59`);
+    parts.push("order=created_at.desc.nullslast");
+    parts.push("limit=500");
     return parts.join("&");
-  }, [filters.p_from, filters.p_to, eventTypeFilter]);
+  }, [filters.p_from, filters.p_to]);
 
   const eventsQ = useQuery({
-    queryKey: ["inbox-events", eventsQueryStr],
+    queryKey: ["inbox-comms", commsQueryStr],
     queryFn: () =>
-      fetchPublicTable({
-        data: { table: "communication_events", query: eventsQueryStr },
+      fetchCrmView({
+        data: { view: "communications", query: commsQueryStr },
       }),
     staleTime: 30_000,
   });
 
-  const allEvents = (eventsQ.data?.rows ?? []) as EventRow[];
+  // Flatten each crm.communications row into { ev, comm } shape used below.
+  // Most rich fields (from_address, to_address, html_body, text_body,
+  // metadata, current_status, sent_at/received_at) live inside raw_payload.
+  const allEvents = useMemo<EventRow[]>(() => {
+    const rows = (eventsQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    return rows.map((r) => {
+      const rp = (r.raw_payload ?? {}) as Record<string, unknown>;
+      const comm = {
+        id: r.id,
+        lead_id: r.lead_id ?? rp.lead_id,
+        direction: r.direction ?? rp.direction,
+        channel: r.channel ?? rp.channel,
+        subject: r.subject ?? rp.subject,
+        from_address: rp.from_address ?? null,
+        to_address: rp.to_address ?? null,
+        current_status: rp.current_status ?? r.status ?? null,
+        sent_at: rp.sent_at ?? null,
+        received_at: rp.received_at ?? null,
+        created_at: r.created_at,
+        html_body: rp.html_body ?? null,
+        text_body: rp.text_body ?? r.body ?? null,
+        metadata: rp.metadata ?? null,
+      } as Record<string, unknown>;
+      return {
+        id: r.id,
+        event_type: "inbound_received",
+        event_timestamp: (rp.received_at as string | null) ?? (r.created_at as string | null),
+        communication_id: r.id as string | undefined,
+        communications: comm,
+      } as EventRow;
+    });
+  }, [eventsQ.data]);
 
   // Distinct lead_ids referenced by these events
   const leadIds = useMemo(() => {
@@ -261,7 +277,7 @@ function InboxPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
   }, [leadsById]);
 
-  // Channel options from loaded events
+  // Channel options from loaded communications
   const channelOptions = useMemo(() => {
     const set = new Set<string>();
     for (const ev of allEvents) {
@@ -299,18 +315,6 @@ function InboxPage() {
             })),
           ]}
           onChange={(v) => setLocal("channel", v)}
-        />
-        <LocalSelect
-          label="Notikuma tips"
-          value={eventTypeFilter}
-          options={[
-            { value: "all", label: "Visi" },
-            ...INBOUND_EVENT_TYPES.map((t) => ({
-              value: t,
-              label: EVENT_TYPE_LV[t] ?? t,
-            })),
-          ]}
-          onChange={(v) => setLocal("eventType", v)}
         />
         <LocalSelect
           label="Lead statuss"
