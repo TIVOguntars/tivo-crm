@@ -423,33 +423,3 @@ export const callCrmRpc = createServerFn({ method: "POST" })
     }
   });
 
-/**
- * Dashboard analytics RPC wrappers.
- * All dashboard analytics MUST come from these RPC functions — never read
- * directly from public tables for dashboard data.
- */
-async function callAnalyticsRpcRaw(
-  fn: AnalyticsRpc,
-  body: Record<string, unknown> = {},
-): Promise<unknown> {
-  const { url, key } = getEnv();
-  const endpoint = `${url}/rest/v1/rpc/${fn}`;
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Profile": "public",
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `RPC ${fn} failed (${res.status}): ${text.slice(0, 300)}`,
-    );
-  }
-  return res.json();
-}
