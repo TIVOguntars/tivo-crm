@@ -197,7 +197,7 @@ function relativeTime(v: string | null): string {
   if (isYest) return "vakar";
   const days = Math.round(diff / MS_DAY);
   if (days < 30) return `${days}d`;
-  if (days < 365) return `${Math.round(days / 30)}mēn`;
+  if (days < 365) return `${Math.round(days / 30)}m`;
   return `${Math.round(days / 365)}g`;
 }
 
@@ -1360,55 +1360,6 @@ function LeadiPage() {
                       : l.last_communication_at || l.last_activity || l.created_at;
                     const isCursor =
                       visibleRows[activeIdx]?.lead_id === l.lead_id;
-                    // SLA chip
-                    const now = Date.now();
-                    let slaChip: { label: string; tone: string } | null = null;
-                    if (q.id === "unread") {
-                      const t =
-                        parseDate(l.last_reply_at) ??
-                        parseDate(l.last_inbound_at) ??
-                        parseDate(l.last_communication_at);
-                      if (t != null) {
-                        const w = now - t;
-                        if (w > 4 * MS_HOUR)
-                          slaChip = {
-                            label: "SLA",
-                            tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-                          };
-                        else if (w > MS_HOUR)
-                          slaChip = {
-                            label: "4h",
-                            tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-                          };
-                        else if (w > 15 * MS_MIN)
-                          slaChip = {
-                            label: "1h",
-                            tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-                          };
-                        else
-                          slaChip = {
-                            label: "<15m",
-                            tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-                          };
-                      }
-                    } else if (q.id === "overdue" && dueT != null) {
-                      const w = now - dueT;
-                      if (w > 7 * MS_DAY)
-                        slaChip = {
-                          label: "7d+",
-                          tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-                        };
-                      else if (w > 3 * MS_DAY)
-                        slaChip = {
-                          label: "3d",
-                          tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-                        };
-                      else
-                        slaChip = {
-                          label: "1d",
-                          tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-                        };
-                    }
                     return (
                       <tr
                         key={l.lead_id}
@@ -1464,10 +1415,10 @@ function LeadiPage() {
                                 <TooltipTrigger asChild>
                                   <span
                                     className={cn(
-                                      "inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded px-1 text-[10px] font-medium leading-none",
+                                      "inline-flex h-3.5 min-w-[14px] shrink-0 items-center justify-center rounded-sm px-1 text-[10px] leading-none tabular-nums",
                                       hasUnread
-                                        ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                                        : "bg-muted text-muted-foreground",
+                                        ? "text-blue-600/90 dark:text-blue-300/90"
+                                        : "text-muted-foreground/80",
                                     )}
                                   >
                                     {l.reply_count}
@@ -1479,21 +1430,8 @@ function LeadiPage() {
                               </Tooltip>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="truncate text-[11px] text-muted-foreground">
-                              {l.secondary || "—"}
-                            </div>
-                            {slaChip && (
-                              <span
-                                className={cn(
-                                  "inline-flex h-4 shrink-0 items-center rounded px-1 text-[10px] font-medium leading-none",
-                                  slaChip.tone,
-                                )}
-                                title="SLA"
-                              >
-                                {slaChip.label}
-                              </span>
-                            )}
+                          <div className="truncate text-[11px] text-muted-foreground/80">
+                            {l.country || "—"}
                           </div>
                         </td>
                         <td className="px-2 py-1">
@@ -1535,17 +1473,17 @@ function LeadiPage() {
                             {l.next_action_due && (
                               <span
                                 className={cn(
-                                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                  "shrink-0 text-[10px] tabular-nums",
                                   (() => {
                                     const t = parseDate(l.next_action_due);
                                     if (t == null)
-                                      return "bg-muted text-muted-foreground";
+                                      return "text-muted-foreground/70";
                                     const diff = t - Date.now();
                                     if (diff < 0)
-                                      return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+                                      return "text-rose-600/90 dark:text-rose-300/90";
                                     if (diff < 2 * MS_DAY)
-                                      return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-                                    return "bg-muted text-muted-foreground";
+                                      return "text-amber-600/90 dark:text-amber-300/90";
+                                    return "text-muted-foreground/70";
                                   })(),
                                 )}
                               >
@@ -1558,43 +1496,43 @@ function LeadiPage() {
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
-                                "text-[12px]",
+                                "text-[11.5px]",
                                 l.has_unread_reply
-                                  ? "font-medium text-blue-700 dark:text-blue-300"
+                                  ? "text-blue-600/90 dark:text-blue-300/90"
                                   : l.communication_state === "waiting"
-                                    ? "text-amber-700 dark:text-amber-300"
+                                    ? "text-amber-600/90 dark:text-amber-300/90"
                                     : l.communication_state === "active"
-                                      ? "text-emerald-700 dark:text-emerald-300"
-                                      : "text-muted-foreground",
+                                      ? "text-emerald-600/90 dark:text-emerald-300/90"
+                                      : "text-muted-foreground/80",
                               )}
                             >
                               {commLabel ?? "Nav kontakta"}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
                               {relativeTime(commTimeSrc)}
                             </span>
                           </div>
                         </td>
                         <td className="max-w-[180px] px-2 py-1">
                           {l.tags.length === 0 ? (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground/60">—</span>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-0.5">
                               {l.tags.slice(0, 3).map((t) => (
                                 <span
                                   key={t}
                                   className={cn(
-                                    "inline-flex h-4 items-center rounded px-1 text-[10px] lowercase",
+                                    "inline-flex h-3.5 items-center rounded-sm px-1 text-[10px] lowercase leading-none",
                                     /^(hot|karst)/i.test(t)
-                                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                                      : "bg-muted text-muted-foreground",
+                                      ? "text-rose-600/80 dark:text-rose-300/80 ring-1 ring-inset ring-rose-500/20"
+                                      : "text-muted-foreground/70 ring-1 ring-inset ring-border/60",
                                   )}
                                 >
                                   {t}
                                 </span>
                               ))}
                               {l.tags.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-[10px] text-muted-foreground/60">
                                   +{l.tags.length - 3}
                                 </span>
                               )}
