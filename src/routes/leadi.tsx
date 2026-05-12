@@ -1464,8 +1464,21 @@ function LeadiPage() {
                               </Tooltip>
                             )}
                           </div>
-                          <div className="truncate text-[11px] text-muted-foreground">
-                            {l.secondary || "—"}
+                          <div className="flex items-center gap-1.5">
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {l.secondary || "—"}
+                            </div>
+                            {slaChip && (
+                              <span
+                                className={cn(
+                                  "inline-flex h-4 shrink-0 items-center rounded px-1 text-[10px] font-medium leading-none",
+                                  slaChip.tone,
+                                )}
+                                title="SLA"
+                              >
+                                {slaChip.label}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-2 py-1">
