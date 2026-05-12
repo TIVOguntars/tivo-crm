@@ -733,6 +733,87 @@ function LeadiPage() {
     return buckets;
   }, [sorted]);
 
+  // Per-queue operational metrics
+  type QueueMetrics = {
+    count: number;
+    breach: number;
+    avgWaitMin: number;
+  };
+  const queueMetrics = useMemo<Record<string, QueueMetrics>>(() => {
+    const now = Date.now();
+    const out: Record<string, QueueMetrics> = {};
+    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
+      const items = queues[qid];
+      let breach = 0;
+      let waitSum = 0;
+      let waitN = 0;
+      for (const l of items) {
+        // SLA reference: unread → time since last reply; overdue → time past due;
+        // waiting → since last outbound; others → since last activity.
+        let waitMs = 0;
+        if (qid === "unread") {
+          const t =
+            parseDate(l.last_reply_at) ??
+            parseDate(l.last_inbound_at) ??
+            parseDate(l.last_communication_at) ??
+            parseDate(l.created_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 4 * MS_HOUR) breach += 1;
+        } else if (qid === "overdue") {
+          const t = parseDate(l.next_action_due);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 7 * MS_DAY) breach += 1;
+        } else if (qid === "waiting") {
+          const t =
+            parseDate(l.last_outbound_at) ??
+            parseDate(l.last_communication_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+          if (waitMs > 3 * MS_DAY) breach += 1;
+        } else {
+          const t =
+            parseDate(l.last_communication_at) ??
+            parseDate(l.last_activity) ??
+            parseDate(l.created_at);
+          if (t != null) waitMs = Math.max(0, now - t);
+        }
+        if (waitMs > 0) {
+          waitSum += waitMs;
+          waitN += 1;
+        }
+      }
+      out[qid as string] = {
+        count: items.length,
+        breach,
+        avgWaitMin: waitN ? Math.round(waitSum / waitN / MS_MIN) : 0,
+      };
+    });
+    return out;
+  }, [queues]);
+
+  // Flat visible row order (respects collapse) — drives keyboard nav and auto-next
+  const visibleRows = useMemo<Lead[]>(() => {
+    const out: Lead[] = [];
+    for (const q of QUEUE_DEFS) {
+      const items = queues[q.id];
+      if (items.length === 0) continue;
+      const collapsed = collapsedQueues[q.id] ?? q.defaultCollapsed;
+      if (collapsed) continue;
+      out.push(...items);
+    }
+    return out;
+  }, [queues, collapsedQueues]);
+
+  // Map lead_id → its queue id (for auto-next)
+  const leadQueueMap = useMemo<Record<string, string>>(() => {
+    const m: Record<string, string> = {};
+    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
+      queues[qid].forEach((l) => {
+        m[l.lead_id] = qid as string;
+      });
+    });
+    return m;
+  }, [queues]);
+
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
       navigate({
