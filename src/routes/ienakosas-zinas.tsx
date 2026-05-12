@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCrmView } from "@/hooks/useCrmView";
 import { fetchPublicTable } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
@@ -147,11 +148,15 @@ function InboxPage() {
     return Array.from(set);
   }, [allEvents]);
 
-  // Batch fetch leads_overview for those IDs
+  // Batch fetch leads for those IDs from crm.next_action_queue_display_enriched
+  // (analytics.leads_overview schema permission denied).
   const leadsQuery = leadIds.length
     ? `lead_id=in.(${leadIds.map((id) => `"${id}"`).join(",")})&limit=${leadIds.length}`
     : "";
-  const leadsQ = useAnalyticsView("leads_overview", leadsQuery);
+  const leadsQ = useCrmView(
+    "next_action_queue_display_enriched",
+    leadsQuery,
+  );
 
   const leadsById = useMemo(() => {
     const map = new Map<string, LeadRow>();
