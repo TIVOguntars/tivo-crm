@@ -161,7 +161,7 @@ function DrawerContent({
   const sisLabel = s(row.system_action_label);
   const sisDue = s(row.system_due_date);
 
-  const createdAt = s(row.lead_created_at) || s(row.created_at);
+  const createdAt = s(row.created_at);
   const source = s(row.source);
   const rating = s(row.rating) || s(row.reitings);
   const ratingNum = Number(rating);
