@@ -5,7 +5,6 @@ import {
   HeadContent,
   Scripts,
   retainSearchParams,
-  useLocation,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { zodValidator } from "@tanstack/zod-adapter";
