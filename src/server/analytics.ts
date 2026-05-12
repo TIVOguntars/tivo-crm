@@ -221,7 +221,6 @@ export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
 
 const PUBLIC_TABLES = [
   "communications",
-  "communication_events",
   "tracking_links",
 ] as const;
 export type PublicTable = (typeof PUBLIC_TABLES)[number];
@@ -283,6 +282,7 @@ const CRM_VIEWS = [
   "action_owner_options",
   "action_history",
   "lead_project_overview",
+  "communications",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 

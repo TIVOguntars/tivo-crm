@@ -885,21 +885,8 @@ function CommunicationViewerModal({
     staleTime: 60_000,
   });
 
-  const eventsQ = useQuery({
-    queryKey: ["communication-events", communicationId],
-    queryFn: () =>
-      fetchPublicTable({
-        data: {
-          table: "communication_events",
-          query: `communication_id=eq.${encodeURIComponent(communicationId ?? "")}&select=id,event_type,event_timestamp&order=event_timestamp.asc&limit=100`,
-        },
-      }),
-    enabled: open,
-    staleTime: 60_000,
-  });
-
   const comm = ((commQ.data?.rows ?? [])[0] ?? null) as Row | null;
-  const events = (eventsQ.data?.rows ?? []) as Row[];
+  const events: Row[] = [];
 
   const subject = s(comm?.subject) || "(bez temata)";
   const fromAddress = s(comm?.from_address);
