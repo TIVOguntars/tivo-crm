@@ -320,11 +320,11 @@ function LeadiPage() {
 
   const seg: View = (search.seg as View) ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
-  const fStatus = search.status ?? [];
-  const fOwners = search.owners ?? [];
-  const fPpvs = search.ppvs ?? [];
-  const fCountries = search.countries ?? [];
-  const fTags = search.tags ?? [];
+  const fStatus = (search.status ?? []) as string[];
+  const fOwners = (search.owners ?? []) as string[];
+  const fPpvs = (search.ppvs ?? []) as string[];
+  const fCountries = (search.countries ?? []) as string[];
+  const fTags = (search.tags ?? []) as string[];
 
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -970,5 +970,3 @@ function RowAction({
   );
 }
 
-// Compact import-time consumed reference — keeps Badge in bundle for future bulk badges.
-void Badge;
