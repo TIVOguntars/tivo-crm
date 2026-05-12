@@ -188,7 +188,7 @@ function ActionButton({
 }
 
 function useBulkRpc() {
-  const fn = useServerFn(callCrmRpc);
+  const call = useServerFn(callCrmRpc);
   return useMutation({
     mutationFn: async (input: {
       fn:
@@ -199,7 +199,7 @@ function useBulkRpc() {
         | "log_lead_communication";
       params: Record<string, unknown>;
     }) => {
-      const res = await fn({ data: input });
+      const res = await call({ data: input });
       if (res.error) throw new Error(res.error);
       return res.rows;
     },
@@ -558,15 +558,23 @@ function BulkMessageAction({
   const submit = async () => {
     if (!body.trim()) return;
     try {
-      await m.mutateAsync({
-        fn: "log_lead_communication",
-        params: {
-          p_lead_ids: selectedIds,
-          p_channel: channel,
-          p_subject: subject || null,
-          p_body: body.trim(),
-        },
-      });
+      const summary =
+        channel === "email" && subject.trim()
+          ? `${subject.trim()} — ${body.trim()}`
+          : body.trim();
+      await Promise.all(
+        selectedIds.map((id) =>
+          m.mutateAsync({
+            fn: "log_lead_communication",
+            params: {
+              lead_id: id,
+              channel,
+              direction: "outbound",
+              summary,
+            },
+          }),
+        ),
+      );
       onPatchMany(selectedIds, {
         last_activity: new Date().toISOString(),
       });
