@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
@@ -141,6 +142,8 @@ function InboxPage() {
         created_at: r.created_at,
         html_body: rp.html_body ?? null,
         text_body: rp.text_body ?? r.body ?? null,
+        body_format: rp.body_format ?? null,
+        body_fallback: r.body ?? null,
         metadata: rp.metadata ?? null,
       } as Record<string, unknown>;
       return {
