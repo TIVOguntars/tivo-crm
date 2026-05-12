@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 const AnalyticsGrid = lazy(() => import("@/components/overview/AnalyticsGrid"));
+const OperationalGrid = lazy(() => import("@/components/overview/OperationalGrid"));
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -35,6 +36,11 @@ function PārskatsPage() {
   const countryQ = useAnalyticsView("country_distribution", "order=leadu_skaits.desc");
   const dqQ = useAnalyticsView("data_quality");
   const workflowQ = useAnalyticsView("workflow_health", "order=kopa.desc");
+  const timelineQ = useAnalyticsView("activity_timeline");
+  const commPerfQ = useAnalyticsView("communication_performance");
+  const importQualityQ = useAnalyticsView("import_quality", "order=leadu_skaits.desc");
+  const tasksQ = useAnalyticsView("dashboard_tasks");
+  const commsSummaryQ = useAnalyticsView("dashboard_communications");
   const qc = useQueryClient();
 
   const kpi = (kpiQ.data?.rows?.[0] ?? {}) as Row;
@@ -43,8 +49,16 @@ function PārskatsPage() {
   const country = (countryQ.data?.rows ?? []) as Row[];
   const dq = (dqQ.data?.rows?.[0] ?? {}) as Row;
   const workflow = (workflowQ.data?.rows ?? []) as Row[];
+  const timeline = (timelineQ.data?.rows ?? []) as Row[];
+  const commPerf = (commPerfQ.data?.rows ?? []) as Row[];
+  const importQuality = (importQualityQ.data?.rows ?? []) as Row[];
+  const tasks = (tasksQ.data?.rows ?? []) as Row[];
+  const commsSummary = (commsSummaryQ.data?.rows?.[0] ?? null) as Row | null;
 
-  const queries = [kpiQ, funnelQ, ppvQ, countryQ, dqQ, workflowQ];
+  const queries = [
+    kpiQ, funnelQ, ppvQ, countryQ, dqQ, workflowQ,
+    timelineQ, commPerfQ, importQualityQ, tasksQ, commsSummaryQ,
+  ];
   const error =
     (kpiQ.data?.error as string | null) ||
     (funnelQ.data?.error as string | null) ||
@@ -136,6 +150,19 @@ function PārskatsPage() {
                 country={country}
                 workflow={workflow}
                 totalLeads={totalLeads}
+              />
+            </Suspense>
+          </Section>
+
+          {/* 4b. Operational insights */}
+          <Section label="Operatīvā analītika">
+            <Suspense fallback={<AnalyticsSkeleton />}>
+              <OperationalGrid
+                timeline={timeline}
+                commPerf={commPerf}
+                importQuality={importQuality}
+                tasks={tasks}
+                commsSummary={commsSummary}
               />
             </Suspense>
           </Section>

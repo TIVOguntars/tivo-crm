@@ -29,6 +29,12 @@ const VIEWS = [
   "country_distribution",
   "data_quality",
   "workflow_health",
+  "activity_timeline",
+  "communication_performance",
+  "import_quality",
+  "dashboard_tasks",
+  "dashboard_communications",
+  "dashboard_imports",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
