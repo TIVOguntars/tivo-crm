@@ -1232,76 +1232,101 @@ function LeadiPage() {
                     const header = (
                       <tr
                         key={`qh-${q.id}`}
-                        className="sticky top-[33px] z-[5]"
+                        className={cn(
+                          "group/qh sticky top-[33px] z-[5] border-y border-border bg-muted/40 backdrop-blur",
+                        )}
                       >
-                        <td colSpan={9} className="p-0">
-                          <div
-                            className={cn(
-                              "group/qh flex w-full items-center gap-2 border-y border-l-2 border-border bg-muted/50 px-3 py-1.5 text-[11px] uppercase tracking-wide text-foreground backdrop-blur",
-                              q.accent,
-                            )}
+                        {/* Checkbox column — left accent line ties row to queue color */}
+                        <td
+                          className={cn(
+                            "border-l-2 px-2 py-1 align-middle",
+                            q.accent,
+                          )}
+                        />
+                        {/* Lead column — collapse toggle + queue title + count */}
+                        <td className="px-2 py-1 align-middle">
+                          <button
+                            type="button"
+                            onClick={() => toggleQueue(q.id)}
+                            className="flex w-full items-center gap-1.5 text-left text-foreground transition-colors hover:text-foreground"
+                            aria-label={
+                              collapsed ? "Izvērst rindu" : "Sakļaut rindu"
+                            }
                           >
-                            <button
-                              type="button"
-                              onClick={() => toggleQueue(q.id)}
-                              className="flex flex-1 items-center gap-2 text-left transition-colors hover:text-foreground"
-                              aria-label={
-                                collapsed ? "Izvērst rindu" : "Sakļaut rindu"
-                              }
-                            >
-                              {collapsed ? (
-                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            {collapsed ? (
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 shrink-0 rounded-full",
+                                q.dot,
                               )}
+                              aria-hidden
+                            />
+                            <span className="text-[12px] font-semibold tracking-tight">
+                              {q.label}
+                            </span>
+                            <span className="text-[11px] font-normal text-muted-foreground">
+                              {queueMetrics[q.id]?.count ?? items.length}{" "}
+                              {(queueMetrics[q.id]?.count ?? items.length) === 1
+                                ? "ieraksts"
+                                : "ieraksti"}
+                            </span>
+                          </button>
+                        </td>
+                        {/* Statuss */}
+                        <td className="px-2 py-1" />
+                        {/* Atbildīgais */}
+                        <td className="px-2 py-1" />
+                        {/* PPV */}
+                        <td className="px-2 py-1" />
+                        {/* Nākamā darbība — avg wait metric */}
+                        <td className="px-2 py-1 align-middle text-[11px] text-muted-foreground">
+                          {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
+                            <span title={avgLabel(q.id)}>
+                              vid. {formatWait(queueMetrics[q.id]!.avgWaitMin)}
+                            </span>
+                          )}
+                        </td>
+                        {/* Pēdējā aktivitāte — SLA breach metric */}
+                        <td className="px-2 py-1 align-middle text-[11px] text-muted-foreground">
+                          {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1"
+                              title="Pārkāpts SLA"
+                            >
                               <span
-                                className={cn(
-                                  "h-1.5 w-1.5 rounded-full",
-                                  q.dot,
-                                )}
+                                className="h-1 w-1 rounded-full bg-muted-foreground/60"
                                 aria-hidden
                               />
-                              <span className="font-semibold">{q.label}</span>
-                              <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-                                {queueMetrics[q.id]?.count ?? items.length}
-                              </span>
-                              {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
-                                <span
-                                  className={cn(
-                                    "inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium normal-case",
-                                    q.id === "unread"
-                                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                                      : "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-                                  )}
-                                  title="Pārkāpts SLA"
-                                >
-                                  {queueMetrics[q.id]!.breach} SLA
-                                </span>
-                              )}
-                              {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
-                                <span className="text-[10px] font-normal normal-case text-muted-foreground">
-                                  vid. {formatWait(queueMetrics[q.id]!.avgWaitMin)}
-                                </span>
-                              )}
-                            </button>
-                            <div className="flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100">
-                              <QueueHeaderAction
-                                label="Atvērt pirmo"
-                                onClick={() => openLead(items[0].lead_id)}
-                              />
-                              <QueueHeaderAction
-                                label={
-                                  q.id === "overdue"
-                                    ? "Atlasīt kavētos"
-                                    : "Atlasīt visus"
-                                }
-                                onClick={() => {
-                                  const next = new Set(selected);
-                                  items.forEach((l) => next.add(l.lead_id));
-                                  setSelected(next);
-                                }}
-                              />
-                            </div>
+                              {queueMetrics[q.id]!.breach} SLA breach
+                            </span>
+                          )}
+                        </td>
+                        {/* Tags */}
+                        <td className="px-2 py-1" />
+                        {/* Actions */}
+                        <td
+                          className="px-2 py-1 text-right align-middle"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="inline-flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100">
+                            <QueueHeaderAction
+                              label="Atvērt pirmo"
+                              onClick={() => openLead(items[0].lead_id)}
+                            />
+                            <QueueHeaderAction
+                              label={
+                                q.id === "overdue" ? "Atlasīt kavētos" : "Atlasīt visus"
+                              }
+                              onClick={() => {
+                                const next = new Set(selected);
+                                items.forEach((l) => next.add(l.lead_id));
+                                setSelected(next);
+                              }}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -1723,10 +1748,25 @@ function QueueHeaderAction({
 }
 
 function formatWait(min: number): string {
+  if (min < 1) return "<1m";
   if (min < 60) return `${min}m`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.round(h / 24);
-  return `${d}d`;
+  const h = min / 60;
+  if (h < 24) return h < 10 ? `${h.toFixed(1)}h` : `${Math.round(h)}h`;
+  const d = h / 24;
+  if (d < 10) return `${d.toFixed(1)}d`;
+  return `${Math.round(d)}d`;
+}
+
+function avgLabel(qid: string): string {
+  switch (qid) {
+    case "unread":
+      return "Vidējais nelasītu atbilžu vecums";
+    case "overdue":
+      return "Vidējais kavējums";
+    case "waiting":
+      return "Vidējais gaidīšanas laiks";
+    default:
+      return "Vidējais aktivitātes vecums";
+  }
 }
 
