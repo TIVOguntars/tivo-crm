@@ -48,7 +48,7 @@ const darbsItems: readonly NavItem[] = [
   { to: "/queue", label: "Uzdevumi", icon: ListChecks, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/ienakosas-zinas", label: "Ienākošās", icon: Inbox, exact: false, roles: ["admin", "manager", "agent"] },
-  { to: "/import-review", label: "Importa pārskats", icon: ClipboardCheck, exact: false, roles: ["admin", "manager"] },
+  { to: "/import-review", label: "Importi", icon: ClipboardCheck, exact: false, roles: ["admin", "manager"] },
   { to: "/manual-corrections", label: "Korekcijas", icon: PencilLine, exact: false, roles: ["admin", "manager"] },
 ];
 
@@ -98,18 +98,30 @@ export function TopNav() {
                 Darbs
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent align="start" className="min-w-[260px] p-1.5">
                 {(() => {
                   const operational = visibleDarbs.filter((i) => !adminDarbsRoutes.has(i.to));
                   const admin = visibleDarbs.filter((i) => adminDarbsRoutes.has(i.to));
-                  const renderItem = (item: NavItem) => (
-                    <DropdownMenuItem key={item.to} asChild>
-                      <Link to={item.to as never} className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
+                  const renderItem = (item: NavItem) => {
+                    const isActive =
+                      pathname === item.to || pathname.startsWith(item.to + "/");
+                    return (
+                      <DropdownMenuItem key={item.to} asChild>
+                        <Link
+                          to={item.to as never}
+                          className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors cursor-pointer ${
+                            isActive
+                              ? "bg-secondary text-foreground font-medium"
+                              : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground focus:bg-secondary/60 focus:text-foreground"
+                          }`}
+                        >
+                          <item.icon className={`h-4 w-4 ${isActive ? "text-foreground" : ""}`} />
+                          <span className="flex-1">{item.label}</span>
+                          {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  };
                   return (
                     <>
                       {operational.map(renderItem)}
