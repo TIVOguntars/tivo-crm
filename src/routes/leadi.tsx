@@ -1232,101 +1232,99 @@ function LeadiPage() {
                     const header = (
                       <tr
                         key={`qh-${q.id}`}
-                        className={cn(
-                          "group/qh sticky top-[33px] z-[5] border-y border-border bg-muted/40 backdrop-blur",
-                        )}
+                        className="group/qh sticky top-[33px] z-[5] border-t border-border/70 bg-background/95 backdrop-blur"
                       >
-                        {/* Checkbox column — left accent line ties row to queue color */}
-                        <td
-                          className={cn(
-                            "border-l-2 px-2 py-1 align-middle",
-                            q.accent,
-                          )}
-                        />
-                        {/* Lead column — collapse toggle + queue title + count */}
-                        <td className="px-2 py-1 align-middle">
-                          <button
-                            type="button"
-                            onClick={() => toggleQueue(q.id)}
-                            className="flex w-full items-center gap-1.5 text-left text-foreground transition-colors hover:text-foreground"
-                            aria-label={
-                              collapsed ? "Izvērst rindu" : "Sakļaut rindu"
-                            }
-                          >
-                            {collapsed ? (
-                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 shrink-0 rounded-full",
-                                q.dot,
-                              )}
-                              aria-hidden
-                            />
-                            <span className="text-[12px] font-semibold tracking-tight">
-                              {q.label}
-                            </span>
-                            <span className="text-[11px] font-normal text-muted-foreground">
-                              {queueMetrics[q.id]?.count ?? items.length}{" "}
-                              {(queueMetrics[q.id]?.count ?? items.length) === 1
-                                ? "ieraksts"
-                                : "ieraksti"}
-                            </span>
-                          </button>
-                        </td>
-                        {/* Statuss */}
-                        <td className="px-2 py-1" />
-                        {/* Atbildīgais */}
-                        <td className="px-2 py-1" />
-                        {/* PPV */}
-                        <td className="px-2 py-1" />
-                        {/* Nākamā darbība — avg wait metric */}
-                        <td className="px-2 py-1 align-middle text-[11px] text-muted-foreground">
-                          {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
-                            <span title={avgLabel(q.id)}>
-                              vid. {formatWait(queueMetrics[q.id]!.avgWaitMin)}
-                            </span>
-                          )}
-                        </td>
-                        {/* Pēdējā aktivitāte — SLA breach metric */}
-                        <td className="px-2 py-1 align-middle text-[11px] text-muted-foreground">
-                          {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
-                            <span
-                              className="inline-flex items-center gap-1"
-                              title="Pārkāpts SLA"
+                        <td colSpan={9} className="p-0">
+                          <div className="flex items-center justify-between gap-3 px-3 py-1 text-[11px] text-muted-foreground">
+                            <button
+                              type="button"
+                              onClick={() => toggleQueue(q.id)}
+                              className="inline-flex items-center gap-1.5 text-left transition-colors hover:text-foreground"
+                              aria-label={
+                                collapsed ? "Izvērst rindu" : "Sakļaut rindu"
+                              }
                             >
+                              {collapsed ? (
+                                <ChevronRight className="h-3 w-3" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3" />
+                              )}
                               <span
-                                className="h-1 w-1 rounded-full bg-muted-foreground/60"
+                                className={cn(
+                                  "h-1 w-1 shrink-0 rounded-full opacity-70",
+                                  q.dot,
+                                )}
                                 aria-hidden
                               />
-                              {queueMetrics[q.id]!.breach} SLA breach
-                            </span>
-                          )}
-                        </td>
-                        {/* Tags */}
-                        <td className="px-2 py-1" />
-                        {/* Actions */}
-                        <td
-                          className="px-2 py-1 text-right align-middle"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="inline-flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100">
-                            <QueueHeaderAction
-                              label="Atvērt pirmo"
-                              onClick={() => openLead(items[0].lead_id)}
-                            />
-                            <QueueHeaderAction
-                              label={
-                                q.id === "overdue" ? "Atlasīt kavētos" : "Atlasīt visus"
-                              }
-                              onClick={() => {
-                                const next = new Set(selected);
-                                items.forEach((l) => next.add(l.lead_id));
-                                setSelected(next);
-                              }}
-                            />
+                              <span className="text-[11px] font-semibold tracking-tight text-foreground/80">
+                                {q.label}
+                              </span>
+                              <span className="tabular-nums">
+                                {queueMetrics[q.id]?.count ?? items.length}
+                              </span>
+                            </button>
+                            <div className="flex items-center gap-3">
+                              <div className="hidden items-center gap-2 sm:flex">
+                                {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
+                                  <span title="Pārkāpts SLA">
+                                    {queueMetrics[q.id]!.breach} SLA breach
+                                  </span>
+                                )}
+                                {(queueMetrics[q.id]?.breach ?? 0) > 0 &&
+                                  (queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
+                                    <span aria-hidden>•</span>
+                                  )}
+                                {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
+                                  <span title={avgLabel(q.id)}>
+                                    avg{" "}
+                                    {formatWait(queueMetrics[q.id]!.avgWaitMin)}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openLead(items[0].lead_id)
+                                      }
+                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      aria-label="Atvērt pirmo"
+                                    >
+                                      <ChevronRight className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    Atvērt pirmo
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const next = new Set(selected);
+                                        items.forEach((l) =>
+                                          next.add(l.lead_id),
+                                        );
+                                        setSelected(next);
+                                      }}
+                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      aria-label="Atlasīt visus"
+                                    >
+                                      <CheckSquare className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    Atlasīt visus
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1726,24 +1724,6 @@ function RowAction({
       <TooltipTrigger asChild>{content}</TooltipTrigger>
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
-  );
-}
-
-function QueueHeaderAction({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 text-[10px] font-medium normal-case text-foreground transition-colors hover:bg-muted"
-    >
-      {label}
-    </button>
   );
 }
 
