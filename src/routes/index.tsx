@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
@@ -9,10 +9,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  useDashboardSummary,
-  useDashboardKpis,
-} from "@/hooks/useAnalyticsRpc";
+import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 const AnalyticsGrid = lazy(() => import("@/components/overview/AnalyticsGrid"));
 
@@ -28,91 +25,42 @@ function num(v: unknown): number {
 const fmt = (n: number) => new Intl.NumberFormat("lv-LV").format(n);
 const pct = (n: number) => `${num(n).toFixed(1)}%`;
 
-type Summary = {
-  total_leads?: number;
-  won_count?: number;
-  reply_events?: number;
-  click_events?: number;
-  open_tasks_count?: number;
-  high_priority_open_tasks_count?: number;
-  active_or_pending_workflow_steps?: number;
-  completed_workflow_steps?: number;
-  reachable_rate_percent?: number;
-  conversion_rate_percent?: number;
-  complete_contact_data_percent?: number;
-  missing_contact_count?: number;
-};
-
-type Kpis = {
-  funnel?: Array<Record<string, unknown>>;
-  conversion?: Array<Record<string, unknown>>;
-  reachability?: Array<Record<string, unknown>>;
-  data_quality?: Array<Record<string, unknown>>;
-  team_workload?: Array<Record<string, unknown>>;
-};
+type Row = Record<string, unknown>;
 
 // ---------- page ----------
 function PārskatsPage() {
-  const summaryQ = useDashboardSummary();
-  const kpisQ = useDashboardKpis();
+  const kpiQ = useAnalyticsView("dashboard_kpi_overview");
+  const funnelQ = useAnalyticsView("funnel_summary", "order=leadu_skaits.desc");
+  const ppvQ = useAnalyticsView("ppv_performance", "order=aktivie_leadi.desc");
+  const countryQ = useAnalyticsView("country_distribution", "order=leadu_skaits.desc");
+  const dqQ = useAnalyticsView("data_quality");
+  const workflowQ = useAnalyticsView("workflow_health", "order=kopa.desc");
   const qc = useQueryClient();
 
-  const summary = (summaryQ.data ?? {}) as Summary;
-  const kpis = (kpisQ.data ?? {}) as Kpis;
+  const kpi = (kpiQ.data?.rows?.[0] ?? {}) as Row;
+  const funnel = (funnelQ.data?.rows ?? []) as Row[];
+  const ppv = (ppvQ.data?.rows ?? []) as Row[];
+  const country = (countryQ.data?.rows ?? []) as Row[];
+  const dq = (dqQ.data?.rows?.[0] ?? {}) as Row;
+  const workflow = (workflowQ.data?.rows ?? []) as Row[];
 
+  const queries = [kpiQ, funnelQ, ppvQ, countryQ, dqQ, workflowQ];
   const error =
-    (summaryQ.error as Error | null)?.message ||
-    (kpisQ.error as Error | null)?.message ||
+    (kpiQ.data?.error as string | null) ||
+    (funnelQ.data?.error as string | null) ||
+    (kpiQ.error as Error | null)?.message ||
     null;
-  const loading = summaryQ.isLoading || kpisQ.isLoading;
-  const refreshing =
-    summaryQ.isFetching || kpisQ.isFetching;
+  const loading = queries.some((q) => q.isLoading);
+  const refreshing = queries.some((q) => q.isFetching);
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
-    qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
-    qc.invalidateQueries({ queryKey: ["crm"] });
+    qc.invalidateQueries({ queryKey: ["analytics"] });
   };
 
-  const conversion = (kpis.conversion?.[0] ?? {}) as Record<string, unknown>;
-  const dataQuality = (kpis.data_quality?.[0] ?? {}) as Record<string, unknown>;
-  const reach = (kpis.reachability?.[0] ?? {}) as Record<string, unknown>;
-
-  const operational = useMemo(
-    () => [
-      {
-        label: "Atvērti uzdevumi",
-        value: fmt(num(summary.open_tasks_count)),
-        hint: `Augsta: ${fmt(num(summary.high_priority_open_tasks_count))}`,
-      },
-      {
-        label: "Plānotās komunikācijas",
-        value: fmt(num(summary.active_or_pending_workflow_steps)),
-        hint: "Workflow soļi",
-      },
-      {
-        label: "Nosūtītās",
-        value: fmt(num(summary.completed_workflow_steps)),
-        hint: "Pabeigti soļi",
-      },
-      {
-        label: "Atbildes",
-        value: fmt(num(summary.reply_events)),
-        hint: "Ienākošās",
-      },
-      {
-        label: "Klikšķi",
-        value: fmt(num(summary.click_events)),
-        hint: "Saites",
-      },
-      {
-        label: "Trūkst kontakti",
-        value: fmt(num(summary.missing_contact_count)),
-        hint: "Bez e-pasta vai telefona",
-      },
-    ],
-    [summary],
-  );
+  const totalLeads = num(kpi.kopa_leadi);
+  const wfTotal = workflow.reduce((s, r) => s + num(r.kopa), 0);
+  const wfErrors = workflow.reduce((s, r) => s + num(r.kludas), 0);
+  const wfActive = workflow.reduce((s, r) => s + num(r.aktivi), 0);
 
   return (
     <>
@@ -142,47 +90,60 @@ function PārskatsPage() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 label="Kopā leadi"
-                value={fmt(num(summary.total_leads))}
-                hint={`Kvalificēti+: ${fmt(num(conversion.qualified_or_later_count))}`}
+                value={fmt(totalLeads)}
+                hint={`Kvalificēti: ${fmt(num(kpi.kvalificeti))}`}
               />
               <StatCard
-                label="Piedāvājumi"
-                value={fmt(num(conversion.offer_count))}
-                hint={`Iegūti: ${fmt(num(summary.won_count))}`}
+                label="Kvalificēti"
+                value={fmt(num(kpi.kvalificeti))}
+                hint={pct(num(kpi.kvalifikacijas_pct))}
               />
               <StatCard
-                label="Konversija"
-                value={pct(num(summary.conversion_rate_percent))}
-                hint="Lead → Iegūts"
+                label="Iegūti"
+                value={fmt(num(kpi.ieguti))}
+                hint={`${pct(num(kpi.iegusanas_pct))} no kopējā`}
               />
               <StatCard
                 label="Sasniedzamība"
-                value={pct(num(summary.reachable_rate_percent))}
-                hint={`Pilni kontakti: ${pct(num(summary.complete_contact_data_percent))}`}
+                value={pct(num(kpi.sasniedzamiba_pct))}
+                hint={`Ar e-pastu: ${pct(num(dq.ar_epastu_pct))}`}
               />
             </div>
           </Section>
 
           {/* 3. Operational KPIs */}
-          <Section label="Operatīvie rādītāji">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {operational.map((c) => (
-                <CompactStat key={c.label} {...c} />
-              ))}
-            </div>
-          </Section>
+          {wfTotal > 0 && (
+            <Section label="Workflow stāvoklis">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <CompactStat label="Workflow kopā" value={fmt(wfTotal)} />
+                <CompactStat label="Aktīvi" value={fmt(wfActive)} />
+                <CompactStat label="Pabeigti" value={fmt(wfTotal - wfActive - wfErrors)} />
+                <CompactStat
+                  label="Kļūdas"
+                  value={fmt(wfErrors)}
+                  hint={wfErrors > 0 ? "Nepieciešama uzmanība" : "Nav kļūdu"}
+                />
+              </div>
+            </Section>
+          )}
 
           {/* 4. Analytics grid (lazy) */}
           <Section label="Analītika">
             <Suspense fallback={<AnalyticsSkeleton />}>
-              <AnalyticsGrid kpis={kpis} totalLeads={num(summary.total_leads)} />
+              <AnalyticsGrid
+                funnel={funnel}
+                ppv={ppv}
+                country={country}
+                workflow={workflow}
+                totalLeads={totalLeads}
+              />
             </Suspense>
           </Section>
 
           {/* 5. Data quality */}
           <Section label="Datu kvalitāte">
             <Suspense fallback={<AnalyticsSkeleton rows={1} />}>
-              <DataQualityCard dq={dataQuality} reach={reach} />
+              <DataQualityCard dq={dq} kpi={kpi} />
             </Suspense>
           </Section>
         </div>
@@ -245,38 +206,27 @@ function AnalyticsSkeleton({ rows = 2 }: { rows?: number }) {
   );
 }
 
-// ---------- Data quality card (kept on main bundle for simplicity) ----------
+// ---------- Data quality card ----------
 function DataQualityCard({
   dq,
-  reach,
+  kpi,
 }: {
   dq: Record<string, unknown>;
-  reach: Record<string, unknown>;
+  kpi: Record<string, unknown>;
 }) {
-  const total = num(dq.total_leads) || num(reach.total_leads);
-  const completePct = num(dq.complete_contact_data_percent);
-  const reachPct = num(reach.reachable_rate_percent);
+  const total = num(dq.kopa_leadi) || num(kpi.kopa_leadi);
 
   const bars = [
-    { label: "Pilni kontakti", value: completePct },
-    { label: "Sasniedzamība", value: reachPct },
-    {
-      label: "Ar e-pastu",
-      value: total > 0 ? (num(reach.has_email_count) / total) * 100 : 0,
-    },
-    {
-      label: "Ar telefonu",
-      value: total > 0 ? (num(reach.has_phone_count) / total) * 100 : 0,
-    },
-    {
-      label: "Validēts telefons",
-      value: total > 0 ? (num(reach.validated_phone_count) / total) * 100 : 0,
-    },
+    { label: "Ar e-pastu", value: num(dq.ar_epastu_pct) },
+    { label: "Ar telefonu", value: num(dq.ar_talruni_pct) },
+    { label: "Validēti telefoni", value: num(dq.valideti_talruni_pct) },
+    { label: "Sasniedzamība", value: num(kpi.sasniedzamiba_pct) },
   ];
 
   const issues = [
-    { label: "Trūkst e-pasts", value: num(dq.missing_email_count) },
-    { label: "Trūkst telefons", value: num(dq.missing_phone_count) },
+    { label: "Bez e-pasta", value: num(dq.bez_epasta_pct) },
+    { label: "Bez telefona", value: num(dq.bez_talruna_pct) },
+    { label: "Stacionārie", value: num(dq.landline_pct) },
   ].filter((i) => i.value > 0);
 
   return (
@@ -312,7 +262,7 @@ function DataQualityCard({
                   className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-xs text-foreground"
                 >
                   {i.label}
-                  <span className="tabular-nums font-medium">{fmt(i.value)}</span>
+                  <span className="tabular-nums font-medium">{i.value.toFixed(1)}%</span>
                 </span>
               ))}
             </div>
