@@ -1748,10 +1748,25 @@ function QueueHeaderAction({
 }
 
 function formatWait(min: number): string {
+  if (min < 1) return "<1m";
   if (min < 60) return `${min}m`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.round(h / 24);
-  return `${d}d`;
+  const h = min / 60;
+  if (h < 24) return h < 10 ? `${h.toFixed(1)}h` : `${Math.round(h)}h`;
+  const d = h / 24;
+  if (d < 10) return `${d.toFixed(1)}d`;
+  return `${Math.round(d)}d`;
+}
+
+function avgLabel(qid: string): string {
+  switch (qid) {
+    case "unread":
+      return "Vidējais nelasītu atbilžu vecums";
+    case "overdue":
+      return "Vidējais kavējums";
+    case "waiting":
+      return "Vidējais gaidīšanas laiks";
+    default:
+      return "Vidējais aktivitātes vecums";
+  }
 }
 
