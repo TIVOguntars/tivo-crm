@@ -1343,6 +1343,57 @@ function LeadiPage() {
                     const commTimeSrc = l.has_unread_reply
                       ? l.last_reply_at
                       : l.last_communication_at || l.last_activity || l.created_at;
+                    const isCursor =
+                      visibleRows[activeIdx]?.lead_id === l.lead_id;
+                    // SLA chip
+                    const now = Date.now();
+                    let slaChip: { label: string; tone: string } | null = null;
+                    if (q.id === "unread") {
+                      const t =
+                        parseDate(l.last_reply_at) ??
+                        parseDate(l.last_inbound_at) ??
+                        parseDate(l.last_communication_at);
+                      if (t != null) {
+                        const w = now - t;
+                        if (w > 4 * MS_HOUR)
+                          slaChip = {
+                            label: "SLA",
+                            tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                          };
+                        else if (w > MS_HOUR)
+                          slaChip = {
+                            label: "4h",
+                            tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                          };
+                        else if (w > 15 * MS_MIN)
+                          slaChip = {
+                            label: "1h",
+                            tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+                          };
+                        else
+                          slaChip = {
+                            label: "<15m",
+                            tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                          };
+                      }
+                    } else if (q.id === "overdue" && dueT != null) {
+                      const w = now - dueT;
+                      if (w > 7 * MS_DAY)
+                        slaChip = {
+                          label: "7d+",
+                          tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+                        };
+                      else if (w > 3 * MS_DAY)
+                        slaChip = {
+                          label: "3d",
+                          tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                        };
+                      else
+                        slaChip = {
+                          label: "1d",
+                          tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+                        };
+                    }
                     return (
                       <tr
                         key={l.lead_id}
@@ -1356,6 +1407,9 @@ function LeadiPage() {
                             : isSel
                               ? "bg-primary/[0.04]"
                               : "hover:bg-muted/30",
+                          isCursor &&
+                            !isActive &&
+                            "ring-1 ring-inset ring-primary/40",
                         )}
                       >
                         <td
