@@ -1232,10 +1232,10 @@ function LeadiPage() {
                     const header = (
                       <tr
                         key={`qh-${q.id}`}
-                        className="group/qh sticky top-[33px] z-[5] border-t border-border/70 bg-background/95 backdrop-blur"
+                        className="group/qh border-t border-border/40"
                       >
                         <td colSpan={9} className="p-0">
-                          <div className="flex items-center justify-between gap-3 px-3 py-1 text-[11px] text-muted-foreground">
+                          <div className="flex items-center justify-between gap-3 px-3 py-0.5 text-[10.5px] leading-none text-muted-foreground/80">
                             <button
                               type="button"
                               onClick={() => toggleQueue(q.id)}
@@ -1249,17 +1249,10 @@ function LeadiPage() {
                               ) : (
                                 <ChevronDown className="h-3 w-3" />
                               )}
-                              <span
-                                className={cn(
-                                  "h-1 w-1 shrink-0 rounded-full opacity-70",
-                                  q.dot,
-                                )}
-                                aria-hidden
-                              />
-                              <span className="text-[11px] font-semibold tracking-tight text-foreground/80">
+                              <span className="text-[10.5px] font-semibold tracking-tight text-foreground/70">
                                 {q.label}
                               </span>
-                              <span className="tabular-nums">
+                              <span className="tabular-nums opacity-70">
                                 {queueMetrics[q.id]?.count ?? items.length}
                               </span>
                             </button>
@@ -1282,7 +1275,7 @@ function LeadiPage() {
                                 )}
                               </div>
                               <div
-                                className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100"
+                                className="flex items-center gap-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Tooltip>
@@ -1292,7 +1285,7 @@ function LeadiPage() {
                                       onClick={() =>
                                         openLead(items[0].lead_id)
                                       }
-                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground"
                                       aria-label="Atvērt pirmo"
                                     >
                                       <ChevronRight className="h-3 w-3" />
@@ -1313,7 +1306,7 @@ function LeadiPage() {
                                         );
                                         setSelected(next);
                                       }}
-                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground"
                                       aria-label="Atlasīt visus"
                                     >
                                       <CheckSquare className="h-3 w-3" />
