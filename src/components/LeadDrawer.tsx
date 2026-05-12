@@ -488,7 +488,7 @@ function DrawerBody({
                 "Nesasniedzams",
                 "Zaudēts",
               ].map((st) => (
-                <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+                <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -604,7 +604,7 @@ function DrawerBody({
               "Nesasniedzams",
               "Zaudēts",
             ].map((st) => (
-              <DropdownMenuItem key={st}>{st}</DropdownMenuItem>
+              <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
