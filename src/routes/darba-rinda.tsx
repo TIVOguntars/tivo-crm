@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCrmView } from "@/hooks/useCrmView";
 import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
@@ -441,18 +442,22 @@ function DarbaRindaPage() {
       return next;
     });
 
-  /* Primary datasource: analytics.lead_priority_queue. */
+  /* Primary datasource: crm.next_action_queue_display_enriched.
+     Migrated from analytics.lead_priority_queue (schema permission denied). */
   const overviewQuery = useMemo(
     () =>
       [
         "select=*",
-        "order=reitings.desc.nullslast,last_activity_at.desc.nullslast",
+        "order=last_activity_at.desc.nullslast",
         `limit=${PAGE_SIZE}`,
       ].join("&"),
     [],
   );
 
-  const overview = useAnalyticsView("lead_priority_queue", overviewQuery);
+  const overview = useCrmView(
+    "next_action_queue_display_enriched",
+    overviewQuery,
+  );
 
   const rawError =
     (overview.error as Error | null)?.message || overview.data?.error;
@@ -471,18 +476,24 @@ function DarbaRindaPage() {
         if (!id) return null;
         return {
           lead_id: id,
-          full_name: s(r.full_name),
-          email: s(r.email),
-          phone: s(r.phone),
+          full_name: s(r.full_name || r.name),
+          email: s(r.email_normalized || r.email),
+          phone: s(
+            r.telefons_e164 ||
+              r.telefons_raw ||
+              r.phone_e164 ||
+              r.phone_raw ||
+              r.phone,
+          ),
           country: s(r.country),
           source: s(r.source),
-          status: s(r.status),
-          owner: s(r.owner),
-          ppv: s(r.ppv_vards),
-          next_action: s(r.next_action),
+          status: s(r.lead_status_label || r.status),
+          owner: s(r.visible_action_owner || r.owner),
+          ppv: s(r.ppv_name || r.ppv_vards),
+          next_action: s(r.visible_action || r.next_action),
           next_action_reason: s(r.next_action_reason),
           tags: asTags(r.tags),
-          rating: parseRating(r.reitings),
+          rating: parseRating(r.reitings ?? r.rating),
           last_activity_at: s(r.last_activity_at) || null,
           last_event_type: s(r.last_event_type),
           last_event_group: s(r.last_event_group),
@@ -491,7 +502,8 @@ function DarbaRindaPage() {
           last_reply_at: s(r.last_reply_at) || null,
           planned_build_date: s(r.planned_build_date) || null,
           follow_up_bucket: s(r.follow_up_bucket),
-          next_action_due_date: s(r.next_action_due_date) || null,
+          next_action_due_date:
+            s(r.visible_action_due_at || r.next_action_due_date) || null,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
