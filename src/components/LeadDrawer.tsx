@@ -195,11 +195,13 @@ export function LeadDrawer({
   open,
   onOpenChange,
   onActionCompleted,
+  onPatch,
 }: {
   leadId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onActionCompleted?: (leadId: string) => void;
+  onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
   const [tab, setTab] = useState<TabKey>("parskats");
 
@@ -243,6 +245,7 @@ export function LeadDrawer({
             tab={tab}
             setTab={setTab}
             onActionCompleted={onActionCompleted}
+            onPatch={onPatch}
           />
         )}
       </SheetContent>
@@ -256,21 +259,31 @@ function DrawerBody({
   tab,
   setTab,
   onActionCompleted,
+  onPatch,
 }: {
   row: Row;
   leadId: string | null;
   tab: TabKey;
   setTab: (t: TabKey) => void;
   onActionCompleted?: (leadId: string) => void;
+  onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
 
+  // Optimistic local overrides (status/owner). Drawer reflects them immediately
+  // and propagates to the parent table via onPatch.
+  const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({});
+  const applyPatch = (patch: Record<string, unknown>) => {
+    setLocalPatch((prev) => ({ ...prev, ...patch }));
+    if (realLeadId && onPatch) onPatch(realLeadId, patch);
+  };
+
   const realLeadId = s(row.lead_id) || leadId;
   const displayName = leadDisplayName(row, realLeadId);
-  const status = s(row.lead_status_label);
+  const status = s(localPatch.status ?? row.lead_status_label);
   const priority = s(row.priority_label);
-  const owner = s(row.visible_action_owner);
-  const ppv = s(row.ppv_name);
+  const owner = s(localPatch.owner ?? row.visible_action_owner);
+  const ppv = s(localPatch.ppv ?? row.ppv_name);
   const country = s(row.country);
   const tags = parseTags(row.tags);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
