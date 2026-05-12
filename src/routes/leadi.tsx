@@ -382,6 +382,7 @@ function LeadiPage() {
           last_activity,
           tags: asTags(r.tags),
           created_at: s(r.created_at) || null,
+          unread_replies: Number(r.unread_replies ?? r.unread_count ?? 0) || 0,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
