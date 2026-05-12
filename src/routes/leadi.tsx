@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { LeadDrawer } from "@/components/LeadDrawer";
+import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
@@ -558,6 +559,45 @@ function LeadiPage() {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
 
+  const patchMany = useCallback(
+    (ids: string[], patch: BulkPatch) => {
+      setPatches((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => {
+          next[id] = { ...next[id], ...(patch as Partial<Lead>) };
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const rollbackMany = useCallback(
+    (ids: string[], previous: Record<string, BulkPatch>) => {
+      setPatches((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => {
+          const p = previous[id];
+          if (!p) return;
+          next[id] = { ...next[id], ...(p as Partial<Lead>) };
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const currentStatusMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    leadsPatched.forEach((l) => (m[l.lead_id] = l.status));
+    return m;
+  }, [leadsPatched]);
+
+  const bumpActivity = useCallback(
+    (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
+    [patchLead],
+  );
+
   return (
     <TooltipProvider delayDuration={150}>
       {/* Page header */}
@@ -667,50 +707,35 @@ function LeadiPage() {
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
-              <Columns3 className="h-3.5 w-3.5" />
-              Kolonnas
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
-              Bulk darbības
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </div>
+          {selected.size === 0 && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Columns3 className="h-3.5 w-3.5" />
+                Kolonnas
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5">
-          <span className="text-xs font-medium text-foreground">
-            Atlasīti: {selected.size}
-          </span>
-          <div className="mx-1 h-4 w-px bg-border" aria-hidden />
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Mainīt statusu
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Piešķirt atbildīgo
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Piešķirt PPV
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Izveidot uzdevumu
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            Sūtīt ziņu
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto h-7 text-xs text-muted-foreground"
-            onClick={clearSelected}
-          >
-            Atcelt
-          </Button>
-        </div>
+        <BulkActionsBar
+          selectedIds={Array.from(selected)}
+          options={{
+            statuses: options.statuses,
+            owners: options.owners,
+            ppvs: options.ppvs,
+          }}
+          currentStatus={currentStatusMap}
+          onClear={clearSelected}
+          onPatchMany={patchMany}
+          onRollbackMany={rollbackMany}
+        />
       )}
 
       {errorMsg && <ErrorState message={errorMsg} />}
@@ -933,6 +958,7 @@ function LeadiPage() {
                               icon={<Phone className="h-3.5 w-3.5" />}
                               label="Zvanīt"
                               href={l.phone ? `tel:${l.phone}` : undefined}
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<MessageCircle className="h-3.5 w-3.5" />}
@@ -942,11 +968,13 @@ function LeadiPage() {
                                   ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
                                   : undefined
                               }
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<Mail className="h-3.5 w-3.5" />}
                               label="E-pasts"
                               href={l.email ? `mailto:${l.email}` : undefined}
+                              onActivate={() => bumpActivity(l.lead_id)}
                             />
                             <RowAction
                               icon={<CheckSquare className="h-3.5 w-3.5" />}
@@ -991,11 +1019,13 @@ function RowAction({
   label,
   href,
   onClick,
+  onActivate,
 }: {
   icon: React.ReactNode;
   label: string;
   href?: string;
   onClick?: () => void;
+  onActivate?: () => void;
 }) {
   const disabled = !href && !onClick;
   const className = cn(
@@ -1005,13 +1035,21 @@ function RowAction({
       : "hover:border-border hover:bg-background hover:text-foreground",
   );
   const content = href ? (
-    <a href={href} className={className} aria-label={label}>
+    <a
+      href={href}
+      className={className}
+      aria-label={label}
+      onClick={() => onActivate?.()}
+    >
       {icon}
     </a>
   ) : (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        onActivate?.();
+        onClick?.();
+      }}
       disabled={disabled}
       className={className}
       aria-label={label}

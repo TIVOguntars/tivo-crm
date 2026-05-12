@@ -379,7 +379,14 @@ export const fetchCrmView = createServerFn({ method: "GET" })
     }
   });
 
-const CRM_RPCS = ["complete_human_action"] as const;
+const CRM_RPCS = [
+  "complete_human_action",
+  "bulk_change_lead_status",
+  "bulk_assign_owner",
+  "bulk_assign_ppv",
+  "bulk_create_task",
+  "log_lead_communication",
+] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
 async function callCrmRpcRaw(
