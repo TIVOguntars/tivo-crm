@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
@@ -141,6 +142,8 @@ function InboxPage() {
         created_at: r.created_at,
         html_body: rp.html_body ?? null,
         text_body: rp.text_body ?? r.body ?? null,
+        body_format: rp.body_format ?? null,
+        body_fallback: r.body ?? null,
         metadata: rp.metadata ?? null,
       } as Record<string, unknown>;
       return {
@@ -517,6 +520,13 @@ function EmailViewerModal({
   );
   const html = (comm?.html_body as string | null) ?? "";
   const text = (comm?.text_body as string | null) ?? "";
+  const bodyFormat = (comm?.body_format as string | null) ?? null;
+  const fallback = (comm?.body_fallback as string | null) ?? "";
+  const useHtml = bodyFormat === "html" && !!html;
+  const sanitizedHtml = useHtml
+    ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
+    : "";
+  const plainText = text || fallback;
   const attachments = getAttachments(comm);
 
   return (
@@ -557,15 +567,15 @@ function EmailViewerModal({
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-          {html ? (
+          {useHtml ? (
             <div
               className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground [&_a]:text-primary [&_img]:max-w-full"
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: html }}
+              dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
             />
-          ) : text ? (
+          ) : plainText ? (
             <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
-              {text}
+              {plainText}
             </pre>
           ) : (
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
