@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
+import { Route as ImportReviewRouteImport } from './routes/import-review'
 import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
 import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
@@ -31,6 +32,11 @@ const LeadiRoute = LeadiRouteImport.update({
 const KomunikacijasRoute = KomunikacijasRouteImport.update({
   id: '/komunikacijas',
   path: '/komunikacijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportReviewRoute = ImportReviewRouteImport.update({
+  id: '/import-review',
+  path: '/import-review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IenakosasZinasRoute = IenakosasZinasRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/queue': typeof QueueRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/queue': typeof QueueRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
   '/queue': typeof QueueRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
     | '/queue'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
     | '/queue'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
     | '/queue'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   DarbaRindaRoute: typeof DarbaRindaRoute
   FunnelRoute: typeof FunnelRoute
   IenakosasZinasRoute: typeof IenakosasZinasRoute
+  ImportReviewRoute: typeof ImportReviewRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
   QueueRoute: typeof QueueRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/komunikacijas'
       fullPath: '/komunikacijas'
       preLoaderRoute: typeof KomunikacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/import-review': {
+      id: '/import-review'
+      path: '/import-review'
+      fullPath: '/import-review'
+      preLoaderRoute: typeof ImportReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ienakosas-zinas': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   DarbaRindaRoute: DarbaRindaRoute,
   FunnelRoute: FunnelRoute,
   IenakosasZinasRoute: IenakosasZinasRoute,
+  ImportReviewRoute: ImportReviewRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
   QueueRoute: QueueRoute,
@@ -208,3 +229,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
