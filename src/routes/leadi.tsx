@@ -50,6 +50,10 @@ const VIEWS = [
   "bez_kontakta",
   "karstie",
   "konflikti",
+  "atbildeja",
+  "gaida_atbildi",
+  "aktiva_sazina",
+  "nav_kontakta",
 ] as const;
 type View = (typeof VIEWS)[number];
 
@@ -61,6 +65,10 @@ const VIEW_LABELS: Record<View, string> = {
   bez_kontakta: "Bez kontakta",
   karstie: "Karstie",
   konflikti: "Konflikti",
+  atbildeja: "Atbildēja",
+  gaida_atbildi: "Gaida atbildi",
+  aktiva_sazina: "Aktīva saziņa",
+  nav_kontakta: "Nav kontakta",
 };
 
 const leadiSearchSchema = z.object({
@@ -101,6 +109,16 @@ interface Lead {
   tags: string[];
   created_at: string | null;
   unread_replies: number;
+  communication_state: string;
+  communication_label: string;
+  has_unread_reply: boolean;
+  reply_count: number;
+  last_reply_at: string | null;
+  last_communication_at: string | null;
+  last_outbound_at: string | null;
+  last_inbound_at: string | null;
+  is_hot: boolean;
+  priority_score: number;
 }
 
 function s(v: unknown): string {
@@ -385,6 +403,12 @@ function LeadiPage() {
           s(r.last_communication_at) ||
           s(r.updated_at) ||
           null;
+        const has_unread_reply =
+          r.has_unread_reply === true || r.has_unread_reply === "true";
+        const reply_count = Number(r.reply_count ?? 0) || 0;
+        const communication_state = s(r.communication_state).toLowerCase();
+        const tagsArr = asTags(r.tags);
+        const statusStr = s(r.lead_status_label || r.status);
         return {
           lead_id: id,
           name: leadDisplayName(r),
@@ -393,15 +417,28 @@ function LeadiPage() {
           country,
           secondary,
           source: s(r.source),
-          status: s(r.lead_status_label || r.status),
+          status: statusStr,
           owner: s(r.visible_action_owner || r.owner),
           ppv: s(r.ppv_name || r.ppv_vards),
           next_action,
           next_action_due,
           last_activity,
-          tags: asTags(r.tags),
+          tags: tagsArr,
           created_at: s(r.created_at) || null,
-          unread_replies: Number(r.unread_replies ?? r.unread_count ?? 0) || 0,
+          unread_replies:
+            Number(r.unread_replies ?? r.unread_count ?? reply_count) || 0,
+          communication_state,
+          communication_label: s(r.communication_label),
+          has_unread_reply,
+          reply_count,
+          last_reply_at: s(r.last_reply_at) || null,
+          last_communication_at: s(r.last_communication_at) || null,
+          last_outbound_at: s(r.last_outbound_at) || null,
+          last_inbound_at: s(r.last_inbound_at) || null,
+          is_hot:
+            tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
+            /karst/i.test(statusStr),
+          priority_score: Number(r.priority_score ?? r.priority ?? 0) || 0,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
@@ -489,6 +526,18 @@ function LeadiPage() {
           )
             return false;
           break;
+        case "atbildeja":
+          if (!l.has_unread_reply) return false;
+          break;
+        case "gaida_atbildi":
+          if (l.communication_state !== "waiting") return false;
+          break;
+        case "aktiva_sazina":
+          if (l.communication_state !== "active") return false;
+          break;
+        case "nav_kontakta":
+          if (l.communication_state !== "no_contact") return false;
+          break;
       }
       if (q) {
         const hay =
@@ -502,15 +551,36 @@ function LeadiPage() {
   const sorted = useMemo(() => {
     const copy = [...filtered];
     copy.sort((a, b) => {
+      // 1. unread reply first
+      if (a.has_unread_reply !== b.has_unread_reply)
+        return a.has_unread_reply ? -1 : 1;
+      // 2. overdue effective_due_at
+      const now = Date.now();
       const aDue = parseDate(a.next_action_due);
       const bDue = parseDate(b.next_action_due);
+      const aOver = aDue != null && aDue < now;
+      const bOver = bDue != null && bDue < now;
+      if (aOver !== bOver) return aOver ? -1 : 1;
+      if (aOver && bOver) return (aDue ?? 0) - (bDue ?? 0);
+      // 3. hot / high priority
+      if (a.is_hot !== b.is_hot) return a.is_hot ? -1 : 1;
+      if (a.priority_score !== b.priority_score)
+        return b.priority_score - a.priority_score;
+      // 4. waiting response
+      const aWait = a.communication_state === "waiting";
+      const bWait = b.communication_state === "waiting";
+      if (aWait !== bWait) return aWait ? -1 : 1;
+      // future due
       if (aDue !== bDue) {
         if (aDue == null) return 1;
         if (bDue == null) return -1;
         return aDue - bDue;
       }
-      const aL = parseDate(a.last_activity) ?? 0;
-      const bL = parseDate(b.last_activity) ?? 0;
+      // 5. newest activity
+      const aL =
+        parseDate(a.last_communication_at) ?? parseDate(a.last_activity) ?? 0;
+      const bL =
+        parseDate(b.last_communication_at) ?? parseDate(b.last_activity) ?? 0;
       return bL - aL;
     });
     return copy;
@@ -820,18 +890,33 @@ function LeadiPage() {
                     const isHot = l.tags.some((t) =>
                       /^(hot|karst)/i.test(t),
                     );
-                    const hasUnread = l.unread_replies > 0;
+                    const hasUnread = l.has_unread_reply;
                     const noContact = !parseDate(l.last_activity);
-                    // Priority cascade: overdue > hot > unread > no-contact
-                    const accentClass = isOverdue
-                      ? "before:bg-rose-500/70"
-                      : isHot
-                        ? "before:bg-orange-500/70"
-                        : hasUnread
-                          ? "before:bg-blue-500/70"
+                    // Priority cascade: unread > overdue > hot > no-contact
+                    const accentClass = hasUnread
+                      ? "before:bg-blue-500/80"
+                      : isOverdue
+                        ? "before:bg-rose-500/70"
+                        : isHot
+                          ? "before:bg-orange-500/70"
                           : noContact
                             ? "before:bg-muted-foreground/30"
                             : "before:bg-transparent";
+                    // Communication activity label
+                    const commLabel = l.has_unread_reply
+                      ? "Atbildēja"
+                      : l.communication_state === "waiting"
+                        ? "Gaida atbildi"
+                        : l.communication_state === "active"
+                          ? "Aktīva saziņa"
+                          : l.communication_state === "event_only"
+                            ? "Ir notikums"
+                            : l.communication_state === "no_contact"
+                              ? "Nav kontakta"
+                              : null;
+                    const commTimeSrc = l.has_unread_reply
+                      ? l.last_reply_at
+                      : l.last_communication_at || l.last_activity || l.created_at;
                     return (
                       <tr
                         key={l.lead_id}
@@ -871,11 +956,30 @@ function LeadiPage() {
                                 <TooltipTrigger asChild>
                                   <span
                                     className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
-                                    aria-label="Nelasīta atbilde"
+                                    aria-label="Ir neatbildēta klienta atbilde"
                                   />
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  Nelasītas atbildes: {l.unread_replies}
+                                  Ir neatbildēta klienta atbilde
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {l.reply_count > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={cn(
+                                      "inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded px-1 text-[10px] font-medium leading-none",
+                                      hasUnread
+                                        ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                        : "bg-muted text-muted-foreground",
+                                    )}
+                                  >
+                                    {l.reply_count}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  Atbilžu skaits: {l.reply_count}
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -942,8 +1046,26 @@ function LeadiPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-1 text-muted-foreground">
-                          {relativeTime(l.last_activity)}
+                        <td className="px-2 py-1">
+                          <div className="flex flex-col leading-tight">
+                            <span
+                              className={cn(
+                                "text-[12px]",
+                                l.has_unread_reply
+                                  ? "font-medium text-blue-700 dark:text-blue-300"
+                                  : l.communication_state === "waiting"
+                                    ? "text-amber-700 dark:text-amber-300"
+                                    : l.communication_state === "active"
+                                      ? "text-emerald-700 dark:text-emerald-300"
+                                      : "text-muted-foreground",
+                              )}
+                            >
+                              {commLabel ?? "Nav kontakta"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {relativeTime(commTimeSrc)}
+                            </span>
+                          </div>
                         </td>
                         <td className="max-w-[180px] px-2 py-1">
                           {l.tags.length === 0 ? (
