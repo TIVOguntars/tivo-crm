@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as QueueRouteImport } from './routes/queue'
+import { Route as ManualCorrectionsRouteImport } from './routes/manual-corrections'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
+import { Route as ImportReviewRouteImport } from './routes/import-review'
 import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
 import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
@@ -23,6 +25,11 @@ const QueueRoute = QueueRouteImport.update({
   path: '/queue',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManualCorrectionsRoute = ManualCorrectionsRouteImport.update({
+  id: '/manual-corrections',
+  path: '/manual-corrections',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadiRoute = LeadiRouteImport.update({
   id: '/leadi',
   path: '/leadi',
@@ -31,6 +38,11 @@ const LeadiRoute = LeadiRouteImport.update({
 const KomunikacijasRoute = KomunikacijasRouteImport.update({
   id: '/komunikacijas',
   path: '/komunikacijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportReviewRoute = ImportReviewRouteImport.update({
+  id: '/import-review',
+  path: '/import-review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IenakosasZinasRoute = IenakosasZinasRouteImport.update({
@@ -64,8 +76,10 @@ export interface FileRoutesByFullPath {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -74,8 +88,10 @@ export interface FileRoutesByTo {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -85,8 +101,10 @@ export interface FileRoutesById {
   '/darba-rinda': typeof DarbaRindaRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
+  '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -97,8 +115,10 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/manual-corrections'
     | '/queue'
     | '/lead/$leadId'
   fileRoutesByTo: FileRoutesByTo
@@ -107,8 +127,10 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/manual-corrections'
     | '/queue'
     | '/lead/$leadId'
   id:
@@ -117,8 +139,10 @@ export interface FileRouteTypes {
     | '/darba-rinda'
     | '/funnel'
     | '/ienakosas-zinas'
+    | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/manual-corrections'
     | '/queue'
     | '/lead/$leadId'
   fileRoutesById: FileRoutesById
@@ -128,8 +152,10 @@ export interface RootRouteChildren {
   DarbaRindaRoute: typeof DarbaRindaRoute
   FunnelRoute: typeof FunnelRoute
   IenakosasZinasRoute: typeof IenakosasZinasRoute
+  ImportReviewRoute: typeof ImportReviewRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
+  ManualCorrectionsRoute: typeof ManualCorrectionsRoute
   QueueRoute: typeof QueueRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
 }
@@ -141,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/queue'
       fullPath: '/queue'
       preLoaderRoute: typeof QueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manual-corrections': {
+      id: '/manual-corrections'
+      path: '/manual-corrections'
+      fullPath: '/manual-corrections'
+      preLoaderRoute: typeof ManualCorrectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leadi': {
@@ -155,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/komunikacijas'
       fullPath: '/komunikacijas'
       preLoaderRoute: typeof KomunikacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/import-review': {
+      id: '/import-review'
+      path: '/import-review'
+      fullPath: '/import-review'
+      preLoaderRoute: typeof ImportReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ienakosas-zinas': {
@@ -200,8 +240,10 @@ const rootRouteChildren: RootRouteChildren = {
   DarbaRindaRoute: DarbaRindaRoute,
   FunnelRoute: FunnelRoute,
   IenakosasZinasRoute: IenakosasZinasRoute,
+  ImportReviewRoute: ImportReviewRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
+  ManualCorrectionsRoute: ManualCorrectionsRoute,
   QueueRoute: QueueRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
 }
