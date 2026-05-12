@@ -9,6 +9,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCrmView } from "@/hooks/useCrmView";
 import type { FiltersSearch } from "@/lib/filters";
 
 /* ----------------------- Route + search params ----------------------- */
@@ -218,13 +219,19 @@ function LeadiPage() {
   /* Pull a wide page of overview rows; client-side filters/sort. */
   const overviewQuery = useMemo(() => {
     return [
-      "select=lead_id,full_name,email,phone_raw,phone_e164,country,source,status,owner,ppv_vards,next_action,next_action_due_date,last_contact_date,automation_step,automation_date,tags,lead_created_at",
+      "select=*",
       "order=lead_created_at.desc.nullslast",
       `limit=${PAGE_SIZE}`,
     ].join("&");
   }, []);
 
-  const overview = useAnalyticsView("leads_overview", overviewQuery);
+  // Source migrated from analytics.leads_overview (no schema permission)
+  // to crm.next_action_queue_display_enriched. Field reads use
+  // lead_drawer_summary naming with legacy fallbacks.
+  const overview = useCrmView(
+    "next_action_queue_display_enriched",
+    overviewQuery,
+  );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
   const errorMsg =
@@ -240,19 +247,26 @@ function LeadiPage() {
         if (!id) return null;
         return {
           lead_id: id,
-          full_name: s(r.full_name),
-          email: s(r.email),
-          phone: s(r.phone_raw || r.phone_e164),
+          full_name: s(r.full_name || r.name),
+          email: s(r.email_normalized || r.email),
+          phone: s(
+            r.telefons_e164 ||
+              r.telefons_raw ||
+              r.phone_e164 ||
+              r.phone_raw,
+          ),
           country: s(r.country),
           source: s(r.source),
-          status: s(r.status),
-          owner: s(r.owner),
-          ppv: s(r.ppv_vards),
-          next_action: s(r.next_action),
-          next_action_due_date: s(r.next_action_due_date) || null,
+          status: s(r.lead_status_label || r.status),
+          owner: s(r.visible_action_owner || r.owner),
+          ppv: s(r.ppv_name || r.ppv_vards),
+          next_action: s(r.visible_action || r.next_action),
+          next_action_due_date:
+            s(r.visible_action_due_at || r.next_action_due_date) || null,
           last_contact_date: s(r.last_contact_date) || null,
-          automation_step: s(r.automation_step),
-          automation_date: s(r.automation_date) || null,
+          automation_step: s(r.system_action_label || r.automation_step),
+          automation_date:
+            s(r.system_due_date || r.automation_date) || null,
           tags: asTags(r.tags),
           lead_created_at: s(r.lead_created_at) || null,
         } as Lead;
