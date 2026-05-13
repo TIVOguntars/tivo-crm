@@ -581,6 +581,9 @@ function LeadProfilePage() {
               <TabsTrigger value="tehniski" className="text-xs">
                 Tehniski
               </TabsTrigger>
+              <TabsTrigger value="vesture" className="text-xs">
+                Vēsture
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="parskats" className="mt-2">
@@ -666,6 +669,19 @@ function LeadProfilePage() {
                   </pre>
                 </div>
               </Section>
+            </TabsContent>
+
+            <TabsContent value="vesture" className="mt-2">
+              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Lead vēsture
+                </h2>
+                <UnifiedActivityTimeline
+                  leadId={currentLeadId}
+                  defaultCategory="all"
+                  limit={100}
+                />
+              </section>
             </TabsContent>
           </Tabs>
 
