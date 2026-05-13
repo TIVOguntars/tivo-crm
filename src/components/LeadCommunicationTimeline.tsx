@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchCrmView, fetchPublicTable } from "@/server/analytics";
+import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { LoadingState, ErrorState } from "@/components/DataState";
 
@@ -49,14 +49,69 @@ function isInbound(row: Row): boolean {
   return lbl.includes("ienāk") || lbl.includes("inbound") || lbl.includes("saņem");
 }
 
+/**
+ * Promote raw_payload fields (html_body, text_body, from_address, sent_at,
+ * metadata, current_status, …) onto the top-level row so downstream renderers
+ * (timeline + viewer) can read them without knowing about the payload wrapper.
+ */
+function flattenComm(row: Row): Row {
+  const rp = row.raw_payload;
+  const payload: Row =
+    rp && typeof rp === "object" && !Array.isArray(rp) ? (rp as Row) : {};
+  const merged: Row = { ...payload, ...row };
+  // Prefer payload values where the table column is missing.
+  for (const key of Object.keys(payload)) {
+    if (merged[key] == null || merged[key] === "") merged[key] = payload[key];
+  }
+  const channel = s(merged.channel).toLowerCase();
+  const inbound = s(merged.direction).toLowerCase().startsWith("in");
+  const channelLabel =
+    channel === "email"
+      ? "E-pasts"
+      : channel === "sms"
+        ? "SMS"
+        : channel === "whatsapp"
+          ? "WhatsApp"
+          : channel === "call" || channel === "phone"
+            ? "Zvans"
+            : channel || "Komunikācija";
+  const label = inbound ? `Saņemts: ${channelLabel}` : `Nosūtīts: ${channelLabel}`;
+  const meta =
+    merged.metadata && typeof merged.metadata === "object"
+      ? (merged.metadata as Row)
+      : {};
+  const previewSource =
+    s(meta.body_preview) ||
+    s(merged.text_body) ||
+    s(merged.body) ||
+    "";
+  const preview = previewSource
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+  return {
+    ...merged,
+    communication_id: s(merged.id) || s(row.id),
+    timeline_at:
+      s(merged.sent_at) ||
+      s(merged.received_at) ||
+      s(merged.delivered_at) ||
+      s(merged.created_at),
+    timeline_channel: s(merged.channel),
+    timeline_label: label,
+    message_preview: preview,
+    current_status: s(merged.current_status) || s(merged.status),
+  };
+}
+
 export function LeadCommunicationTimeline({ leadId }: { leadId: string | null }) {
   const view = useQuery({
-    queryKey: ["crm", "lead_communication_timeline", leadId ?? ""],
+    queryKey: ["crm", "communications_for_lead", leadId ?? ""],
     queryFn: () =>
       fetchCrmView({
         data: {
-          view: "lead_communication_timeline",
-          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&order=timeline_at.desc&limit=200`,
+          view: "communications",
+          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&select=*&order=created_at.desc&limit=200`,
         },
       }),
     enabled: !!leadId,
@@ -66,16 +121,19 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
   const [viewerId, setViewerId] = useState<string | null>(null);
 
   if (view.isLoading) return <LoadingState />;
-  // Soft empty state on missing/failed view — no red error block.
-  if (view.data?.error) {
+  const rawRows = (view.data?.rows ?? []) as Row[];
+  const rows = rawRows.map(flattenComm).sort((a, b) => {
+    const ta = new Date(s(a.timeline_at)).getTime() || 0;
+    const tb = new Date(s(b.timeline_at)).getTime() || 0;
+    return tb - ta;
+  });
+  if (view.data?.error && rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
         Komunikāciju vēsture vēl nav pieejama.
       </div>
     );
   }
-
-  const rows = (view.data?.rows ?? []) as Row[];
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
@@ -882,9 +940,9 @@ function CommunicationViewerModal({
   const commQ = useQuery({
     queryKey: ["communication", communicationId],
     queryFn: () =>
-      fetchPublicTable({
+      fetchCrmView({
         data: {
-          table: "communications",
+          view: "communications",
           query: `id=eq.${encodeURIComponent(communicationId ?? "")}&select=*&limit=1`,
         },
       }),
@@ -892,7 +950,8 @@ function CommunicationViewerModal({
     staleTime: 60_000,
   });
 
-  const comm = ((commQ.data?.rows ?? [])[0] ?? null) as Row | null;
+  const rawComm = ((commQ.data?.rows ?? [])[0] ?? null) as Row | null;
+  const comm = rawComm ? flattenComm(rawComm) : null;
   const events: Row[] = [];
 
   const subject = s(comm?.subject) || "(bez temata)";
