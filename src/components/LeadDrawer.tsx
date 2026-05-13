@@ -413,7 +413,10 @@ function DrawerBody({
     s(row.last_contact_date) ||
     s(row.last_communication_at) ||
     s(row.last_inbound_at);
-  const unreadReplies = s(row.unread_replies) || s(row.unread_count);
+  const replyCount = Number(row.reply_count ?? 0);
+  const clickCount = Number(row.click_count ?? 0);
+  const inboundCount = channelCounts.inbound;
+  const fmtCount = (n: number) => (n > 0 ? String(n) : "—");
 
   const waPhone = phone.replace(/[^0-9]/g, "");
   const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
@@ -567,12 +570,13 @@ function DrawerBody({
       {/* ============== KPI STRIP ============== */}
       <div className="shrink-0 border-b border-border bg-background">
         <div className="flex items-stretch divide-x divide-border/60 overflow-x-auto px-2">
-          <KpiCell label="Zvani" value="—" />
-          <KpiCell label="E-pasti" value="—" />
-          <KpiCell label="SMS" value="—" />
-          <KpiCell label="WhatsApp" value="—" />
-          <KpiCell label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
-          <KpiCell label="Klikšķi" value="—" />
+          <KpiCell label="Zvani" value={fmtCount(channelCounts.call)} />
+          <KpiCell label="E-pasti" value={fmtCount(channelCounts.email)} />
+          <KpiCell label="SMS" value={fmtCount(channelCounts.sms)} />
+          <KpiCell label="WhatsApp" value={fmtCount(channelCounts.whatsapp)} />
+          <KpiCell label="Ienākošie" value={fmtCount(inboundCount)} accent={inboundCount > 0 ? "green" : undefined} />
+          <KpiCell label="Atbildes" value={fmtCount(replyCount)} accent={replyCount > 0 ? "green" : undefined} />
+          <KpiCell label="Klikšķi" value={fmtCount(clickCount)} />
           <KpiCell label="Pēd. aktivitāte" value={lastContact ? relativeTime(lastContact) : "—"} />
           <KpiCell label="Atvērts" value={relativeTime(row.lead_created_at ?? row.created_at)} />
         </div>
@@ -654,11 +658,11 @@ function DrawerBody({
                 <div className="space-y-4">
                   <SecondarySection id="kpi" title="KPI kopsavilkums" hint="Snapshot">
                     <div className="grid grid-cols-2 gap-1.5">
-                      <MiniKpi label="Zvani" value="—" />
-                      <MiniKpi label="E-pasti" value="—" />
-                      <MiniKpi label="SMS" value="—" />
-                      <MiniKpi label="WhatsApp" value="—" />
-                      <MiniKpi label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
+                      <MiniKpi label="Zvani" value={fmtCount(channelCounts.call)} />
+                      <MiniKpi label="E-pasti" value={fmtCount(channelCounts.email)} />
+                      <MiniKpi label="SMS" value={fmtCount(channelCounts.sms)} />
+                      <MiniKpi label="WhatsApp" value={fmtCount(channelCounts.whatsapp)} />
+                      <MiniKpi label="Atbildes" value={fmtCount(replyCount)} accent={replyCount > 0 ? "green" : undefined} />
                       <MiniKpi label="Pēd. akt." value={lastContact ? relativeTime(lastContact) : "—"} />
                     </div>
                   </SecondarySection>
@@ -667,14 +671,16 @@ function DrawerBody({
                     <div className="rounded-sm border border-border/60 bg-card">
                       <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-2.5 py-1.5">
                         <span className="truncate text-[12px] font-semibold text-foreground">
-                          {s(row.object_name) || displayName}
+                          {s((row.raw_data as Row | undefined)?.objekts) || s(row.object_name) || displayName}
                         </span>
                         {flag && <span className="text-base leading-none">{flag}</span>}
                         {status && <StatusBadge status={status} />}
                       </div>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5">
-                        <InlineKv label="Adrese" value={s(row.address)} dense />
-                        <InlineKv label="Projekts" value="" dense />
+                        <InlineKv label="Zeme" value={s((row.raw_data as Row | undefined)?.forma_zeme)} dense />
+                        <InlineKv label="Projekts" value={s((row.raw_data as Row | undefined)?.forma_projekts)} dense />
+                        <InlineKv label="Termiņš" value={s((row.raw_data as Row | undefined)?.termins)} dense />
+                        <InlineKv label="Plānota būvniecība" value={s((row.raw_data as Row | undefined)?.planota_buvniecība_text) || s((row.raw_data as Row | undefined)?.planota_buvnieciba_text)} dense />
                       </div>
                       <div className="border-t border-border/40 px-2.5 py-2">
                         <MilestoneTrack row={row} />
