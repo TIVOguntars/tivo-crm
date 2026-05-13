@@ -145,6 +145,43 @@ function initials(name: string): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
 }
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  lv: "🇱🇻", latvia: "🇱🇻", latvija: "🇱🇻",
+  lt: "🇱🇹", lithuania: "🇱🇹", lietuva: "🇱🇹",
+  ee: "🇪🇪", estonia: "🇪🇪", igaunija: "🇪🇪",
+  de: "🇩🇪", germany: "🇩🇪", vācija: "🇩🇪", vacija: "🇩🇪",
+  pl: "🇵🇱", poland: "🇵🇱", polija: "🇵🇱",
+  fi: "🇫🇮", finland: "🇫🇮", somija: "🇫🇮",
+  se: "🇸🇪", sweden: "🇸🇪", zviedrija: "🇸🇪",
+  no: "🇳🇴", norway: "🇳🇴", norvēģija: "🇳🇴",
+  dk: "🇩🇰", denmark: "🇩🇰", dānija: "🇩🇰",
+  uk: "🇬🇧", gb: "🇬🇧", "united kingdom": "🇬🇧", lielbritānija: "🇬🇧",
+  us: "🇺🇸", usa: "🇺🇸", "united states": "🇺🇸",
+  ru: "🇷🇺", russia: "🇷🇺",
+  ua: "🇺🇦", ukraine: "🇺🇦", ukraina: "🇺🇦",
+  fr: "🇫🇷", france: "🇫🇷", francija: "🇫🇷",
+  es: "🇪🇸", spain: "🇪🇸", spānija: "🇪🇸",
+  it: "🇮🇹", italy: "🇮🇹", itālija: "🇮🇹",
+  nl: "🇳🇱", netherlands: "🇳🇱",
+  be: "🇧🇪", belgium: "🇧🇪",
+  ie: "🇮🇪", ireland: "🇮🇪",
+  no_country: "",
+};
+function countryFlag(country: string): string {
+  if (!country) return "";
+  const key = country.trim().toLowerCase();
+  if (COUNTRY_FLAGS[key]) return COUNTRY_FLAGS[key];
+  // 2-letter ISO → emoji
+  if (/^[a-z]{2}$/.test(key)) {
+    const code = key.toUpperCase();
+    return String.fromCodePoint(
+      0x1f1e6 + code.charCodeAt(0) - 65,
+      0x1f1e6 + code.charCodeAt(1) - 65,
+    );
+  }
+  return "";
+}
+
 /* ----------------------------- component ----------------------------- */
 
 export function LeadDrawer({
