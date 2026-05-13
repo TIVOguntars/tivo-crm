@@ -336,13 +336,12 @@ function DrawerBody({
   const country = s(row.country);
   const tags = parseTags(row.tags);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
-  const phoneRaw =
-    s(row.telefons_raw) ||
-    s(row.phone_raw) ||
-    s(row.telefons_neapstradats) ||
-    s(row.telefons);
+  const phoneRaw = s(row.phone_raw);
   const phone = phoneE164 || phoneRaw;
   const email = s(row.email_normalized);
+  const emailRaw = s(row.email_raw);
+  const phoneValidated = b(row.phone_validated);
+  const phoneLineType = s(row.phone_line_type);
   const source = s(row.source);
   const importSource = s(row.import_source) || s(row.lead_source);
 
@@ -513,11 +512,7 @@ function DrawerBody({
       {/* ============== SCROLLABLE CONTENT ============== */}
       <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/20">
         <div className="mx-auto max-w-[1400px] px-4 py-3 md:px-5 md:py-4">
-          {loading && (
-            <div className="mb-3">
-              <LoadingState label="Ielādē lead datus…" />
-            </div>
-          )}
+          {/* loading is handled inline (header + sections), no global block */}
 
           {/* PRIMARY: Object/Project — compact horizontal */}
           <PrimarySection title="Objekts / Projekts" subtitle="Primary">
@@ -598,11 +593,18 @@ function DrawerBody({
             </SecondarySection>
 
             <SecondarySection id="contact" title="Kontaktdati" hint="Validated">
-              <ContactGrid
-                phoneE164={phoneE164}
-                phoneRaw={phoneRaw}
-                email={email}
-              />
+              {loading ? (
+                <ContactSkeleton />
+              ) : (
+                <ContactGrid
+                  phoneE164={phoneE164}
+                  phoneRaw={phoneRaw}
+                  phoneValidated={phoneValidated}
+                  phoneLineType={phoneLineType}
+                  email={email}
+                  emailRaw={emailRaw}
+                />
+              )}
             </SecondarySection>
           </div>
 
