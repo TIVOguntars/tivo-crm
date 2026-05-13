@@ -775,6 +775,86 @@ function SectionBlock({
   );
 }
 
+function FlatSection({
+  id,
+  title,
+  hint,
+  className,
+  children,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={`lead-section-${id}`}
+      className={cn("scroll-mt-4", className)}
+    >
+      <header className="mb-2 flex items-baseline justify-between gap-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/70">
+          {title}
+        </h3>
+        {hint && (
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
+            {hint}
+          </span>
+        )}
+      </header>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function KpiCell({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex min-w-[110px] flex-1 flex-col justify-center px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DataRows({
+  rows,
+  compact,
+  className,
+}: {
+  rows: Array<[string, React.ReactNode]>;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <dl
+      className={cn(
+        "divide-y divide-border/50 rounded-sm border border-border/50 bg-background",
+        className,
+      )}
+    >
+      {rows.map(([k, v]) => (
+        <div
+          key={k}
+          className={cn(
+            "grid grid-cols-[40%_1fr] items-baseline gap-3 px-3",
+            compact ? "py-1" : "py-1.5",
+          )}
+        >
+          <dt className="truncate text-[11px] text-muted-foreground">{k}</dt>
+          <dd className="truncate text-right text-xs font-medium text-foreground">
+            {v || "—"}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function NextActionsBlock({
   visibleAction,
   visibleDue,
