@@ -16,6 +16,9 @@ import {
   Plus,
   ChevronDown,
   Sparkles,
+  X,
+  Hash,
+  Flame,
 } from "lucide-react";
 import {
   Sheet,
@@ -142,6 +145,43 @@ function initials(name: string): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
 }
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  lv: "🇱🇻", latvia: "🇱🇻", latvija: "🇱🇻",
+  lt: "🇱🇹", lithuania: "🇱🇹", lietuva: "🇱🇹",
+  ee: "🇪🇪", estonia: "🇪🇪", igaunija: "🇪🇪",
+  de: "🇩🇪", germany: "🇩🇪", vācija: "🇩🇪", vacija: "🇩🇪",
+  pl: "🇵🇱", poland: "🇵🇱", polija: "🇵🇱",
+  fi: "🇫🇮", finland: "🇫🇮", somija: "🇫🇮",
+  se: "🇸🇪", sweden: "🇸🇪", zviedrija: "🇸🇪",
+  no: "🇳🇴", norway: "🇳🇴", norvēģija: "🇳🇴",
+  dk: "🇩🇰", denmark: "🇩🇰", dānija: "🇩🇰",
+  uk: "🇬🇧", gb: "🇬🇧", "united kingdom": "🇬🇧", lielbritānija: "🇬🇧",
+  us: "🇺🇸", usa: "🇺🇸", "united states": "🇺🇸",
+  ru: "🇷🇺", russia: "🇷🇺",
+  ua: "🇺🇦", ukraine: "🇺🇦", ukraina: "🇺🇦",
+  fr: "🇫🇷", france: "🇫🇷", francija: "🇫🇷",
+  es: "🇪🇸", spain: "🇪🇸", spānija: "🇪🇸",
+  it: "🇮🇹", italy: "🇮🇹", itālija: "🇮🇹",
+  nl: "🇳🇱", netherlands: "🇳🇱",
+  be: "🇧🇪", belgium: "🇧🇪",
+  ie: "🇮🇪", ireland: "🇮🇪",
+  no_country: "",
+};
+function countryFlag(country: string): string {
+  if (!country) return "";
+  const key = country.trim().toLowerCase();
+  if (COUNTRY_FLAGS[key]) return COUNTRY_FLAGS[key];
+  // 2-letter ISO → emoji
+  if (/^[a-z]{2}$/.test(key)) {
+    const code = key.toUpperCase();
+    return String.fromCodePoint(
+      0x1f1e6 + code.charCodeAt(0) - 65,
+      0x1f1e6 + code.charCodeAt(1) - 65,
+    );
+  }
+  return "";
+}
+
 /* ----------------------------- component ----------------------------- */
 
 export function LeadDrawer({
@@ -179,7 +219,7 @@ export function LeadDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[92vw] md:max-w-[1100px] xl:max-w-[1280px]"
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[95vw] md:max-w-[1280px] xl:max-w-[1400px]"
       >
         <DrawerBody
           row={row}
@@ -256,50 +296,98 @@ function DrawerBody({
   const nextFollowup = visibleDue || sisDue;
 
   const waPhone = phone.replace(/[^0-9]/g, "");
+  const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
+  const priorityLabel = s(row.priority_label);
+  const shortLeadId = realLeadId ? realLeadId.slice(0, 8) : "";
+  const flag = countryFlag(country);
 
   return (
     <TooltipProvider delayDuration={150}>
-      {/* ============== STICKY HEADER ============== */}
-      <SheetHeader className="space-y-2 border-b border-border bg-card px-4 pb-3 pt-4 text-left">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <SheetTitle className="truncate text-base font-semibold leading-tight">
-                {displayName}
-              </SheetTitle>
-              {status && <StatusBadge status={status} />}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              {phone && (
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  <a
-                    href={`tel:${phone}`}
-                    className="text-foreground hover:underline"
-                  >
-                    {phone}
-                  </a>
-                </span>
-              )}
-              {email && (
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <a
-                    href={`mailto:${email}`}
-                    className="truncate text-foreground hover:underline"
-                  >
-                    {email}
-                  </a>
-                </span>
-              )}
-              {country && (
-                <span className="inline-flex items-center gap-1">
-                  <Globe2 className="h-3 w-3" />
-                  {country}
-                </span>
-              )}
-            </div>
+      {/* ============== ENTERPRISE STICKY HEADER ============== */}
+      <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-muted/30 px-5 py-3 text-left backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+        <div className="flex items-center gap-4">
+          {/* LEFT — identity */}
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <SheetTitle className="truncate text-[15px] font-semibold leading-tight text-foreground">
+              {displayName}
+            </SheetTitle>
+            {flag && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground"
+                title={country}
+              >
+                <span className="text-base leading-none">{flag}</span>
+                <span className="hidden lg:inline">{country}</span>
+              </span>
+            )}
+            {!flag && country && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                <Globe2 className="h-3 w-3" />
+                {country}
+              </span>
+            )}
+            {shortLeadId && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                <Hash className="h-2.5 w-2.5" />
+                {shortLeadId}
+              </span>
+            )}
+            {priorityScore > 0 && (
+              <span
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                  priorityScore >= 90
+                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                    : priorityScore >= 70
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground",
+                )}
+                title={priorityLabel || `Prioritāte ${priorityScore}`}
+              >
+                <Flame className="h-2.5 w-2.5" />
+                {priorityScore}
+              </span>
+            )}
+            {status && <StatusBadge status={status} />}
           </div>
+
+          {/* CENTER — owner / PPV / tags */}
+          <div className="hidden min-w-0 flex-[1.2] items-center justify-center gap-2 md:flex">
+            {owner && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
+                  {initials(owner)}
+                </span>
+                <span className="truncate text-foreground">{owner}</span>
+              </span>
+            )}
+            {ppv && (
+              <>
+                <span className="text-border">•</span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Sparkles className="h-3 w-3" />
+                  {ppv}
+                </span>
+              </>
+            )}
+            {normalizeTags(tags).length > 0 && (
+              <>
+                <span className="text-border">•</span>
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {normalizeTags(tags).slice(0, 3).map((t) => (
+                    <Tag key={t} label={t} />
+                  ))}
+                  {tags.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      +{tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* RIGHT — quick actions */}
           <div className="flex shrink-0 items-center gap-0.5">
             <IconBtn
               icon={<Phone className="h-3.5 w-3.5" />}
@@ -318,7 +406,7 @@ function DrawerBody({
             />
             <IconBtn
               icon={<CheckSquare className="h-3.5 w-3.5" />}
-              label="Izveidot uzdevumu"
+              label="Uzdevums"
               onClick={() => setCompleteOpen(true)}
               disabled={!realLeadId}
             />
@@ -341,106 +429,63 @@ function DrawerBody({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <IconBtn
+              icon={<X className="h-3.5 w-3.5" />}
+              label="Aizvērt"
+              onClick={() => onPatch && undefined}
+            />
           </div>
         </div>
 
-        {/* meta chips */}
-        <div className="flex flex-wrap items-center gap-1">
+        {/* Mobile center row — owner + tags fold below on narrow */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
           {owner && (
-            <Chip>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <User className="h-3 w-3" />
-              <span className="font-medium">{owner}</span>
-            </Chip>
+              {owner}
+            </span>
           )}
           {ppv && (
-            <Chip>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Sparkles className="h-3 w-3" />
-              <span>PPV: {ppv}</span>
-            </Chip>
+              {ppv}
+            </span>
           )}
-          {/* Prioritātes līmeņi (Zema/Normāla/Augsta) noņemti — prioritāti rāda tikai zvaigznes + reitings. */}
           {normalizeTags(tags).slice(0, 4).map((t) => (
             <Tag key={t} label={t} />
           ))}
-          {tags.length > 4 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{tags.length - 4}
-            </span>
-          )}
-        </div>
-
-        {/* quick actions row */}
-        <div className="flex flex-wrap items-center gap-1 pt-1">
-          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => scrollToSection("timeline")} />
-          <QuickAction icon={<Phone className="h-3 w-3" />} label="Zvans" href={phone ? `tel:${phone}` : undefined} />
-          <QuickAction
-            icon={<MessageCircle className="h-3 w-3" />}
-            label="WhatsApp"
-            href={waPhone ? `https://wa.me/${waPhone}` : undefined}
-          />
-          <QuickAction icon={<Mail className="h-3 w-3" />} label="Email" href={email ? `mailto:${email}` : undefined} />
-          <QuickAction
-            icon={<CheckSquare className="h-3 w-3" />}
-            label="Uzdevums"
-            onClick={() => setCompleteOpen(true)}
-            disabled={!realLeadId}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 items-center gap-1 rounded border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-muted/60"
-              >
-                Mainīt statusu
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-44">
-              {[
-                "Jauns",
-                "Sarunās",
-                "Pieprasījums",
-                "Piedāvājums",
-                "Līgums",
-                "Nesasniedzams",
-                "Zaudēts",
-              ].map((st) => (
-                <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </SheetHeader>
 
+      {/* ============== KPI STRIP (sub-header) ============== */}
+      <div className="shrink-0 border-b border-border bg-background">
+        <div className="mx-auto flex max-w-[1400px] items-stretch divide-x divide-border overflow-x-auto px-2">
+          <KpiCell label="Zvani" value="—" />
+          <KpiCell label="E-pasti" value="—" />
+          <KpiCell label="SMS" value="—" />
+          <KpiCell label="WhatsApp" value="—" />
+          <KpiCell label="Atbildes" value={unreadReplies || "—"} />
+          <KpiCell label="Klikšķi" value="—" />
+          <KpiCell
+            label="Pēdējā aktivitāte"
+            value={lastContact ? relativeTime(lastContact) : "—"}
+          />
+        </div>
+      </div>
+
       {/* ============== SCROLLABLE SECTION CONTENT ============== */}
-      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1200px] px-4 py-4 md:px-6 md:py-5">
+      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/10">
+        <div className="mx-auto max-w-[1400px] px-4 py-4 md:px-6 md:py-5">
           {loading && (
             <div className="mb-4">
               <LoadingState label="Ielādē lead datus…" />
             </div>
           )}
 
-          {/* 2. Communication Summary */}
-          <SectionBlock id="communication" title="Komunikācijas kopsavilkums">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-              <SummaryTile label="Zvani" value="—" />
-              <SummaryTile label="E-pasti" value="—" />
-              <SummaryTile label="SMS" value="—" />
-              <SummaryTile label="WhatsApp" value="—" />
-              <SummaryTile label="Atbildes" value={unreadReplies || "—"} />
-              <SummaryTile label="Klikšķi" value="—" />
-              <SummaryTile
-                label="Pēdējā aktivitāte"
-                value={lastContact ? relativeTime(lastContact) : "—"}
-              />
-            </div>
-          </SectionBlock>
-
-          {/* Desktop: 2-column grid for mid sections */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {/* 4. Next Actions */}
-            <SectionBlock id="next-actions" title="Nākamās darbības">
+          {/* Operational 2-col: Next Actions + Contact Data */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+            <FlatSection id="next-actions" title="Nākamās darbības" hint="Operational">
               <NextActionsBlock
                 visibleAction={visibleAction}
                 visibleDue={visibleDue}
@@ -448,65 +493,87 @@ function DrawerBody({
                 sisLabel={sisLabel}
                 sisDue={sisDue}
               />
-            </SectionBlock>
+            </FlatSection>
 
-            {/* 5. Contact Data */}
-            <SectionBlock id="contact" title="Kontaktdati">
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <KeyVal k="Telefons (E.164)" v={phoneE164 || "—"} />
-                <KeyVal k="Telefons (oriģ.)" v={phoneRaw || "—"} />
-                <KeyVal k="E-pasts" v={email || "—"} />
-                <KeyVal k="Validācija" v="—" />
-                <KeyVal k="Līnijas tips" v="—" />
-                <KeyVal k="Opt-in / Opt-out" v="—" />
-              </div>
-            </SectionBlock>
+            <FlatSection id="contact" title="Kontaktdati">
+              <DataRows
+                rows={[
+                  ["Telefons (E.164)", phoneE164 || "—"],
+                  ["Telefons (oriģ.)", phoneRaw || "—"],
+                  ["E-pasts", email || "—"],
+                  ["Validācija", "—"],
+                  ["Līnijas tips", "—"],
+                  ["Opt-in / Opt-out", "—"],
+                ]}
+              />
+            </FlatSection>
           </div>
 
-          {/* 6. Object / Project */}
-          <SectionBlock id="project" title="Objekts / Projekts">
-            <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
-              <LeadProjects leadId={realLeadId} />
+          {/* Object / Project */}
+          <FlatSection id="project" title="Objekts / Projekts" className="mt-5">
+            <DataRows
+              rows={[
+                ["Objekta nosaukums", s(row.object_name) || displayName],
+                ["Valsts", country || "—"],
+                ["Projekta status", "—"],
+              ]}
+              compact
+            />
+            <DataRows
+              className="mt-2"
+              rows={[
+                ["Adrese", s(row.address) || "—"],
+                ["Zeme", "—"],
+                ["Plānotais būvn.", "—"],
+                ["Stadija", "—"],
+              ]}
+              compact
+            />
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Milestones
+              </div>
+              <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
+                <LeadProjects leadId={realLeadId} />
+              </Suspense>
+            </div>
+          </FlatSection>
+
+          {/* Timeline */}
+          <FlatSection id="timeline" title="Aktivitāšu laika līnija" className="mt-5">
+            <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
+              <LeadCommunicationTimeline leadId={realLeadId} />
             </Suspense>
-            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              <SummaryTile label="Projekta status" value="—" />
-              <SummaryTile label="Zeme" value="—" />
-              <SummaryTile label="Stadija" value="—" />
-              <SummaryTile label="Plānotais būvn." value="—" />
-            </div>
-          </SectionBlock>
-
-          {/* 3. Timeline */}
-          <SectionBlock id="timeline" title="Aktivitāšu laika līnija">
-            <div className="rounded-md border border-border bg-card">
-              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
-                <div className="px-3 py-2">
-                  <LeadCommunicationTimeline leadId={realLeadId} />
-                </div>
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Darbību vēsture
+              </div>
+              <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
+                <LeadActionHistory leadId={realLeadId} />
               </Suspense>
             </div>
-            <div className="mt-2 rounded-md border border-border bg-card">
-              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
-                <div className="px-3 py-2">
-                  <LeadActionHistory leadId={realLeadId} />
-                </div>
-              </Suspense>
-            </div>
-          </SectionBlock>
+          </FlatSection>
 
-          {/* 7. Raw / Audit / Import */}
-          <SectionBlock id="audit" title="Raw / Audit / Import">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <KeyVal k="Importa avots" v={importSource || "—"} />
-                <KeyVal k="Avots" v={source || "—"} />
-                <KeyVal k="Konflikti" v="—" />
-              </div>
-              <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-                Raw payload preview un audit vēsture vēl nav pieslēgta.
+          {/* Raw / Audit / Import */}
+          <FlatSection id="audit" title="Raw / Audit / Import" className="mt-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <DataRows
+                rows={[
+                  ["Avots", source || "—"],
+                  ["Importa avots", importSource || "—"],
+                  ["Konflikti", "—"],
+                  ["Importa sesija", "—"],
+                  ["Audit ierakstu skaits", "—"],
+                ]}
+              />
+              <div className="rounded-sm border border-dashed border-border/60 bg-background px-3 py-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                  Raw payload preview
+                </div>
+                <div className="text-muted-foreground/60">// nav pieejams</div>
               </div>
             </div>
-          </SectionBlock>
+          </FlatSection>
         </div>
       </div>
 
@@ -705,6 +772,86 @@ function SectionBlock({
       </div>
       {children}
     </section>
+  );
+}
+
+function FlatSection({
+  id,
+  title,
+  hint,
+  className,
+  children,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={`lead-section-${id}`}
+      className={cn("scroll-mt-4", className)}
+    >
+      <header className="mb-2 flex items-baseline justify-between gap-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/70">
+          {title}
+        </h3>
+        {hint && (
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
+            {hint}
+          </span>
+        )}
+      </header>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function KpiCell({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex min-w-[110px] flex-1 flex-col justify-center px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DataRows({
+  rows,
+  compact,
+  className,
+}: {
+  rows: Array<[string, React.ReactNode]>;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <dl
+      className={cn(
+        "divide-y divide-border/50 rounded-sm border border-border/50 bg-background",
+        className,
+      )}
+    >
+      {rows.map(([k, v]) => (
+        <div
+          key={k}
+          className={cn(
+            "grid grid-cols-[40%_1fr] items-baseline gap-3 px-3",
+            compact ? "py-1" : "py-1.5",
+          )}
+        >
+          <dt className="truncate text-[11px] text-muted-foreground">{k}</dt>
+          <dd className="truncate text-right text-xs font-medium text-foreground">
+            {v || "—"}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
