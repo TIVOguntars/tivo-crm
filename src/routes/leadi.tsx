@@ -265,12 +265,41 @@ function StatusBadge({ value }: { value: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center rounded border px-1.5 text-[11px] font-medium leading-none",
+        "inline-flex h-4 items-center rounded-sm px-1 text-[10.5px] font-medium leading-none",
         statusTone(value),
       )}
     >
       {value}
     </span>
+  );
+}
+
+/** PRIORITĀTE column — stars + muted score. */
+function PriorityCell({ score }: { score: number }) {
+  const stars = Math.max(0, Math.min(5, Math.round(score / 20)));
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="inline-flex items-center text-amber-500/90 dark:text-amber-400/80"
+        aria-label={`Prioritāte ${stars} no 5`}
+      >
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            className={cn(
+              "h-2.5 w-2.5",
+              i < stars
+                ? "fill-current"
+                : "text-muted-foreground/25 fill-transparent",
+            )}
+            strokeWidth={1.5}
+          />
+        ))}
+      </span>
+      <span className="text-[10px] tabular-nums text-muted-foreground/70">
+        {score || 0}
+      </span>
+    </div>
   );
 }
 
