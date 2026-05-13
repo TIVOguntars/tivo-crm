@@ -1574,21 +1574,21 @@ function LeadiPage() {
                           : noContact
                             ? "before:bg-muted-foreground/30"
                             : "before:bg-transparent";
-                    // Communication activity label
-                    const commLabel = l.has_unread_reply
-                      ? "Atbildēja"
-                      : l.communication_state === "waiting"
-                        ? "Gaida atbildi"
-                        : l.communication_state === "active"
-                          ? "Aktīva saziņa"
-                          : l.communication_state === "event_only"
-                            ? "Ir notikums"
-                            : l.communication_state === "no_contact"
-                              ? "Nav kontakta"
-                              : null;
-                    const commTimeSrc = l.has_unread_reply
-                      ? l.last_reply_at
-                      : l.last_communication_at || l.last_activity || l.created_at;
+                    // Communication label from view, with fallback by state
+                    const commLabel =
+                      l.communication_label ||
+                      (l.communication_state === "unread"
+                        ? "Atbildēja"
+                        : l.communication_state === "waiting"
+                          ? "Gaida atbildi"
+                          : l.communication_state === "active"
+                            ? "Aktīva saziņa"
+                            : l.communication_state === "event_only"
+                              ? "Ir notikums"
+                              : l.communication_state === "no_contact"
+                                ? "Nav kontakta"
+                                : "");
+                    const commTimeSrc = l.last_reply_at || l.last_communication_at;
                     const isCursor =
                       visibleRows[activeIdx]?.lead_id === l.lead_id;
                     return (
