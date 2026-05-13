@@ -182,7 +182,7 @@ export function LeadDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[92vw] md:max-w-[1100px] xl:max-w-[1280px]"
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[95vw] md:max-w-[1280px] xl:max-w-[1400px]"
       >
         <DrawerBody
           row={row}
