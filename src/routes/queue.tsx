@@ -179,13 +179,8 @@ function TagsCell({ tags }: { tags: string[] }) {
   if (tags.length === 0) return <span className="text-muted-foreground">—</span>;
   return (
     <div className="flex flex-wrap gap-1">
-      {tags.map((t) => (
-        <span
-          key={t}
-          className="inline-flex h-4 items-center rounded-sm bg-muted px-1 text-[10px] font-normal lowercase text-muted-foreground"
-        >
-          {t}
-        </span>
+      {normalizeTags(tags).map((t) => (
+        <Tag key={t} label={t} />
       ))}
     </div>
   );
