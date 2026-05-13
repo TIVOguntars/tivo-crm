@@ -500,6 +500,11 @@ function DrawerBody({
           ))}
         </div>
         )}
+        {!loading && (
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground/80">
+            Active CRM lead_id: {realLeadId || "—"}
+          </div>
+        )}
       </SheetHeader>
 
       {/* ============== KPI STRIP ============== */}
