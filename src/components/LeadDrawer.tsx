@@ -229,11 +229,64 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
+  // Resolve canonical crm.leads.id (handles cases where the drawer was opened
+  // with an external_id / queue id). All downstream crm.* queries MUST use
+  // this id, never the raw `leadId` prop.
+  const canonicalLeadId =
+    s((leadQ.data?.rows?.[0] as Row | undefined)?.id) || leadId || "";
+
+  // Source 3: communication summary (counts, last activity) straight from
+  // crm.lead_communication_summary. This is the SOLE source of KPI numbers.
+  const summaryQ = useQuery({
+    queryKey: ["crm", "lead_communication_summary", canonicalLeadId],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "lead_communication_summary",
+          query: `lead_id=eq.${encodeURIComponent(canonicalLeadId)}&limit=1`,
+        },
+      }),
+    enabled: open && !!canonicalLeadId,
+    staleTime: 30_000,
+  });
+
+  // Source 4: per-channel counts derived from crm.communications.
+  // Aggregated client-side (limit 200 covers all realistic per-lead volume).
+  const commsQ = useQuery({
+    queryKey: ["crm", "communications_kpi", canonicalLeadId],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "communications",
+          query: `lead_id=eq.${encodeURIComponent(canonicalLeadId)}&select=channel,direction&limit=500`,
+        },
+      }),
+    enabled: open && !!canonicalLeadId,
+    staleTime: 30_000,
+  });
+
+  const channelCounts = useMemo(() => {
+    const rows = (commsQ.data?.rows ?? []) as Row[];
+    const out = { call: 0, email: 0, sms: 0, whatsapp: 0, inbound: 0, outbound: 0 };
+    for (const r of rows) {
+      const ch = s(r.channel).toLowerCase();
+      const dir = s(r.direction).toLowerCase();
+      if (ch === "call" || ch === "phone") out.call += 1;
+      else if (ch === "email") out.email += 1;
+      else if (ch === "sms") out.sms += 1;
+      else if (ch === "whatsapp") out.whatsapp += 1;
+      if (dir.startsWith("in")) out.inbound += 1;
+      else if (dir.startsWith("out")) out.outbound += 1;
+    }
+    return out;
+  }, [commsQ.data]);
+
   const row: Row = useMemo(() => {
     const q = (queueQ.data?.rows?.[0] as Row | undefined) ?? {};
     const l = (leadQ.data?.rows?.[0] as Row | undefined) ?? {};
     const c = (l.contacts as Row | undefined) ?? {};
     const raw = (l.raw_data as Row | undefined) ?? {};
+    const sum = (summaryQ.data?.rows?.[0] as Row | undefined) ?? {};
     return {
       // identity
       lead_id: s(l.id) || s(q.lead_id) || leadId || "",
@@ -245,38 +298,39 @@ export function LeadDrawer({
         "",
       country: s(q.country) || s(raw.valsts) || "",
       tags: q.tags ?? raw.tags ?? null,
-      // status / priority / owner / ppv
-      lead_status_label: s(q.lead_status_label) || s(l.status) || s(raw.status),
+      // status — CANONICAL source is crm.leads.status only.
+      // No queue / raw_data / cached fallback.
+      lead_status_label: s(l.status),
       visible_action_owner:
         s(q.action_owner_label) || s(raw.atbildigais) || "",
       ppv_name: s(q.ppv_name) || s(raw.ppv_vards) || "",
       priority_score: q.lead_priority_score ?? null,
       priority_label: s(q.priority_label),
-      // contact (real)
-      phone_e164: s(c.phone_e164) || s(q.phone_e164) || s(raw.telefons_e164),
-      phone_raw: s(c.phone_raw) || s(raw.telefons_neapstradats),
-      phone_validated: c.phone_validated ?? q.phone_validated ?? null,
-      phone_line_type: s(c.phone_line_type) || s(q.phone_line_type) || "",
-      email_normalized:
-        s(c.email_normalized) || s(q.email_normalized) || s(raw.email_normalized),
-      email_raw: s(c.email_raw) || s(raw.email_raw),
+      // contact — CANONICAL source is crm.contacts only.
+      // Validation badges depend on these exact values (no fallback).
+      phone_e164: s(c.phone_e164),
+      phone_raw: s(c.phone_raw),
+      phone_validated: c.phone_validated ?? null,
+      phone_line_type: s(c.phone_line_type),
+      email_normalized: s(c.email_normalized),
+      email_raw: s(c.email_raw),
       // next action
       visible_action: s(q.action_label),
       visible_action_due_at: s(q.effective_due_at) || s(q.due_at),
       visible_action_is_human: s(q.action_owner_type) === "user",
       system_action_label: s(q.automatizacija),
       system_due_date: s(q.automatizacijas_datums),
-      // communication summary
-      last_communication_at: s(q.last_communication_at),
-      last_inbound_at: s(q.last_inbound_at),
-      last_outbound_at: s(q.last_outbound_at),
-      last_reply_at: s(q.last_reply_at),
-      reply_count: q.reply_count ?? null,
-      click_count: q.click_count ?? null,
-      communication_count: q.communication_count ?? null,
-      has_unread_reply: q.has_unread_reply ?? null,
-      communication_state: s(q.communication_state),
-      communication_label: s(q.communication_label),
+      // communication summary — CANONICAL: crm.lead_communication_summary
+      last_communication_at: s(sum.last_communication_at),
+      last_inbound_at: s(sum.last_inbound_at),
+      last_outbound_at: s(sum.last_outbound_at),
+      last_reply_at: s(sum.last_reply_at),
+      reply_count: sum.reply_count ?? 0,
+      click_count: sum.click_count ?? 0,
+      communication_count: sum.communication_count ?? 0,
+      has_unread_reply: sum.has_unread_reply ?? null,
+      communication_state: s(sum.communication_state),
+      communication_label: s(sum.communication_label),
       // audit
       source: s(l.source) || s(raw.source),
       import_source: s(l.external_source),
@@ -284,7 +338,7 @@ export function LeadDrawer({
       created_at: s(l.created_at),
       raw_data: raw,
     };
-  }, [queueQ.data, leadQ.data, leadId]);
+  }, [queueQ.data, leadQ.data, summaryQ.data, leadId]);
 
   const loading = queueQ.isLoading || leadQ.isLoading;
 
@@ -296,7 +350,8 @@ export function LeadDrawer({
       >
         <DrawerBody
           row={row}
-          leadId={leadId}
+          leadId={canonicalLeadId || leadId}
+          channelCounts={channelCounts}
           loading={loading}
           onActionCompleted={onActionCompleted}
           onPatch={onPatch}
@@ -310,6 +365,7 @@ export function LeadDrawer({
 function DrawerBody({
   row,
   leadId,
+  channelCounts,
   loading,
   onActionCompleted,
   onPatch,
@@ -317,6 +373,7 @@ function DrawerBody({
 }: {
   row: Row;
   leadId: string | null;
+  channelCounts: { call: number; email: number; sms: number; whatsapp: number; inbound: number; outbound: number };
   loading: boolean;
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
@@ -356,7 +413,10 @@ function DrawerBody({
     s(row.last_contact_date) ||
     s(row.last_communication_at) ||
     s(row.last_inbound_at);
-  const unreadReplies = s(row.unread_replies) || s(row.unread_count);
+  const replyCount = Number(row.reply_count ?? 0);
+  const clickCount = Number(row.click_count ?? 0);
+  const inboundCount = channelCounts.inbound;
+  const fmtCount = (n: number) => (n > 0 ? String(n) : "—");
 
   const waPhone = phone.replace(/[^0-9]/g, "");
   const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
@@ -510,12 +570,13 @@ function DrawerBody({
       {/* ============== KPI STRIP ============== */}
       <div className="shrink-0 border-b border-border bg-background">
         <div className="flex items-stretch divide-x divide-border/60 overflow-x-auto px-2">
-          <KpiCell label="Zvani" value="—" />
-          <KpiCell label="E-pasti" value="—" />
-          <KpiCell label="SMS" value="—" />
-          <KpiCell label="WhatsApp" value="—" />
-          <KpiCell label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
-          <KpiCell label="Klikšķi" value="—" />
+          <KpiCell label="Zvani" value={fmtCount(channelCounts.call)} />
+          <KpiCell label="E-pasti" value={fmtCount(channelCounts.email)} />
+          <KpiCell label="SMS" value={fmtCount(channelCounts.sms)} />
+          <KpiCell label="WhatsApp" value={fmtCount(channelCounts.whatsapp)} />
+          <KpiCell label="Ienākošie" value={fmtCount(inboundCount)} accent={inboundCount > 0 ? "green" : undefined} />
+          <KpiCell label="Atbildes" value={fmtCount(replyCount)} accent={replyCount > 0 ? "green" : undefined} />
+          <KpiCell label="Klikšķi" value={fmtCount(clickCount)} />
           <KpiCell label="Pēd. aktivitāte" value={lastContact ? relativeTime(lastContact) : "—"} />
           <KpiCell label="Atvērts" value={relativeTime(row.lead_created_at ?? row.created_at)} />
         </div>
@@ -597,11 +658,11 @@ function DrawerBody({
                 <div className="space-y-4">
                   <SecondarySection id="kpi" title="KPI kopsavilkums" hint="Snapshot">
                     <div className="grid grid-cols-2 gap-1.5">
-                      <MiniKpi label="Zvani" value="—" />
-                      <MiniKpi label="E-pasti" value="—" />
-                      <MiniKpi label="SMS" value="—" />
-                      <MiniKpi label="WhatsApp" value="—" />
-                      <MiniKpi label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
+                      <MiniKpi label="Zvani" value={fmtCount(channelCounts.call)} />
+                      <MiniKpi label="E-pasti" value={fmtCount(channelCounts.email)} />
+                      <MiniKpi label="SMS" value={fmtCount(channelCounts.sms)} />
+                      <MiniKpi label="WhatsApp" value={fmtCount(channelCounts.whatsapp)} />
+                      <MiniKpi label="Atbildes" value={fmtCount(replyCount)} accent={replyCount > 0 ? "green" : undefined} />
                       <MiniKpi label="Pēd. akt." value={lastContact ? relativeTime(lastContact) : "—"} />
                     </div>
                   </SecondarySection>
@@ -610,14 +671,16 @@ function DrawerBody({
                     <div className="rounded-sm border border-border/60 bg-card">
                       <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-2.5 py-1.5">
                         <span className="truncate text-[12px] font-semibold text-foreground">
-                          {s(row.object_name) || displayName}
+                          {s((row.raw_data as Row | undefined)?.objekts) || s(row.object_name) || displayName}
                         </span>
                         {flag && <span className="text-base leading-none">{flag}</span>}
                         {status && <StatusBadge status={status} />}
                       </div>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5">
-                        <InlineKv label="Adrese" value={s(row.address)} dense />
-                        <InlineKv label="Projekts" value="" dense />
+                        <InlineKv label="Zeme" value={s((row.raw_data as Row | undefined)?.forma_zeme)} dense />
+                        <InlineKv label="Projekts" value={s((row.raw_data as Row | undefined)?.forma_projekts)} dense />
+                        <InlineKv label="Termiņš" value={s((row.raw_data as Row | undefined)?.termins)} dense />
+                        <InlineKv label="Plānota būvniecība" value={s((row.raw_data as Row | undefined)?.planota_buvniecība_text) || s((row.raw_data as Row | undefined)?.planota_buvnieciba_text)} dense />
                       </div>
                       <div className="border-t border-border/40 px-2.5 py-2">
                         <MilestoneTrack row={row} />
