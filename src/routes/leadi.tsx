@@ -565,7 +565,7 @@ function LeadiPage() {
   const leadIdentityQuery = useMemo(() => {
     if (overviewLeadIds.length === 0) return "select=id,external_id&limit=0";
     const ids = overviewLeadIds.map((id) => `"${id.replace(/"/g, "")}"`).join(",");
-    return `select=id,external_id&external_id=in.(${ids})&limit=${overviewLeadIds.length}`;
+    return `select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&or=(id.in.(${ids}),external_id.in.(${ids}))&limit=${overviewLeadIds.length}`;
   }, [overviewLeadIds]);
   const leadIdentity = useCrmView(
     "leads",
@@ -582,6 +582,33 @@ function LeadiPage() {
       map.set(crmLeadId, crmLeadId);
       const externalId = s(r.external_id);
       if (externalId) map.set(externalId, crmLeadId);
+    }
+    return map;
+  }, [leadIdentity.data]);
+
+  // Authoritative crm.leads facts keyed by canonical crm.leads.id.
+  // The enriched queue view (next_action_queue_display_enriched) caches a
+  // stale lead_status_label and must NEVER override crm.leads.status here.
+  type LeadFacts = {
+    status: string;
+    owner_user_id: string;
+    ppv_user_id: string;
+    contact_id: string;
+    updated_at: string;
+  };
+  const crmLeadFactsById = useMemo(() => {
+    const map = new Map<string, LeadFacts>();
+    const rows = (leadIdentity.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const crmLeadId = s(r.id);
+      if (!crmLeadId) continue;
+      map.set(crmLeadId, {
+        status: s(r.status),
+        owner_user_id: s(r.owner_user_id),
+        ppv_user_id: s(r.ppv_user_id),
+        contact_id: s(r.contact_id),
+        updated_at: s(r.updated_at),
+      });
     }
     return map;
   }, [leadIdentity.data]);
