@@ -558,7 +558,8 @@ function LeadiPage() {
   );
   const leadIdentity = useCrmView(
     "leads",
-    "select=id,external_id&limit=20000",
+    "select=id,external_id",
+    { all: true },
   );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
