@@ -1533,14 +1533,9 @@ function LeadiPage() {
                         {/* ATBILDĪGAIS */}
                         <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
                           {l.owner ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground shrink-0">
-                                {initials(l.owner)}
-                              </span>
-                              <span className="truncate text-foreground text-[11.5px]">
-                                {l.owner}
-                              </span>
-                            </div>
+                            <span className="truncate text-foreground text-[11.5px] font-medium tabular-nums">
+                              {l.owner}
+                            </span>
                           ) : (
                             <span className="text-muted-foreground/50">—</span>
                           )}
