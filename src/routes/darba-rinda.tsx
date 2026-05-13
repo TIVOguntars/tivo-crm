@@ -20,6 +20,7 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 
 /* ----------------------- Route + search params ----------------------- */
 
@@ -909,18 +910,8 @@ function DarbaRindaPage() {
                             <span className="text-muted-foreground">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-1">
-                              {lead.tags.map((t) => (
-                                <span
-                                  key={t}
-                                  className={cn(
-                                    "rounded px-1.5 py-0.5 text-[10px]",
-                                    t.toLowerCase() === "hot"
-                                      ? "bg-destructive/15 text-destructive"
-                                      : "bg-secondary text-secondary-foreground",
-                                  )}
-                                >
-                                  {t}
-                                </span>
+                              {normalizeTags(lead.tags).map((t) => (
+                                <Tag key={t} label={t} />
                               ))}
                             </div>
                           )}

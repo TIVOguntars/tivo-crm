@@ -11,13 +11,13 @@ export type TagVariant = keyof typeof TAG_STYLES;
 export function resolveTagVariant(label: string): TagVariant {
   const t = label.trim().toLowerCase();
   if (!t) return "default";
+  if (t in TAG_STYLES) return t as TagVariant;
   if (/^(hot|karst)/.test(t)) return "hot";
   if (/get.?estimate|tame|aprekin/.test(t)) return "getestimate";
   if (/(sketch|skice|skiс)/.test(t)) return "sketch";
   if (/(warn|konflikt|brid|attention)/.test(t)) return "warning";
   if (/(success|ok|done|pabeig|sasniedz)/.test(t)) return "success";
   if (/(info|piezim|note)/.test(t)) return "info";
-  if (t in TAG_STYLES) return t as TagVariant;
   return "default";
 }
 
