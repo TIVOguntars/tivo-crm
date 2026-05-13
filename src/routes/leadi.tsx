@@ -99,6 +99,7 @@ const PAGE_SIZE = 300;
 
 interface Lead {
   lead_id: string;
+  display_lead_id: string;
   name: string;
   phone: string;
   email: string;
@@ -555,7 +556,24 @@ function LeadiPage() {
     "next_action_queue_display_enriched",
     overviewQuery,
   );
+  const leadIdentity = useCrmView(
+    "leads",
+    "select=id,external_id&limit=20000",
+  );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
+
+  const crmLeadIdByKnownId = useMemo(() => {
+    const map = new Map<string, string>();
+    const rows = (leadIdentity.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const crmLeadId = s(r.id);
+      if (!crmLeadId) continue;
+      map.set(crmLeadId, crmLeadId);
+      const externalId = s(r.external_id);
+      if (externalId) map.set(externalId, crmLeadId);
+    }
+    return map;
+  }, [leadIdentity.data]);
 
   // Prioritātes reitings — vienīgais pareizais avots.
   // analytics.lead_rating_calculated NETIEK lietots (vecs algoritms).
@@ -661,8 +679,9 @@ function LeadiPage() {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
       .map((r) => {
-        const id = s(r.lead_id);
-        if (!id) return null;
+        const displayLeadId = s(r.lead_id) || s(r.id);
+        if (!displayLeadId) return null;
+        const id = crmLeadIdByKnownId.get(displayLeadId) ?? displayLeadId;
         const phone = s(
           r.phone_e164 || r.telefons_e164 || r.telefons_raw || r.phone_raw,
         );
@@ -687,7 +706,7 @@ function LeadiPage() {
         // Prioritāte = analytics.lead_reitings_preview.reitings.
         // Terminālie statusi vienmēr 0.
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const reitings = reitingsByLead.get(id);
+        const reitings = reitingsByLead.get(id) ?? reitingsByLead.get(displayLeadId);
         const priorityScore = isTerminal
           ? 0
           : Number.isFinite(reitings)
@@ -695,6 +714,7 @@ function LeadiPage() {
             : 0;
         return {
           lead_id: id,
+          display_lead_id: displayLeadId,
           name: leadDisplayName(r),
           phone,
           email,
@@ -727,7 +747,7 @@ function LeadiPage() {
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead]);
+  }, [overview.data, reitingsByLead, crmLeadIdByKnownId]);
 
   // Apply optimistic patches on top of server data
   const leadsPatched = useMemo(() => {
