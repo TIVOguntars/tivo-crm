@@ -16,6 +16,9 @@ import {
   Plus,
   ChevronDown,
   Sparkles,
+  X,
+  Hash,
+  Flame,
 } from "lucide-react";
 import {
   Sheet,
