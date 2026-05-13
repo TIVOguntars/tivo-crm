@@ -365,7 +365,7 @@ function DrawerBody({
 
         {/* quick actions row */}
         <div className="flex flex-wrap items-center gap-1 pt-1">
-          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => setTab("komunikacijas")} />
+          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => scrollToSection("timeline")} />
           <QuickAction icon={<Phone className="h-3 w-3" />} label="Zvans" href={phone ? `tel:${phone}` : undefined} />
           <QuickAction
             icon={<MessageCircle className="h-3 w-3" />}
@@ -406,94 +406,101 @@ function DrawerBody({
         </div>
       </SheetHeader>
 
-      {/* ============== STICKY TABS ============== */}
-      <nav className="flex shrink-0 items-center gap-0 border-b border-border bg-background px-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "relative h-9 px-3 text-xs font-medium transition-colors",
-              tab === t.key
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-            {tab === t.key && (
-              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />
-            )}
-          </button>
-        ))}
-      </nav>
+      {/* ============== SCROLLABLE SECTION CONTENT ============== */}
+      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[1200px] px-4 py-4 md:px-6 md:py-5">
+          {loading && (
+            <div className="mb-4">
+              <LoadingState label="Ielādē lead datus…" />
+            </div>
+          )}
 
-      {/* ============== SCROLLABLE CONTENT ============== */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-3">
-          {tab === "parskats" && (
-            <OverviewTab
-              status={status}
-              owner={owner}
-              ppv={ppv}
-              source={source}
-              tags={tags}
-              visibleAction={visibleAction}
-              visibleDue={visibleDue}
-              isHumanPrimary={isHumanPrimary}
-              sisLabel={sisLabel}
-              sisDue={sisDue}
-              lastContact={lastContact}
-              lastReply={lastReply}
-              unreadReplies={unreadReplies}
-              nextFollowup={nextFollowup}
-              leadId={realLeadId}
-            />
-          )}
-          {tab === "komunikacijas" && (
-            <CommunicationsTab
-              leadId={realLeadId}
-              hasEmail={!!email}
-              hasPhone={!!phone}
-              onSent={() =>
-                applyPatch({ last_activity: new Date().toISOString() })
-              }
-            />
-          )}
-          {tab === "uzdevumi" && (
-            <TasksTab
-              leadId={realLeadId}
-              visibleAction={visibleAction}
-              visibleDue={visibleDue}
-              owner={owner}
-              isHuman={isHumanPrimary}
-              sisLabel={sisLabel}
-              sisDue={sisDue}
-              onComplete={() => setCompleteOpen(true)}
-            />
-          )}
-          {tab === "objekti" && (
-            <Suspense fallback={<LoadingState />}>
+          {/* 2. Communication Summary */}
+          <SectionBlock id="communication" title="Komunikācijas kopsavilkums">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
+              <SummaryTile label="Zvani" value="—" />
+              <SummaryTile label="E-pasti" value="—" />
+              <SummaryTile label="SMS" value="—" />
+              <SummaryTile label="WhatsApp" value="—" />
+              <SummaryTile label="Atbildes" value={unreadReplies || "—"} />
+              <SummaryTile label="Klikšķi" value="—" />
+              <SummaryTile
+                label="Pēdējā aktivitāte"
+                value={lastContact ? relativeTime(lastContact) : "—"}
+              />
+            </div>
+          </SectionBlock>
+
+          {/* Desktop: 2-column grid for mid sections */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+            {/* 4. Next Actions */}
+            <SectionBlock id="next-actions" title="Nākamās darbības">
+              <NextActionsBlock
+                visibleAction={visibleAction}
+                visibleDue={visibleDue}
+                isHumanPrimary={isHumanPrimary}
+                sisLabel={sisLabel}
+                sisDue={sisDue}
+              />
+            </SectionBlock>
+
+            {/* 5. Contact Data */}
+            <SectionBlock id="contact" title="Kontaktdati">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <KeyVal k="Telefons (E.164)" v={phoneE164 || "—"} />
+                <KeyVal k="Telefons (oriģ.)" v={phoneRaw || "—"} />
+                <KeyVal k="E-pasts" v={email || "—"} />
+                <KeyVal k="Validācija" v="—" />
+                <KeyVal k="Līnijas tips" v="—" />
+                <KeyVal k="Opt-in / Opt-out" v="—" />
+              </div>
+            </SectionBlock>
+          </div>
+
+          {/* 6. Object / Project */}
+          <SectionBlock id="project" title="Objekts / Projekts">
+            <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
               <LeadProjects leadId={realLeadId} />
             </Suspense>
-          )}
-          {tab === "vesture" && (
-            <Suspense fallback={<LoadingState />}>
-              <LeadActionHistory leadId={realLeadId} />
-            </Suspense>
-          )}
-          {tab === "dati" && (
-            <DataTab
-              phoneE164={phoneE164}
-              phoneRaw={phoneRaw}
-              email={email}
-              source={source}
-              country={country}
-              importSource={importSource}
-              owner={owner}
-              ppv={ppv}
-            />
-          )}
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <SummaryTile label="Projekta status" value="—" />
+              <SummaryTile label="Zeme" value="—" />
+              <SummaryTile label="Stadija" value="—" />
+              <SummaryTile label="Plānotais būvn." value="—" />
+            </div>
+          </SectionBlock>
+
+          {/* 3. Timeline */}
+          <SectionBlock id="timeline" title="Aktivitāšu laika līnija">
+            <div className="rounded-md border border-border bg-card">
+              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
+                <div className="px-3 py-2">
+                  <LeadCommunicationTimeline leadId={realLeadId} />
+                </div>
+              </Suspense>
+            </div>
+            <div className="mt-2 rounded-md border border-border bg-card">
+              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
+                <div className="px-3 py-2">
+                  <LeadActionHistory leadId={realLeadId} />
+                </div>
+              </Suspense>
+            </div>
+          </SectionBlock>
+
+          {/* 7. Raw / Audit / Import */}
+          <SectionBlock id="audit" title="Raw / Audit / Import">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <KeyVal k="Importa avots" v={importSource || "—"} />
+                <KeyVal k="Avots" v={source || "—"} />
+                <KeyVal k="Konflikti" v="—" />
+              </div>
+              <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+                Raw payload preview un audit vēsture vēl nav pieslēgta.
+              </div>
+            </div>
+          </SectionBlock>
         </div>
       </div>
 
@@ -539,7 +546,7 @@ function DrawerBody({
             size="sm"
             variant="ghost"
             className="h-7 gap-1 text-xs"
-            onClick={() => setTab("komunikacijas")}
+            onClick={() => scrollToSection("timeline")}
           >
             <Send className="h-3.5 w-3.5" />
             Sūtīt ziņu
