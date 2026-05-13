@@ -35,6 +35,7 @@ const VIEWS = [
   "dashboard_tasks",
   "dashboard_communications",
   "dashboard_imports",
+  "lead_reitings_preview",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];

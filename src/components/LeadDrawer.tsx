@@ -281,7 +281,7 @@ function DrawerBody({
   const realLeadId = s(row.lead_id) || leadId;
   const displayName = leadDisplayName(row, realLeadId);
   const status = s(localPatch.status ?? row.lead_status_label);
-  const priority = s(row.priority_label);
+  // priority_label vairs neizmantojam — prioritāti rāda tikai zvaigznes + reitings.
   const owner = s(localPatch.owner ?? row.visible_action_owner);
   const ppv = s(localPatch.ppv ?? row.ppv_name);
   const country = s(row.country);
@@ -423,20 +423,7 @@ function DrawerBody({
               <span>PPV: {ppv}</span>
             </Chip>
           )}
-          {priority && (
-            <span
-              className={cn(
-                "inline-flex h-5 items-center rounded px-1.5 text-[10px] font-medium",
-                priority === "Augsta"
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                  : priority === "Normāla"
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                    : "bg-muted text-muted-foreground",
-              )}
-            >
-              {priority}
-            </span>
-          )}
+          {/* Prioritātes līmeņi (Zema/Normāla/Augsta) noņemti — prioritāti rāda tikai zvaigznes + reitings. */}
           {tags.slice(0, 4).map((t) => (
             <span
               key={t}

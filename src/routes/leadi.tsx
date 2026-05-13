@@ -301,7 +301,11 @@ function StatusBadge({ value }: { value: string }) {
 
 /** PRIORITĀTE column — stars + muted score. */
 function PriorityCell({ score }: { score: number }) {
-  const stars = Math.max(0, Math.min(5, Math.round(score / 20)));
+  // Star buckets per spec:
+  //   0     → 0 stars (terminal status, score forced to 0)
+  //   1–19  → 1, 20–39 → 2, 40–59 → 3, 60–79 → 4, 80–100 → 5
+  const stars =
+    score <= 0 ? 0 : Math.max(1, Math.min(5, Math.floor(score / 20) + 1));
   return (
     <div className="flex items-center gap-1.5">
       <span
@@ -560,6 +564,24 @@ function LeadiPage() {
   );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
+  // Prioritātes reitings — vienīgais pareizais avots.
+  // analytics.lead_rating_calculated NETIEK lietots (vecs algoritms).
+  const reitingsView = useAnalyticsView(
+    "lead_reitings_preview",
+    "select=lead_id,reitings&limit=20000",
+  );
+  const reitingsByLead = useMemo(() => {
+    const map = new Map<string, number>();
+    const rows = (reitingsView.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      const v = Number(r.reitings);
+      if (Number.isFinite(v)) map.set(lid, v);
+    }
+    return map;
+  }, [reitingsView.data]);
+
   // Per-lead communication counters (📞 / ✉️ / 💬 outbound/inbound).
   // Aggregated from crm.communications since the enriched queue view
   // does not expose channel-level counts.
@@ -672,6 +694,15 @@ function LeadiPage() {
         const communication_state = s(r.communication_state).toLowerCase();
         const tagsArr = asTags(r.tags);
         const statusStr = s(r.lead_status_label || r.status);
+        // Prioritāte = analytics.lead_reitings_preview.reitings.
+        // Terminālie statusi vienmēr 0.
+        const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
+        const reitings = reitingsByLead.get(id);
+        const priorityScore = isTerminal
+          ? 0
+          : Number.isFinite(reitings)
+            ? (reitings as number)
+            : 0;
         return {
           lead_id: id,
           name: leadDisplayName(r),
@@ -701,11 +732,11 @@ function LeadiPage() {
           is_hot:
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
-          priority_score: Number(r.priority_score ?? r.priority ?? 0) || 0,
+          priority_score: priorityScore,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data]);
+  }, [overview.data, reitingsByLead]);
 
   // Apply optimistic patches on top of server data
   const leadsPatched = useMemo(() => {
