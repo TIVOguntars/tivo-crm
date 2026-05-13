@@ -661,7 +661,7 @@ function LeadProfilePage() {
                   leadId={currentLeadId}
                   defaultCategory="all"
                   limit={100}
-                  leadStatus={status}
+                  leadStatus={status == null ? null : String(status)}
                 />
               </section>
             </TabsContent>
@@ -675,7 +675,7 @@ function LeadProfilePage() {
             <UnifiedActivityTimeline
               leadId={currentLeadId}
               defaultCategory="communications"
-              leadStatus={status}
+              leadStatus={status == null ? null : String(status)}
             />
           </section>
         </div>
