@@ -1436,7 +1436,7 @@ function LeadiPage() {
                       >
                         <div
                           role="cell"
-                          className="px-2 py-1 flex items-center"
+                          className="px-1.5 py-1 flex items-center"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Checkbox
@@ -1445,7 +1445,20 @@ function LeadiPage() {
                             className="h-3.5 w-3.5"
                           />
                         </div>
-                        <div role="cell" className="min-w-0 px-2 py-1">
+                        {/* PRIORITĀTE */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+                          <PriorityCell score={l.priority_score} />
+                        </div>
+                        {/* PPV */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
+                          <span className="truncate">
+                            {l.ppv || (
+                              <span className="text-muted-foreground/60">—</span>
+                            )}
+                          </span>
+                        </div>
+                        {/* LEAD */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1">
                           <div className="flex items-center gap-1.5">
                             <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
                               {l.name || (
@@ -1467,112 +1480,29 @@ function LeadiPage() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
+                          </div>
+                          <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
+                            {(l.country || "—")}
                             {l.reply_count > 0 && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className={cn(
-                                      "inline-flex h-3.5 min-w-[14px] shrink-0 items-center justify-center rounded-sm px-1 text-[10px] leading-none tabular-nums",
-                                      hasUnread
-                                        ? "text-blue-600/90 dark:text-blue-300/90"
-                                        : "text-muted-foreground/80",
-                                    )}
-                                  >
-                                    {l.reply_count}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  Atbilžu skaits: {l.reply_count}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <div className="truncate text-[11px] text-muted-foreground/80">
-                            {l.country || "—"}
-                          </div>
-                        </div>
-                        <div role="cell" className="min-w-0 px-2 py-1 flex items-center">
-                          <StatusBadge value={l.status} />
-                        </div>
-                        <div role="cell" className="min-w-0 px-2 py-1 flex items-center">
-                          {l.owner ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-secondary-foreground">
-                                {initials(l.owner)}
-                              </span>
-                              <span className="truncate text-foreground">
-                                {l.owner}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </div>
-                        <div role="cell" className="min-w-0 px-2 py-1 text-foreground flex items-center">
-                          {l.ppv || (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </div>
-                        <div role="cell" className="min-w-0 px-2 py-1">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={cn(
-                                "truncate",
-                                isOverdue
-                                  ? "font-medium text-rose-700 dark:text-rose-300"
-                                  : l.next_action
-                                    ? "text-foreground"
-                                    : "text-muted-foreground",
-                              )}
-                            >
-                              {l.next_action || "Nav darbības"}
-                            </span>
-                            {l.next_action_due && (
-                              <span
-                                className={cn(
-                                  "shrink-0 text-[10px] tabular-nums",
-                                  (() => {
-                                    const t = parseDate(l.next_action_due);
-                                    if (t == null)
-                                      return "text-muted-foreground/70";
-                                    const diff = t - Date.now();
-                                    if (diff < 0)
-                                      return "text-rose-600/90 dark:text-rose-300/90";
-                                    if (diff < 2 * MS_DAY)
-                                      return "text-amber-600/90 dark:text-amber-300/90";
-                                    return "text-muted-foreground/70";
-                                  })(),
-                                )}
-                              >
-                                {relativeTime(l.next_action_due)}
-                              </span>
+                              <>
+                                <span className="mx-1 opacity-50">•</span>
+                                <span
+                                  className={cn(
+                                    hasUnread
+                                      ? "text-blue-600/90 dark:text-blue-300/90"
+                                      : "text-muted-foreground/70",
+                                  )}
+                                >
+                                  {l.reply_count}
+                                </span>
+                              </>
                             )}
                           </div>
                         </div>
-                        <div role="cell" className="min-w-0 px-2 py-1">
-                          <div className="flex flex-col leading-tight">
-                            <span
-                              className={cn(
-                                "text-[11.5px]",
-                                l.has_unread_reply
-                                  ? "text-blue-600/90 dark:text-blue-300/90"
-                                  : l.communication_state === "waiting"
-                                    ? "text-amber-600/90 dark:text-amber-300/90"
-                                    : l.communication_state === "active"
-                                      ? "text-emerald-600/90 dark:text-emerald-300/90"
-                                      : "text-muted-foreground/80",
-                              )}
-                            >
-                              {commLabel ?? "Nav kontakta"}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {relativeTime(commTimeSrc)}
-                            </span>
-                          </div>
-                        </div>
-                        <div role="cell" className="min-w-0 px-2 py-1">
+                        {/* TAGI */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
                           {l.tags.length === 0 ? (
-                            <span className="text-muted-foreground/60">—</span>
+                            <span className="text-muted-foreground/50">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-0.5">
                               {l.tags.slice(0, 3).map((t) => (
@@ -1581,24 +1511,92 @@ function LeadiPage() {
                                   className={cn(
                                     "inline-flex h-3.5 items-center rounded-sm px-1 text-[10px] lowercase leading-none",
                                     /^(hot|karst)/i.test(t)
-                                      ? "text-rose-600/80 dark:text-rose-300/80 ring-1 ring-inset ring-rose-500/20"
-                                      : "text-muted-foreground/70 ring-1 ring-inset ring-border/60",
+                                      ? "text-rose-600/75 dark:text-rose-300/75 ring-1 ring-inset ring-rose-500/15"
+                                      : "text-muted-foreground/65 ring-1 ring-inset ring-border/50",
                                   )}
                                 >
                                   {t}
                                 </span>
                               ))}
                               {l.tags.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground/60">
+                                <span className="text-[10px] text-muted-foreground/55 tabular-nums">
                                   +{l.tags.length - 3}
                                 </span>
                               )}
                             </div>
                           )}
                         </div>
+                        {/* STATUSS */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+                          <StatusBadge value={l.status} />
+                        </div>
+                        {/* ATBILDĪGAIS */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+                          {l.owner ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground shrink-0">
+                                {initials(l.owner)}
+                              </span>
+                              <span className="truncate text-foreground text-[11.5px]">
+                                {l.owner}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </div>
+                        {/* NĀKAMĀ DARBĪBA */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1">
+                          <div className="flex flex-col leading-tight">
+                            <span
+                              className={cn(
+                                "truncate text-[11.5px]",
+                                isOverdue
+                                  ? "font-medium text-rose-700 dark:text-rose-300"
+                                  : l.next_action
+                                    ? "text-foreground"
+                                    : "text-muted-foreground/60",
+                              )}
+                            >
+                              {l.next_action || "Nav darbības"}
+                            </span>
+                            {l.next_action_due && (
+                              <span
+                                className={cn(
+                                  "text-[10px] tabular-nums",
+                                  isOverdue
+                                    ? "text-rose-600/85 dark:text-rose-300/85"
+                                    : "text-muted-foreground/65",
+                                )}
+                              >
+                                {isOverdue
+                                  ? fmtDateTime(l.next_action_due)
+                                  : fmtDate(l.next_action_due)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* PĒDĒJĀ AKTIVITĀTE */}
+                        <div role="cell" className="min-w-0 px-1.5 py-1">
+                          <div className="flex flex-col leading-tight">
+                            <span
+                              className={cn(
+                                "truncate text-[11.5px]",
+                                l.has_unread_reply
+                                  ? "text-blue-600/90 dark:text-blue-300/90 font-medium"
+                                  : "text-muted-foreground/85",
+                              )}
+                            >
+                              {commLabel ?? "Nav kontakta"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+                              {fmtDate(commTimeSrc)}
+                            </span>
+                          </div>
+                        </div>
                         <div
                           role="cell"
-                          className="min-w-0 px-2 py-1 flex items-center justify-end"
+                          className="min-w-0 px-1.5 py-1 flex items-center justify-end"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
