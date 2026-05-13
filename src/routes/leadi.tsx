@@ -41,6 +41,7 @@ import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 import type { FiltersSearch } from "@/lib/filters";
 
 /* ----------------------- Saved views ----------------------- */
@@ -1681,18 +1682,8 @@ function LeadiPage() {
                             <span className="text-muted-foreground/50">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-0.5">
-                              {l.tags.slice(0, 3).map((t) => (
-                                <span
-                                  key={t}
-                                  className={cn(
-                                    "inline-flex h-3.5 items-center rounded-sm px-1 text-[10px] lowercase leading-none",
-                                    /^(hot|karst)/i.test(t)
-                                      ? "text-rose-600/75 dark:text-rose-300/75 ring-1 ring-inset ring-rose-500/15"
-                                      : "text-muted-foreground/65 ring-1 ring-inset ring-border/50",
-                                  )}
-                                >
-                                  {t}
-                                </span>
+                              {normalizeTags(l.tags).slice(0, 3).map((t) => (
+                                <Tag key={t} label={t} />
                               ))}
                               {l.tags.length > 3 && (
                                 <span className="text-[10px] text-muted-foreground/55 tabular-nums">

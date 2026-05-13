@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/tooltip";
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 
@@ -424,13 +425,8 @@ function DrawerBody({
             </Chip>
           )}
           {/* Prioritātes līmeņi (Zema/Normāla/Augsta) noņemti — prioritāti rāda tikai zvaigznes + reitings. */}
-          {tags.slice(0, 4).map((t) => (
-            <span
-              key={t}
-              className="inline-flex h-5 items-center rounded bg-muted px-1.5 text-[10px] lowercase text-muted-foreground"
-            >
-              {t}
-            </span>
+          {normalizeTags(tags).slice(0, 4).map((t) => (
+            <Tag key={t} label={t} />
           ))}
           {tags.length > 4 && (
             <span className="text-[10px] text-muted-foreground">
@@ -826,13 +822,8 @@ function OverviewTab(props: {
                 "—"
               ) : (
                 <div className="flex flex-wrap justify-end gap-1">
-                  {props.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex h-4 items-center rounded bg-muted px-1 text-[10px] lowercase text-muted-foreground"
-                    >
-                      {t}
-                    </span>
+                  {normalizeTags(props.tags).map((t) => (
+                    <Tag key={t} label={t} />
                   ))}
                 </div>
               )
