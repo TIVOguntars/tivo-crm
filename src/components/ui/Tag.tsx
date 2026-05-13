@@ -35,19 +35,24 @@ export function normalizeTags(tags: Array<string | null | undefined>): string[] 
 }
 
 export interface TagProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, "className"> {
-  label: string;
+  /** Preferred prop. */
+  tag?: string;
+  /** Backwards-compatible alias for `tag`. */
+  label?: string;
   variant?: TagVariant;
 }
 
-export function Tag({ label, variant, ...rest }: TagProps) {
-  const v = variant ?? resolveTagVariant(label);
+export function Tag({ tag, label, variant, ...rest }: TagProps) {
+  const raw = (tag ?? label ?? "").toString();
+  const normalizedTag = raw.trim().toLowerCase();
+  const v = variant ?? resolveTagVariant(normalizedTag);
   const style = TAG_STYLES[v] ?? TAG_STYLES.default;
   return (
     <span
       {...rest}
       className={`${TAG_BASE_CLASS} ${style.bg} ${style.text}`}
     >
-      {label}
+      {raw}
     </span>
   );
 }
