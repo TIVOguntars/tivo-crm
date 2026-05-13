@@ -556,10 +556,20 @@ function LeadiPage() {
     "next_action_queue_display_enriched",
     overviewQuery,
   );
+  const overviewLeadIds = useMemo(() => {
+    const rows = (overview.data?.rows ?? []) as Row[];
+    return Array.from(
+      new Set(rows.map((r) => s(r.lead_id) || s(r.id)).filter(Boolean)),
+    ).slice(0, PAGE_SIZE);
+  }, [overview.data]);
+  const leadIdentityQuery = useMemo(() => {
+    if (overviewLeadIds.length === 0) return "select=id,external_id&limit=0";
+    const ids = overviewLeadIds.map((id) => `"${id.replace(/"/g, "")}"`).join(",");
+    return `select=id,external_id&external_id=in.(${ids})&limit=${overviewLeadIds.length}`;
+  }, [overviewLeadIds]);
   const leadIdentity = useCrmView(
     "leads",
-    "select=id,external_id",
-    { all: true },
+    leadIdentityQuery,
   );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
