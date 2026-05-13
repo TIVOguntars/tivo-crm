@@ -458,35 +458,34 @@ function DrawerBody({
         </div>
       </SheetHeader>
 
+      {/* ============== KPI STRIP (sub-header) ============== */}
+      <div className="shrink-0 border-b border-border bg-background">
+        <div className="mx-auto flex max-w-[1400px] items-stretch divide-x divide-border overflow-x-auto px-2">
+          <KpiCell label="Zvani" value="—" />
+          <KpiCell label="E-pasti" value="—" />
+          <KpiCell label="SMS" value="—" />
+          <KpiCell label="WhatsApp" value="—" />
+          <KpiCell label="Atbildes" value={unreadReplies || "—"} />
+          <KpiCell label="Klikšķi" value="—" />
+          <KpiCell
+            label="Pēdējā aktivitāte"
+            value={lastContact ? relativeTime(lastContact) : "—"}
+          />
+        </div>
+      </div>
+
       {/* ============== SCROLLABLE SECTION CONTENT ============== */}
-      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1200px] px-4 py-4 md:px-6 md:py-5">
+      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/10">
+        <div className="mx-auto max-w-[1400px] px-4 py-4 md:px-6 md:py-5">
           {loading && (
             <div className="mb-4">
               <LoadingState label="Ielādē lead datus…" />
             </div>
           )}
 
-          {/* 2. Communication Summary */}
-          <SectionBlock id="communication" title="Komunikācijas kopsavilkums">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-              <SummaryTile label="Zvani" value="—" />
-              <SummaryTile label="E-pasti" value="—" />
-              <SummaryTile label="SMS" value="—" />
-              <SummaryTile label="WhatsApp" value="—" />
-              <SummaryTile label="Atbildes" value={unreadReplies || "—"} />
-              <SummaryTile label="Klikšķi" value="—" />
-              <SummaryTile
-                label="Pēdējā aktivitāte"
-                value={lastContact ? relativeTime(lastContact) : "—"}
-              />
-            </div>
-          </SectionBlock>
-
-          {/* Desktop: 2-column grid for mid sections */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {/* 4. Next Actions */}
-            <SectionBlock id="next-actions" title="Nākamās darbības">
+          {/* Operational 2-col: Next Actions + Contact Data */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+            <FlatSection id="next-actions" title="Nākamās darbības" hint="Operational">
               <NextActionsBlock
                 visibleAction={visibleAction}
                 visibleDue={visibleDue}
@@ -494,65 +493,87 @@ function DrawerBody({
                 sisLabel={sisLabel}
                 sisDue={sisDue}
               />
-            </SectionBlock>
+            </FlatSection>
 
-            {/* 5. Contact Data */}
-            <SectionBlock id="contact" title="Kontaktdati">
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <KeyVal k="Telefons (E.164)" v={phoneE164 || "—"} />
-                <KeyVal k="Telefons (oriģ.)" v={phoneRaw || "—"} />
-                <KeyVal k="E-pasts" v={email || "—"} />
-                <KeyVal k="Validācija" v="—" />
-                <KeyVal k="Līnijas tips" v="—" />
-                <KeyVal k="Opt-in / Opt-out" v="—" />
-              </div>
-            </SectionBlock>
+            <FlatSection id="contact" title="Kontaktdati">
+              <DataRows
+                rows={[
+                  ["Telefons (E.164)", phoneE164 || "—"],
+                  ["Telefons (oriģ.)", phoneRaw || "—"],
+                  ["E-pasts", email || "—"],
+                  ["Validācija", "—"],
+                  ["Līnijas tips", "—"],
+                  ["Opt-in / Opt-out", "—"],
+                ]}
+              />
+            </FlatSection>
           </div>
 
-          {/* 6. Object / Project */}
-          <SectionBlock id="project" title="Objekts / Projekts">
-            <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
-              <LeadProjects leadId={realLeadId} />
+          {/* Object / Project */}
+          <FlatSection id="project" title="Objekts / Projekts" className="mt-5">
+            <DataRows
+              rows={[
+                ["Objekta nosaukums", s(row.object_name) || displayName],
+                ["Valsts", country || "—"],
+                ["Projekta status", "—"],
+              ]}
+              compact
+            />
+            <DataRows
+              className="mt-2"
+              rows={[
+                ["Adrese", s(row.address) || "—"],
+                ["Zeme", "—"],
+                ["Plānotais būvn.", "—"],
+                ["Stadija", "—"],
+              ]}
+              compact
+            />
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Milestones
+              </div>
+              <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
+                <LeadProjects leadId={realLeadId} />
+              </Suspense>
+            </div>
+          </FlatSection>
+
+          {/* Timeline */}
+          <FlatSection id="timeline" title="Aktivitāšu laika līnija" className="mt-5">
+            <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
+              <LeadCommunicationTimeline leadId={realLeadId} />
             </Suspense>
-            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              <SummaryTile label="Projekta status" value="—" />
-              <SummaryTile label="Zeme" value="—" />
-              <SummaryTile label="Stadija" value="—" />
-              <SummaryTile label="Plānotais būvn." value="—" />
-            </div>
-          </SectionBlock>
-
-          {/* 3. Timeline */}
-          <SectionBlock id="timeline" title="Aktivitāšu laika līnija">
-            <div className="rounded-md border border-border bg-card">
-              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
-                <div className="px-3 py-2">
-                  <LeadCommunicationTimeline leadId={realLeadId} />
-                </div>
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Darbību vēsture
+              </div>
+              <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
+                <LeadActionHistory leadId={realLeadId} />
               </Suspense>
             </div>
-            <div className="mt-2 rounded-md border border-border bg-card">
-              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
-                <div className="px-3 py-2">
-                  <LeadActionHistory leadId={realLeadId} />
-                </div>
-              </Suspense>
-            </div>
-          </SectionBlock>
+          </FlatSection>
 
-          {/* 7. Raw / Audit / Import */}
-          <SectionBlock id="audit" title="Raw / Audit / Import">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <div className="rounded-md border border-border bg-card px-3 py-2">
-                <KeyVal k="Importa avots" v={importSource || "—"} />
-                <KeyVal k="Avots" v={source || "—"} />
-                <KeyVal k="Konflikti" v="—" />
-              </div>
-              <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-                Raw payload preview un audit vēsture vēl nav pieslēgta.
+          {/* Raw / Audit / Import */}
+          <FlatSection id="audit" title="Raw / Audit / Import" className="mt-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <DataRows
+                rows={[
+                  ["Avots", source || "—"],
+                  ["Importa avots", importSource || "—"],
+                  ["Konflikti", "—"],
+                  ["Importa sesija", "—"],
+                  ["Audit ierakstu skaits", "—"],
+                ]}
+              />
+              <div className="rounded-sm border border-dashed border-border/60 bg-background px-3 py-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                  Raw payload preview
+                </div>
+                <div className="text-muted-foreground/60">// nav pieejams</div>
               </div>
             </div>
-          </SectionBlock>
+          </FlatSection>
         </div>
       </div>
 
