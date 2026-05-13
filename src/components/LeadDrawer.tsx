@@ -41,7 +41,7 @@ import {
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
-import { LoadingState, ErrorState } from "@/components/DataState";
+import { LoadingState } from "@/components/DataState";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 
 const LeadCommunicationTimeline = lazy(() =>
@@ -144,16 +144,6 @@ function initials(name: string): string {
 
 /* ----------------------------- component ----------------------------- */
 
-const TABS = [
-  { key: "parskats", label: "Pārskats" },
-  { key: "komunikacijas", label: "Komunikācijas" },
-  { key: "uzdevumi", label: "Uzdevumi" },
-  { key: "objekti", label: "Objekti" },
-  { key: "vesture", label: "Vēsture" },
-  { key: "dati", label: "Dati" },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
-
 export function LeadDrawer({
   leadId,
   open,
@@ -167,8 +157,6 @@ export function LeadDrawer({
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
-  const [tab, setTab] = useState<TabKey>("parskats");
-
   const view = useQuery({
     queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
     queryFn: () =>
@@ -182,36 +170,24 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
-  const row: Row | null = view.data?.rows?.[0] ?? null;
+  // Layout-only step: never block drawer rendering on missing/failing
+  // crm.lead_drawer_summary. If the view doesn't exist or returns no row,
+  // render the drawer shell with empty section states.
+  const row: Row = (view.data?.rows?.[0] as Row | undefined) ?? {};
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[540px]"
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[92vw] md:max-w-[1100px] xl:max-w-[1280px]"
       >
-        {view.isLoading ? (
-          <div className="p-6">
-            <LoadingState />
-          </div>
-        ) : view.data?.error ? (
-          <div className="p-6">
-            <ErrorState message={view.data.error} />
-          </div>
-        ) : !row ? (
-          <div className="p-6 text-sm text-muted-foreground">
-            Nav datu šim leadam.
-          </div>
-        ) : (
-          <DrawerBody
-            row={row}
-            leadId={leadId}
-            tab={tab}
-            setTab={setTab}
-            onActionCompleted={onActionCompleted}
-            onPatch={onPatch}
-          />
-        )}
+        <DrawerBody
+          row={row}
+          leadId={leadId}
+          loading={view.isLoading}
+          onActionCompleted={onActionCompleted}
+          onPatch={onPatch}
+        />
       </SheetContent>
     </Sheet>
   );
@@ -220,15 +196,13 @@ export function LeadDrawer({
 function DrawerBody({
   row,
   leadId,
-  tab,
-  setTab,
+  loading,
   onActionCompleted,
   onPatch,
 }: {
   row: Row;
   leadId: string | null;
-  tab: TabKey;
-  setTab: (t: TabKey) => void;
+  loading: boolean;
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
