@@ -93,23 +93,38 @@ export function LeadProjects({ leadId }: { leadId: string | null }) {
   return (
     <div className="space-y-2">
       {rows.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-4 text-center text-xs text-muted-foreground">
-          Projekta informācija vēl nav pievienota.
+        <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+          <div className="text-xs text-muted-foreground">
+            Šim lead'am vēl nav pievienots objekts.
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            disabled
+            title="Objekta pievienošana būs nākamais solis"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Pievienot objektu
+          </Button>
         </div>
       ) : (
-        rows.map((r, i) => <ProjectCard key={s(r.object_id) || String(i)} row={r} />)
+        <>
+          {rows.map((r, i) => (
+            <ProjectCard key={s(r.object_id) || String(i)} row={r} />
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-full justify-center gap-1.5 text-xs"
+            disabled
+            title="Objekta pievienošana būs nākamais solis"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Pievienot objektu
+          </Button>
+        </>
       )}
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 w-full justify-center gap-1.5 text-xs"
-        disabled
-        title="Objekta pievienošana būs nākamais solis"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Pievienot objektu
-      </Button>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { useCrmView } from "@/hooks/useCrmView";
 import { usePublicTable } from "@/hooks/usePublicTable";
 import { UnifiedActivityTimeline } from "@/components/UnifiedActivityTimeline";
+import { LeadProjects } from "@/components/LeadProjects";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -606,45 +607,12 @@ function LeadProfilePage() {
             </TabsContent>
 
             <TabsContent value="projekts" className="mt-2">
-              {(() => {
-                const allEmpty =
-                  isEmptyValue(m2) &&
-                  isEmptyValue(summa) &&
-                  isEmptyValue(planotaBuvniecibaText) &&
-                  isEmptyValue(formaZeme) &&
-                  isEmptyValue(formaProjekts) &&
-                  isEmptyValue(formaZinaNoLead);
-                return (
-                  <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                    <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Projekts
-                    </h2>
-                    {allEmpty ? (
-                      <div className="text-xs italic text-muted-foreground">
-                        Nav projekta informācijas
-                      </div>
-                    ) : (
-                      <Grid>
-                        <Field label="m²" value={m2} alwaysShow />
-                        <Field label="Summa" value={summa} alwaysShow />
-                        <Field
-                          label="Plānota būvniecība"
-                          value={planotaBuvniecibaText}
-                          alwaysShow
-                        />
-                        <Field label="Forma · Zeme" value={formaZeme} alwaysShow />
-                        <Field label="Forma · Projekts" value={formaProjekts} alwaysShow />
-                        <Field
-                          label="Forma · Ziņa no Lead"
-                          value={formaZinaNoLead}
-                          wide
-                          alwaysShow
-                        />
-                      </Grid>
-                    )}
-                  </section>
-                );
-              })()}
+              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Objekti
+                </h2>
+                <LeadProjects leadId={currentLeadId} />
+              </section>
             </TabsContent>
 
             <TabsContent value="tehniski" className="mt-2">
