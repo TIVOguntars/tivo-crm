@@ -733,8 +733,8 @@ function DrawerBody({
                   </div>
                 </div>
 
-                {/* RIGHT — compact contact + KPI summary */}
-                <aside className="space-y-3 lg:sticky lg:top-12 lg:self-start">
+                {/* RIGHT — sticky operational sidebar */}
+                <aside className="space-y-2 lg:sticky lg:top-12 lg:self-start lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1">
                   <SecondarySection id="comms-contact" title="Kontakts" hint="crm.contacts">
                     {loading ? (
                       <ContactSkeleton />
@@ -748,6 +748,34 @@ function DrawerBody({
                         emailRaw={emailRaw}
                       />
                     )}
+                  </SecondarySection>
+
+                  <SecondarySection id="comms-quick" title="Ātrās darbības" hint="Operational">
+                    <div className="grid grid-cols-2 gap-1 rounded-sm border border-border/60 bg-card p-1.5">
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!phone} disabled={!phone}>
+                        {phone ? <a href={`tel:${phone}`}><Phone className="h-3 w-3" />Zvanīt</a> : <span><Phone className="h-3 w-3" />Zvanīt</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!waPhone} disabled={!waPhone}>
+                        {waPhone ? <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer"><MessageCircle className="h-3 w-3" />WhatsApp</a> : <span><MessageCircle className="h-3 w-3" />WhatsApp</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!email} disabled={!email}>
+                        {email ? <a href={`mailto:${email}`}><Mail className="h-3 w-3" />E-pasts</a> : <span><Mail className="h-3 w-3" />E-pasts</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" onClick={() => setCompleteOpen(true)} disabled={!realLeadId}>
+                        <CheckSquare className="h-3 w-3" />Pabeigt
+                      </Button>
+                    </div>
+                  </SecondarySection>
+
+                  <SecondarySection id="comms-next" title="Nākamā darbība" hint="Operational">
+                    <NextActionsBlock
+                      visibleAction={visibleAction}
+                      visibleDue={visibleDue}
+                      isHumanPrimary={isHumanPrimary}
+                      sisLabel={sisLabel}
+                      sisDue={sisDue}
+                      onComplete={() => setCompleteOpen(true)}
+                    />
                   </SecondarySection>
 
                   <SecondarySection id="comms-kpi" title="KPI kopsavilkums" hint="crm.communications">
