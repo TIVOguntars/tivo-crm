@@ -11,6 +11,7 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { usePublicTable } from "@/hooks/usePublicTable";
 import { UnifiedActivityTimeline } from "@/components/UnifiedActivityTimeline";
 import { LeadProjects } from "@/components/LeadProjects";
+import { LeadActionHistory } from "@/components/LeadActionHistory";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -582,6 +583,9 @@ function LeadProfilePage() {
               <TabsTrigger value="tehniski" className="text-xs">
                 Tehniski
               </TabsTrigger>
+              <TabsTrigger value="uzdevumi" className="text-xs">
+                Uzdevumi
+              </TabsTrigger>
               <TabsTrigger value="vesture" className="text-xs">
                 Vēsture
               </TabsTrigger>
@@ -637,6 +641,15 @@ function LeadProfilePage() {
                   </pre>
                 </div>
               </Section>
+            </TabsContent>
+
+            <TabsContent value="uzdevumi" className="mt-2">
+              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pabeigtie uzdevumi
+                </h2>
+                <LeadActionHistory leadId={currentLeadId} />
+              </section>
             </TabsContent>
 
             <TabsContent value="vesture" className="mt-2">
