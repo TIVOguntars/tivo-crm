@@ -367,6 +367,9 @@ function DrawerBody({
     <TooltipProvider delayDuration={150}>
       {/* ============== ENTERPRISE HEADER ============== */}
       <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-card px-4 py-2 text-left shadow-sm">
+        {loading ? (
+          <HeaderSkeleton />
+        ) : (
         <div className="flex items-center gap-3">
           {/* LEFT — identity */}
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -474,8 +477,10 @@ function DrawerBody({
             <IconBtn icon={<X className="h-3.5 w-3.5" />} label="Aizvērt" onClick={onClose} />
           </div>
         </div>
+        )}
 
         {/* mobile center row */}
+        {!loading && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
           {owner && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -493,6 +498,7 @@ function DrawerBody({
             <Tag key={t} label={t} />
           ))}
         </div>
+        )}
       </SheetHeader>
 
       {/* ============== KPI STRIP ============== */}
