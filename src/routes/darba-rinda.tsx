@@ -20,6 +20,7 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 
 /* ----------------------- Route + search params ----------------------- */
 
