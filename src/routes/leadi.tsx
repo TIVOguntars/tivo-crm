@@ -42,6 +42,7 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { FiltersSearch } from "@/lib/filters";
 
 /* ----------------------- Saved views ----------------------- */
@@ -268,7 +269,6 @@ function isSameDay(t: number, now = Date.now()): boolean {
 
 /* ----------------------- Status badge ----------------------- */
 
-import { StatusBadge } from "@/components/ui/StatusBadge";
 
 /** PRIORITĀTE column — stars + muted score. */
 function PriorityCell({ score }: { score: number }) {
