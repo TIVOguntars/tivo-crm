@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { useCrmView } from "@/hooks/useCrmView";
 import { usePublicTable } from "@/hooks/usePublicTable";
+import { UnifiedActivityTimeline } from "@/components/UnifiedActivityTimeline";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -673,14 +674,9 @@ function LeadProfilePage() {
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Komunikāciju vēsture
             </h2>
-            <CommunicationsTimeline
-              comms={comms}
-              loading={commsQ.isLoading}
-              error={commsError}
-              eventsByComm={eventsByComm}
-              trackingLinksByComm={trackingLinksByComm}
-              eventsLoading={false}
-              onOpenEmail={(c) => setOpenComm(c)}
+            <UnifiedActivityTimeline
+              leadId={currentLeadId}
+              defaultCategory="communications"
             />
           </section>
         </div>
