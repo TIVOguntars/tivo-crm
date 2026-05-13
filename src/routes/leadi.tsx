@@ -1525,21 +1525,11 @@ function LeadiPage() {
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
-                            {(l.country || "—")}
-                            {l.reply_count > 0 && (
-                              <>
-                                <span className="mx-1 opacity-50">•</span>
-                                <span
-                                  className={cn(
-                                    hasUnread
-                                      ? "text-blue-600/90 dark:text-blue-300/90"
-                                      : "text-muted-foreground/70",
-                                  )}
-                                >
-                                  {l.reply_count}
-                                </span>
-                              </>
-                            )}
+                            <span className="text-muted-foreground/70">
+                              {l.country || "—"}
+                            </span>
+                            <span className="mx-1 opacity-40">•</span>
+                            <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
                           </div>
                         </div>
                         {/* TAGI */}
