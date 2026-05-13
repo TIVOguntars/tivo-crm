@@ -564,6 +564,24 @@ function LeadiPage() {
   );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
+  // Prioritātes reitings — vienīgais pareizais avots.
+  // analytics.lead_rating_calculated NETIEK lietots (vecs algoritms).
+  const reitingsView = useAnalyticsView(
+    "lead_reitings_preview",
+    "select=lead_id,reitings&limit=20000",
+  );
+  const reitingsByLead = useMemo(() => {
+    const map = new Map<string, number>();
+    const rows = (reitingsView.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      const v = Number(r.reitings);
+      if (Number.isFinite(v)) map.set(lid, v);
+    }
+    return map;
+  }, [reitingsView.data]);
+
   // Per-lead communication counters (📞 / ✉️ / 💬 outbound/inbound).
   // Aggregated from crm.communications since the enriched queue view
   // does not expose channel-level counts.
