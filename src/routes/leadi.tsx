@@ -212,22 +212,47 @@ function relativeTime(v: string | null): string {
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
-  const d = new Date(t);
-  return `${String(d.getDate()).padStart(2, "0")}.${String(
-    d.getMonth() + 1,
-  ).padStart(2, "0")}.${d.getFullYear()}`;
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date(t))
+    .replace(/\//g, ".");
 }
 
 /** Operational date+time when SLA-critical or manually scheduled. */
 function fmtDateTime(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
-  const d = new Date(t);
-  return `${String(d.getDate()).padStart(2, "0")}.${String(
-    d.getMonth() + 1,
-  ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
-    d.getMinutes(),
-  ).padStart(2, "0")}`;
+  const parts = new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(t));
+  const get = (type: string) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")}.${get("month")}.${get("year")} ${get("hour")}:${get("minute")}`;
+}
+
+/** Returns true and logs a warning when a date is meaningfully in the future. */
+function isFutureDate(v: string | null, label: string, leadId?: string): boolean {
+  const t = parseDate(v);
+  if (t == null) return false;
+  // 5 minute tolerance for clock skew
+  if (t > Date.now() + 5 * 60_000) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[leadi] Date in future for ${label}${leadId ? ` (lead ${leadId})` : ""}: ${v}`,
+    );
+    return true;
+  }
+  return false;
 }
 
 function isSameDay(t: number, now = Date.now()): boolean {
@@ -1705,7 +1730,9 @@ function LeadiPage() {
                               {commLabel ?? "Nav kontakta"}
                             </span>
                             <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {fmtDate(commTimeSrc)}
+                              {isFutureDate(commTimeSrc, "comm_time", l.lead_id)
+                                ? "—"
+                                : fmtDate(commTimeSrc)}
                             </span>
                           </div>
                         </div>
