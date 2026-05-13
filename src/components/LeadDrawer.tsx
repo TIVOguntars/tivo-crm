@@ -208,6 +208,12 @@ function DrawerBody({
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
 
+  const scrollToSection = (id: string) => {
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(`lead-section-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   // Optimistic local overrides (status/owner). Drawer reflects them immediately
   // and propagates to the parent table via onPatch.
   const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({});
