@@ -714,29 +714,72 @@ function DrawerBody({
 
             {/* ============== COMMUNICATIONS TAB ============== */}
             <TabsContent value="comms" className="m-0 outline-none">
-              <div className="rounded-md border border-border bg-card">
-                <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Vienota komunikācijas plūsma — e-pasti, SMS, WhatsApp, zvani, piezīmes</span>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+                {/* LEFT — communication feed */}
+                <div className="rounded-md border border-border bg-card">
+                  <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>Vienota komunikācijas plūsma — e-pasti, SMS, WhatsApp, zvani, piezīmes</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
+                        <Send className="h-3 w-3" /> Sūtīt
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
+                        <StickyNote className="h-3 w-3" /> Piezīme
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
-                      <Send className="h-3 w-3" /> Sūtīt
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
-                      <StickyNote className="h-3 w-3" /> Piezīme
-                    </Button>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute left-[19px] top-0 bottom-0 w-px bg-border/60" />
+                    <div className="px-3 py-2">
+                      <Suspense fallback={<div className="py-3"><LoadingState /></div>}>
+                        <LeadCommunicationTimeline leadId={realLeadId} />
+                      </Suspense>
+                    </div>
                   </div>
                 </div>
-                <div className="relative">
-                  <div className="pointer-events-none absolute left-[19px] top-0 bottom-0 w-px bg-border/60" />
-                  <div className="px-3 py-2">
-                    <Suspense fallback={<div className="py-3"><LoadingState /></div>}>
-                      <LeadCommunicationTimeline leadId={realLeadId} />
-                    </Suspense>
-                  </div>
-                </div>
+
+                {/* RIGHT — compact contact + KPI summary */}
+                <aside className="space-y-3 lg:sticky lg:top-12 lg:self-start">
+                  <SecondarySection id="comms-contact" title="Kontakts" hint="crm.contacts">
+                    {loading ? (
+                      <ContactSkeleton />
+                    ) : (
+                      <ContactGrid
+                        phoneE164={phoneE164}
+                        phoneRaw={phoneRaw}
+                        phoneValidated={phoneValidated}
+                        phoneLineType={phoneLineType}
+                        email={email}
+                        emailRaw={emailRaw}
+                      />
+                    )}
+                  </SecondarySection>
+
+                  <SecondarySection id="comms-kpi" title="KPI kopsavilkums" hint="crm.communications">
+                    <div className="rounded-sm border border-border/60 bg-card">
+                      <div className="grid grid-cols-2 gap-1 p-1.5">
+                        <MiniKpi label="Zvani" value={fmtCount(channelCounts.call)} />
+                        <MiniKpi label="E-pasti" value={fmtCount(channelCounts.email)} />
+                        <MiniKpi label="SMS" value={fmtCount(channelCounts.sms)} />
+                        <MiniKpi label="WhatsApp" value={fmtCount(channelCounts.whatsapp)} />
+                        <MiniKpi label="Ienākošie" value={fmtCount(inboundCount)} accent={inboundCount > 0 ? "green" : undefined} />
+                        <MiniKpi label="Atbildes" value={fmtCount(replyCount)} accent={replyCount > 0 ? "green" : undefined} />
+                      </div>
+                      <div className="grid grid-cols-1 gap-x-3 gap-y-0 border-t border-border/40 px-2.5 py-1.5 text-[11px]">
+                        <InlineKv
+                          label="Pēd. aktivitāte"
+                          value={lastContact ? relativeTime(lastContact) : ""}
+                          dense
+                        />
+                        <InlineKv label="Atbildīgais" value={owner} dense />
+                        <InlineKv label="PPV" value={ppv} dense />
+                      </div>
+                    </div>
+                  </SecondarySection>
+                </aside>
               </div>
             </TabsContent>
 

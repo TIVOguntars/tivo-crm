@@ -144,11 +144,12 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
 
   return (
     <>
-      <ol className="relative space-y-3 border-l border-border pl-4">
+      <ol className="relative space-y-1.5 border-l border-border pl-4">
         {rows.map((row, idx) => (
           <TimelineItem
             key={s(row.communication_id) || s(row.timeline_at) + idx}
             row={row}
+            selected={!!viewerId && s(row.communication_id) === viewerId}
             onOpen={(id) => setViewerId(id)}
           />
         ))}
@@ -161,10 +162,20 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
   );
 }
 
-function TimelineItem({ row, onOpen }: { row: Row; onOpen: (id: string) => void }) {
+function TimelineItem({ row, selected, onOpen }: { row: Row; selected?: boolean; onOpen: (id: string) => void }) {
   const inbound = isInbound(row);
   const channel = s(row.channel) || s(row.timeline_channel);
-  const label = s(row.timeline_label);
+  const channelLower = channel.toLowerCase();
+  const channelLabel =
+    channelLower === "email"
+      ? "E-pasts"
+      : channelLower === "sms"
+        ? "SMS"
+        : channelLower === "whatsapp"
+          ? "WhatsApp"
+          : channelLower === "call" || channelLower === "phone"
+            ? "Zvans"
+            : channel || "Komunikācija";
   const subject = s(row.subject);
   const preview = s(row.message_preview);
   const status = s(row.current_status);
@@ -184,18 +195,19 @@ function TimelineItem({ row, onOpen }: { row: Row; onOpen: (id: string) => void 
       <span
         className={cn(
           "absolute -left-[21px] top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2 ring-background",
-          inbound ? "bg-primary" : "bg-muted-foreground/60",
+          inbound ? "bg-emerald-500" : "bg-slate-400",
         )}
       >
         {inbound ? (
-          <ArrowDownLeft className="h-2 w-2 text-primary-foreground" />
+          <ArrowDownLeft className="h-2 w-2 text-white" />
         ) : (
-          <ArrowUpRight className="h-2 w-2 text-background" />
+          <ArrowUpRight className="h-2 w-2 text-white" />
         )}
       </span>
       <div
         role={commId ? "button" : undefined}
         tabIndex={commId ? 0 : undefined}
+        aria-pressed={selected}
         onClick={() => commId && onOpen(commId)}
         onKeyDown={(e) => {
           if (commId && (e.key === "Enter" || e.key === " ")) {
@@ -204,43 +216,56 @@ function TimelineItem({ row, onOpen }: { row: Row; onOpen: (id: string) => void 
           }
         }}
         className={cn(
-          "rounded-md border p-3 transition-colors",
-          inbound ? "border-primary/30 bg-primary/5" : "border-border bg-background",
-          commId &&
-            "cursor-pointer hover:border-primary/60 hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "rounded-md border px-2.5 py-1.5 transition-colors",
+          // base inbound vs outbound
+          inbound
+            ? "border-emerald-500/30 bg-emerald-500/[0.06]"
+            : "border-border bg-background",
+          // hover (only when not selected)
+          commId && !selected &&
+            "cursor-pointer hover:border-indigo-400/60 hover:bg-indigo-500/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          // selected — clearly distinct from inbound green
+          selected &&
+            "cursor-pointer border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40 shadow-sm",
         )}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          {channel && (
-            <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {channel}
-            </Badge>
-          )}
-          {label && (
-            <span className="text-xs font-medium text-foreground">{label}</span>
-          )}
-          <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex h-4 items-center gap-0.5 rounded px-1 text-[9.5px] font-semibold uppercase tracking-wide",
+              inbound
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                : "bg-slate-500/15 text-slate-700 dark:text-slate-300",
+            )}
+          >
+            {inbound ? <ArrowDownLeft className="h-2.5 w-2.5" /> : <ArrowUpRight className="h-2.5 w-2.5" />}
+            {inbound ? "IN" : "OUT"}
+          </span>
+          <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            {channelLabel}
+          </span>
+          <span className="ml-auto shrink-0 tabular-nums text-[10.5px] text-muted-foreground">
             {fmtDateTime(row.timeline_at)}
           </span>
         </div>
 
         {subject && (
-          <div className="mt-1.5 text-sm font-medium text-foreground">{subject}</div>
+          <div className="mt-0.5 truncate text-[12.5px] font-semibold text-foreground">{subject}</div>
         )}
         {inbound && isEmail && fromAddress && (
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
             <span className="text-muted-foreground/70">No: </span>
             <span className="font-medium text-foreground">{fromAddress}</span>
           </div>
         )}
         {preview && (
-          <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <div className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">
             {preview}
           </div>
         )}
 
         {(status || latestEvent) && (
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
             {status && (
               <span>
                 <span className="text-muted-foreground/70">Statuss: </span>
@@ -257,7 +282,7 @@ function TimelineItem({ row, onOpen }: { row: Row; onOpen: (id: string) => void 
         )}
 
         {showStats && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-1 flex flex-wrap gap-1">
             <Stat icon={<CheckCircle2 className="h-3 w-3" />} value={delivered} label="piegādāti" tone="muted" />
             <Stat icon={<MousePointerClick className="h-3 w-3" />} value={clicked} label="klikšķi" tone="muted" />
             <Stat icon={<MessageSquareReply className="h-3 w-3" />} value={replied} label="atbildes" tone="muted" />
