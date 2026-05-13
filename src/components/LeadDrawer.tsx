@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Phone,
@@ -48,6 +48,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { fetchCrmView } from "@/server/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { LoadingState } from "@/components/DataState";
@@ -193,20 +194,98 @@ export function LeadDrawer({
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
-  const view = useQuery({
-    queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
+  // Source 1: priority queue display (status, owner, ppv, tags, priority,
+  // next action, communication summary). Returns empty if the lead has no
+  // queued action — that's fine, header still renders from source 2.
+  const queueQ = useQuery({
+    queryKey: ["crm", "queue_for_lead", leadId ?? ""],
     queryFn: () =>
       fetchCrmView({
         data: {
-          view: "lead_drawer_summary",
-          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&limit=1`,
+          view: "next_action_queue_display_enriched",
+          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&order=sort_priority.asc&limit=1`,
         },
       }),
     enabled: open && !!leadId,
     staleTime: 30_000,
   });
 
-  const row: Row = (view.data?.rows?.[0] as Row | undefined) ?? {};
+  // Source 2: lead + embedded contact (raw phone/email, validation, line type,
+  // raw_data payload, source). Always available for any lead.
+  const leadQ = useQuery({
+    queryKey: ["crm", "lead_with_contact", leadId ?? ""],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "leads",
+          query:
+            `id=eq.${encodeURIComponent(leadId ?? "")}` +
+            `&select=id,status,source,external_source,external_id,contact_id,raw_data,created_at,updated_at,owner_user_id,ppv_user_id,contacts(id,full_name,email_raw,email_normalized,phone_raw,phone_e164,phone_validated,phone_line_type)` +
+            `&limit=1`,
+        },
+      }),
+    enabled: open && !!leadId,
+    staleTime: 30_000,
+  });
+
+  const row: Row = useMemo(() => {
+    const q = (queueQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const l = (leadQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const c = (l.contacts as Row | undefined) ?? {};
+    const raw = (l.raw_data as Row | undefined) ?? {};
+    return {
+      // identity
+      lead_id: s(q.lead_id) || s(l.id) || leadId || "",
+      name:
+        s(q.full_name) ||
+        s(c.full_name) ||
+        s(raw.full_name) ||
+        s(q.display_name) ||
+        "",
+      country: s(q.country) || s(raw.valsts) || "",
+      tags: q.tags ?? raw.tags ?? null,
+      // status / priority / owner / ppv
+      lead_status_label: s(q.lead_status_label) || s(l.status) || s(raw.status),
+      visible_action_owner:
+        s(q.action_owner_label) || s(raw.atbildigais) || "",
+      ppv_name: s(q.ppv_name) || s(raw.ppv_vards) || "",
+      priority_score: q.lead_priority_score ?? null,
+      priority_label: s(q.priority_label),
+      // contact (real)
+      phone_e164: s(c.phone_e164) || s(q.phone_e164) || s(raw.telefons_e164),
+      phone_raw: s(c.phone_raw) || s(raw.telefons_neapstradats),
+      phone_validated: c.phone_validated ?? q.phone_validated ?? null,
+      phone_line_type: s(c.phone_line_type) || s(q.phone_line_type) || "",
+      email_normalized:
+        s(c.email_normalized) || s(q.email_normalized) || s(raw.email_normalized),
+      email_raw: s(c.email_raw) || s(raw.email_raw),
+      // next action
+      visible_action: s(q.action_label),
+      visible_action_due_at: s(q.effective_due_at) || s(q.due_at),
+      visible_action_is_human: s(q.action_owner_type) === "user",
+      system_action_label: s(q.automatizacija),
+      system_due_date: s(q.automatizacijas_datums),
+      // communication summary
+      last_communication_at: s(q.last_communication_at),
+      last_inbound_at: s(q.last_inbound_at),
+      last_outbound_at: s(q.last_outbound_at),
+      last_reply_at: s(q.last_reply_at),
+      reply_count: q.reply_count ?? null,
+      click_count: q.click_count ?? null,
+      communication_count: q.communication_count ?? null,
+      has_unread_reply: q.has_unread_reply ?? null,
+      communication_state: s(q.communication_state),
+      communication_label: s(q.communication_label),
+      // audit
+      source: s(l.source) || s(raw.source),
+      import_source: s(l.external_source),
+      lead_created_at: s(l.created_at) || s(raw.created_at),
+      created_at: s(l.created_at),
+      raw_data: raw,
+    };
+  }, [queueQ.data, leadQ.data, leadId]);
+
+  const loading = queueQ.isLoading || leadQ.isLoading;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -217,7 +296,7 @@ export function LeadDrawer({
         <DrawerBody
           row={row}
           leadId={leadId}
-          loading={view.isLoading}
+          loading={loading}
           onActionCompleted={onActionCompleted}
           onPatch={onPatch}
           onClose={() => onOpenChange(false)}
@@ -257,13 +336,12 @@ function DrawerBody({
   const country = s(row.country);
   const tags = parseTags(row.tags);
   const phoneE164 = s(row.telefons_e164) || s(row.phone_e164);
-  const phoneRaw =
-    s(row.telefons_raw) ||
-    s(row.phone_raw) ||
-    s(row.telefons_neapstradats) ||
-    s(row.telefons);
+  const phoneRaw = s(row.phone_raw);
   const phone = phoneE164 || phoneRaw;
   const email = s(row.email_normalized);
+  const emailRaw = s(row.email_raw);
+  const phoneValidated = b(row.phone_validated);
+  const phoneLineType = s(row.phone_line_type);
   const source = s(row.source);
   const importSource = s(row.import_source) || s(row.lead_source);
 
@@ -289,6 +367,9 @@ function DrawerBody({
     <TooltipProvider delayDuration={150}>
       {/* ============== ENTERPRISE HEADER ============== */}
       <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-card px-4 py-2 text-left shadow-sm">
+        {loading ? (
+          <HeaderSkeleton />
+        ) : (
         <div className="flex items-center gap-3">
           {/* LEFT — identity */}
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -396,8 +477,10 @@ function DrawerBody({
             <IconBtn icon={<X className="h-3.5 w-3.5" />} label="Aizvērt" onClick={onClose} />
           </div>
         </div>
+        )}
 
         {/* mobile center row */}
+        {!loading && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
           {owner && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -415,6 +498,7 @@ function DrawerBody({
             <Tag key={t} label={t} />
           ))}
         </div>
+        )}
       </SheetHeader>
 
       {/* ============== KPI STRIP ============== */}
@@ -434,11 +518,7 @@ function DrawerBody({
       {/* ============== SCROLLABLE CONTENT ============== */}
       <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/20">
         <div className="mx-auto max-w-[1400px] px-4 py-3 md:px-5 md:py-4">
-          {loading && (
-            <div className="mb-3">
-              <LoadingState label="Ielādē lead datus…" />
-            </div>
-          )}
+          {/* loading is handled inline (header + sections), no global block */}
 
           {/* PRIMARY: Object/Project — compact horizontal */}
           <PrimarySection title="Objekts / Projekts" subtitle="Primary">
@@ -519,11 +599,18 @@ function DrawerBody({
             </SecondarySection>
 
             <SecondarySection id="contact" title="Kontaktdati" hint="Validated">
-              <ContactGrid
-                phoneE164={phoneE164}
-                phoneRaw={phoneRaw}
-                email={email}
-              />
+              {loading ? (
+                <ContactSkeleton />
+              ) : (
+                <ContactGrid
+                  phoneE164={phoneE164}
+                  phoneRaw={phoneRaw}
+                  phoneValidated={phoneValidated}
+                  phoneLineType={phoneLineType}
+                  email={email}
+                  emailRaw={emailRaw}
+                />
+              )}
             </SecondarySection>
           </div>
 
@@ -545,7 +632,13 @@ function DrawerBody({
                   <ShieldCheck className="h-3 w-3" />
                   Raw payload
                 </div>
-                <div className="text-muted-foreground/60">// nav pieejams</div>
+                {row.raw_data && Object.keys(row.raw_data as Row).length > 0 ? (
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-muted-foreground/80">
+                    {JSON.stringify(row.raw_data, null, 2).slice(0, 1200)}
+                  </pre>
+                ) : (
+                  <div className="text-muted-foreground/60">// nav pieejams</div>
+                )}
               </div>
             </div>
           </SecondarySection>
@@ -857,28 +950,48 @@ function NextActionsBlock({
 /* ---- Contact grid ---- */
 
 function ContactGrid({
-  phoneE164, phoneRaw, email,
-}: { phoneE164: string; phoneRaw: string; email: string }) {
+  phoneE164, phoneRaw, phoneValidated, phoneLineType, email, emailRaw,
+}: {
+  phoneE164: string;
+  phoneRaw: string;
+  phoneValidated: boolean;
+  phoneLineType: string;
+  email: string;
+  emailRaw: string;
+}) {
+  const phonePrimary = phoneE164 || phoneRaw;
+  const phoneChips: Array<{ label: string; tone: "emerald" | "amber" | "rose" | "neutral" }> = [];
+  if (phoneE164) phoneChips.push({ label: "E.164", tone: "emerald" });
+  else if (phoneRaw) phoneChips.push({ label: "raw", tone: "amber" });
+  if (phoneValidated) phoneChips.push({ label: "validated", tone: "emerald" });
+  else if (phonePrimary) phoneChips.push({ label: "unverified", tone: "neutral" });
+  if (phoneLineType) phoneChips.push({ label: phoneLineType, tone: "neutral" });
+
+  const emailChips: Array<{ label: string; tone: "emerald" | "amber" | "rose" | "neutral" }> = [];
+  if (email) emailChips.push({ label: "normalized", tone: "emerald" });
+  else if (emailRaw) emailChips.push({ label: "raw", tone: "amber" });
+
   return (
     <div className="rounded-sm border border-border/60 bg-card">
       <ContactRow
         icon={<Phone className="h-3 w-3" />}
         label="Telefons"
-        value={phoneE164 || phoneRaw}
+        value={phonePrimary}
         sub={phoneE164 && phoneRaw && phoneE164 !== phoneRaw ? phoneRaw : undefined}
-        chips={phoneE164 ? [{ label: "E.164", tone: "emerald" }, { label: "mobile", tone: "neutral" }] : []}
-        actions={phoneE164 || phoneRaw ? [
-          { href: `tel:${phoneE164 || phoneRaw}`, icon: <Phone className="h-3 w-3" />, label: "Zvanīt" },
-          { href: `https://wa.me/${(phoneE164 || phoneRaw).replace(/[^0-9]/g, "")}`, icon: <MessageCircle className="h-3 w-3" />, label: "WhatsApp" },
+        chips={phoneChips}
+        actions={phonePrimary ? [
+          { href: `tel:${phonePrimary}`, icon: <Phone className="h-3 w-3" />, label: "Zvanīt" },
+          { href: `https://wa.me/${phonePrimary.replace(/[^0-9]/g, "")}`, icon: <MessageCircle className="h-3 w-3" />, label: "WhatsApp" },
         ] : []}
       />
       <ContactRow
         icon={<Mail className="h-3 w-3" />}
         label="E-pasts"
-        value={email}
-        chips={email ? [{ label: "valid", tone: "emerald" }] : []}
-        actions={email ? [
-          { href: `mailto:${email}`, icon: <Mail className="h-3 w-3" />, label: "Sūtīt" },
+        value={email || emailRaw}
+        sub={email && emailRaw && email !== emailRaw ? emailRaw : undefined}
+        chips={emailChips}
+        actions={(email || emailRaw) ? [
+          { href: `mailto:${email || emailRaw}`, icon: <Mail className="h-3 w-3" />, label: "Sūtīt" },
         ] : []}
       />
       <ContactRow
@@ -886,6 +999,13 @@ function ContactGrid({
         label="Opt-in / GDPR"
         value=""
         chips={[]}
+        actions={[]}
+      />
+      <ContactRow
+        icon={<MessageCircle className="h-3 w-3" />}
+        label="WhatsApp"
+        value=""
+        chips={[{ label: "nav pārbaudīts", tone: "neutral" }]}
         actions={[]}
       />
     </div>
@@ -944,6 +1064,49 @@ function ContactRow({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---- Loading skeletons ---- */
+
+function HeaderSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Skeleton className="h-7 w-7 rounded-full" />
+        <Skeleton className="h-3.5 w-40" />
+        <Skeleton className="h-3.5 w-12" />
+        <Skeleton className="h-3.5 w-16" />
+        <Skeleton className="h-3.5 w-10" />
+      </div>
+      <div className="hidden flex-[1.1] items-center justify-center gap-2 md:flex">
+        <Skeleton className="h-3.5 w-24" />
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-3.5 w-16" />
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-7 rounded" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContactSkeleton() {
+  return (
+    <div className="rounded-sm border border-border/60 bg-card">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-b-0">
+          <Skeleton className="h-5 w-5 rounded" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-5 w-12" />
+        </div>
+      ))}
     </div>
   );
 }
