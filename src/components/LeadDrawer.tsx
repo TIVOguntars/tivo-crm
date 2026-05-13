@@ -41,7 +41,7 @@ import {
 import { fetchCrmView } from "@/server/analytics";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
-import { LoadingState, ErrorState } from "@/components/DataState";
+import { LoadingState } from "@/components/DataState";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 
 const LeadCommunicationTimeline = lazy(() =>
@@ -144,16 +144,6 @@ function initials(name: string): string {
 
 /* ----------------------------- component ----------------------------- */
 
-const TABS = [
-  { key: "parskats", label: "Pārskats" },
-  { key: "komunikacijas", label: "Komunikācijas" },
-  { key: "uzdevumi", label: "Uzdevumi" },
-  { key: "objekti", label: "Objekti" },
-  { key: "vesture", label: "Vēsture" },
-  { key: "dati", label: "Dati" },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
-
 export function LeadDrawer({
   leadId,
   open,
@@ -167,8 +157,6 @@ export function LeadDrawer({
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
-  const [tab, setTab] = useState<TabKey>("parskats");
-
   const view = useQuery({
     queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
     queryFn: () =>
@@ -182,36 +170,24 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
-  const row: Row | null = view.data?.rows?.[0] ?? null;
+  // Layout-only step: never block drawer rendering on missing/failing
+  // crm.lead_drawer_summary. If the view doesn't exist or returns no row,
+  // render the drawer shell with empty section states.
+  const row: Row = (view.data?.rows?.[0] as Row | undefined) ?? {};
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[540px]"
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:w-[92vw] md:max-w-[1100px] xl:max-w-[1280px]"
       >
-        {view.isLoading ? (
-          <div className="p-6">
-            <LoadingState />
-          </div>
-        ) : view.data?.error ? (
-          <div className="p-6">
-            <ErrorState message={view.data.error} />
-          </div>
-        ) : !row ? (
-          <div className="p-6 text-sm text-muted-foreground">
-            Nav datu šim leadam.
-          </div>
-        ) : (
-          <DrawerBody
-            row={row}
-            leadId={leadId}
-            tab={tab}
-            setTab={setTab}
-            onActionCompleted={onActionCompleted}
-            onPatch={onPatch}
-          />
-        )}
+        <DrawerBody
+          row={row}
+          leadId={leadId}
+          loading={view.isLoading}
+          onActionCompleted={onActionCompleted}
+          onPatch={onPatch}
+        />
       </SheetContent>
     </Sheet>
   );
@@ -220,19 +196,23 @@ export function LeadDrawer({
 function DrawerBody({
   row,
   leadId,
-  tab,
-  setTab,
+  loading,
   onActionCompleted,
   onPatch,
 }: {
   row: Row;
   leadId: string | null;
-  tab: TabKey;
-  setTab: (t: TabKey) => void;
+  loading: boolean;
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
+
+  const scrollToSection = (id: string) => {
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(`lead-section-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Optimistic local overrides (status/owner). Drawer reflects them immediately
   // and propagates to the parent table via onPatch.
@@ -391,7 +371,7 @@ function DrawerBody({
 
         {/* quick actions row */}
         <div className="flex flex-wrap items-center gap-1 pt-1">
-          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => setTab("komunikacijas")} />
+          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => scrollToSection("timeline")} />
           <QuickAction icon={<Phone className="h-3 w-3" />} label="Zvans" href={phone ? `tel:${phone}` : undefined} />
           <QuickAction
             icon={<MessageCircle className="h-3 w-3" />}
@@ -432,94 +412,101 @@ function DrawerBody({
         </div>
       </SheetHeader>
 
-      {/* ============== STICKY TABS ============== */}
-      <nav className="flex shrink-0 items-center gap-0 border-b border-border bg-background px-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "relative h-9 px-3 text-xs font-medium transition-colors",
-              tab === t.key
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-            {tab === t.key && (
-              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />
-            )}
-          </button>
-        ))}
-      </nav>
+      {/* ============== SCROLLABLE SECTION CONTENT ============== */}
+      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[1200px] px-4 py-4 md:px-6 md:py-5">
+          {loading && (
+            <div className="mb-4">
+              <LoadingState label="Ielādē lead datus…" />
+            </div>
+          )}
 
-      {/* ============== SCROLLABLE CONTENT ============== */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-3">
-          {tab === "parskats" && (
-            <OverviewTab
-              status={status}
-              owner={owner}
-              ppv={ppv}
-              source={source}
-              tags={tags}
-              visibleAction={visibleAction}
-              visibleDue={visibleDue}
-              isHumanPrimary={isHumanPrimary}
-              sisLabel={sisLabel}
-              sisDue={sisDue}
-              lastContact={lastContact}
-              lastReply={lastReply}
-              unreadReplies={unreadReplies}
-              nextFollowup={nextFollowup}
-              leadId={realLeadId}
-            />
-          )}
-          {tab === "komunikacijas" && (
-            <CommunicationsTab
-              leadId={realLeadId}
-              hasEmail={!!email}
-              hasPhone={!!phone}
-              onSent={() =>
-                applyPatch({ last_activity: new Date().toISOString() })
-              }
-            />
-          )}
-          {tab === "uzdevumi" && (
-            <TasksTab
-              leadId={realLeadId}
-              visibleAction={visibleAction}
-              visibleDue={visibleDue}
-              owner={owner}
-              isHuman={isHumanPrimary}
-              sisLabel={sisLabel}
-              sisDue={sisDue}
-              onComplete={() => setCompleteOpen(true)}
-            />
-          )}
-          {tab === "objekti" && (
-            <Suspense fallback={<LoadingState />}>
+          {/* 2. Communication Summary */}
+          <SectionBlock id="communication" title="Komunikācijas kopsavilkums">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
+              <SummaryTile label="Zvani" value="—" />
+              <SummaryTile label="E-pasti" value="—" />
+              <SummaryTile label="SMS" value="—" />
+              <SummaryTile label="WhatsApp" value="—" />
+              <SummaryTile label="Atbildes" value={unreadReplies || "—"} />
+              <SummaryTile label="Klikšķi" value="—" />
+              <SummaryTile
+                label="Pēdējā aktivitāte"
+                value={lastContact ? relativeTime(lastContact) : "—"}
+              />
+            </div>
+          </SectionBlock>
+
+          {/* Desktop: 2-column grid for mid sections */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+            {/* 4. Next Actions */}
+            <SectionBlock id="next-actions" title="Nākamās darbības">
+              <NextActionsBlock
+                visibleAction={visibleAction}
+                visibleDue={visibleDue}
+                isHumanPrimary={isHumanPrimary}
+                sisLabel={sisLabel}
+                sisDue={sisDue}
+              />
+            </SectionBlock>
+
+            {/* 5. Contact Data */}
+            <SectionBlock id="contact" title="Kontaktdati">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <KeyVal k="Telefons (E.164)" v={phoneE164 || "—"} />
+                <KeyVal k="Telefons (oriģ.)" v={phoneRaw || "—"} />
+                <KeyVal k="E-pasts" v={email || "—"} />
+                <KeyVal k="Validācija" v="—" />
+                <KeyVal k="Līnijas tips" v="—" />
+                <KeyVal k="Opt-in / Opt-out" v="—" />
+              </div>
+            </SectionBlock>
+          </div>
+
+          {/* 6. Object / Project */}
+          <SectionBlock id="project" title="Objekts / Projekts">
+            <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
               <LeadProjects leadId={realLeadId} />
             </Suspense>
-          )}
-          {tab === "vesture" && (
-            <Suspense fallback={<LoadingState />}>
-              <LeadActionHistory leadId={realLeadId} />
-            </Suspense>
-          )}
-          {tab === "dati" && (
-            <DataTab
-              phoneE164={phoneE164}
-              phoneRaw={phoneRaw}
-              email={email}
-              source={source}
-              country={country}
-              importSource={importSource}
-              owner={owner}
-              ppv={ppv}
-            />
-          )}
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <SummaryTile label="Projekta status" value="—" />
+              <SummaryTile label="Zeme" value="—" />
+              <SummaryTile label="Stadija" value="—" />
+              <SummaryTile label="Plānotais būvn." value="—" />
+            </div>
+          </SectionBlock>
+
+          {/* 3. Timeline */}
+          <SectionBlock id="timeline" title="Aktivitāšu laika līnija">
+            <div className="rounded-md border border-border bg-card">
+              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
+                <div className="px-3 py-2">
+                  <LeadCommunicationTimeline leadId={realLeadId} />
+                </div>
+              </Suspense>
+            </div>
+            <div className="mt-2 rounded-md border border-border bg-card">
+              <Suspense fallback={<div className="p-3"><LoadingState /></div>}>
+                <div className="px-3 py-2">
+                  <LeadActionHistory leadId={realLeadId} />
+                </div>
+              </Suspense>
+            </div>
+          </SectionBlock>
+
+          {/* 7. Raw / Audit / Import */}
+          <SectionBlock id="audit" title="Raw / Audit / Import">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="rounded-md border border-border bg-card px-3 py-2">
+                <KeyVal k="Importa avots" v={importSource || "—"} />
+                <KeyVal k="Avots" v={source || "—"} />
+                <KeyVal k="Konflikti" v="—" />
+              </div>
+              <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+                Raw payload preview un audit vēsture vēl nav pieslēgta.
+              </div>
+            </div>
+          </SectionBlock>
         </div>
       </div>
 
@@ -565,7 +552,7 @@ function DrawerBody({
             size="sm"
             variant="ghost"
             className="h-7 gap-1 text-xs"
-            onClick={() => setTab("komunikacijas")}
+            onClick={() => scrollToSection("timeline")}
           >
             <Send className="h-3.5 w-3.5" />
             Sūtīt ziņu
@@ -694,6 +681,113 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function SectionBlock({
+  id,
+  title,
+  right,
+  children,
+}: {
+  id: string;
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={`lead-section-${id}`} className="mb-5 scroll-mt-4">
+      <div className="mb-2 flex items-center justify-between border-b border-border/60 pb-1.5">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function NextActionsBlock({
+  visibleAction,
+  visibleDue,
+  isHumanPrimary,
+  sisLabel,
+  sisDue,
+}: {
+  visibleAction: string;
+  visibleDue: string;
+  isHumanPrimary: boolean;
+  sisLabel: string;
+  sisDue: string;
+}) {
+  const dueT = parseDate(visibleDue);
+  const overdue = dueT != null && dueT < Date.now();
+  const today =
+    dueT != null &&
+    new Date(dueT).toDateString() === new Date().toDateString();
+
+  return (
+    <div className="space-y-2">
+      {visibleAction ? (
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2",
+            overdue
+              ? "border-rose-500/40 bg-rose-500/5"
+              : today
+                ? "border-amber-500/40 bg-amber-500/5"
+                : "border-border bg-card",
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-foreground">
+                {visibleAction}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                {visibleDue && (
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarClock className="h-3 w-3" />
+                    {relativeTime(visibleDue)}
+                  </span>
+                )}
+                {isHumanPrimary && (
+                  <span className="inline-flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    Cilvēka darbība
+                  </span>
+                )}
+              </div>
+            </div>
+            <span
+              className={cn(
+                "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                overdue
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  : today
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
+              {overdue ? "Nokavēts" : today ? "Šodien" : "Plānots"}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <EmptyRow text="Nav plānotu darbību" />
+      )}
+      {sisLabel ? (
+        <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground/80">SIS: </span>
+          {sisLabel}
+          {sisDue && <span className="ml-2">{relativeTime(sisDue)}</span>}
+        </div>
+      ) : (
+        <EmptyRow text="Nav automātikas ieteikumu" />
+      )}
+      <EmptyRow text="Plānoto darbību saraksts vēl nav pieslēgts" />
+    </div>
   );
 }
 
