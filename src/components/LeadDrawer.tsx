@@ -1061,3 +1061,46 @@ function ContactRow({
     </div>
   );
 }
+
+/* ---- Loading skeletons ---- */
+
+function HeaderSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Skeleton className="h-7 w-7 rounded-full" />
+        <Skeleton className="h-3.5 w-40" />
+        <Skeleton className="h-3.5 w-12" />
+        <Skeleton className="h-3.5 w-16" />
+        <Skeleton className="h-3.5 w-10" />
+      </div>
+      <div className="hidden flex-[1.1] items-center justify-center gap-2 md:flex">
+        <Skeleton className="h-3.5 w-24" />
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-3.5 w-16" />
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-7 rounded" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContactSkeleton() {
+  return (
+    <div className="rounded-sm border border-border/60 bg-card">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-b-0">
+          <Skeleton className="h-5 w-5 rounded" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-5 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
