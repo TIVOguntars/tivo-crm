@@ -66,7 +66,14 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
   const [viewerId, setViewerId] = useState<string | null>(null);
 
   if (view.isLoading) return <LoadingState />;
-  if (view.data?.error) return <ErrorState message={view.data.error} />;
+  // Soft empty state on missing/failed view — no red error block.
+  if (view.data?.error) {
+    return (
+      <div className="rounded-md border border-dashed border-border bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
+        Komunikāciju vēsture vēl nav pieejama.
+      </div>
+    );
+  }
 
   const rows = (view.data?.rows ?? []) as Row[];
   if (rows.length === 0) {
