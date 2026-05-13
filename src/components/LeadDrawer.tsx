@@ -632,7 +632,13 @@ function DrawerBody({
                   <ShieldCheck className="h-3 w-3" />
                   Raw payload
                 </div>
-                <div className="text-muted-foreground/60">// nav pieejams</div>
+                {row.raw_data && Object.keys(row.raw_data as Row).length > 0 ? (
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-muted-foreground/80">
+                    {JSON.stringify(row.raw_data, null, 2).slice(0, 1200)}
+                  </pre>
+                ) : (
+                  <div className="text-muted-foreground/60">// nav pieejams</div>
+                )}
               </div>
             </div>
           </SecondarySection>
