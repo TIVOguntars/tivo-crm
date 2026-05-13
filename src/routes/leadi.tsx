@@ -1709,11 +1709,9 @@ function LeadiPage() {
                                     : "text-muted-foreground/65",
                                 )}
                               >
-                                {isFutureDate(l.next_action_due, "next_action_due", l.lead_id)
-                                  ? "—"
-                                  : isOverdue
-                                    ? fmtDateTime(l.next_action_due)
-                                    : fmtDate(l.next_action_due)}
+                                {isOverdue
+                                  ? fmtDateTime(l.next_action_due)
+                                  : fmtDate(l.next_action_due)}
                               </span>
                             )}
                           </div>
