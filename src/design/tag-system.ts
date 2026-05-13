@@ -1,7 +1,7 @@
 export const TAG_STYLES = {
   hot: {
-    bg: "bg-red-100",
-    text: "text-red-700",
+    bg: "bg-red-200",
+    text: "text-red-500",
   },
 
   getestimate: {
