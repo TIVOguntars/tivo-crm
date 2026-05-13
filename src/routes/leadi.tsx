@@ -268,6 +268,27 @@ function isSameDay(t: number, now = Date.now()): boolean {
   );
 }
 
+/** Latvian relative time: "pirms 5 min", "pirms 3 h", "pirms 2 dienām", "pirms 3 nedēļām", "pirms 4 mēnešiem", "pirms 2 gadiem". */
+function fmtRelative(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "";
+  const diff = Date.now() - t;
+  if (diff < 0) return "tagad";
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "tagad";
+  if (min < 60) return `pirms ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `pirms ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `pirms ${d} ${d === 1 ? "dienas" : "dienām"}`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `pirms ${w} ${w === 1 ? "nedēļas" : "nedēļām"}`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `pirms ${mo} ${mo === 1 ? "mēneša" : "mēnešiem"}`;
+  const y = Math.floor(d / 365);
+  return `pirms ${y} ${y === 1 ? "gada" : "gadiem"}`;
+}
+
 /* ----------------------- Status badge ----------------------- */
 
 
