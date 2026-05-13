@@ -80,7 +80,13 @@ export function LeadProjects({ leadId }: { leadId: string | null }) {
 
   if (!leadId) return null;
   if (q.isLoading) return <LoadingState />;
-  if (q.data?.error) return <ErrorState message={q.data.error} />;
+  if (q.data?.error) {
+    return (
+      <div className="rounded-md border border-dashed border-border bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
+        Projektu dati vēl nav pieejami.
+      </div>
+    );
+  }
 
   const rows = (q.data?.rows ?? []) as Row[];
 
