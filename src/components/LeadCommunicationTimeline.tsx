@@ -144,7 +144,7 @@ export function LeadCommunicationTimeline({ leadId }: { leadId: string | null })
 
   return (
     <>
-      <ol className="relative space-y-1.5 border-l border-border pl-4">
+      <ol className="relative space-y-1 border-l border-border pl-4">
         {rows.map((row, idx) => (
           <TimelineItem
             key={s(row.communication_id) || s(row.timeline_at) + idx}
@@ -216,7 +216,7 @@ function TimelineItem({ row, selected, onOpen }: { row: Row; selected?: boolean;
           }
         }}
         className={cn(
-          "rounded-md border px-2.5 py-1.5 transition-colors",
+          "rounded-md border px-2.5 py-1 transition-colors",
           // base inbound vs outbound
           inbound
             ? "border-emerald-500/30 bg-emerald-500/[0.06]"
@@ -250,21 +250,21 @@ function TimelineItem({ row, selected, onOpen }: { row: Row; selected?: boolean;
         </div>
 
         {subject && (
-          <div className="mt-0.5 truncate text-[12.5px] font-semibold text-foreground">{subject}</div>
+          <div className="mt-0 truncate text-[12.5px] font-semibold leading-tight text-foreground">{subject}</div>
         )}
         {inbound && isEmail && fromAddress && (
-          <div className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
+          <div className="mt-0 truncate text-[10.5px] leading-tight text-muted-foreground">
             <span className="text-muted-foreground/70">No: </span>
             <span className="font-medium text-foreground">{fromAddress}</span>
           </div>
         )}
         {preview && (
-          <div className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">
+          <div className="mt-0 line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">
             {preview}
           </div>
         )}
 
-        {(status || latestEvent) && (
+        {selected && (status || latestEvent) && (
           <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
             {status && (
               <span>
@@ -281,7 +281,7 @@ function TimelineItem({ row, selected, onOpen }: { row: Row; selected?: boolean;
           </div>
         )}
 
-        {showStats && (
+        {selected && showStats && (
           <div className="mt-1 flex flex-wrap gap-1">
             <Stat icon={<CheckCircle2 className="h-3 w-3" />} value={delivered} label="piegādāti" tone="muted" />
             <Stat icon={<MousePointerClick className="h-3 w-3" />} value={clicked} label="klikšķi" tone="muted" />

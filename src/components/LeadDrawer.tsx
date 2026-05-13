@@ -476,37 +476,29 @@ function DrawerBody({
             )}
           </div>
 
-          {/* CENTER — owner / ppv / tags */}
+          {/* CENTER — secondary (owner/ppv) and tertiary (tags) — visually demoted */}
           <div className="hidden min-w-0 flex-[1.1] items-center justify-center gap-2 md:flex">
             {owner && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-foreground">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
-                  {initials(owner)}
-                </span>
+              <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
+                <User className="h-3 w-3" />
                 <span className="truncate">{owner}</span>
               </span>
             )}
             {ppv && (
-              <>
-                <span className="text-border">•</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Sparkles className="h-3 w-3" />
-                  {ppv}
-                </span>
-              </>
+              <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/80">
+                <Sparkles className="h-3 w-3" />
+                {ppv}
+              </span>
             )}
             {normalizeTags(tags).length > 0 && (
-              <>
-                <span className="text-border">•</span>
-                <div className="flex items-center gap-1 overflow-hidden">
-                  {normalizeTags(tags).slice(0, 3).map((t) => (
-                    <Tag key={t} label={t} />
-                  ))}
-                  {tags.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground">+{tags.length - 3}</span>
-                  )}
-                </div>
-              </>
+              <div className="flex items-center gap-0.5 overflow-hidden opacity-70">
+                {normalizeTags(tags).slice(0, 2).map((t) => (
+                  <Tag key={t} label={t} />
+                ))}
+                {tags.length > 2 && (
+                  <span className="text-[10px] text-muted-foreground">+{tags.length - 2}</span>
+                )}
+              </div>
             )}
           </div>
 
@@ -741,8 +733,8 @@ function DrawerBody({
                   </div>
                 </div>
 
-                {/* RIGHT — compact contact + KPI summary */}
-                <aside className="space-y-3 lg:sticky lg:top-12 lg:self-start">
+                {/* RIGHT — sticky operational sidebar */}
+                <aside className="space-y-2 lg:sticky lg:top-12 lg:self-start lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1">
                   <SecondarySection id="comms-contact" title="Kontakts" hint="crm.contacts">
                     {loading ? (
                       <ContactSkeleton />
@@ -756,6 +748,34 @@ function DrawerBody({
                         emailRaw={emailRaw}
                       />
                     )}
+                  </SecondarySection>
+
+                  <SecondarySection id="comms-quick" title="Ātrās darbības" hint="Operational">
+                    <div className="grid grid-cols-2 gap-1 rounded-sm border border-border/60 bg-card p-1.5">
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!phone} disabled={!phone}>
+                        {phone ? <a href={`tel:${phone}`}><Phone className="h-3 w-3" />Zvanīt</a> : <span><Phone className="h-3 w-3" />Zvanīt</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!waPhone} disabled={!waPhone}>
+                        {waPhone ? <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer"><MessageCircle className="h-3 w-3" />WhatsApp</a> : <span><MessageCircle className="h-3 w-3" />WhatsApp</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" asChild={!!email} disabled={!email}>
+                        {email ? <a href={`mailto:${email}`}><Mail className="h-3 w-3" />E-pasts</a> : <span><Mail className="h-3 w-3" />E-pasts</span>}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 justify-start gap-1.5 px-2 text-[11px]" onClick={() => setCompleteOpen(true)} disabled={!realLeadId}>
+                        <CheckSquare className="h-3 w-3" />Pabeigt
+                      </Button>
+                    </div>
+                  </SecondarySection>
+
+                  <SecondarySection id="comms-next" title="Nākamā darbība" hint="Operational">
+                    <NextActionsBlock
+                      visibleAction={visibleAction}
+                      visibleDue={visibleDue}
+                      isHumanPrimary={isHumanPrimary}
+                      sisLabel={sisLabel}
+                      sisDue={sisDue}
+                      onComplete={() => setCompleteOpen(true)}
+                    />
                   </SecondarySection>
 
                   <SecondarySection id="comms-kpi" title="KPI kopsavilkums" hint="crm.communications">
