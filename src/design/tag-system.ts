@@ -1,37 +1,37 @@
 export const TAG_STYLES = {
   hot: {
     bg: "bg-red-50",
-    text: "text-red-350",
+    text: "text-red-500",
   },
 
   getestimate: {
-    bg: "bg-blue-100",
-    text: "text-blue-700",
+    bg: "bg-blue-50",
+    text: "text-blue-500",
   },
 
   sketch: {
-    bg: "bg-purple-100",
-    text: "text-purple-700",
+    bg: "bg-purple-50",
+    text: "text-purple-500",
   },
 
   info: {
-    bg: "bg-slate-100",
-    text: "text-slate-700",
+    bg: "bg-slate-50",
+    text: "text-slate-500",
   },
 
   warning: {
-    bg: "bg-orange-100",
-    text: "text-orange-700",
+    bg: "bg-orange-50",
+    text: "text-orange-500",
   },
 
   success: {
-    bg: "bg-green-100",
-    text: "text-green-700",
+    bg: "bg-green-50",
+    text: "text-green-500",
   },
 
   default: {
-    bg: "bg-gray-100",
-    text: "text-gray-700",
+    bg: "bg-gray-50",
+    text: "text-gray-500",
   },
 };
 
