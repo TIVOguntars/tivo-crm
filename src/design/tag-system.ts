@@ -1,7 +1,7 @@
 export const TAG_STYLES = {
   hot: {
-    bg: "bg-red-50",
-    text: "text-red-100",
+    bg: "bg-red-100",
+    text: "text-red-700",
   },
 
   getestimate: {
@@ -36,4 +36,4 @@ export const TAG_STYLES = {
 };
 
 export const TAG_BASE_CLASS =
-  "inline-flex items-center rounded-full px-1 h-3 text-[10px] font-medium whitespace-nowrap";
+  "inline-flex items-center rounded-full px-2 h-5 text-[11px] font-medium whitespace-nowrap";
