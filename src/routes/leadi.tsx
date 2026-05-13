@@ -110,6 +110,7 @@ interface Lead {
   ppv: string;
   next_action: string;
   next_action_due: string | null;
+  queue_bucket_label: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
@@ -649,11 +650,8 @@ function LeadiPage() {
         const secondary = phone || email || country;
         const next_action_due =
           s(r.effective_due_at) || s(r.visible_action_due_at) || null;
-        const next_action =
-          s(r.action_label) ||
-          s(r.nakama_darbiba) ||
-          s(r.visible_action) ||
-          s(r.next_action);
+        const next_action = s(r.action_label);
+        const queue_bucket_label = s(r.queue_bucket_label);
         const last_activity =
           s(r.last_contact_date) ||
           s(r.last_communication_at) ||
@@ -687,6 +685,7 @@ function LeadiPage() {
           ppv: s(r.ppv_name || r.ppv_vards),
           next_action,
           next_action_due,
+          queue_bucket_label,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
@@ -1428,7 +1427,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Tagi</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Statuss</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Nākamā darbība</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Nākamais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Pēdējā aktivitāte</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
                   </div>
@@ -1677,33 +1676,34 @@ function LeadiPage() {
                             <span className="text-muted-foreground/50">—</span>
                           )}
                         </div>
-                        {/* NĀKAMĀ DARBĪBA */}
+                        {/* NĀKAMAIS */}
                         <div role="cell" className="min-w-0 px-1.5 py-1">
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
-                                "truncate text-[11.5px]",
-                                isOverdue
-                                  ? "font-medium text-rose-700 dark:text-rose-300"
-                                  : l.next_action
-                                    ? "text-foreground"
-                                    : "text-muted-foreground/60",
+                                "truncate text-[11.5px] font-medium",
+                                l.next_action
+                                  ? "text-foreground"
+                                  : "text-muted-foreground/60",
                               )}
                             >
                               {l.next_action || "Nav darbības"}
                             </span>
-                            {l.next_action_due && (
+                            {(l.queue_bucket_label || l.next_action_due) && (
                               <span
                                 className={cn(
-                                  "text-[10px] tabular-nums",
-                                  isOverdue
-                                    ? "text-rose-600/85 dark:text-rose-300/85"
-                                    : "text-muted-foreground/65",
+                                  "truncate text-[10px] tabular-nums",
+                                  /kavēt/i.test(l.queue_bucket_label)
+                                    ? "text-rose-600 dark:text-rose-300"
+                                    : "text-muted-foreground/70",
                                 )}
                               >
-                                {isOverdue
-                                  ? fmtDateTime(l.next_action_due)
-                                  : fmtDate(l.next_action_due)}
+                                {[
+                                  l.queue_bucket_label,
+                                  l.next_action_due ? fmtDate(l.next_action_due) : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" • ")}
                               </span>
                             )}
                           </div>
