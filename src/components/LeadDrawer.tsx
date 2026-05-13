@@ -281,7 +281,7 @@ function DrawerBody({
   const realLeadId = s(row.lead_id) || leadId;
   const displayName = leadDisplayName(row, realLeadId);
   const status = s(localPatch.status ?? row.lead_status_label);
-  const priority = s(row.priority_label);
+  // priority_label vairs neizmantojam — prioritāti rāda tikai zvaigznes + reitings.
   const owner = s(localPatch.owner ?? row.visible_action_owner);
   const ppv = s(localPatch.ppv ?? row.ppv_name);
   const country = s(row.country);
