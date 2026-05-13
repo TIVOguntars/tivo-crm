@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { Input } from "@/components/ui/input";
 import {
   Select,
