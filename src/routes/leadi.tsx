@@ -316,31 +316,26 @@ function CommStats({
   counts: CommBuckets | undefined;
   hasUnread: boolean;
 }) {
-  const c = counts ?? {
-    call: [0, 0] as [number, number],
-    email: [0, 0] as [number, number],
-    chat: [0, 0] as [number, number],
-  };
-  const items: Array<{ icon: string; label: string; out: number; inn: number }> = [
-    { icon: "📞", label: "Zvani", out: c.call[0], inn: c.call[1] },
-    { icon: "✉️", label: "E-pasti", out: c.email[0], inn: c.email[1] },
-    { icon: "💬", label: "Ziņas", out: c.chat[0], inn: c.chat[1] },
-  ];
+  if (!counts) return <span className="text-muted-foreground/40">—</span>;
+  const items = (
+    [
+      { icon: "📞", label: "Zvani", out: counts.call[0], inn: counts.call[1] },
+      { icon: "✉️", label: "E-pasti", out: counts.email[0], inn: counts.email[1] },
+      { icon: "💬", label: "Ziņas", out: counts.chat[0], inn: counts.chat[1] },
+    ] as const
+  ).filter((it) => it.out > 0 || it.inn > 0);
+  if (items.length === 0) return <span className="text-muted-foreground/40">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5 align-middle tabular-nums">
       {items.map((it) => {
-        const empty = it.out === 0 && it.inn === 0;
         return (
           <span
             key={it.label}
-            aria-label={`${it.label}: izejošās ${it.out}, ienākošās ${it.inn}`}
             className={cn(
               "inline-flex items-center gap-0.5 leading-none",
-              empty
-                ? "text-muted-foreground/35"
-                : hasUnread && it.inn > 0
-                  ? "text-blue-600/90 dark:text-blue-300/90"
-                  : "text-muted-foreground/80",
+              hasUnread && it.inn > 0
+                ? "text-blue-600/90 dark:text-blue-300/90"
+                : "text-muted-foreground/80",
             )}
           >
             <span className="text-[10px]">{it.icon}</span>
@@ -541,7 +536,7 @@ function LeadiPage() {
   // does not expose channel-level counts.
   const commsStats = useCrmView(
     "communications",
-    "select=lead_id,channel,direction&limit=20000",
+    "select=lead_id,channel,direction,status&limit=20000",
   );
   const commCounts = useMemo(() => {
     const map = new Map<
@@ -552,6 +547,8 @@ function LeadiPage() {
     for (const r of rows) {
       const lid = s(r.lead_id);
       if (!lid) continue;
+      const st = s(r.status).toLowerCase();
+      if (st && !["sent", "delivered", "replied"].includes(st)) continue;
       const ch = s(r.channel).toLowerCase();
       const dir = s(r.direction).toLowerCase();
       let bucket: "call" | "email" | "chat" | null = null;
