@@ -268,6 +268,27 @@ function isSameDay(t: number, now = Date.now()): boolean {
   );
 }
 
+/** Latvian relative time: "pirms 5 min", "pirms 3 h", "pirms 2 dienām", "pirms 3 nedēļām", "pirms 4 mēnešiem", "pirms 2 gadiem". */
+function fmtRelative(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "";
+  const diff = Date.now() - t;
+  if (diff < 0) return "tagad";
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "tagad";
+  if (min < 60) return `pirms ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `pirms ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `pirms ${d} ${d === 1 ? "dienas" : "dienām"}`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `pirms ${w} ${w === 1 ? "nedēļas" : "nedēļām"}`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `pirms ${mo} ${mo === 1 ? "mēneša" : "mēnešiem"}`;
+  const y = Math.floor(d / 365);
+  return `pirms ${y} ${y === 1 ? "gada" : "gadiem"}`;
+}
+
 /* ----------------------- Status badge ----------------------- */
 
 
@@ -1428,7 +1449,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Statuss</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Nākamais</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Pēdējā aktivitāte</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
                   </div>
                 </div>
@@ -1553,21 +1574,21 @@ function LeadiPage() {
                           : noContact
                             ? "before:bg-muted-foreground/30"
                             : "before:bg-transparent";
-                    // Communication activity label
-                    const commLabel = l.has_unread_reply
-                      ? "Atbildēja"
-                      : l.communication_state === "waiting"
-                        ? "Gaida atbildi"
-                        : l.communication_state === "active"
-                          ? "Aktīva saziņa"
-                          : l.communication_state === "event_only"
-                            ? "Ir notikums"
-                            : l.communication_state === "no_contact"
-                              ? "Nav kontakta"
-                              : null;
-                    const commTimeSrc = l.has_unread_reply
-                      ? l.last_reply_at
-                      : l.last_communication_at || l.last_activity || l.created_at;
+                    // Communication label from view, with fallback by state
+                    const commLabel =
+                      l.communication_label ||
+                      (l.communication_state === "unread"
+                        ? "Atbildēja"
+                        : l.communication_state === "waiting"
+                          ? "Gaida atbildi"
+                          : l.communication_state === "active"
+                            ? "Aktīva saziņa"
+                            : l.communication_state === "event_only"
+                              ? "Ir notikums"
+                              : l.communication_state === "no_contact"
+                                ? "Nav kontakta"
+                                : "");
+                    const commTimeSrc = l.last_reply_at || l.last_communication_at;
                     const isCursor =
                       visibleRows[activeIdx]?.lead_id === l.lead_id;
                     return (
@@ -1708,24 +1729,31 @@ function LeadiPage() {
                             )}
                           </div>
                         </div>
-                        {/* PĒDĒJĀ AKTIVITĀTE */}
+                        {/* AKTIVITĀTE */}
                         <div role="cell" className="min-w-0 px-1.5 py-1">
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
                                 "truncate text-[11.5px]",
-                                l.has_unread_reply
-                                  ? "text-blue-600/90 dark:text-blue-300/90 font-medium"
-                                  : "text-muted-foreground/85",
+                                l.communication_state === "unread"
+                                  ? "font-medium text-emerald-600 dark:text-emerald-400"
+                                  : l.communication_state === "waiting"
+                                    ? "text-orange-600 dark:text-orange-400"
+                                    : l.communication_state === "no_contact"
+                                      ? "text-muted-foreground/60"
+                                      : l.communication_state === "event_only"
+                                        ? "text-muted-foreground/70"
+                                        : "text-foreground",
                               )}
                             >
-                              {commLabel ?? "Nav kontakta"}
+                              {commLabel || "—"}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {isFutureDate(commTimeSrc, "comm_time", l.lead_id)
-                                ? "—"
-                                : fmtDate(commTimeSrc)}
-                            </span>
+                            {commTimeSrc &&
+                              !isFutureDate(commTimeSrc, "comm_time", l.lead_id) && (
+                                <span className="truncate text-[10px] text-muted-foreground/60">
+                                  {fmtRelative(commTimeSrc)}
+                                </span>
+                              )}
                           </div>
                         </div>
                         <div
