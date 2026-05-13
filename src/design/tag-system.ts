@@ -36,4 +36,4 @@ export const TAG_STYLES = {
 };
 
 export const TAG_BASE_CLASS =
-  "inline-flex items-center rounded-full px-2 h-3 text-[10px] font-medium whitespace-nowrap";
+  "inline-flex items-center rounded-full px-1 h-3 text-[10px] font-medium whitespace-nowrap";
