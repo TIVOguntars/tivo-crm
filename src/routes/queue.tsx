@@ -6,6 +6,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -713,8 +714,8 @@ function QueuePage() {
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
-                    <TableCell className="py-3 text-muted-foreground/80">
-                      {mapStatus(s(r.legacy_lead_status)) || <span className="text-muted-foreground">—</span>}
+                    <TableCell className="py-3">
+                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <Button
