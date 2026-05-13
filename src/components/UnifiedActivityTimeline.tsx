@@ -390,6 +390,7 @@ export function UnifiedActivityTimeline({
                     onSelect={(k) =>
                       setSelectedKey((cur) => (cur === k ? null : k))
                     }
+                    isClosedLead={isClosedLead}
                   />
                 )}
               </div>
@@ -405,10 +406,12 @@ function ThreadItem({
   unit,
   selectedKey,
   onSelect,
+  isClosedLead,
 }: {
   unit: ThreadUnit;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  isClosedLead: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // unit.messages are in desc order (newest first). Latest = [0].
@@ -428,6 +431,35 @@ function ThreadItem({
   const threadTitle = subject.replace(SUBJECT_PREFIX_RE, "").trim() || subject;
   const ts = fmtDateTime(latest.timeline_at);
   const preview = previewText(latest);
+
+  // Thread state derivation. Priority:
+  // waiting_for_us > stale > waiting_for_client > closed
+  const latestTs = (() => {
+    const d = new Date(s(latest.timeline_at));
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  })();
+  const isStale =
+    latestTs != null && Date.now() - latestTs > 30 * 24 * 60 * 60 * 1000;
+  const state: "waiting_for_us" | "stale" | "waiting_for_client" | "closed" | null =
+    hasInboundLatest
+      ? "waiting_for_us"
+      : isStale
+        ? "stale"
+        : !hasInboundLatest && count > 0
+          ? isClosedLead
+            ? "closed"
+            : "waiting_for_client"
+          : null;
+  const STATE_META: Record<
+    NonNullable<typeof state>,
+    { dot: string; label: string }
+  > = {
+    waiting_for_us: { dot: "bg-rose-500", label: "Gaida atbildi no mums" },
+    stale: { dot: "bg-amber-500", label: "Neaktīvs >30 dienas" },
+    waiting_for_client: { dot: "bg-sky-500", label: "Gaida klienta atbildi" },
+    closed: { dot: "bg-muted-foreground/60", label: "Slēgts" },
+  };
+  const stateMeta = state ? STATE_META[state] : null;
 
   // Chronological (oldest → newest) inside thread
   const ordered = [...unit.messages].reverse();
@@ -452,8 +484,8 @@ function ThreadItem({
         }}
         className={cn(
           "cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors",
-          hasInboundLatest && !open
-            ? "border-blue-500/30 bg-blue-500/5"
+          state === "waiting_for_us" && !open
+            ? "border-rose-500/30 bg-rose-500/5"
             : open
               ? "border-border bg-accent/30"
               : "border-transparent hover:bg-accent/20",
@@ -468,6 +500,16 @@ function ThreadItem({
           <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
+              {stateMeta && (
+                <span
+                  title={stateMeta.label}
+                  aria-label={stateMeta.label}
+                  className={cn(
+                    "mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                    stateMeta.dot,
+                  )}
+                />
+              )}
               <div
                 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
                 title={threadTitle}
@@ -477,8 +519,8 @@ function ThreadItem({
               <span
                 className={cn(
                   "inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-medium tabular-nums",
-                  hasInboundLatest
-                    ? "bg-blue-500 text-white"
+                  state === "waiting_for_us"
+                    ? "bg-rose-500 text-white"
                     : "bg-muted text-muted-foreground",
                 )}
               >
