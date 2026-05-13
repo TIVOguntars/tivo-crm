@@ -15,6 +15,8 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  ArrowDownLeft,
+  ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
@@ -188,6 +190,69 @@ function previewText(row: Row): string {
   return "";
 }
 
+const SUBJECT_PREFIX_RE = /^\s*(?:re|fw|fwd|sv|aw|antw|wg|tr)\s*(?:\[\d+\])?\s*:\s*/i;
+function normalizeSubject(title: string): string {
+  let t = title.trim();
+  // strip repeated prefixes (e.g. "Sv: RE: Foo")
+  for (let i = 0; i < 6; i++) {
+    const next = t.replace(SUBJECT_PREFIX_RE, "");
+    if (next === t) break;
+    t = next;
+  }
+  return t.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isEmailRow(row: Row): boolean {
+  const t = s(row.activity_type).toLowerCase();
+  if (!COMMUNICATIONS.has(t)) return false;
+  const ch = s(row.channel).toLowerCase();
+  return ch === "email" || ch === "" /* tolerate missing channel for email_event */;
+}
+
+type ThreadUnit = { kind: "thread"; key: string; messages: Row[] };
+type SingleUnit = { kind: "single"; key: string; row: Row };
+type Unit = ThreadUnit | SingleUnit;
+
+function buildUnits(rows: Row[]): Unit[] {
+  // rows are desc by timeline_at. Group emails by normalized subject; first
+  // occurrence in iteration = latest message → defines the thread's slot.
+  const threadIdx = new Map<string, number>();
+  const units: Unit[] = [];
+  rows.forEach((row, idx) => {
+    if (!isEmailRow(row)) {
+      units.push({ kind: "single", key: `s:${s(row.source_table)}:${s(row.id)}:${idx}`, row });
+      return;
+    }
+    const subject = s(row.title) || s(row.activity_subtype) || "";
+    const norm = normalizeSubject(subject);
+    if (!norm) {
+      units.push({ kind: "single", key: `s:${s(row.source_table)}:${s(row.id)}:${idx}`, row });
+      return;
+    }
+    const tk = `t:${norm}`;
+    let pos = threadIdx.get(tk);
+    if (pos == null) {
+      pos = units.length;
+      threadIdx.set(tk, pos);
+      units.push({ kind: "thread", key: tk, messages: [row] });
+    } else {
+      (units[pos] as ThreadUnit).messages.push(row);
+    }
+  });
+  // Collapse single-message threads back to single units to avoid noise.
+  return units.map((u) =>
+    u.kind === "thread" && u.messages.length === 1
+      ? { kind: "single", key: `s:${s(u.messages[0].source_table)}:${s(u.messages[0].id)}`, row: u.messages[0] }
+      : u,
+  );
+}
+
+function unitTimestamp(u: Unit): unknown {
+  if (u.kind === "single") return u.row.timeline_at;
+  // messages are inserted desc; first one is newest
+  return u.messages[0]?.timeline_at;
+}
+
 export interface UnifiedActivityTimelineProps {
   leadId: string | null;
   defaultCategory?: TimelineCategory;
@@ -245,6 +310,8 @@ export function UnifiedActivityTimeline({
     return rows.filter((r) => categoryOf(r) === category);
   }, [rows, category]);
 
+  const units = useMemo(() => buildUnits(filtered), [filtered]);
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-1">
@@ -281,28 +348,37 @@ export function UnifiedActivityTimeline({
         </div>
       ) : (
         <ol className="relative border-l border-border pl-4">
-          {filtered.map((row, idx) => {
-            const key = `${s(row.source_table)}:${s(row.id)}:${idx}`;
-            const dk = dayKey(row.timeline_at);
-            const prevDk =
-              idx > 0 ? dayKey(filtered[idx - 1].timeline_at) : "";
+          {units.map((u, idx) => {
+            const ts = unitTimestamp(u);
+            const dk = dayKey(ts);
+            const prevDk = idx > 0 ? dayKey(unitTimestamp(units[idx - 1])) : "";
             const showDivider = dk !== prevDk;
             return (
-              <div key={key}>
+              <div key={u.key}>
                 {showDivider && (
                   <li className="relative -ml-4 list-none pl-4 pt-3 first:pt-0">
                     <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                      {fmtDayDivider(row.timeline_at)}
+                      {fmtDayDivider(ts)}
                     </div>
                   </li>
                 )}
-                <TimelineItem
-                  row={row}
-                  selected={selectedKey === key}
-                  onSelect={() =>
-                    setSelectedKey((cur) => (cur === key ? null : key))
-                  }
-                />
+                {u.kind === "single" ? (
+                  <TimelineItem
+                    row={u.row}
+                    selected={selectedKey === u.key}
+                    onSelect={() =>
+                      setSelectedKey((cur) => (cur === u.key ? null : u.key))
+                    }
+                  />
+                ) : (
+                  <ThreadItem
+                    unit={u}
+                    selectedKey={selectedKey}
+                    onSelect={(k) =>
+                      setSelectedKey((cur) => (cur === k ? null : k))
+                    }
+                  />
+                )}
               </div>
             );
           })}
@@ -312,14 +388,143 @@ export function UnifiedActivityTimeline({
   );
 }
 
+function ThreadItem({
+  unit,
+  selectedKey,
+  onSelect,
+}: {
+  unit: ThreadUnit;
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // unit.messages are in desc order (newest first). Latest = [0].
+  const latest = unit.messages[0];
+  const cat = categoryOf(latest);
+  const count = unit.messages.length;
+  const inbound = unit.messages.filter((m) =>
+    ["inbound", "in"].includes(s(m.direction).toLowerCase()),
+  ).length;
+  const outbound = count - inbound;
+  const hasInboundLatest = ["inbound", "in"].includes(
+    s(latest.direction).toLowerCase(),
+  );
+  const subject =
+    s(latest.title) || s(latest.activity_subtype) || "—";
+  // Strip subject prefix for thread title
+  const threadTitle = subject.replace(SUBJECT_PREFIX_RE, "").trim() || subject;
+  const ts = fmtDateTime(latest.timeline_at);
+  const preview = previewText(latest);
+
+  // Chronological (oldest → newest) inside thread
+  const ordered = [...unit.messages].reverse();
+
+  return (
+    <li className="relative py-0.5">
+      <span
+        className={cn(
+          "absolute -left-[19px] top-2.5 h-2 w-2 rounded-full ring-2 ring-background",
+          dotClass(cat),
+        )}
+      />
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
+        className={cn(
+          "cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors",
+          hasInboundLatest && !open
+            ? "border-blue-500/30 bg-blue-500/5"
+            : open
+              ? "border-border bg-accent/30"
+              : "border-transparent hover:bg-accent/20",
+        )}
+      >
+        <div className="flex items-start gap-2">
+          {open ? (
+            <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
+          <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <div
+                className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
+                title={threadTitle}
+              >
+                {threadTitle}
+              </div>
+              <span
+                className={cn(
+                  "inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-medium tabular-nums",
+                  hasInboundLatest
+                    ? "bg-blue-500 text-white"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {count}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                {ts}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground/80">
+              <span className="inline-flex items-center gap-0.5">
+                <ArrowDownLeft className="h-3 w-3" /> {inbound}
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-0.5">
+                <ArrowUpRight className="h-3 w-3" /> {outbound}
+              </span>
+              <span>·</span>
+              <span>Email</span>
+            </div>
+            {!open && preview && (
+              <div className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">
+                {preview}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {open && (
+        <ol className="mt-1 ml-3 space-y-0.5 border-l border-border/60 pl-3">
+          {ordered.map((row, idx) => {
+            const k = `${unit.key}:${s(row.id)}:${idx}`;
+            return (
+              <TimelineItem
+                key={k}
+                row={row}
+                selected={selectedKey === k}
+                onSelect={() => onSelect(k)}
+                compact
+              />
+            );
+          })}
+        </ol>
+      )}
+    </li>
+  );
+}
+
 function TimelineItem({
   row,
   selected,
   onSelect,
+  compact = false,
 }: {
   row: Row;
   selected: boolean;
   onSelect: () => void;
+  compact?: boolean;
 }) {
   const [showMeta, setShowMeta] = useState(false);
   const cat = categoryOf(row);
@@ -338,12 +543,14 @@ function TimelineItem({
 
   return (
     <li className="relative py-0.5">
-      <span
-        className={cn(
-          "absolute -left-[19px] top-2.5 h-2 w-2 rounded-full ring-2 ring-background",
-          dotClass(cat),
-        )}
-      />
+      {!compact && (
+        <span
+          className={cn(
+            "absolute -left-[19px] top-2.5 h-2 w-2 rounded-full ring-2 ring-background",
+            dotClass(cat),
+          )}
+        />
+      )}
       <div
         role="button"
         tabIndex={0}
