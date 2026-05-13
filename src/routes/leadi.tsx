@@ -303,6 +303,59 @@ function PriorityCell({ score }: { score: number }) {
   );
 }
 
+type CommBuckets = {
+  call: [number, number];
+  email: [number, number];
+  chat: [number, number];
+};
+
+function CommStats({
+  counts,
+  hasUnread,
+}: {
+  counts: CommBuckets | undefined;
+  hasUnread: boolean;
+}) {
+  const c = counts ?? {
+    call: [0, 0] as [number, number],
+    email: [0, 0] as [number, number],
+    chat: [0, 0] as [number, number],
+  };
+  const items: Array<{ icon: string; label: string; out: number; inn: number }> = [
+    { icon: "📞", label: "Zvani", out: c.call[0], inn: c.call[1] },
+    { icon: "✉️", label: "E-pasti", out: c.email[0], inn: c.email[1] },
+    { icon: "💬", label: "Ziņas", out: c.chat[0], inn: c.chat[1] },
+  ];
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle tabular-nums">
+      {items.map((it) => {
+        const empty = it.out === 0 && it.inn === 0;
+        return (
+          <span
+            key={it.label}
+            aria-label={`${it.label}: izejošās ${it.out}, ienākošās ${it.inn}`}
+            className={cn(
+              "inline-flex items-center gap-0.5 leading-none",
+              empty
+                ? "text-muted-foreground/35"
+                : hasUnread && it.inn > 0
+                  ? "text-blue-600/90 dark:text-blue-300/90"
+                  : "text-muted-foreground/80",
+            )}
+          >
+            <span className="text-[10px]">{it.icon}</span>
+            <span className="text-[10.5px]">
+              {it.out}
+              <span className="opacity-50">/</span>
+              {it.inn}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 /* ----------------------- Filter chip popover ----------------------- */
 
 function FilterChip({
@@ -482,6 +535,49 @@ function LeadiPage() {
     overviewQuery,
   );
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
+
+  // Per-lead communication counters (📞 / ✉️ / 💬 outbound/inbound).
+  // Aggregated from crm.communications since the enriched queue view
+  // does not expose channel-level counts.
+  const commsStats = useCrmView(
+    "communications",
+    "select=lead_id,channel,direction&limit=20000",
+  );
+  const commCounts = useMemo(() => {
+    const map = new Map<
+      string,
+      { call: [number, number]; email: [number, number]; chat: [number, number] }
+    >();
+    const rows = (commsStats.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      const ch = s(r.channel).toLowerCase();
+      const dir = s(r.direction).toLowerCase();
+      let bucket: "call" | "email" | "chat" | null = null;
+      if (ch === "call" || ch.includes("phone") || ch.includes("zvan")) bucket = "call";
+      else if (ch.includes("mail") || ch.includes("past")) bucket = "email";
+      else if (
+        ch === "sms" ||
+        ch.includes("whats") ||
+        ch.includes("messeng") ||
+        ch.includes("chat") ||
+        ch.includes("telegram")
+      )
+        bucket = "chat";
+      if (!bucket) continue;
+      const isInbound = dir === "inbound" || dir === "in";
+      const isOutbound = dir === "outbound" || dir === "out";
+      if (!isInbound && !isOutbound) continue;
+      const cur =
+        map.get(lid) ??
+        { call: [0, 0] as [number, number], email: [0, 0] as [number, number], chat: [0, 0] as [number, number] };
+      const slot = isOutbound ? 0 : 1;
+      cur[bucket][slot] += 1;
+      map.set(lid, cur);
+    }
+    return map;
+  }, [commsStats.data]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
@@ -1482,21 +1578,11 @@ function LeadiPage() {
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
-                            {(l.country || "—")}
-                            {l.reply_count > 0 && (
-                              <>
-                                <span className="mx-1 opacity-50">•</span>
-                                <span
-                                  className={cn(
-                                    hasUnread
-                                      ? "text-blue-600/90 dark:text-blue-300/90"
-                                      : "text-muted-foreground/70",
-                                  )}
-                                >
-                                  {l.reply_count}
-                                </span>
-                              </>
-                            )}
+                            <span className="text-muted-foreground/70">
+                              {l.country || "—"}
+                            </span>
+                            <span className="mx-1 opacity-40">•</span>
+                            <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
                           </div>
                         </div>
                         {/* TAGI */}
