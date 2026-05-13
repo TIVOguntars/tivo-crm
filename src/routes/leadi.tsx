@@ -1676,33 +1676,34 @@ function LeadiPage() {
                             <span className="text-muted-foreground/50">—</span>
                           )}
                         </div>
-                        {/* NĀKAMĀ DARBĪBA */}
+                        {/* NĀKAMAIS */}
                         <div role="cell" className="min-w-0 px-1.5 py-1">
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
-                                "truncate text-[11.5px]",
-                                isOverdue
-                                  ? "font-medium text-rose-700 dark:text-rose-300"
-                                  : l.next_action
-                                    ? "text-foreground"
-                                    : "text-muted-foreground/60",
+                                "truncate text-[11.5px] font-medium",
+                                l.next_action
+                                  ? "text-foreground"
+                                  : "text-muted-foreground/60",
                               )}
                             >
                               {l.next_action || "Nav darbības"}
                             </span>
-                            {l.next_action_due && (
+                            {(l.queue_bucket_label || l.next_action_due) && (
                               <span
                                 className={cn(
-                                  "text-[10px] tabular-nums",
-                                  isOverdue
-                                    ? "text-rose-600/85 dark:text-rose-300/85"
-                                    : "text-muted-foreground/65",
+                                  "truncate text-[10px] tabular-nums",
+                                  /kavēt/i.test(l.queue_bucket_label)
+                                    ? "text-rose-600 dark:text-rose-300"
+                                    : "text-muted-foreground/70",
                                 )}
                               >
-                                {isOverdue
-                                  ? fmtDateTime(l.next_action_due)
-                                  : fmtDate(l.next_action_due)}
+                                {[
+                                  l.queue_bucket_label,
+                                  l.next_action_due ? fmtDate(l.next_action_due) : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" • ")}
                               </span>
                             )}
                           </div>
