@@ -1729,24 +1729,31 @@ function LeadiPage() {
                             )}
                           </div>
                         </div>
-                        {/* PĒDĒJĀ AKTIVITĀTE */}
+                        {/* AKTIVITĀTE */}
                         <div role="cell" className="min-w-0 px-1.5 py-1">
                           <div className="flex flex-col leading-tight">
                             <span
                               className={cn(
                                 "truncate text-[11.5px]",
-                                l.has_unread_reply
-                                  ? "text-blue-600/90 dark:text-blue-300/90 font-medium"
-                                  : "text-muted-foreground/85",
+                                l.communication_state === "unread"
+                                  ? "font-medium text-emerald-600 dark:text-emerald-400"
+                                  : l.communication_state === "waiting"
+                                    ? "text-orange-600 dark:text-orange-400"
+                                    : l.communication_state === "no_contact"
+                                      ? "text-muted-foreground/60"
+                                      : l.communication_state === "event_only"
+                                        ? "text-muted-foreground/70"
+                                        : "text-foreground",
                               )}
                             >
-                              {commLabel ?? "Nav kontakta"}
+                              {commLabel || "—"}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {isFutureDate(commTimeSrc, "comm_time", l.lead_id)
-                                ? "—"
-                                : fmtDate(commTimeSrc)}
-                            </span>
+                            {commTimeSrc &&
+                              !isFutureDate(commTimeSrc, "comm_time", l.lead_id) && (
+                                <span className="truncate text-[10px] text-muted-foreground/60">
+                                  {fmtRelative(commTimeSrc)}
+                                </span>
+                              )}
                           </div>
                         </div>
                         <div
