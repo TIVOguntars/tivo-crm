@@ -542,43 +542,76 @@ function LeadiPage() {
     "communications",
     "select=lead_id,channel,direction,status&limit=20000",
   );
+  // Inbound reply events (e.g. IMAP replies) are tracked in
+  // crm.communication_events, NOT in crm.communications. Without these,
+  // a lead with 8 email replies would render as ✉️ 0/0.
+  const commsEvents = useCrmView(
+    "communication_events",
+    "select=lead_id,channel,event_type&limit=20000",
+  );
   const commCounts = useMemo(() => {
     const map = new Map<
       string,
       { call: [number, number]; email: [number, number]; chat: [number, number] }
     >();
-    const rows = (commsStats.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      const st = s(r.status).toLowerCase();
-      if (st && !["sent", "delivered", "replied"].includes(st)) continue;
-      const ch = s(r.channel).toLowerCase();
-      const dir = s(r.direction).toLowerCase();
-      let bucket: "call" | "email" | "chat" | null = null;
-      if (ch === "call" || ch.includes("phone") || ch.includes("zvan")) bucket = "call";
-      else if (ch.includes("mail") || ch.includes("past")) bucket = "email";
-      else if (
+    const channelBucket = (ch: string): "call" | "email" | "chat" | null => {
+      if (ch === "call" || ch.includes("phone") || ch.includes("zvan")) return "call";
+      if (ch.includes("mail") || ch.includes("past")) return "email";
+      if (
         ch === "sms" ||
         ch.includes("whats") ||
         ch.includes("messeng") ||
         ch.includes("chat") ||
         ch.includes("telegram")
       )
-        bucket = "chat";
+        return "chat";
+      return null;
+    };
+    const ensure = (lid: string) => {
+      let cur = map.get(lid);
+      if (!cur) {
+        cur = {
+          call: [0, 0] as [number, number],
+          email: [0, 0] as [number, number],
+          chat: [0, 0] as [number, number],
+        };
+        map.set(lid, cur);
+      }
+      return cur;
+    };
+    const rows = (commsStats.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      const st = s(r.status).toLowerCase();
+      if (st && !["sent", "delivered", "replied"].includes(st)) continue;
+      const bucket = channelBucket(s(r.channel).toLowerCase());
       if (!bucket) continue;
+      const dir = s(r.direction).toLowerCase();
       const isInbound = dir === "inbound" || dir === "in";
       const isOutbound = dir === "outbound" || dir === "out";
       if (!isInbound && !isOutbound) continue;
-      const cur =
-        map.get(lid) ??
-        { call: [0, 0] as [number, number], email: [0, 0] as [number, number], chat: [0, 0] as [number, number] };
-      const slot = isOutbound ? 0 : 1;
-      cur[bucket][slot] += 1;
-      map.set(lid, cur);
+      const cur = ensure(lid);
+      cur[bucket][isOutbound ? 0 : 1] += 1;
+    }
+    // Merge inbound reply events from crm.communication_events.
+    const evRows = (commsEvents.data?.rows ?? []) as Row[];
+    const inboundEventTypes = new Set([
+      "reply",
+      "replied",
+      "inbound",
+      "received",
+    ]);
+    for (const r of evRows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      const et = s(r.event_type).toLowerCase();
+      if (!inboundEventTypes.has(et)) continue;
+      const bucket = channelBucket(s(r.channel).toLowerCase()) ?? "email";
+      ensure(lid)[bucket][1] += 1;
     }
     return map;
-  }, [commsStats.data]);
+  }, [commsStats.data, commsEvents.data]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
