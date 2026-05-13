@@ -195,7 +195,9 @@ export function UnifiedActivityTimeline({
     ? `lead_id=eq.${encodeURIComponent(leadId)}&order=timeline_at.desc&limit=${limit}`
     : "";
 
-  const q = useAnalyticsView("unified_activity_timeline", query);
+  const q = useAnalyticsView("unified_activity_timeline", query, {
+    enabled: !!leadId,
+  });
 
   const rows = (q.data?.rows ?? []) as Row[];
 
