@@ -944,28 +944,48 @@ function NextActionsBlock({
 /* ---- Contact grid ---- */
 
 function ContactGrid({
-  phoneE164, phoneRaw, email,
-}: { phoneE164: string; phoneRaw: string; email: string }) {
+  phoneE164, phoneRaw, phoneValidated, phoneLineType, email, emailRaw,
+}: {
+  phoneE164: string;
+  phoneRaw: string;
+  phoneValidated: boolean;
+  phoneLineType: string;
+  email: string;
+  emailRaw: string;
+}) {
+  const phonePrimary = phoneE164 || phoneRaw;
+  const phoneChips: Array<{ label: string; tone: "emerald" | "amber" | "rose" | "neutral" }> = [];
+  if (phoneE164) phoneChips.push({ label: "E.164", tone: "emerald" });
+  else if (phoneRaw) phoneChips.push({ label: "raw", tone: "amber" });
+  if (phoneValidated) phoneChips.push({ label: "validated", tone: "emerald" });
+  else if (phonePrimary) phoneChips.push({ label: "unverified", tone: "neutral" });
+  if (phoneLineType) phoneChips.push({ label: phoneLineType, tone: "neutral" });
+
+  const emailChips: Array<{ label: string; tone: "emerald" | "amber" | "rose" | "neutral" }> = [];
+  if (email) emailChips.push({ label: "normalized", tone: "emerald" });
+  else if (emailRaw) emailChips.push({ label: "raw", tone: "amber" });
+
   return (
     <div className="rounded-sm border border-border/60 bg-card">
       <ContactRow
         icon={<Phone className="h-3 w-3" />}
         label="Telefons"
-        value={phoneE164 || phoneRaw}
+        value={phonePrimary}
         sub={phoneE164 && phoneRaw && phoneE164 !== phoneRaw ? phoneRaw : undefined}
-        chips={phoneE164 ? [{ label: "E.164", tone: "emerald" }, { label: "mobile", tone: "neutral" }] : []}
-        actions={phoneE164 || phoneRaw ? [
-          { href: `tel:${phoneE164 || phoneRaw}`, icon: <Phone className="h-3 w-3" />, label: "Zvanīt" },
-          { href: `https://wa.me/${(phoneE164 || phoneRaw).replace(/[^0-9]/g, "")}`, icon: <MessageCircle className="h-3 w-3" />, label: "WhatsApp" },
+        chips={phoneChips}
+        actions={phonePrimary ? [
+          { href: `tel:${phonePrimary}`, icon: <Phone className="h-3 w-3" />, label: "Zvanīt" },
+          { href: `https://wa.me/${phonePrimary.replace(/[^0-9]/g, "")}`, icon: <MessageCircle className="h-3 w-3" />, label: "WhatsApp" },
         ] : []}
       />
       <ContactRow
         icon={<Mail className="h-3 w-3" />}
         label="E-pasts"
-        value={email}
-        chips={email ? [{ label: "valid", tone: "emerald" }] : []}
-        actions={email ? [
-          { href: `mailto:${email}`, icon: <Mail className="h-3 w-3" />, label: "Sūtīt" },
+        value={email || emailRaw}
+        sub={email && emailRaw && email !== emailRaw ? emailRaw : undefined}
+        chips={emailChips}
+        actions={(email || emailRaw) ? [
+          { href: `mailto:${email || emailRaw}`, icon: <Mail className="h-3 w-3" />, label: "Sūtīt" },
         ] : []}
       />
       <ContactRow
@@ -973,6 +993,13 @@ function ContactGrid({
         label="Opt-in / GDPR"
         value=""
         chips={[]}
+        actions={[]}
+      />
+      <ContactRow
+        icon={<MessageCircle className="h-3 w-3" />}
+        label="WhatsApp"
+        value=""
+        chips={[{ label: "nav pārbaudīts", tone: "neutral" }]}
         actions={[]}
       />
     </div>
