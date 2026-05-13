@@ -526,7 +526,7 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: s(r.visible_action_owner || r.owner),
+          owner: s(r.action_owner_label),
           ppv: s(r.ppv_name || r.ppv_vards),
           next_action,
           next_action_due,
