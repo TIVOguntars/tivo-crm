@@ -19,6 +19,7 @@ import {
   Search,
   AlertTriangle,
   Zap,
+  Star,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -169,9 +170,10 @@ const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
 // Single shared grid template for header, queue separator and data rows.
-// Columns: selection | lead | status | owner | ppv | next_action | last_activity | tags | actions
+// Columns: selection | priority | ppv | lead | tags | status | owner | next_action | last_activity | actions
+// Tuned to fit within desktop viewport with no horizontal scroll.
 const LEADS_GRID =
-  "grid grid-cols-[40px_minmax(260px,1.5fr)_130px_130px_70px_170px_170px_170px_120px]";
+  "grid grid-cols-[32px_92px_64px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_130px_140px_140px_124px]";
 
 function relativeTime(v: string | null): string {
   const t = parseDate(v);
@@ -204,6 +206,28 @@ function relativeTime(v: string | null): string {
   if (days < 30) return `${days}d`;
   if (days < 365) return `${Math.round(days / 30)}m`;
   return `${Math.round(days / 365)}g`;
+}
+
+/** Operational date format: DD.MM.YYYY (no time). */
+function fmtDate(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "—";
+  const d = new Date(t);
+  return `${String(d.getDate()).padStart(2, "0")}.${String(
+    d.getMonth() + 1,
+  ).padStart(2, "0")}.${d.getFullYear()}`;
+}
+
+/** Operational date+time when SLA-critical or manually scheduled. */
+function fmtDateTime(v: string | null): string {
+  const t = parseDate(v);
+  if (t == null) return "—";
+  const d = new Date(t);
+  return `${String(d.getDate()).padStart(2, "0")}.${String(
+    d.getMonth() + 1,
+  ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes(),
+  ).padStart(2, "0")}`;
 }
 
 function isSameDay(t: number, now = Date.now()): boolean {
