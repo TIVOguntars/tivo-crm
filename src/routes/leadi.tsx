@@ -541,7 +541,7 @@ function LeadiPage() {
   // does not expose channel-level counts.
   const commsStats = useCrmView(
     "communications",
-    "select=lead_id,channel,direction&limit=20000",
+    "select=lead_id,channel,direction,status&limit=20000",
   );
   const commCounts = useMemo(() => {
     const map = new Map<
@@ -552,6 +552,8 @@ function LeadiPage() {
     for (const r of rows) {
       const lid = s(r.lead_id);
       if (!lid) continue;
+      const st = s(r.status).toLowerCase();
+      if (st && !["sent", "delivered", "replied"].includes(st)) continue;
       const ch = s(r.channel).toLowerCase();
       const dir = s(r.direction).toLowerCase();
       let bucket: "call" | "email" | "chat" | null = null;
