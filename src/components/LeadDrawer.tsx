@@ -476,37 +476,29 @@ function DrawerBody({
             )}
           </div>
 
-          {/* CENTER — owner / ppv / tags */}
+          {/* CENTER — secondary (owner/ppv) and tertiary (tags) — visually demoted */}
           <div className="hidden min-w-0 flex-[1.1] items-center justify-center gap-2 md:flex">
             {owner && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-foreground">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
-                  {initials(owner)}
-                </span>
+              <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
+                <User className="h-3 w-3" />
                 <span className="truncate">{owner}</span>
               </span>
             )}
             {ppv && (
-              <>
-                <span className="text-border">•</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Sparkles className="h-3 w-3" />
-                  {ppv}
-                </span>
-              </>
+              <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/80">
+                <Sparkles className="h-3 w-3" />
+                {ppv}
+              </span>
             )}
             {normalizeTags(tags).length > 0 && (
-              <>
-                <span className="text-border">•</span>
-                <div className="flex items-center gap-1 overflow-hidden">
-                  {normalizeTags(tags).slice(0, 3).map((t) => (
-                    <Tag key={t} label={t} />
-                  ))}
-                  {tags.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground">+{tags.length - 3}</span>
-                  )}
-                </div>
-              </>
+              <div className="flex items-center gap-0.5 overflow-hidden opacity-70">
+                {normalizeTags(tags).slice(0, 2).map((t) => (
+                  <Tag key={t} label={t} />
+                ))}
+                {tags.length > 2 && (
+                  <span className="text-[10px] text-muted-foreground">+{tags.length - 2}</span>
+                )}
+              </div>
             )}
           </div>
 
