@@ -650,11 +650,8 @@ function LeadiPage() {
         const secondary = phone || email || country;
         const next_action_due =
           s(r.effective_due_at) || s(r.visible_action_due_at) || null;
-        const next_action =
-          s(r.action_label) ||
-          s(r.nakama_darbiba) ||
-          s(r.visible_action) ||
-          s(r.next_action);
+        const next_action = s(r.action_label);
+        const queue_bucket_label = s(r.queue_bucket_label);
         const last_activity =
           s(r.last_contact_date) ||
           s(r.last_communication_at) ||
@@ -688,6 +685,7 @@ function LeadiPage() {
           ppv: s(r.ppv_name || r.ppv_vards),
           next_action,
           next_action_due,
+          queue_bucket_label,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
