@@ -45,7 +45,7 @@ export function Tag({ label, variant, className, ...rest }: TagProps) {
   const style = TAG_STYLES[v] ?? TAG_STYLES.default;
   return (
     <span
-      className={cn(TAG_BASE_CLASS, style.bg, style.text, className)}
+      className="bg-red-500 text-white px-4 py-2"
       {...rest}
     >
       {label}
