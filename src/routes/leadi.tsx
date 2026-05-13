@@ -789,7 +789,7 @@ function LeadiPage() {
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead, crmLeadIdByKnownId]);
+  }, [overview.data, reitingsByLead, crmLeadIdByKnownId, crmLeadFactsById]);
 
   // Apply optimistic patches on top of server data
   const leadsPatched = useMemo(() => {
