@@ -36,6 +36,7 @@ const VIEWS = [
   "dashboard_communications",
   "dashboard_imports",
   "lead_reitings_preview",
+  "unified_activity_timeline",
 ] as const;
 
 export type AnalyticsView = (typeof VIEWS)[number];
