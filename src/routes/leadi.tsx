@@ -740,7 +740,11 @@ function LeadiPage() {
         const reply_count = Number(r.reply_count ?? 0) || 0;
         const communication_state = s(r.communication_state).toLowerCase();
         const tagsArr = asTags(r.tags);
-        const statusStr = s(r.lead_status_label || r.status);
+        // Status MUST come from crm.leads.status — the enriched queue view
+        // caches a stale lead_status_label that contradicts the drawer.
+        const facts = crmLeadFactsById.get(id);
+        const statusStr =
+          s(facts?.status) || s(r.lead_status_label || r.status);
         // Prioritāte = analytics.lead_reitings_preview.reitings.
         // Terminālie statusi vienmēr 0.
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
