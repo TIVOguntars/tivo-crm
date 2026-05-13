@@ -326,7 +326,7 @@ function TimelineItem({ row }: { row: Row }) {
             )}
             <div className="mt-1 flex items-center gap-2">
               <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                {source || row.activity_type}
+                {source || s(row.activity_type)}
               </span>
               {hasMeta && (
                 <button
