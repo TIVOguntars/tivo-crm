@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { LoadingState } from "@/components/DataState";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const LeadCommunicationTimeline = lazy(() =>
   import("@/components/LeadCommunicationTimeline").then((m) => ({
@@ -517,132 +518,240 @@ function DrawerBody({
 
       {/* ============== SCROLLABLE CONTENT ============== */}
       <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/20">
-        <div className="mx-auto max-w-[1400px] px-4 py-3 md:px-5 md:py-4">
-          {/* loading is handled inline (header + sections), no global block */}
+        <Tabs defaultValue="overview" className="flex h-full w-full flex-col">
+          <TabsList className="sticky top-0 z-10 mx-auto mt-2 flex h-8 w-fit shrink-0 items-center justify-start gap-0.5 rounded-md bg-card p-0.5 shadow-sm">
+            <TabsTrigger value="overview" className="h-7 px-2.5 text-[11px]">Pārskats</TabsTrigger>
+            <TabsTrigger value="comms" className="h-7 px-2.5 text-[11px]">Komunikācija</TabsTrigger>
+            <TabsTrigger value="tasks" className="h-7 px-2.5 text-[11px]">Uzdevumi</TabsTrigger>
+            <TabsTrigger value="objects" className="h-7 px-2.5 text-[11px]">Objekti</TabsTrigger>
+            <TabsTrigger value="history" className="h-7 px-2.5 text-[11px]">Vēsture</TabsTrigger>
+            <TabsTrigger value="audit" className="h-7 px-2.5 text-[11px]">Audit</TabsTrigger>
+          </TabsList>
 
-          {/* PRIMARY: Object/Project — compact horizontal */}
-          <PrimarySection title="Objekts / Projekts" subtitle="Primary">
-            <div className="rounded-md border border-border bg-card">
-              {/* top bar */}
-              <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-1.5">
-                <span className="text-[12px] font-semibold text-foreground truncate">
-                  {s(row.object_name) || displayName}
-                </span>
-                {flag && <span className="text-base leading-none">{flag}</span>}
-                {status && <StatusBadge status={status} />}
-                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Stadija: —</span>
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-3 md:px-5 md:py-4">
+            {/* ============== OVERVIEW TAB ============== */}
+            <TabsContent value="overview" className="m-0 outline-none">
+              <div className="grid grid-cols-1 gap-x-5 gap-y-4 lg:grid-cols-[1.4fr_1fr]">
+                {/* LEFT — contact-centric summary */}
+                <div className="space-y-4">
+                  <SecondarySection id="contact" title="Kontaktdati" hint="Validated">
+                    {loading ? (
+                      <ContactSkeleton />
+                    ) : (
+                      <ContactGrid
+                        phoneE164={phoneE164}
+                        phoneRaw={phoneRaw}
+                        phoneValidated={phoneValidated}
+                        phoneLineType={phoneLineType}
+                        email={email}
+                        emailRaw={emailRaw}
+                      />
+                    )}
+                  </SecondarySection>
+
+                  <SecondarySection id="meta" title="Tagi · Avots · Piezīmes" hint="Context">
+                    <div className="rounded-sm border border-border/60 bg-card">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5 text-[11px]">
+                        <InlineKv label="Avots" value={source} dense />
+                        <InlineKv label="Imports" value={importSource} dense />
+                        <InlineKv label="Atbildīgais" value={owner} dense />
+                        <InlineKv label="PPV" value={ppv} dense />
+                      </div>
+                      {normalizeTags(tags).length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 border-t border-border/40 px-2.5 py-1.5">
+                          {normalizeTags(tags).map((t) => <Tag key={t} label={t} />)}
+                        </div>
+                      )}
+                      <div className="border-t border-border/40 px-2.5 py-1.5 text-[11px] text-muted-foreground/70 italic">
+                        Piezīmes vēl nav pievienotas.
+                      </div>
+                    </div>
+                  </SecondarySection>
+
+                  <SecondarySection id="next-actions-overview" title="Nākamās darbības" hint="Operational">
+                    <NextActionsBlock
+                      visibleAction={visibleAction}
+                      visibleDue={visibleDue}
+                      isHumanPrimary={isHumanPrimary}
+                      sisLabel={sisLabel}
+                      sisDue={sisDue}
+                      onComplete={() => setCompleteOpen(true)}
+                    />
+                  </SecondarySection>
+
+                  <SecondarySection id="recent" title="Pēdējā aktivitāte" hint="Recent">
+                    <div className="rounded-sm border border-border/60 bg-card px-3 py-2">
+                      <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
+                        <LeadCommunicationTimeline leadId={realLeadId} />
+                      </Suspense>
+                    </div>
+                  </SecondarySection>
+                </div>
+
+                {/* RIGHT — KPI / object snapshot / automation */}
+                <div className="space-y-4">
+                  <SecondarySection id="kpi" title="KPI kopsavilkums" hint="Snapshot">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <MiniKpi label="Zvani" value="—" />
+                      <MiniKpi label="E-pasti" value="—" />
+                      <MiniKpi label="SMS" value="—" />
+                      <MiniKpi label="WhatsApp" value="—" />
+                      <MiniKpi label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
+                      <MiniKpi label="Pēd. akt." value={lastContact ? relativeTime(lastContact) : "—"} />
+                    </div>
+                  </SecondarySection>
+
+                  <SecondarySection id="current-object" title="Pašreizējais objekts" hint="Primary">
+                    <div className="rounded-sm border border-border/60 bg-card">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-2.5 py-1.5">
+                        <span className="truncate text-[12px] font-semibold text-foreground">
+                          {s(row.object_name) || displayName}
+                        </span>
+                        {flag && <span className="text-base leading-none">{flag}</span>}
+                        {status && <StatusBadge status={status} />}
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5">
+                        <InlineKv label="Adrese" value={s(row.address)} dense />
+                        <InlineKv label="Projekts" value="" dense />
+                      </div>
+                      <div className="border-t border-border/40 px-2.5 py-2">
+                        <MilestoneTrack row={row} />
+                      </div>
+                    </div>
+                  </SecondarySection>
+
+                  <SecondarySection id="automation" title="Automatizācija" hint="System">
+                    {sisLabel ? (
+                      <div className="flex items-start gap-2 rounded-sm border border-border/60 border-l-2 border-l-violet-500/60 bg-violet-500/5 px-2.5 py-1.5">
+                        <Zap className="mt-0.5 h-3 w-3 shrink-0 text-violet-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11.5px] font-medium text-foreground">{sisLabel}</div>
+                          <div className="mt-0.5 text-[10px] text-muted-foreground">
+                            SIS{sisDue ? ` · ${relativeTime(sisDue)}` : ""}
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                          Auto
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="rounded-sm border border-dashed border-border/60 bg-card/50 px-2.5 py-2 text-center text-[11px] text-muted-foreground">
+                        Aktīvas automatizācijas nav.
+                      </div>
+                    )}
+                  </SecondarySection>
+                </div>
               </div>
-              {/* second row inline data */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 px-3 py-1.5 md:grid-cols-4">
-                <InlineKv label="Adrese" value={s(row.address)} />
-                <InlineKv label="Zeme" value="" />
-                <InlineKv label="Plān. būvn." value="" />
-                <InlineKv label="Projekts" value="" />
+            </TabsContent>
+
+            {/* ============== COMMUNICATIONS TAB ============== */}
+            <TabsContent value="comms" className="m-0 outline-none">
+              <div className="rounded-md border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>Vienota komunikācijas plūsma — e-pasti, SMS, WhatsApp, zvani, piezīmes</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
+                      <Send className="h-3 w-3" /> Sūtīt
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
+                      <StickyNote className="h-3 w-3" /> Piezīme
+                    </Button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-[19px] top-0 bottom-0 w-px bg-border/60" />
+                  <div className="px-3 py-2">
+                    <Suspense fallback={<div className="py-3"><LoadingState /></div>}>
+                      <LeadCommunicationTimeline leadId={realLeadId} />
+                    </Suspense>
+                  </div>
+                </div>
               </div>
-              {/* milestone tracker */}
-              <div className="border-t border-border/60 px-3 py-2">
-                <MilestoneTrack row={row} />
+            </TabsContent>
+
+            {/* ============== TASKS TAB ============== */}
+            <TabsContent value="tasks" className="m-0 outline-none">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <SecondarySection id="tasks-active" title="Aktīvi uzdevumi" hint="Overdue · Today · Planned">
+                  <NextActionsBlock
+                    visibleAction={visibleAction}
+                    visibleDue={visibleDue}
+                    isHumanPrimary={isHumanPrimary}
+                    sisLabel={sisLabel}
+                    sisDue={sisDue}
+                    onComplete={() => setCompleteOpen(true)}
+                  />
+                </SecondarySection>
+                <SecondarySection id="tasks-done" title="Pabeigtie uzdevumi" hint="Completed">
+                  <div className="rounded-sm border border-border/60 bg-card px-3 py-2">
+                    <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
+                      <LeadActionHistory leadId={realLeadId} />
+                    </Suspense>
+                  </div>
+                </SecondarySection>
               </div>
-              {/* projects expanded */}
-              <div className="border-t border-border/60 px-3 py-2">
+            </TabsContent>
+
+            {/* ============== OBJECTS TAB ============== */}
+            <TabsContent value="objects" className="m-0 outline-none space-y-4">
+              <SecondarySection id="objects-milestones" title="Projekta virzība" hint="Milestones">
+                <div className="rounded-sm border border-border/60 bg-card px-3 py-2">
+                  <MilestoneTrack row={row} />
+                </div>
+              </SecondarySection>
+              <SecondarySection id="objects-list" title="Objekti / Projekti" hint="All">
                 <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
                   <LeadProjects leadId={realLeadId} />
                 </Suspense>
-              </div>
-            </div>
-          </PrimarySection>
+              </SecondarySection>
+            </TabsContent>
 
-          {/* PRIMARY: Timeline */}
-          <PrimarySection title="Aktivitāšu laika līnija" subtitle="Primary" className="mt-4">
-            <div className="rounded-md border border-border bg-card">
-              <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>Hronoloģiska plūsma</span>
-                </div>
-                <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
-                  <Plus className="h-3 w-3" />
-                  Notikums
-                </Button>
-              </div>
-              <div className="relative">
-                {/* left rail */}
-                <div className="pointer-events-none absolute left-[19px] top-0 bottom-0 w-px bg-border/60" />
-                <div className="px-3 py-2">
-                  <Suspense fallback={<div className="py-3"><LoadingState /></div>}>
-                    <LeadCommunicationTimeline leadId={realLeadId} />
+            {/* ============== HISTORY TAB ============== */}
+            <TabsContent value="history" className="m-0 outline-none">
+              <SecondarySection id="history" title="Biznesa vēsture" hint="Status · Owner · Major actions">
+                <div className="rounded-sm border border-border/60 bg-card px-3 py-2">
+                  <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
+                    <LeadActionHistory leadId={realLeadId} />
                   </Suspense>
                 </div>
-              </div>
-              <div className="border-t border-border/60 px-3 py-2">
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Darbību vēsture
+              </SecondarySection>
+            </TabsContent>
+
+            {/* ============== AUDIT TAB ============== */}
+            <TabsContent value="audit" className="m-0 outline-none">
+              <SecondarySection id="audit" title="Raw · Imports · Konflikti" hint="Admin">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
+                  <div className="rounded-sm border border-border/50 bg-card">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5 text-[11px]">
+                      <InlineKv label="Avots" value={source} dense />
+                      <InlineKv label="Imports" value={importSource} dense />
+                      <InlineKv label="Konflikti" value="" dense />
+                      <InlineKv label="Sesija" value="" dense />
+                      <InlineKv label="Audits" value="" dense />
+                      <InlineKv label="Lead ID" value={realLeadId ?? ""} mono dense />
+                    </div>
+                  </div>
+                  <div className="rounded-sm border border-dashed border-border/60 bg-card/50 px-2.5 py-1.5 font-mono text-[10.5px] leading-snug text-muted-foreground">
+                    <div className="mb-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                      <ShieldCheck className="h-3 w-3" />
+                      Raw payload
+                    </div>
+                    {row.raw_data && Object.keys(row.raw_data as Row).length > 0 ? (
+                      <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all text-muted-foreground/80">
+                        {JSON.stringify(row.raw_data, null, 2).slice(0, 4000)}
+                      </pre>
+                    ) : (
+                      <div className="text-muted-foreground/60">// nav pieejams</div>
+                    )}
+                  </div>
                 </div>
-                <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
-                  <LeadActionHistory leadId={realLeadId} />
-                </Suspense>
-              </div>
-            </div>
-          </PrimarySection>
-
-          {/* SECONDARY 2-col grid: Next Actions + Contact Data */}
-          <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-4 lg:grid-cols-2">
-            <SecondarySection id="next-actions" title="Nākamās darbības" hint="Operational">
-              <NextActionsBlock
-                visibleAction={visibleAction}
-                visibleDue={visibleDue}
-                isHumanPrimary={isHumanPrimary}
-                sisLabel={sisLabel}
-                sisDue={sisDue}
-                onComplete={() => setCompleteOpen(true)}
-              />
-            </SecondarySection>
-
-            <SecondarySection id="contact" title="Kontaktdati" hint="Validated">
-              {loading ? (
-                <ContactSkeleton />
-              ) : (
-                <ContactGrid
-                  phoneE164={phoneE164}
-                  phoneRaw={phoneRaw}
-                  phoneValidated={phoneValidated}
-                  phoneLineType={phoneLineType}
-                  email={email}
-                  emailRaw={emailRaw}
-                />
-              )}
-            </SecondarySection>
+              </SecondarySection>
+            </TabsContent>
           </div>
-
-          {/* TERTIARY: Audit / Import — very compact */}
-          <SecondarySection id="audit" title="Raw / Audit / Import" hint="Admin" className="mt-4">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
-              <div className="rounded-sm border border-border/50 bg-card">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5 text-[11px]">
-                  <InlineKv label="Avots" value={source} dense />
-                  <InlineKv label="Imports" value={importSource} dense />
-                  <InlineKv label="Konflikti" value="" dense />
-                  <InlineKv label="Sesija" value="" dense />
-                  <InlineKv label="Audits" value="" dense />
-                  <InlineKv label="Lead ID" value={realLeadId ?? ""} mono dense />
-                </div>
-              </div>
-              <div className="rounded-sm border border-dashed border-border/60 bg-card/50 px-2.5 py-1.5 font-mono text-[10.5px] leading-snug text-muted-foreground">
-                <div className="mb-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                  <ShieldCheck className="h-3 w-3" />
-                  Raw payload
-                </div>
-                {row.raw_data && Object.keys(row.raw_data as Row).length > 0 ? (
-                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-muted-foreground/80">
-                    {JSON.stringify(row.raw_data, null, 2).slice(0, 1200)}
-                  </pre>
-                ) : (
-                  <div className="text-muted-foreground/60">// nav pieejams</div>
-                )}
-              </div>
-            </div>
-          </SecondarySection>
-        </div>
+        </Tabs>
       </div>
 
       {/* ============== STICKY BOTTOM BAR ============== */}
@@ -772,6 +881,24 @@ function KpiCell({
     <div className="flex min-w-[92px] flex-1 flex-col justify-center px-2.5 py-1.5">
       <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={cn("mt-0 text-[12px] font-semibold tabular-nums leading-tight", accentCls)}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MiniKpi({
+  label, value, accent,
+}: { label: string; value: React.ReactNode; accent?: "green" | "amber" | "rose" }) {
+  const accentCls =
+    accent === "green" ? "text-emerald-600 dark:text-emerald-400" :
+    accent === "amber" ? "text-amber-600 dark:text-amber-400" :
+    accent === "rose" ? "text-rose-600 dark:text-rose-400" :
+    "text-foreground";
+  return (
+    <div className="rounded-sm border border-border/60 bg-card px-2 py-1.5">
+      <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("mt-0.5 text-[13px] font-semibold tabular-nums leading-tight", accentCls)}>
         {value}
       </div>
     </div>
