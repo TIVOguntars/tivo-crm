@@ -69,11 +69,35 @@ function fmtDateTime(value: unknown): string {
   if (Number.isNaN(d.getTime())) return str;
   return new Intl.DateTimeFormat("lv-LV", {
     timeZone: "Europe/Riga",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
+function fmtDayDivider(value: unknown): string {
+  const str = s(value);
+  if (!str) return "—";
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return str;
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    weekday: "short",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(d);
+}
+
+function dayKey(value: unknown): string {
+  const str = s(value);
+  if (!str) return "";
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return str;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Riga",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
   }).format(d);
 }
 
@@ -151,14 +175,14 @@ function previewText(row: Row): string {
   ];
   for (const c of candidates) {
     const v = s(c).trim();
-    if (v) return v.replace(/\s+/g, " ").slice(0, 220);
+    if (v) return v.replace(/\s+/g, " ");
   }
   const meta = row.metadata;
   if (meta && typeof meta === "object" && !Array.isArray(meta)) {
     const m = meta as Row;
     for (const k of ["body_preview", "preview", "summary", "description"]) {
       const v = s(m[k]).trim();
-      if (v) return v.replace(/\s+/g, " ").slice(0, 220);
+      if (v) return v.replace(/\s+/g, " ");
     }
   }
   return "";
@@ -190,6 +214,7 @@ export function UnifiedActivityTimeline({
   limit = 100,
 }: UnifiedActivityTimelineProps) {
   const [category, setCategory] = useState<TimelineCategory>(defaultCategory);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const query = leadId
     ? `lead_id=eq.${encodeURIComponent(leadId)}&order=timeline_at.desc&limit=${limit}`
@@ -255,21 +280,48 @@ export function UnifiedActivityTimeline({
           Nav ierakstu šajā kategorijā.
         </div>
       ) : (
-        <ol className="relative space-y-1.5 border-l border-border pl-4">
-          {filtered.map((row, idx) => (
-            <TimelineItem
-              key={`${s(row.source_table)}:${s(row.id)}:${idx}`}
-              row={row}
-            />
-          ))}
+        <ol className="relative border-l border-border pl-4">
+          {filtered.map((row, idx) => {
+            const key = `${s(row.source_table)}:${s(row.id)}:${idx}`;
+            const dk = dayKey(row.timeline_at);
+            const prevDk =
+              idx > 0 ? dayKey(filtered[idx - 1].timeline_at) : "";
+            const showDivider = dk !== prevDk;
+            return (
+              <div key={key}>
+                {showDivider && (
+                  <li className="relative -ml-4 list-none pl-4 pt-3 first:pt-0">
+                    <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                      {fmtDayDivider(row.timeline_at)}
+                    </div>
+                  </li>
+                )}
+                <TimelineItem
+                  row={row}
+                  selected={selectedKey === key}
+                  onSelect={() =>
+                    setSelectedKey((cur) => (cur === key ? null : key))
+                  }
+                />
+              </div>
+            );
+          })}
         </ol>
       )}
     </div>
   );
 }
 
-function TimelineItem({ row }: { row: Row }) {
-  const [open, setOpen] = useState(false);
+function TimelineItem({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: Row;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [showMeta, setShowMeta] = useState(false);
   const cat = categoryOf(row);
   const Icon = iconFor(row);
   const title =
@@ -278,7 +330,6 @@ function TimelineItem({ row }: { row: Row }) {
   const direction = dirLabel(s(row.direction));
   const status = s(row.status);
   const ts = fmtDateTime(row.timeline_at);
-  const source = s(row.source_table);
   const preview = previewText(row);
   const hasMeta =
     row.metadata != null &&
@@ -286,69 +337,94 @@ function TimelineItem({ row }: { row: Row }) {
     Object.keys(row.metadata as Row).length > 0;
 
   return (
-    <li className="relative">
+    <li className="relative py-0.5">
       <span
         className={cn(
-          "absolute -left-[21px] top-2.5 h-2.5 w-2.5 rounded-full ring-2 ring-background",
+          "absolute -left-[19px] top-2.5 h-2 w-2 rounded-full ring-2 ring-background",
           dotClass(cat),
         )}
       />
-      <div className="rounded-md border border-border bg-background px-3 py-2">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
+        className={cn(
+          "cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors",
+          selected
+            ? "border-border bg-accent/40"
+            : "border-transparent hover:bg-accent/20",
+        )}
+      >
         <div className="flex items-start gap-2">
-          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              {direction && <span>{direction}</span>}
-              {channel && (
-                <>
-                  {direction && <span>·</span>}
-                  <span>{channelLabel(channel)}</span>
-                </>
-              )}
-              {status && (
-                <>
-                  <span>·</span>
-                  <span className="rounded bg-muted px-1 py-0.5 text-[10px]">
-                    {status}
-                  </span>
-                </>
-              )}
-              <span className="ml-auto text-[10px]">{ts}</span>
+            <div className="flex items-baseline gap-2">
+              <div
+                className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
+                title={title}
+              >
+                {title}
+              </div>
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                {ts}
+              </span>
             </div>
-            <div
-              className="truncate text-sm font-medium text-foreground"
-              title={title}
-            >
-              {title}
-            </div>
+            {(direction || channel || status) && (
+              <div className="flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground/80">
+                {direction && <span>{direction}</span>}
+                {channel && (
+                  <>
+                    {direction && <span>·</span>}
+                    <span>{channelLabel(channel)}</span>
+                  </>
+                )}
+                {status && (
+                  <>
+                    <span>·</span>
+                    <span>{status}</span>
+                  </>
+                )}
+              </div>
+            )}
             {preview && (
-              <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+              <div
+                className={cn(
+                  "mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground",
+                  !selected && "line-clamp-2",
+                )}
+              >
                 {preview}
               </div>
             )}
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                {source || s(row.activity_type)}
-              </span>
-              {hasMeta && (
+            {selected && hasMeta && (
+              <div className="mt-1.5">
                 <button
                   type="button"
-                  onClick={() => setOpen((o) => !o)}
-                  className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMeta((o) => !o);
+                  }}
+                  className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                 >
-                  {open ? (
+                  {showMeta ? (
                     <ChevronDown className="h-3 w-3" />
                   ) : (
                     <ChevronRight className="h-3 w-3" />
                   )}
                   Metadata
                 </button>
-              )}
-            </div>
-            {open && hasMeta && (
-              <pre className="mt-1.5 max-h-60 overflow-auto rounded border border-border bg-muted/30 p-2 text-[10px] leading-snug text-foreground">
-                {JSON.stringify(row.metadata, null, 2)}
-              </pre>
+                {showMeta && (
+                  <pre className="mt-1 max-h-60 overflow-auto rounded border border-border bg-muted/30 p-2 text-[10px] leading-snug text-foreground">
+                    {JSON.stringify(row.metadata, null, 2)}
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         </div>
