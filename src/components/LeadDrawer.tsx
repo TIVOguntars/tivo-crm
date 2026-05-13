@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Phone,
@@ -48,6 +48,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { fetchCrmView } from "@/server/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { LoadingState } from "@/components/DataState";
@@ -193,20 +194,98 @@ export function LeadDrawer({
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
 }) {
-  const view = useQuery({
-    queryKey: ["crm", "lead_drawer_summary", leadId ?? ""],
+  // Source 1: priority queue display (status, owner, ppv, tags, priority,
+  // next action, communication summary). Returns empty if the lead has no
+  // queued action — that's fine, header still renders from source 2.
+  const queueQ = useQuery({
+    queryKey: ["crm", "queue_for_lead", leadId ?? ""],
     queryFn: () =>
       fetchCrmView({
         data: {
-          view: "lead_drawer_summary",
-          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&limit=1`,
+          view: "next_action_queue_display_enriched",
+          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&order=sort_priority.asc&limit=1`,
         },
       }),
     enabled: open && !!leadId,
     staleTime: 30_000,
   });
 
-  const row: Row = (view.data?.rows?.[0] as Row | undefined) ?? {};
+  // Source 2: lead + embedded contact (raw phone/email, validation, line type,
+  // raw_data payload, source). Always available for any lead.
+  const leadQ = useQuery({
+    queryKey: ["crm", "lead_with_contact", leadId ?? ""],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "leads",
+          query:
+            `id=eq.${encodeURIComponent(leadId ?? "")}` +
+            `&select=id,status,source,external_source,external_id,contact_id,raw_data,created_at,updated_at,owner_user_id,ppv_user_id,contacts(id,full_name,email_raw,email_normalized,phone_raw,phone_e164,phone_validated,phone_line_type)` +
+            `&limit=1`,
+        },
+      }),
+    enabled: open && !!leadId,
+    staleTime: 30_000,
+  });
+
+  const row: Row = useMemo(() => {
+    const q = (queueQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const l = (leadQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const c = (l.contacts as Row | undefined) ?? {};
+    const raw = (l.raw_data as Row | undefined) ?? {};
+    return {
+      // identity
+      lead_id: s(q.lead_id) || s(l.id) || leadId || "",
+      name:
+        s(q.full_name) ||
+        s(c.full_name) ||
+        s(raw.full_name) ||
+        s(q.display_name) ||
+        "",
+      country: s(q.country) || s(raw.valsts) || "",
+      tags: q.tags ?? raw.tags ?? null,
+      // status / priority / owner / ppv
+      lead_status_label: s(q.lead_status_label) || s(l.status) || s(raw.status),
+      visible_action_owner:
+        s(q.action_owner_label) || s(raw.atbildigais) || "",
+      ppv_name: s(q.ppv_name) || s(raw.ppv_vards) || "",
+      priority_score: q.lead_priority_score ?? null,
+      priority_label: s(q.priority_label),
+      // contact (real)
+      phone_e164: s(c.phone_e164) || s(q.phone_e164) || s(raw.telefons_e164),
+      phone_raw: s(c.phone_raw) || s(raw.telefons_neapstradats),
+      phone_validated: c.phone_validated ?? q.phone_validated ?? null,
+      phone_line_type: s(c.phone_line_type) || s(q.phone_line_type) || "",
+      email_normalized:
+        s(c.email_normalized) || s(q.email_normalized) || s(raw.email_normalized),
+      email_raw: s(c.email_raw) || s(raw.email_raw),
+      // next action
+      visible_action: s(q.action_label),
+      visible_action_due_at: s(q.effective_due_at) || s(q.due_at),
+      visible_action_is_human: s(q.action_owner_type) === "user",
+      system_action_label: s(q.automatizacija),
+      system_due_date: s(q.automatizacijas_datums),
+      // communication summary
+      last_communication_at: s(q.last_communication_at),
+      last_inbound_at: s(q.last_inbound_at),
+      last_outbound_at: s(q.last_outbound_at),
+      last_reply_at: s(q.last_reply_at),
+      reply_count: q.reply_count ?? null,
+      click_count: q.click_count ?? null,
+      communication_count: q.communication_count ?? null,
+      has_unread_reply: q.has_unread_reply ?? null,
+      communication_state: s(q.communication_state),
+      communication_label: s(q.communication_label),
+      // audit
+      source: s(l.source) || s(raw.source),
+      import_source: s(l.external_source),
+      lead_created_at: s(l.created_at) || s(raw.created_at),
+      created_at: s(l.created_at),
+      raw_data: raw,
+    };
+  }, [queueQ.data, leadQ.data, leadId]);
+
+  const loading = queueQ.isLoading || leadQ.isLoading;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -217,7 +296,7 @@ export function LeadDrawer({
         <DrawerBody
           row={row}
           leadId={leadId}
-          loading={view.isLoading}
+          loading={loading}
           onActionCompleted={onActionCompleted}
           onPatch={onPatch}
           onClose={() => onOpenChange(false)}
