@@ -854,6 +854,7 @@ function DrawerBody({
                       leadId={realLeadId}
                       defaultCategory="all"
                       limit={100}
+                      leadStatus={status}
                     />
                   </Suspense>
                 </div>
