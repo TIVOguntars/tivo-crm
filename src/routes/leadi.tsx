@@ -301,7 +301,11 @@ function StatusBadge({ value }: { value: string }) {
 
 /** PRIORITĀTE column — stars + muted score. */
 function PriorityCell({ score }: { score: number }) {
-  const stars = Math.max(0, Math.min(5, Math.round(score / 20)));
+  // Star buckets per spec:
+  //   0     → 0 stars (terminal status, score forced to 0)
+  //   1–19  → 1, 20–39 → 2, 40–59 → 3, 60–79 → 4, 80–100 → 5
+  const stars =
+    score <= 0 ? 0 : Math.max(1, Math.min(5, Math.floor(score / 20) + 1));
   return (
     <div className="flex items-center gap-1.5">
       <span
