@@ -70,6 +70,11 @@ const LeadProjects = lazy(() =>
     default: m.LeadProjects,
   })),
 );
+const UnifiedActivityTimeline = lazy(() =>
+  import("@/components/UnifiedActivityTimeline").then((m) => ({
+    default: m.UnifiedActivityTimeline,
+  })),
+);
 
 /* ----------------------------- helpers ----------------------------- */
 
@@ -842,10 +847,14 @@ function DrawerBody({
 
             {/* ============== HISTORY TAB ============== */}
             <TabsContent value="history" className="m-0 outline-none">
-              <SecondarySection id="history" title="Biznesa vēsture" hint="Status · Owner · Major actions">
+              <SecondarySection id="history" title="Biznesa vēsture" hint="All activity">
                 <div className="rounded-sm border border-border/60 bg-card px-3 py-2">
                   <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
-                    <LeadActionHistory leadId={realLeadId} />
+                    <UnifiedActivityTimeline
+                      leadId={realLeadId}
+                      defaultCategory="all"
+                      limit={100}
+                    />
                   </Suspense>
                 </div>
               </SecondarySection>
