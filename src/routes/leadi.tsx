@@ -694,6 +694,15 @@ function LeadiPage() {
         const communication_state = s(r.communication_state).toLowerCase();
         const tagsArr = asTags(r.tags);
         const statusStr = s(r.lead_status_label || r.status);
+        // Prioritāte = analytics.lead_reitings_preview.reitings.
+        // Terminālie statusi vienmēr 0.
+        const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
+        const reitings = reitingsByLead.get(id);
+        const priorityScore = isTerminal
+          ? 0
+          : Number.isFinite(reitings)
+            ? (reitings as number)
+            : 0;
         return {
           lead_id: id,
           name: leadDisplayName(r),
@@ -723,11 +732,11 @@ function LeadiPage() {
           is_hot:
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
-          priority_score: Number(r.priority_score ?? r.priority ?? 0) || 0,
+          priority_score: priorityScore,
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data]);
+  }, [overview.data, reitingsByLead]);
 
   // Apply optimistic patches on top of server data
   const leadsPatched = useMemo(() => {
