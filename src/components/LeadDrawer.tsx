@@ -708,13 +708,14 @@ function InlineKv({
 
 /* ---- Milestone tracker ---- */
 
-const MILESTONES = [
+type Milestone = { key: string; label: string; field: string; terminal?: boolean };
+const MILESTONES: Milestone[] = [
   { key: "request", label: "Pieprasījums", field: "request_at" },
   { key: "offer", label: "Piedāvājums", field: "offer_sent_at" },
   { key: "contract", label: "Līgums", field: "contract_signed_at" },
   { key: "cancel", label: "Atcelts", field: "cancelled_at", terminal: true },
   { key: "done", label: "Pabeigts", field: "completed_at", terminal: true },
-] as const;
+];
 
 function MilestoneTrack({ row }: { row: Row }) {
   // derive active milestone roughly by status
