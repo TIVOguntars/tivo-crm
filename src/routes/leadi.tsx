@@ -110,6 +110,7 @@ interface Lead {
   ppv: string;
   next_action: string;
   next_action_due: string | null;
+  queue_bucket_label: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
