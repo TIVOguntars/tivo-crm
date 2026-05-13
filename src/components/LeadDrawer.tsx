@@ -259,50 +259,98 @@ function DrawerBody({
   const nextFollowup = visibleDue || sisDue;
 
   const waPhone = phone.replace(/[^0-9]/g, "");
+  const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
+  const priorityLabel = s(row.priority_label);
+  const shortLeadId = realLeadId ? realLeadId.slice(0, 8) : "";
+  const flag = countryFlag(country);
 
   return (
     <TooltipProvider delayDuration={150}>
-      {/* ============== STICKY HEADER ============== */}
-      <SheetHeader className="space-y-2 border-b border-border bg-card px-4 pb-3 pt-4 text-left">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <SheetTitle className="truncate text-base font-semibold leading-tight">
-                {displayName}
-              </SheetTitle>
-              {status && <StatusBadge status={status} />}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              {phone && (
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  <a
-                    href={`tel:${phone}`}
-                    className="text-foreground hover:underline"
-                  >
-                    {phone}
-                  </a>
-                </span>
-              )}
-              {email && (
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <a
-                    href={`mailto:${email}`}
-                    className="truncate text-foreground hover:underline"
-                  >
-                    {email}
-                  </a>
-                </span>
-              )}
-              {country && (
-                <span className="inline-flex items-center gap-1">
-                  <Globe2 className="h-3 w-3" />
-                  {country}
-                </span>
-              )}
-            </div>
+      {/* ============== ENTERPRISE STICKY HEADER ============== */}
+      <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-muted/30 px-5 py-3 text-left backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+        <div className="flex items-center gap-4">
+          {/* LEFT — identity */}
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <SheetTitle className="truncate text-[15px] font-semibold leading-tight text-foreground">
+              {displayName}
+            </SheetTitle>
+            {flag && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground"
+                title={country}
+              >
+                <span className="text-base leading-none">{flag}</span>
+                <span className="hidden lg:inline">{country}</span>
+              </span>
+            )}
+            {!flag && country && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                <Globe2 className="h-3 w-3" />
+                {country}
+              </span>
+            )}
+            {shortLeadId && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                <Hash className="h-2.5 w-2.5" />
+                {shortLeadId}
+              </span>
+            )}
+            {priorityScore > 0 && (
+              <span
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                  priorityScore >= 90
+                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                    : priorityScore >= 70
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground",
+                )}
+                title={priorityLabel || `Prioritāte ${priorityScore}`}
+              >
+                <Flame className="h-2.5 w-2.5" />
+                {priorityScore}
+              </span>
+            )}
+            {status && <StatusBadge status={status} />}
           </div>
+
+          {/* CENTER — owner / PPV / tags */}
+          <div className="hidden min-w-0 flex-[1.2] items-center justify-center gap-2 md:flex">
+            {owner && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
+                  {initials(owner)}
+                </span>
+                <span className="truncate text-foreground">{owner}</span>
+              </span>
+            )}
+            {ppv && (
+              <>
+                <span className="text-border">•</span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Sparkles className="h-3 w-3" />
+                  {ppv}
+                </span>
+              </>
+            )}
+            {normalizeTags(tags).length > 0 && (
+              <>
+                <span className="text-border">•</span>
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {normalizeTags(tags).slice(0, 3).map((t) => (
+                    <Tag key={t} label={t} />
+                  ))}
+                  {tags.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      +{tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* RIGHT — quick actions */}
           <div className="flex shrink-0 items-center gap-0.5">
             <IconBtn
               icon={<Phone className="h-3.5 w-3.5" />}
@@ -321,7 +369,7 @@ function DrawerBody({
             />
             <IconBtn
               icon={<CheckSquare className="h-3.5 w-3.5" />}
-              label="Izveidot uzdevumu"
+              label="Uzdevums"
               onClick={() => setCompleteOpen(true)}
               disabled={!realLeadId}
             />
@@ -344,74 +392,32 @@ function DrawerBody({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <IconBtn
+              icon={<X className="h-3.5 w-3.5" />}
+              label="Aizvērt"
+              onClick={() => onPatch && undefined}
+            />
           </div>
         </div>
 
-        {/* meta chips */}
-        <div className="flex flex-wrap items-center gap-1">
+        {/* Mobile center row — owner + tags fold below on narrow */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
           {owner && (
-            <Chip>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <User className="h-3 w-3" />
-              <span className="font-medium">{owner}</span>
-            </Chip>
+              {owner}
+            </span>
           )}
           {ppv && (
-            <Chip>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Sparkles className="h-3 w-3" />
-              <span>PPV: {ppv}</span>
-            </Chip>
+              {ppv}
+            </span>
           )}
-          {/* Prioritātes līmeņi (Zema/Normāla/Augsta) noņemti — prioritāti rāda tikai zvaigznes + reitings. */}
           {normalizeTags(tags).slice(0, 4).map((t) => (
             <Tag key={t} label={t} />
           ))}
-          {tags.length > 4 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{tags.length - 4}
-            </span>
-          )}
-        </div>
-
-        {/* quick actions row */}
-        <div className="flex flex-wrap items-center gap-1 pt-1">
-          <QuickAction icon={<StickyNote className="h-3 w-3" />} label="Piezīme" onClick={() => scrollToSection("timeline")} />
-          <QuickAction icon={<Phone className="h-3 w-3" />} label="Zvans" href={phone ? `tel:${phone}` : undefined} />
-          <QuickAction
-            icon={<MessageCircle className="h-3 w-3" />}
-            label="WhatsApp"
-            href={waPhone ? `https://wa.me/${waPhone}` : undefined}
-          />
-          <QuickAction icon={<Mail className="h-3 w-3" />} label="Email" href={email ? `mailto:${email}` : undefined} />
-          <QuickAction
-            icon={<CheckSquare className="h-3 w-3" />}
-            label="Uzdevums"
-            onClick={() => setCompleteOpen(true)}
-            disabled={!realLeadId}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 items-center gap-1 rounded border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-muted/60"
-              >
-                Mainīt statusu
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-44">
-              {[
-                "Jauns",
-                "Sarunās",
-                "Pieprasījums",
-                "Piedāvājums",
-                "Līgums",
-                "Nesasniedzams",
-                "Zaudēts",
-              ].map((st) => (
-                <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </SheetHeader>
 
