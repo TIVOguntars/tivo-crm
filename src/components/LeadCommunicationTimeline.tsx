@@ -93,10 +93,10 @@ function flattenComm(row: Row): Row {
     ...merged,
     communication_id: s(merged.id) || s(row.id),
     timeline_at:
+      s(merged.created_at) ||
       s(merged.sent_at) ||
       s(merged.received_at) ||
-      s(merged.delivered_at) ||
-      s(merged.created_at),
+      s(merged.delivered_at),
     timeline_channel: s(merged.channel),
     timeline_label: label,
     message_preview: preview,
