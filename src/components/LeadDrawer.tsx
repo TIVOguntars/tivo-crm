@@ -23,6 +23,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -139,44 +140,6 @@ function initials(name: string): string {
   if (!name) return "—";
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
-}
-
-function statusTone(status: string): string {
-  const k = status.toLowerCase();
-  if (!k) return "bg-muted text-muted-foreground border-transparent";
-  if (k.includes("jauns"))
-    return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
-  if (
-    k.includes("līgum") ||
-    k.includes("ligum") ||
-    k.includes("won") ||
-    k.includes("contract")
-  )
-    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
-  if (
-    k.includes("piedāvāj") ||
-    k.includes("piedavaj") ||
-    k.includes("pieprasīj") ||
-    k.includes("pieprasij")
-  )
-    return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30";
-  if (
-    k.includes("sarunās") ||
-    k.includes("sarunas") ||
-    k.includes("aktīv") ||
-    k.includes("aktiv")
-  )
-    return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
-  if (
-    k.includes("nesasn") ||
-    k.includes("bounce") ||
-    k.includes("nederīg") ||
-    k.includes("zaud")
-  )
-    return "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
-  if (k.includes("konflikt"))
-    return "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
-  return "bg-secondary text-secondary-foreground border-transparent";
 }
 
 /* ----------------------------- component ----------------------------- */
@@ -324,16 +287,7 @@ function DrawerBody({
               <SheetTitle className="truncate text-base font-semibold leading-tight">
                 {displayName}
               </SheetTitle>
-              {status && (
-                <span
-                  className={cn(
-                    "inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px] font-medium leading-none",
-                    statusTone(status),
-                  )}
-                >
-                  {status}
-                </span>
-              )}
+              {status && <StatusBadge status={status} />}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
               {phone && (
@@ -784,18 +738,7 @@ function OverviewTab(props: {
           <KeyVal
             k="Statuss"
             v={
-              props.status ? (
-                <span
-                  className={cn(
-                    "inline-flex h-5 items-center rounded border px-1.5 text-[11px] font-medium",
-                    statusTone(props.status),
-                  )}
-                >
-                  {props.status}
-                </span>
-              ) : (
-                "—"
-              )
+              props.status ? <StatusBadge status={props.status} /> : "—"
             }
           />
           <KeyVal

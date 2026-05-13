@@ -21,6 +21,7 @@ import { isEndpointMissing } from "@/lib/endpointStatus";
 import type { FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 /* ----------------------- Route + search params ----------------------- */
 
@@ -149,29 +150,6 @@ function fmtDateTime(v: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function statusBadgeClass(status: string): string {
-  const k = status.toLowerCase().trim();
-  if (!k) return "bg-muted text-muted-foreground";
-  if (k.startsWith("jauns"))
-    return "bg-blue-500/15 text-blue-700 dark:text-blue-300";
-  if (
-    k.startsWith("nesasniedz") ||
-    k.startsWith("nesasniegts") ||
-    k.includes("bounce") ||
-    k.includes("nederīg")
-  )
-    return "bg-muted text-muted-foreground";
-  if (k.startsWith("piesaist"))
-    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (k.startsWith("nekvalific"))
-    return "bg-destructive/15 text-destructive";
-  if (k.startsWith("piedāv") || k.startsWith("piedav"))
-    return "bg-purple-500/15 text-purple-700 dark:text-purple-300";
-  if (k.startsWith("līgum") || k.startsWith("ligum") || k.includes("contract"))
-    return "bg-emerald-700/20 text-emerald-800 dark:text-emerald-200";
-  return "bg-secondary text-secondary-foreground";
 }
 
 function nextActionBadgeClass(action: string): string {
@@ -927,18 +905,7 @@ function DarbaRindaPage() {
                           )}
                         </td>
                         <td className="px-2 py-1.5">
-                          {lead.status ? (
-                            <span
-                              className={cn(
-                                "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                statusBadgeClass(lead.status),
-                              )}
-                            >
-                              {lead.status}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          <StatusBadge status={lead.status} />
                         </td>
                         <td className="px-1 py-1.5 text-center tabular-nums text-[10px] text-foreground">
                           {lead.rating != null ? (

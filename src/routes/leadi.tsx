@@ -42,6 +42,7 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { FiltersSearch } from "@/lib/filters";
 
 /* ----------------------- Saved views ----------------------- */
@@ -268,37 +269,6 @@ function isSameDay(t: number, now = Date.now()): boolean {
 
 /* ----------------------- Status badge ----------------------- */
 
-function statusTone(status: string): string {
-  const k = status.toLowerCase();
-  if (!k) return "bg-muted text-muted-foreground border-transparent";
-  if (k.includes("jauns"))
-    return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
-  if (k.includes("līgum") || k.includes("ligum") || k.includes("won") || k.includes("contract"))
-    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
-  if (k.includes("piedāvāj") || k.includes("piedavaj") || k.includes("pieprasīj") || k.includes("pieprasij"))
-    return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30";
-  if (k.includes("sarunās") || k.includes("sarunas") || k.includes("aktīv") || k.includes("aktiv"))
-    return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
-  if (k.includes("nesasn") || k.includes("bounce") || k.includes("nederīg") || k.includes("zaud"))
-    return "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
-  if (k.includes("konflikt"))
-    return "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
-  return "bg-secondary text-secondary-foreground border-transparent";
-}
-
-function StatusBadge({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
-  return (
-    <span
-      className={cn(
-        "inline-flex h-4 items-center rounded-sm px-1 text-[10.5px] font-medium leading-none",
-        statusTone(value),
-      )}
-    >
-      {value}
-    </span>
-  );
-}
 
 /** PRIORITĀTE column — stars + muted score. */
 function PriorityCell({ score }: { score: number }) {
@@ -1695,7 +1665,7 @@ function LeadiPage() {
                         </div>
                         {/* STATUSS */}
                         <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-                          <StatusBadge value={l.status} />
+                          <StatusBadge status={l.status} />
                         </div>
                         {/* ATBILDĪGAIS */}
                         <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">

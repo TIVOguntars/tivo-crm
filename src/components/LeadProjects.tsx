@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { fetchCrmView } from "@/server/analytics";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { LoadingState, ErrorState } from "@/components/DataState";
 
@@ -124,11 +125,7 @@ function ProjectCard({ row }: { row: Row }) {
             {country}
           </Badge>
         )}
-        {status && (
-          <Badge variant="secondary" className="h-4 rounded px-1 text-[10px] font-medium leading-none">
-            {status}
-          </Badge>
-        )}
+        {status && <StatusBadge status={status} />}
       </div>
 
       {/* Detail grid */}
