@@ -1683,7 +1683,7 @@ function LeadiPage() {
                           ) : (
                             <div className="flex flex-wrap gap-0.5">
                               {normalizeTags(l.tags).slice(0, 3).map((t) => (
-                                <Tag key={t} label={t} />
+                                <Tag key={t} tag={t} />
                               ))}
                               {l.tags.length > 3 && (
                                 <span className="text-[10px] text-muted-foreground/55 tabular-nums">
