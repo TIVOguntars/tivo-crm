@@ -1709,9 +1709,11 @@ function LeadiPage() {
                                     : "text-muted-foreground/65",
                                 )}
                               >
-                                {isOverdue
-                                  ? fmtDateTime(l.next_action_due)
-                                  : fmtDate(l.next_action_due)}
+                                {isFutureDate(l.next_action_due, "next_action_due", l.lead_id)
+                                  ? "—"
+                                  : isOverdue
+                                    ? fmtDateTime(l.next_action_due)
+                                    : fmtDate(l.next_action_due)}
                               </span>
                             )}
                           </div>
@@ -1730,7 +1732,9 @@ function LeadiPage() {
                               {commLabel ?? "Nav kontakta"}
                             </span>
                             <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {fmtDate(commTimeSrc)}
+                              {isFutureDate(commTimeSrc, "comm_time", l.lead_id)
+                                ? "—"
+                                : fmtDate(commTimeSrc)}
                             </span>
                           </div>
                         </div>
