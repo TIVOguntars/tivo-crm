@@ -220,7 +220,7 @@ export function LeadDrawer({
         data: {
           view: "leads",
           query:
-            `id=eq.${encodeURIComponent(leadId ?? "")}` +
+            `or=(id.eq.${encodeURIComponent(leadId ?? "")},external_id.eq.${encodeURIComponent(leadId ?? "")})` +
             `&select=id,status,source,external_source,external_id,contact_id,raw_data,created_at,updated_at,owner_user_id,ppv_user_id,contacts(id,full_name,email_raw,email_normalized,phone_raw,phone_e164,phone_validated,phone_line_type)` +
             `&limit=1`,
         },
@@ -236,7 +236,7 @@ export function LeadDrawer({
     const raw = (l.raw_data as Row | undefined) ?? {};
     return {
       // identity
-      lead_id: s(q.lead_id) || s(l.id) || leadId || "",
+      lead_id: s(l.id) || s(q.lead_id) || leadId || "",
       name:
         s(q.full_name) ||
         s(c.full_name) ||
@@ -499,6 +499,11 @@ function DrawerBody({
             <Tag key={t} label={t} />
           ))}
         </div>
+        )}
+        {!loading && (
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground/80">
+            Active CRM lead_id: {realLeadId || "—"}
+          </div>
         )}
       </SheetHeader>
 
