@@ -260,6 +260,8 @@ export interface UnifiedActivityTimelineProps {
   categories?: TimelineCategory[];
   /** Row limit. Default 100. */
   limit?: number;
+  /** Lead status (for closed-state derivation). */
+  leadStatus?: string | null;
 }
 
 const DEFAULT_CATEGORIES: TimelineCategory[] = [
@@ -277,6 +279,7 @@ export function UnifiedActivityTimeline({
   defaultCategory = "all",
   categories = DEFAULT_CATEGORIES,
   limit = 100,
+  leadStatus = null,
 }: UnifiedActivityTimelineProps) {
   const [category, setCategory] = useState<TimelineCategory>(defaultCategory);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -311,6 +314,16 @@ export function UnifiedActivityTimeline({
   }, [rows, category]);
 
   const units = useMemo(() => buildUnits(filtered), [filtered]);
+
+  const isClosedLead = useMemo(() => {
+    const s2 = (leadStatus ?? "").toLowerCase();
+    if (!s2) return false;
+    return [
+      "cancelled", "canceled", "atcelt",
+      "completed", "complete", "pabeig", "done",
+      "unreachable", "nesazvanāms", "nesazvana", "nesasniedz",
+    ].some((k) => s2.includes(k));
+  }, [leadStatus]);
 
   return (
     <div>
