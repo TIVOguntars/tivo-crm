@@ -423,20 +423,7 @@ function DrawerBody({
               <span>PPV: {ppv}</span>
             </Chip>
           )}
-          {priority && (
-            <span
-              className={cn(
-                "inline-flex h-5 items-center rounded px-1.5 text-[10px] font-medium",
-                priority === "Augsta"
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                  : priority === "Normāla"
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                    : "bg-muted text-muted-foreground",
-              )}
-            >
-              {priority}
-            </span>
-          )}
+          {/* Prioritātes līmeņi (Zema/Normāla/Augsta) noņemti — prioritāti rāda tikai zvaigznes + reitings. */}
           {tags.slice(0, 4).map((t) => (
             <span
               key={t}
