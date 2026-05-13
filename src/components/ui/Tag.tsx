@@ -1,6 +1,5 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
-import { TAG_BASE_CLASS, TAG_STYLES } from "@/design/tag-system";
+import { TAG_STYLES, TAG_BASE_CLASS } from "@/design/tag-system";
 
 export type TagVariant = keyof typeof TAG_STYLES;
 
@@ -35,18 +34,18 @@ export function normalizeTags(tags: Array<string | null | undefined>): string[] 
   return out;
 }
 
-export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface TagProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, "className"> {
   label: string;
   variant?: TagVariant;
 }
 
-export function Tag({ label, variant, className, ...rest }: TagProps) {
+export function Tag({ label, variant, ...rest }: TagProps) {
   const v = variant ?? resolveTagVariant(label);
   const style = TAG_STYLES[v] ?? TAG_STYLES.default;
   return (
     <span
-      className="bg-red-500 text-white px-4 py-2"
       {...rest}
+      className={`${TAG_BASE_CLASS} ${style.bg} ${style.text}`}
     >
       {label}
     </span>
