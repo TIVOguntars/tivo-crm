@@ -13,12 +13,18 @@ import {
   Save,
   Send,
   Combine,
-  Plus,
   ChevronDown,
   Sparkles,
   X,
   Hash,
   Flame,
+  Plus,
+  Zap,
+  CircleDot,
+  Circle,
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Sheet,
@@ -78,12 +84,8 @@ function b(v: unknown): boolean {
 }
 function parseTags(value: unknown): string[] {
   if (!value) return [];
-  if (Array.isArray(value))
-    return value.map((t) => String(t).trim()).filter(Boolean);
-  return String(value)
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
+  if (Array.isArray(value)) return value.map((t) => String(t).trim()).filter(Boolean);
+  return String(value).split(",").map((t) => t.trim()).filter(Boolean);
 }
 function parseDate(v: unknown): number | null {
   if (v == null || v === "") return null;
@@ -93,15 +95,13 @@ function parseDate(v: unknown): number | null {
 const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
-
 function relativeTime(v: unknown): string {
   const t = parseDate(v);
   if (t == null) return "—";
   const diff = Date.now() - t;
   if (diff < 0) {
     const ahead = -diff;
-    if (ahead < MS_HOUR)
-      return `pēc ${Math.max(1, Math.round(ahead / MS_MIN))}m`;
+    if (ahead < MS_HOUR) return `pēc ${Math.max(1, Math.round(ahead / MS_MIN))}m`;
     if (ahead < MS_DAY) return `pēc ${Math.round(ahead / MS_HOUR)}h`;
     return `pēc ${Math.round(ahead / MS_DAY)}d`;
   }
@@ -128,11 +128,8 @@ function relativeTime(v: unknown): string {
   if (days < 365) return `pirms ${Math.round(days / 30)}mēn`;
   return `pirms ${Math.round(days / 365)}g`;
 }
-
 function isUuidLike(v: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v.trim(),
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim());
 }
 function leadDisplayName(row: Row, leadId: string | null): string {
   const n = s(row.name) || s(row.object_name) || s(row.display_name);
@@ -171,7 +168,6 @@ function countryFlag(country: string): string {
   if (!country) return "";
   const key = country.trim().toLowerCase();
   if (COUNTRY_FLAGS[key]) return COUNTRY_FLAGS[key];
-  // 2-letter ISO → emoji
   if (/^[a-z]{2}$/.test(key)) {
     const code = key.toUpperCase();
     return String.fromCodePoint(
@@ -210,9 +206,6 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
-  // Layout-only step: never block drawer rendering on missing/failing
-  // crm.lead_drawer_summary. If the view doesn't exist or returns no row,
-  // render the drawer shell with empty section states.
   const row: Row = (view.data?.rows?.[0] as Row | undefined) ?? {};
 
   return (
@@ -227,6 +220,7 @@ export function LeadDrawer({
           loading={view.isLoading}
           onActionCompleted={onActionCompleted}
           onPatch={onPatch}
+          onClose={() => onOpenChange(false)}
         />
       </SheetContent>
     </Sheet>
@@ -239,23 +233,16 @@ function DrawerBody({
   loading,
   onActionCompleted,
   onPatch,
+  onClose,
 }: {
   row: Row;
   leadId: string | null;
   loading: boolean;
   onActionCompleted?: (leadId: string) => void;
   onPatch?: (leadId: string, patch: Record<string, unknown>) => void;
+  onClose: () => void;
 }) {
   const [completeOpen, setCompleteOpen] = useState(false);
-
-  const scrollToSection = (id: string) => {
-    if (typeof document === "undefined") return;
-    const el = document.getElementById(`lead-section-${id}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  // Optimistic local overrides (status/owner). Drawer reflects them immediately
-  // and propagates to the parent table via onPatch.
   const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({});
   const applyPatch = (patch: Record<string, unknown>) => {
     setLocalPatch((prev) => ({ ...prev, ...patch }));
@@ -265,7 +252,6 @@ function DrawerBody({
   const realLeadId = s(row.lead_id) || leadId;
   const displayName = leadDisplayName(row, realLeadId);
   const status = s(localPatch.status ?? row.lead_status_label);
-  // priority_label vairs neizmantojam — prioritāti rāda tikai zvaigznes + reitings.
   const owner = s(localPatch.owner ?? row.visible_action_owner);
   const ppv = s(localPatch.ppv ?? row.ppv_name);
   const country = s(row.country);
@@ -291,9 +277,7 @@ function DrawerBody({
     s(row.last_contact_date) ||
     s(row.last_communication_at) ||
     s(row.last_inbound_at);
-  const lastReply = s(row.last_inbound_at) || s(row.last_reply_at);
   const unreadReplies = s(row.unread_replies) || s(row.unread_count);
-  const nextFollowup = visibleDue || sisDue;
 
   const waPhone = phone.replace(/[^0-9]/g, "");
   const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
@@ -303,21 +287,20 @@ function DrawerBody({
 
   return (
     <TooltipProvider delayDuration={150}>
-      {/* ============== ENTERPRISE STICKY HEADER ============== */}
-      <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-muted/30 px-5 py-3 text-left backdrop-blur supports-[backdrop-filter]:bg-muted/40">
-        <div className="flex items-center gap-4">
+      {/* ============== ENTERPRISE HEADER ============== */}
+      <SheetHeader className="shrink-0 space-y-0 border-b border-border bg-card px-4 py-2 text-left shadow-sm">
+        <div className="flex items-center gap-3">
           {/* LEFT — identity */}
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <SheetTitle className="truncate text-[15px] font-semibold leading-tight text-foreground">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+              {initials(displayName)}
+            </span>
+            <SheetTitle className="truncate text-[14px] font-semibold leading-tight text-foreground">
               {displayName}
             </SheetTitle>
             {flag && (
-              <span
-                className="inline-flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground"
-                title={country}
-              >
-                <span className="text-base leading-none">{flag}</span>
-                <span className="hidden lg:inline">{country}</span>
+              <span className="inline-flex shrink-0 items-center text-base leading-none" title={country}>
+                {flag}
               </span>
             )}
             {!flag && country && (
@@ -327,11 +310,12 @@ function DrawerBody({
               </span>
             )}
             {shortLeadId && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-border/60 bg-muted/40 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
                 <Hash className="h-2.5 w-2.5" />
                 {shortLeadId}
               </span>
             )}
+            {status && <StatusBadge status={status} />}
             {priorityScore > 0 && (
               <span
                 className={cn(
@@ -348,17 +332,16 @@ function DrawerBody({
                 {priorityScore}
               </span>
             )}
-            {status && <StatusBadge status={status} />}
           </div>
 
-          {/* CENTER — owner / PPV / tags */}
-          <div className="hidden min-w-0 flex-[1.2] items-center justify-center gap-2 md:flex">
+          {/* CENTER — owner / ppv / tags */}
+          <div className="hidden min-w-0 flex-[1.1] items-center justify-center gap-2 md:flex">
             {owner && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-foreground">
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
                   {initials(owner)}
                 </span>
-                <span className="truncate text-foreground">{owner}</span>
+                <span className="truncate">{owner}</span>
               </span>
             )}
             {ppv && (
@@ -378,38 +361,20 @@ function DrawerBody({
                     <Tag key={t} label={t} />
                   ))}
                   {tags.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      +{tags.length - 3}
-                    </span>
+                    <span className="text-[10px] text-muted-foreground">+{tags.length - 3}</span>
                   )}
                 </div>
               </>
             )}
           </div>
 
-          {/* RIGHT — quick actions */}
+          {/* RIGHT — actions */}
           <div className="flex shrink-0 items-center gap-0.5">
-            <IconBtn
-              icon={<Phone className="h-3.5 w-3.5" />}
-              label="Zvanīt"
-              href={phone ? `tel:${phone}` : undefined}
-            />
-            <IconBtn
-              icon={<MessageCircle className="h-3.5 w-3.5" />}
-              label="WhatsApp"
-              href={waPhone ? `https://wa.me/${waPhone}` : undefined}
-            />
-            <IconBtn
-              icon={<Mail className="h-3.5 w-3.5" />}
-              label="E-pasts"
-              href={email ? `mailto:${email}` : undefined}
-            />
-            <IconBtn
-              icon={<CheckSquare className="h-3.5 w-3.5" />}
-              label="Uzdevums"
-              onClick={() => setCompleteOpen(true)}
-              disabled={!realLeadId}
-            />
+            <IconBtn icon={<Phone className="h-3.5 w-3.5" />} label="Zvanīt" href={phone ? `tel:${phone}` : undefined} />
+            <IconBtn icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" href={waPhone ? `https://wa.me/${waPhone}` : undefined} />
+            <IconBtn icon={<Mail className="h-3.5 w-3.5" />} label="E-pasts" href={email ? `mailto:${email}` : undefined} />
+            <IconBtn icon={<CheckSquare className="h-3.5 w-3.5" />} label="Uzdevums" onClick={() => setCompleteOpen(true)} disabled={!realLeadId} />
+            <IconBtn icon={<StickyNote className="h-3.5 w-3.5" />} label="Piezīme" onClick={() => undefined} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -424,22 +389,16 @@ function DrawerBody({
                 <DropdownMenuItem>Mainīt atbildīgo</DropdownMenuItem>
                 <DropdownMenuItem>Pārcelt termiņu</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
-                  Apvienot ar...
-                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">Apvienot ar...</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <div className="mx-1 h-5 w-px bg-border" />
-            <IconBtn
-              icon={<X className="h-3.5 w-3.5" />}
-              label="Aizvērt"
-              onClick={() => onPatch && undefined}
-            />
+            <IconBtn icon={<X className="h-3.5 w-3.5" />} label="Aizvērt" onClick={onClose} />
           </div>
         </div>
 
-        {/* Mobile center row — owner + tags fold below on narrow */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
+        {/* mobile center row */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
           {owner && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <User className="h-3 w-3" />
@@ -458,127 +417,143 @@ function DrawerBody({
         </div>
       </SheetHeader>
 
-      {/* ============== KPI STRIP (sub-header) ============== */}
+      {/* ============== KPI STRIP ============== */}
       <div className="shrink-0 border-b border-border bg-background">
-        <div className="mx-auto flex max-w-[1400px] items-stretch divide-x divide-border overflow-x-auto px-2">
+        <div className="flex items-stretch divide-x divide-border/60 overflow-x-auto px-2">
           <KpiCell label="Zvani" value="—" />
           <KpiCell label="E-pasti" value="—" />
           <KpiCell label="SMS" value="—" />
           <KpiCell label="WhatsApp" value="—" />
-          <KpiCell label="Atbildes" value={unreadReplies || "—"} />
+          <KpiCell label="Atbildes" value={unreadReplies || "—"} accent={unreadReplies ? "green" : undefined} />
           <KpiCell label="Klikšķi" value="—" />
-          <KpiCell
-            label="Pēdējā aktivitāte"
-            value={lastContact ? relativeTime(lastContact) : "—"}
-          />
+          <KpiCell label="Pēd. aktivitāte" value={lastContact ? relativeTime(lastContact) : "—"} />
+          <KpiCell label="Atvērts" value={relativeTime(row.lead_created_at ?? row.created_at)} />
         </div>
       </div>
 
-      {/* ============== SCROLLABLE SECTION CONTENT ============== */}
-      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/10">
-        <div className="mx-auto max-w-[1400px] px-4 py-4 md:px-6 md:py-5">
+      {/* ============== SCROLLABLE CONTENT ============== */}
+      <div id="lead-drawer-scroll" className="flex-1 overflow-y-auto bg-muted/20">
+        <div className="mx-auto max-w-[1400px] px-4 py-3 md:px-5 md:py-4">
           {loading && (
-            <div className="mb-4">
+            <div className="mb-3">
               <LoadingState label="Ielādē lead datus…" />
             </div>
           )}
 
-          {/* Operational 2-col: Next Actions + Contact Data */}
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-            <FlatSection id="next-actions" title="Nākamās darbības" hint="Operational">
+          {/* PRIMARY: Object/Project — compact horizontal */}
+          <PrimarySection title="Objekts / Projekts" subtitle="Primary">
+            <div className="rounded-md border border-border bg-card">
+              {/* top bar */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-1.5">
+                <span className="text-[12px] font-semibold text-foreground truncate">
+                  {s(row.object_name) || displayName}
+                </span>
+                {flag && <span className="text-base leading-none">{flag}</span>}
+                {status && <StatusBadge status={status} />}
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Stadija: —</span>
+              </div>
+              {/* second row inline data */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 px-3 py-1.5 md:grid-cols-4">
+                <InlineKv label="Adrese" value={s(row.address)} />
+                <InlineKv label="Zeme" value="" />
+                <InlineKv label="Plān. būvn." value="" />
+                <InlineKv label="Projekts" value="" />
+              </div>
+              {/* milestone tracker */}
+              <div className="border-t border-border/60 px-3 py-2">
+                <MilestoneTrack row={row} />
+              </div>
+              {/* projects expanded */}
+              <div className="border-t border-border/60 px-3 py-2">
+                <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
+                  <LeadProjects leadId={realLeadId} />
+                </Suspense>
+              </div>
+            </div>
+          </PrimarySection>
+
+          {/* PRIMARY: Timeline */}
+          <PrimarySection title="Aktivitāšu laika līnija" subtitle="Primary" className="mt-4">
+            <div className="rounded-md border border-border bg-card">
+              <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Hronoloģiska plūsma</span>
+                </div>
+                <Button size="sm" variant="ghost" className="h-6 gap-1 text-[11px]">
+                  <Plus className="h-3 w-3" />
+                  Notikums
+                </Button>
+              </div>
+              <div className="relative">
+                {/* left rail */}
+                <div className="pointer-events-none absolute left-[19px] top-0 bottom-0 w-px bg-border/60" />
+                <div className="px-3 py-2">
+                  <Suspense fallback={<div className="py-3"><LoadingState /></div>}>
+                    <LeadCommunicationTimeline leadId={realLeadId} />
+                  </Suspense>
+                </div>
+              </div>
+              <div className="border-t border-border/60 px-3 py-2">
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Darbību vēsture
+                </div>
+                <Suspense fallback={<div className="py-2"><LoadingState /></div>}>
+                  <LeadActionHistory leadId={realLeadId} />
+                </Suspense>
+              </div>
+            </div>
+          </PrimarySection>
+
+          {/* SECONDARY 2-col grid: Next Actions + Contact Data */}
+          <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-4 lg:grid-cols-2">
+            <SecondarySection id="next-actions" title="Nākamās darbības" hint="Operational">
               <NextActionsBlock
                 visibleAction={visibleAction}
                 visibleDue={visibleDue}
                 isHumanPrimary={isHumanPrimary}
                 sisLabel={sisLabel}
                 sisDue={sisDue}
+                onComplete={() => setCompleteOpen(true)}
               />
-            </FlatSection>
+            </SecondarySection>
 
-            <FlatSection id="contact" title="Kontaktdati">
-              <DataRows
-                rows={[
-                  ["Telefons (E.164)", phoneE164 || "—"],
-                  ["Telefons (oriģ.)", phoneRaw || "—"],
-                  ["E-pasts", email || "—"],
-                  ["Validācija", "—"],
-                  ["Līnijas tips", "—"],
-                  ["Opt-in / Opt-out", "—"],
-                ]}
+            <SecondarySection id="contact" title="Kontaktdati" hint="Validated">
+              <ContactGrid
+                phoneE164={phoneE164}
+                phoneRaw={phoneRaw}
+                email={email}
               />
-            </FlatSection>
+            </SecondarySection>
           </div>
 
-          {/* Object / Project */}
-          <FlatSection id="project" title="Objekts / Projekts" className="mt-5">
-            <DataRows
-              rows={[
-                ["Objekta nosaukums", s(row.object_name) || displayName],
-                ["Valsts", country || "—"],
-                ["Projekta status", "—"],
-              ]}
-              compact
-            />
-            <DataRows
-              className="mt-2"
-              rows={[
-                ["Adrese", s(row.address) || "—"],
-                ["Zeme", "—"],
-                ["Plānotais būvn.", "—"],
-                ["Stadija", "—"],
-              ]}
-              compact
-            />
-            <div className="mt-3 border-t border-border/60 pt-3">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Milestones
+          {/* TERTIARY: Audit / Import — very compact */}
+          <SecondarySection id="audit" title="Raw / Audit / Import" hint="Admin" className="mt-4">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
+              <div className="rounded-sm border border-border/50 bg-card">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0 px-2.5 py-1.5 text-[11px]">
+                  <InlineKv label="Avots" value={source} dense />
+                  <InlineKv label="Imports" value={importSource} dense />
+                  <InlineKv label="Konflikti" value="" dense />
+                  <InlineKv label="Sesija" value="" dense />
+                  <InlineKv label="Audits" value="" dense />
+                  <InlineKv label="Lead ID" value={realLeadId ?? ""} mono dense />
+                </div>
               </div>
-              <Suspense fallback={<LoadingState label="Ielādē projektus…" />}>
-                <LeadProjects leadId={realLeadId} />
-              </Suspense>
-            </div>
-          </FlatSection>
-
-          {/* Timeline */}
-          <FlatSection id="timeline" title="Aktivitāšu laika līnija" className="mt-5">
-            <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
-              <LeadCommunicationTimeline leadId={realLeadId} />
-            </Suspense>
-            <div className="mt-3 border-t border-border/60 pt-3">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Darbību vēsture
-              </div>
-              <Suspense fallback={<div className="py-4"><LoadingState /></div>}>
-                <LeadActionHistory leadId={realLeadId} />
-              </Suspense>
-            </div>
-          </FlatSection>
-
-          {/* Raw / Audit / Import */}
-          <FlatSection id="audit" title="Raw / Audit / Import" className="mt-5">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <DataRows
-                rows={[
-                  ["Avots", source || "—"],
-                  ["Importa avots", importSource || "—"],
-                  ["Konflikti", "—"],
-                  ["Importa sesija", "—"],
-                  ["Audit ierakstu skaits", "—"],
-                ]}
-              />
-              <div className="rounded-sm border border-dashed border-border/60 bg-background px-3 py-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                  Raw payload preview
+              <div className="rounded-sm border border-dashed border-border/60 bg-card/50 px-2.5 py-1.5 font-mono text-[10.5px] leading-snug text-muted-foreground">
+                <div className="mb-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                  <ShieldCheck className="h-3 w-3" />
+                  Raw payload
                 </div>
                 <div className="text-muted-foreground/60">// nav pieejams</div>
               </div>
             </div>
-          </FlatSection>
+          </SecondarySection>
         </div>
       </div>
 
       {/* ============== STICKY BOTTOM BAR ============== */}
-      <footer className="flex shrink-0 items-center gap-1 border-t border-border bg-card px-3 py-2">
+      <footer className="flex shrink-0 items-center gap-1 border-t border-border bg-card/80 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         <Button size="sm" className="h-7 gap-1 text-xs">
           <Save className="h-3.5 w-3.5" />
           Saglabāt
@@ -591,40 +566,21 @@ function DrawerBody({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44">
-            {[
-              "Jauns",
-              "Sarunās",
-              "Pieprasījums",
-              "Piedāvājums",
-              "Līgums",
-              "Nesasniedzams",
-              "Zaudēts",
-            ].map((st) => (
+            {["Jauns", "Sarunās", "Pieprasījums", "Piedāvājums", "Līgums", "Nesasniedzams", "Zaudēts"].map((st) => (
               <DropdownMenuItem key={st} onSelect={() => applyPatch({ status: st })}>{st}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setCompleteOpen(true)} disabled={!realLeadId}>
+          <CheckSquare className="h-3.5 w-3.5" />
+          Uzdevums
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs">
+          <Send className="h-3.5 w-3.5" />
+          Sūtīt ziņu
+        </Button>
         <div className="ml-auto flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1 text-xs"
-            onClick={() => setCompleteOpen(true)}
-            disabled={!realLeadId}
-          >
-            <CheckSquare className="h-3.5 w-3.5" />
-            Uzdevums
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1 text-xs"
-            onClick={() => scrollToSection("timeline")}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Sūtīt ziņu
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs">
+          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-muted-foreground">
             <Combine className="h-3.5 w-3.5" />
             Merge
           </Button>
@@ -648,42 +604,20 @@ function DrawerBody({
 
 /* ----------------------------- subcomponents ----------------------------- */
 
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex h-5 items-center gap-1 rounded border border-border bg-background px-1.5 text-[11px] text-foreground">
-      {children}
-    </span>
-  );
-}
-
 function IconBtn({
-  icon,
-  label,
-  href,
-  onClick,
-  disabled,
+  icon, label, href, onClick, disabled,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  href?: string;
-  onClick?: () => void;
-  disabled?: boolean;
+  icon: React.ReactNode; label: string; href?: string; onClick?: () => void; disabled?: boolean;
 }) {
   const isDisabled = disabled || (!href && !onClick);
   const cls = cn(
     "inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors",
-    isDisabled
-      ? "cursor-not-allowed opacity-40"
-      : "hover:bg-muted hover:text-foreground",
+    isDisabled ? "cursor-not-allowed opacity-40" : "hover:bg-muted hover:text-foreground",
   );
   const inner = href && !isDisabled ? (
-    <a href={href} className={cls} aria-label={label}>
-      {icon}
-    </a>
+    <a href={href} className={cls} aria-label={label}>{icon}</a>
   ) : (
-    <button type="button" onClick={onClick} disabled={isDisabled} className={cls} aria-label={label}>
-      {icon}
-    </button>
+    <button type="button" onClick={onClick} disabled={isDisabled} className={cls} aria-label={label}>{icon}</button>
   );
   return (
     <Tooltip>
@@ -693,112 +627,37 @@ function IconBtn({
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  href,
-  onClick,
-  disabled,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  href?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  const isDisabled = disabled || (!href && !onClick);
-  const cls = cn(
-    "inline-flex h-7 items-center gap-1.5 rounded border border-border bg-background px-2 text-[11px] font-medium transition-colors",
-    isDisabled
-      ? "cursor-not-allowed opacity-40 text-muted-foreground"
-      : "text-foreground hover:bg-muted/60",
-  );
-  if (href && !isDisabled) {
-    return (
-      <a href={href} className={cls}>
-        {icon}
-        {label}
-      </a>
-    );
-  }
+function PrimarySection({
+  title, subtitle, className, children,
+}: { title: string; subtitle?: string; className?: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} disabled={isDisabled} className={cls}>
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function Section({
-  title,
-  right,
-  children,
-}: {
-  title: string;
-  right?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mb-4">
-      <div className="mb-1.5 flex items-center justify-between">
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className={cn("scroll-mt-4", className)}>
+      <header className="mb-1.5 flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.07em] text-foreground">
           {title}
-        </h3>
-        {right}
-      </div>
+        </h2>
+        {subtitle && (
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">
+            {subtitle}
+          </span>
+        )}
+      </header>
       {children}
     </section>
   );
 }
 
-function SectionBlock({
-  id,
-  title,
-  right,
-  children,
-}: {
-  id: string;
-  title: string;
-  right?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function SecondarySection({
+  id, title, hint, className, children,
+}: { id?: string; title: string; hint?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section id={`lead-section-${id}`} className="mb-5 scroll-mt-4">
-      <div className="mb-2 flex items-center justify-between border-b border-border/60 pb-1.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h3>
-        {right}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function FlatSection({
-  id,
-  title,
-  hint,
-  className,
-  children,
-}: {
-  id: string;
-  title: string;
-  hint?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section
-      id={`lead-section-${id}`}
-      className={cn("scroll-mt-4", className)}
-    >
-      <header className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/70">
+    <section id={id ? `lead-section-${id}` : undefined} className={cn("scroll-mt-4", className)}>
+      <header className="mb-1 flex items-baseline justify-between gap-3 border-b border-border/40 pb-0.5">
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           {title}
         </h3>
         {hint && (
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50">
             {hint}
           </span>
         )}
@@ -808,654 +667,283 @@ function FlatSection({
   );
 }
 
-function KpiCell({ label, value }: { label: string; value: React.ReactNode }) {
+function KpiCell({
+  label, value, accent,
+}: { label: string; value: React.ReactNode; accent?: "green" | "amber" | "rose" }) {
+  const accentCls =
+    accent === "green" ? "text-emerald-600 dark:text-emerald-400" :
+    accent === "amber" ? "text-amber-600 dark:text-amber-400" :
+    accent === "rose" ? "text-rose-600 dark:text-rose-400" :
+    "text-foreground";
   return (
-    <div className="flex min-w-[110px] flex-1 flex-col justify-center px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+    <div className="flex min-w-[92px] flex-1 flex-col justify-center px-2.5 py-1.5">
+      <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("mt-0 text-[12px] font-semibold tabular-nums leading-tight", accentCls)}>
         {value}
       </div>
     </div>
   );
 }
 
-function DataRows({
-  rows,
-  compact,
-  className,
-}: {
-  rows: Array<[string, React.ReactNode]>;
-  compact?: boolean;
-  className?: string;
-}) {
+function InlineKv({
+  label, value, mono, dense,
+}: { label: string; value: string; mono?: boolean; dense?: boolean }) {
+  const v = value?.trim() || "";
+  const muted = !v;
   return (
-    <dl
-      className={cn(
-        "divide-y divide-border/50 rounded-sm border border-border/50 bg-background",
-        className,
-      )}
-    >
-      {rows.map(([k, v]) => (
-        <div
-          key={k}
-          className={cn(
-            "grid grid-cols-[40%_1fr] items-baseline gap-3 px-3",
-            compact ? "py-1" : "py-1.5",
-          )}
-        >
-          <dt className="truncate text-[11px] text-muted-foreground">{k}</dt>
-          <dd className="truncate text-right text-xs font-medium text-foreground">
-            {v || "—"}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function NextActionsBlock({
-  visibleAction,
-  visibleDue,
-  isHumanPrimary,
-  sisLabel,
-  sisDue,
-}: {
-  visibleAction: string;
-  visibleDue: string;
-  isHumanPrimary: boolean;
-  sisLabel: string;
-  sisDue: string;
-}) {
-  const dueT = parseDate(visibleDue);
-  const overdue = dueT != null && dueT < Date.now();
-  const today =
-    dueT != null &&
-    new Date(dueT).toDateString() === new Date().toDateString();
-
-  return (
-    <div className="space-y-2">
-      {visibleAction ? (
-        <div
-          className={cn(
-            "rounded-md border px-3 py-2",
-            overdue
-              ? "border-rose-500/40 bg-rose-500/5"
-              : today
-                ? "border-amber-500/40 bg-amber-500/5"
-                : "border-border bg-card",
-          )}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-foreground">
-                {visibleAction}
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                {visibleDue && (
-                  <span className="inline-flex items-center gap-1">
-                    <CalendarClock className="h-3 w-3" />
-                    {relativeTime(visibleDue)}
-                  </span>
-                )}
-                {isHumanPrimary && (
-                  <span className="inline-flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    Cilvēka darbība
-                  </span>
-                )}
-              </div>
-            </div>
-            <span
-              className={cn(
-                "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                overdue
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                  : today
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                    : "bg-muted text-muted-foreground",
-              )}
-            >
-              {overdue ? "Nokavēts" : today ? "Šodien" : "Plānots"}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <EmptyRow text="Nav plānotu darbību" />
-      )}
-      {sisLabel ? (
-        <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground/80">SIS: </span>
-          {sisLabel}
-          {sisDue && <span className="ml-2">{relativeTime(sisDue)}</span>}
-        </div>
-      ) : (
-        <EmptyRow text="Nav automātikas ieteikumu" />
-      )}
-      <EmptyRow text="Plānoto darbību saraksts vēl nav pieslēgts" />
-    </div>
-  );
-}
-
-function KeyVal({ k, v }: { k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/40 py-1 text-xs last:border-0">
-      <span className="text-muted-foreground">{k}</span>
-      <span className="text-right font-medium text-foreground">{v || "—"}</span>
-    </div>
-  );
-}
-
-/* ----------------------------- Overview tab ----------------------------- */
-
-function OverviewTab(props: {
-  status: string;
-  owner: string;
-  ppv: string;
-  source: string;
-  tags: string[];
-  visibleAction: string;
-  visibleDue: string;
-  isHumanPrimary: boolean;
-  sisLabel: string;
-  sisDue: string;
-  lastContact: string;
-  lastReply: string;
-  unreadReplies: string;
-  nextFollowup: string;
-  leadId: string | null;
-}) {
-  const dueT = parseDate(props.visibleDue);
-  const overdue = dueT != null && dueT < Date.now();
-  const today =
-    dueT != null &&
-    new Date(dueT).toDateString() === new Date().toDateString();
-
-  return (
-    <>
-      <Section title="Lead kopsavilkums">
-        <div className="rounded-md border border-border bg-card px-3 py-2">
-          <KeyVal
-            k="Statuss"
-            v={
-              props.status ? <StatusBadge status={props.status} /> : "—"
-            }
-          />
-          <KeyVal
-            k="Atbildīgais"
-            v={
-              props.owner ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground">
-                    {initials(props.owner)}
-                  </span>
-                  {props.owner}
-                </span>
-              ) : (
-                "—"
-              )
-            }
-          />
-          <KeyVal k="PPV" v={props.ppv} />
-          <KeyVal k="Avots" v={props.source} />
-          <KeyVal
-            k="Tagi"
-            v={
-              props.tags.length === 0 ? (
-                "—"
-              ) : (
-                <div className="flex flex-wrap justify-end gap-1">
-                  {normalizeTags(props.tags).map((t) => (
-                    <Tag key={t} label={t} />
-                  ))}
-                </div>
-              )
-            }
-          />
-        </div>
-      </Section>
-
-      <Section title="Nākamās darbības">
-        <div className="space-y-1.5">
-          {props.visibleAction ? (
-            <div
-              className={cn(
-                "rounded-md border px-3 py-2",
-                overdue
-                  ? "border-rose-500/40 bg-rose-500/5"
-                  : today
-                    ? "border-amber-500/40 bg-amber-500/5"
-                    : "border-border bg-card",
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-foreground">
-                    {props.visibleAction}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                    {props.visibleDue && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3" />
-                        {relativeTime(props.visibleDue)}
-                      </span>
-                    )}
-                    {props.isHumanPrimary && (
-                      <span className="inline-flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        Cilvēka darbība
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                    overdue
-                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                      : today
-                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {overdue ? "Nokavēts" : today ? "Šodien" : "Plānots"}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <EmptyRow text="Nav plānotu darbību" />
-          )}
-          {props.sisLabel && (
-            <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
-              <span className="font-medium text-foreground/80">SIS: </span>
-              {props.sisLabel}
-              {props.sisDue && (
-                <span className="ml-2">{relativeTime(props.sisDue)}</span>
-              )}
-            </div>
-          )}
-        </div>
-      </Section>
-
-      <Section title="Komunikācijas kopsavilkums">
-        <div className="grid grid-cols-2 gap-1.5">
-          <SummaryTile
-            label="Pēdējais kontakts"
-            value={relativeTime(props.lastContact)}
-          />
-          <SummaryTile
-            label="Pēdējā atbilde"
-            value={relativeTime(props.lastReply)}
-          />
-          <SummaryTile
-            label="Nelasītas atbildes"
-            value={props.unreadReplies || "0"}
-          />
-          <SummaryTile
-            label="Nākamais follow-up"
-            value={relativeTime(props.nextFollowup)}
-          />
-        </div>
-      </Section>
-
-      <Section title="Piezīmes">
-        <NotesPreview leadId={props.leadId} />
-      </Section>
-    </>
-  );
-}
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border bg-card px-2.5 py-1.5">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+    <div className={cn("flex items-baseline gap-1.5 min-w-0", dense ? "py-0.5" : "py-0.5")}>
+      <span className="shrink-0 text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground/80">
         {label}
-      </div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-        {value}
-      </div>
+      </span>
+      <span className={cn(
+        "truncate text-[11.5px] font-medium",
+        mono && "font-mono text-[10.5px]",
+        muted ? "text-muted-foreground/60" : "text-foreground",
+      )}>
+        {v || "—"}
+      </span>
     </div>
   );
 }
 
-function EmptyRow({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-center text-[11px] text-muted-foreground">
-      {text}
-    </div>
-  );
-}
+/* ---- Milestone tracker ---- */
 
-function NotesPreview({ leadId }: { leadId: string | null }) {
-  const q = useQuery({
-    queryKey: ["crm", "action_history_notes", leadId ?? ""],
-    queryFn: () =>
-      fetchCrmView({
-        data: {
-          view: "action_history",
-          query: `lead_id=eq.${encodeURIComponent(leadId ?? "")}&order=completed_at.desc&limit=5`,
-        },
-      }),
-    enabled: !!leadId,
-    staleTime: 30_000,
-  });
+type Milestone = { key: string; label: string; field: string; terminal?: boolean };
+const MILESTONES: Milestone[] = [
+  { key: "request", label: "Pieprasījums", field: "request_at" },
+  { key: "offer", label: "Piedāvājums", field: "offer_sent_at" },
+  { key: "contract", label: "Līgums", field: "contract_signed_at" },
+  { key: "cancel", label: "Atcelts", field: "cancelled_at", terminal: true },
+  { key: "done", label: "Pabeigts", field: "completed_at", terminal: true },
+];
 
-  if (!leadId) return <EmptyRow text="Nav piezīmju" />;
-  if (q.isLoading)
-    return (
-      <div className="text-[11px] text-muted-foreground">Ielādē…</div>
-    );
-  const rows = (q.data?.rows ?? []) as Row[];
-  if (rows.length === 0) return <EmptyRow text="Vēl nav piezīmju" />;
+function MilestoneTrack({ row }: { row: Row }) {
+  // derive active milestone roughly by status
+  const status = s(row.lead_status_label).toLowerCase();
+  let activeIdx = -1;
+  if (status.includes("pieprasījum") || status.includes("jauns")) activeIdx = 0;
+  else if (status.includes("piedāvājum")) activeIdx = 1;
+  else if (status.includes("līgum")) activeIdx = 2;
+  else if (status.includes("atcelt")) activeIdx = 3;
+  else if (status.includes("pabeig")) activeIdx = 4;
 
   return (
-    <ul className="space-y-1.5">
-      {rows.map((r, i) => {
-        const note = s(r.note) || s(r.action_label) || s(r.outcome);
-        if (!note) return null;
+    <div className="flex items-center gap-0">
+      {MILESTONES.map((m, i) => {
+        const date = s((row as Row)[m.field]);
+        const completed = !!date || (activeIdx >= 0 && i < activeIdx);
+        const active = i === activeIdx;
+        const isLast = i === MILESTONES.length - 1;
+        const Icon = completed ? CheckCircle2 : active ? CircleDot : Circle;
+        const tone = m.terminal && active ? (m.key === "cancel" ? "rose" : "emerald") : completed ? "emerald" : active ? "primary" : "muted";
+        const iconCls =
+          tone === "emerald" ? "text-emerald-500" :
+          tone === "rose" ? "text-rose-500" :
+          tone === "primary" ? "text-primary" : "text-muted-foreground/50";
+        const lineCls = completed ? "bg-emerald-500/40" : "bg-border/60";
         return (
-          <li
-            key={i}
-            className="rounded-md border border-border bg-card px-2.5 py-1.5"
-          >
-            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-              <span className="truncate">{s(r.action_owner) || "Sistēma"}</span>
-              <span>{relativeTime(r.completed_at)}</span>
+          <div key={m.key} className="flex flex-1 items-center">
+            <div className="flex flex-col items-center gap-0.5">
+              <Icon className={cn("h-3.5 w-3.5", iconCls)} />
+              <span className={cn(
+                "text-[9.5px] font-medium leading-none whitespace-nowrap",
+                completed || active ? "text-foreground" : "text-muted-foreground/60"
+              )}>
+                {m.label}
+              </span>
+              <span className="text-[9px] tabular-nums text-muted-foreground/70 leading-none">
+                {date ? relativeTime(date) : "—"}
+              </span>
             </div>
-            <div className="mt-0.5 line-clamp-2 text-xs text-foreground">
-              {note}
-            </div>
-          </li>
+            {!isLast && <div className={cn("mx-1 h-px flex-1", lineCls)} />}
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
-/* ----------------------------- Tasks tab ----------------------------- */
+/* ---- Next actions ---- */
 
-function TasksTab({
-  leadId,
-  visibleAction,
-  visibleDue,
-  owner,
-  isHuman,
-  sisLabel,
-  sisDue,
-  onComplete,
+function NextActionsBlock({
+  visibleAction, visibleDue, isHumanPrimary, sisLabel, sisDue, onComplete,
 }: {
-  leadId: string | null;
   visibleAction: string;
   visibleDue: string;
-  owner: string;
-  isHuman: boolean;
+  isHumanPrimary: boolean;
   sisLabel: string;
   sisDue: string;
   onComplete: () => void;
 }) {
   const dueT = parseDate(visibleDue);
   const overdue = dueT != null && dueT < Date.now();
-  const today =
-    dueT != null &&
-    new Date(dueT).toDateString() === new Date().toDateString();
+  const today = dueT != null && new Date(dueT).toDateString() === new Date().toDateString();
+
+  const tone = overdue ? "rose" : today ? "amber" : "neutral";
+  const toneCls =
+    tone === "rose" ? "border-l-rose-500 bg-rose-500/5" :
+    tone === "amber" ? "border-l-amber-500 bg-amber-500/5" :
+    "border-l-border bg-card";
+  const badgeCls =
+    tone === "rose" ? "bg-rose-500/15 text-rose-700 dark:text-rose-300" :
+    tone === "amber" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" :
+    "bg-muted text-muted-foreground";
 
   return (
-    <div className="space-y-3">
-      <Section title="Aktīvie uzdevumi">
-        <ul className="space-y-1">
-          {visibleAction ? (
-            <TaskRow
-              title={visibleAction}
-              owner={owner}
-              dueLabel={
-                overdue
-                  ? "Nokavēts"
-                  : today
-                    ? "Šodien"
-                    : visibleDue
-                      ? relativeTime(visibleDue)
-                      : "—"
-              }
-              dueTone={overdue ? "danger" : today ? "warn" : "muted"}
-              onCheck={onComplete}
-              human={isHuman}
-            />
-          ) : (
-            <EmptyRow text="Nav aktīvu uzdevumu" />
-          )}
-          {sisLabel && (
-            <TaskRow
-              title={sisLabel}
-              owner="Sistēma"
-              dueLabel={sisDue ? relativeTime(sisDue) : "—"}
-              dueTone="muted"
-              human={false}
-            />
-          )}
-        </ul>
-      </Section>
+    <ul className="space-y-1">
+      {visibleAction ? (
+        <li className={cn("flex items-start gap-2 rounded-sm border border-border border-l-2 px-2.5 py-1.5", toneCls)}>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border text-transparent hover:border-primary hover:text-primary"
+            aria-label="Pabeigt"
+          >
+            <CheckSquare className="h-3 w-3" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-medium text-foreground">{visibleAction}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0 text-[10.5px] text-muted-foreground">
+              {visibleDue && (
+                <span className="inline-flex items-center gap-1">
+                  <CalendarClock className="h-2.5 w-2.5" />
+                  {relativeTime(visibleDue)}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1">
+                <User className="h-2.5 w-2.5" />
+                {isHumanPrimary ? "Cilvēks" : "Auto"}
+              </span>
+            </div>
+          </div>
+          <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold", badgeCls)}>
+            {overdue ? "Nokavēts" : today ? "Šodien" : "Plānots"}
+          </span>
+        </li>
+      ) : (
+        <li className="rounded-sm border border-dashed border-border/60 bg-card/50 px-2.5 py-1.5 text-center text-[11px] text-muted-foreground">
+          Nav plānotu darbību
+        </li>
+      )}
 
-      <Section title="Vēsturiski uzdevumi">
-        <Suspense fallback={<LoadingState />}>
-          <LeadActionHistory leadId={leadId} />
-        </Suspense>
-      </Section>
+      {sisLabel && (
+        <li className="flex items-start gap-2 rounded-sm border border-border/50 border-l-2 border-l-violet-500/60 bg-violet-500/5 px-2.5 py-1.5">
+          <Zap className="mt-0.5 h-3 w-3 shrink-0 text-violet-500" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[11.5px] font-medium text-foreground">{sisLabel}</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              SIS automātika{sisDue ? ` · ${relativeTime(sisDue)}` : ""}
+            </div>
+          </div>
+          <span className="shrink-0 rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+            Auto
+          </span>
+        </li>
+      )}
 
-      <div className="sticky bottom-0 -mx-4 mt-2 border-t border-border bg-background/95 px-4 py-2 backdrop-blur">
+      <li>
         <button
           type="button"
-          onClick={onComplete}
-          disabled={!leadId}
-          className="inline-flex h-7 w-full items-center justify-center gap-1 rounded border border-dashed border-border bg-background text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+          className="inline-flex h-7 w-full items-center justify-center gap-1 rounded border border-dashed border-border/60 bg-transparent text-[11px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
         >
-          <Plus className="h-3.5 w-3.5" />
-          Jauns uzdevums
+          <Plus className="h-3 w-3" />
+          Pievienot uzdevumu
         </button>
-      </div>
+      </li>
+    </ul>
+  );
+}
+
+/* ---- Contact grid ---- */
+
+function ContactGrid({
+  phoneE164, phoneRaw, email,
+}: { phoneE164: string; phoneRaw: string; email: string }) {
+  return (
+    <div className="rounded-sm border border-border/60 bg-card">
+      <ContactRow
+        icon={<Phone className="h-3 w-3" />}
+        label="Telefons"
+        value={phoneE164 || phoneRaw}
+        sub={phoneE164 && phoneRaw && phoneE164 !== phoneRaw ? phoneRaw : undefined}
+        chips={phoneE164 ? [{ label: "E.164", tone: "emerald" }, { label: "mobile", tone: "neutral" }] : []}
+        actions={phoneE164 || phoneRaw ? [
+          { href: `tel:${phoneE164 || phoneRaw}`, icon: <Phone className="h-3 w-3" />, label: "Zvanīt" },
+          { href: `https://wa.me/${(phoneE164 || phoneRaw).replace(/[^0-9]/g, "")}`, icon: <MessageCircle className="h-3 w-3" />, label: "WhatsApp" },
+        ] : []}
+      />
+      <ContactRow
+        icon={<Mail className="h-3 w-3" />}
+        label="E-pasts"
+        value={email}
+        chips={email ? [{ label: "valid", tone: "emerald" }] : []}
+        actions={email ? [
+          { href: `mailto:${email}`, icon: <Mail className="h-3 w-3" />, label: "Sūtīt" },
+        ] : []}
+      />
+      <ContactRow
+        icon={<ShieldCheck className="h-3 w-3" />}
+        label="Opt-in / GDPR"
+        value=""
+        chips={[]}
+        actions={[]}
+      />
     </div>
   );
 }
 
-function TaskRow({
-  title,
-  owner,
-  dueLabel,
-  dueTone,
-  onCheck,
-  human,
+function ContactRow({
+  icon, label, value, sub, chips, actions,
 }: {
-  title: string;
-  owner: string;
-  dueLabel: string;
-  dueTone: "danger" | "warn" | "muted";
-  onCheck?: () => void;
-  human?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  chips?: Array<{ label: string; tone: "emerald" | "amber" | "rose" | "neutral" }>;
+  actions?: Array<{ href: string; icon: React.ReactNode; label: string }>;
 }) {
+  const muted = !value;
   return (
-    <li className="flex items-start gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
-      <button
-        type="button"
-        onClick={onCheck}
-        disabled={!onCheck}
-        className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded border border-border text-transparent hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Pabeigt"
-      >
-        <CheckSquare className="h-3 w-3" />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-medium text-foreground">
-          {title}
-        </div>
-        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <User className="h-2.5 w-2.5" />
-            {owner || "—"}
-          </span>
-          {human === false && (
-            <span className="inline-flex items-center gap-1">
-              <Sparkles className="h-2.5 w-2.5" />
-              Auto
-            </span>
-          )}
-        </div>
-      </div>
-      <span
-        className={cn(
-          "shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
-          dueTone === "danger"
-            ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-            : dueTone === "warn"
-              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-              : "bg-muted text-muted-foreground",
-        )}
-      >
-        {dueLabel}
+    <div className="flex items-center gap-2 border-b border-border/40 px-2.5 py-1.5 last:border-b-0">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+        {icon}
       </span>
-    </li>
-  );
-}
-
-/* ----------------------------- Data tab ----------------------------- */
-
-function DataTab(props: {
-  phoneE164: string;
-  phoneRaw: string;
-  email: string;
-  source: string;
-  country: string;
-  importSource: string;
-  owner: string;
-  ppv: string;
-}) {
-  return (
-    <Section title="Strukturētie dati">
-      <div className="rounded-md border border-border bg-card px-3 py-2">
-        <KeyVal k="Normalizēts telefons" v={props.phoneE164 || "—"} />
-        <KeyVal k="Telefons (oriģ.)" v={props.phoneRaw || "—"} />
-        <KeyVal k="Validēts e-pasts" v={props.email || "—"} />
-        <KeyVal k="Avots" v={props.source} />
-        <KeyVal k="Valsts" v={props.country} />
-        <KeyVal k="Importa avots" v={props.importSource} />
-        <KeyVal k="Atbildīgais" v={props.owner} />
-        <KeyVal k="PPV" v={props.ppv} />
-      </div>
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        Rāda tikai validētos un normalizētos CRM laukus. Neapstrādāti payload
-        dati netiek attēloti.
-      </p>
-    </Section>
-  );
-}
-
-/* ----------------------------- Communications tab ----------------------------- */
-
-const COMPOSER_MODES = [
-  { key: "email", label: "Email", icon: Mail },
-  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { key: "sms", label: "SMS", icon: Send },
-  { key: "note", label: "Piezīme", icon: StickyNote },
-] as const;
-type ComposerMode = (typeof COMPOSER_MODES)[number]["key"];
-
-function CommunicationsTab({
-  leadId,
-  hasEmail,
-  hasPhone,
-  onSent,
-}: {
-  leadId: string | null;
-  hasEmail: boolean;
-  hasPhone: boolean;
-  onSent: () => void;
-}) {
-  const [mode, setMode] = useState<ComposerMode>("note");
-  const [text, setText] = useState("");
-
-  const isDisabled =
-    (mode === "email" && !hasEmail) ||
-    ((mode === "whatsapp" || mode === "sms") && !hasPhone);
-
-  const placeholder =
-    mode === "note"
-      ? "Iekšēja piezīme komandai…"
-      : mode === "email"
-        ? "Email saturs…"
-        : mode === "whatsapp"
-          ? "WhatsApp ziņa…"
-          : "SMS ziņa…";
-
-  const submit = () => {
-    if (!text.trim() || isDisabled) return;
-    // Optimistic: clear composer + bump timestamps. Backend wiring TBD.
-    setText("");
-    onSent();
-  };
-
-  return (
-    <div className="-mx-4 -my-3 flex h-[calc(100%+1.5rem)] flex-col">
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        <Suspense fallback={<LoadingState />}>
-          <LeadCommunicationTimeline leadId={leadId} />
-        </Suspense>
-      </div>
-      <div className="sticky bottom-0 border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
-        <div className="mb-1.5 flex items-center gap-0.5">
-          {COMPOSER_MODES.map((m) => {
-            const Icon = m.icon;
-            const active = mode === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setMode(m.key)}
-                className={cn(
-                  "inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium transition-colors",
-                  active
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {m.label}
-              </button>
-            );
-          })}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </span>
+          {chips?.map((c, i) => (
+            <span key={i} className={cn(
+              "inline-flex items-center rounded px-1 text-[9px] font-medium leading-tight",
+              c.tone === "emerald" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+              c.tone === "amber" && "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+              c.tone === "rose" && "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+              c.tone === "neutral" && "bg-muted text-muted-foreground",
+            )}>
+              {c.label}
+            </span>
+          ))}
         </div>
-        <div className="flex items-end gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
-            }}
-            placeholder={isDisabled ? "Trūkst kontakta šim kanālam" : placeholder}
-            disabled={isDisabled}
-            rows={2}
-            className="min-h-[44px] flex-1 resize-none rounded border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-          />
-          <div className="flex flex-col items-end gap-1">
-            <button
-              type="button"
-              disabled
-              className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted-foreground opacity-60"
-              title="Drīzumā"
-            >
-              <Plus className="h-3 w-3" />
-              Pielikums
-            </button>
-            <Button
-              size="sm"
-              className="h-7 gap-1 text-xs"
-              onClick={submit}
-              disabled={!text.trim() || isDisabled}
-            >
-              <Send className="h-3.5 w-3.5" />
-              Sūtīt
-            </Button>
-          </div>
+        <div className={cn("truncate text-[12px] font-medium", muted ? "text-muted-foreground/60" : "text-foreground")}>
+          {value || "—"}
         </div>
+        {sub && <div className="truncate text-[10px] text-muted-foreground">{sub}</div>}
       </div>
+      {actions && actions.length > 0 && (
+        <div className="flex shrink-0 items-center gap-0.5">
+          {actions.map((a, i) => (
+            <a
+              key={i}
+              href={a.href}
+              aria-label={a.label}
+              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {a.icon}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
