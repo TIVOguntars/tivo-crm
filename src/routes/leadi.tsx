@@ -41,6 +41,7 @@ import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
+import { Tag, normalizeTags } from "@/components/ui/Tag";
 import type { FiltersSearch } from "@/lib/filters";
 
 /* ----------------------- Saved views ----------------------- */
