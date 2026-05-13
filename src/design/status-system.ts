@@ -6,7 +6,7 @@ export const STATUS_STYLES = {
 
   piesaistīšana: {
     bg: "bg-yellow-50",
-    text: "text-yellow-500",
+    text: "text-blue-500",
   },
 
   kvalificēts: {
