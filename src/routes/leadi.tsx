@@ -65,7 +65,8 @@ const leadiSearchSchema = z.object({
   view: fallback(z.string(), "all").default("all"),
   q: fallback(z.string().optional(), undefined),
   flt: fallback(z.array(filterRuleSchema), []).default([]),
-  gby: fallback(z.array(z.string()).max(3), []).default([]),
+  // gby: undefined = use default ["status"]; [] = explicit no grouping
+  gby: fallback(z.array(z.string()).max(3).optional(), undefined),
   sort: fallback(z.array(sortRuleSchema), []).default([]),
   // legacy back-compat — read on first load only
   seg: fallback(z.string().optional(), undefined),
@@ -326,7 +327,7 @@ const FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries(
 const OPERATORS_BY_TYPE: Record<FieldType, string[]> = {
   enum: ["is", "is_not", "is_any_of", "is_none_of", "is_empty", "is_not_empty"],
   string: ["is", "is_not", "is_empty", "is_not_empty"],
-  tags: ["is_any_of", "is_none_of", "is_empty", "is_not_empty"],
+  tags: ["is_any_of", "contains_all", "is_none_of", "is_empty", "is_not_empty"],
   number: ["is", "is_not", "gt", "lt", "is_empty", "is_not_empty"],
   date: ["last_x_days", "before_x_days", "is_empty", "is_not_empty"],
   next_action_date: [
@@ -346,6 +347,7 @@ const OP_LABELS: Record<string, string> = {
   is_not: "nav",
   is_any_of: "ir viens no",
   is_none_of: "nav neviens no",
+  contains_all: "satur visus",
   is_empty: "ir tukšs",
   is_not_empty: "nav tukšs",
   gt: "lielāks par",
@@ -388,6 +390,17 @@ function evalRule(l: Lead, r: FilterRule): boolean {
         return !arr.some((x) => tags.includes(x));
       }
       return !arr.includes(s(val).toLowerCase());
+    }
+    case "contains_all": {
+      const arr = (Array.isArray(r.v) ? r.v : []).map((x) =>
+        String(x).toLowerCase(),
+      );
+      if (arr.length === 0) return true;
+      if (def.type === "tags") {
+        const tags = (val as string[]).map((t) => t.toLowerCase());
+        return arr.every((x) => tags.includes(x));
+      }
+      return false;
     }
     case "is_empty":
       if (def.type === "tags") return (val as string[]).length === 0;
@@ -734,7 +747,8 @@ function LeadiPage() {
   const view = search.view ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
   const flt: FilterRule[] = (search.flt ?? []) as FilterRule[];
-  const gby: string[] = (search.gby ?? []).length > 0 ? search.gby : ["status"];
+  // search.gby === undefined → default ["status"]; [] → user explicitly chose no grouping
+  const gby: string[] = search.gby ?? ["status"];
   const sort: SortRule[] = (search.sort ?? []) as SortRule[];
 
   const [drawerLeadId] = useState<string | null>(null);
@@ -1146,13 +1160,13 @@ function LeadiPage() {
     setSearch({
       view: "all",
       flt: [],
-      gby: [],
+      gby: undefined,
       sort: [],
       q: undefined,
     });
 
   const hasActive =
-    view !== "all" || flt.length > 0 || !!q || (search.gby ?? []).length > 0 || (search.sort ?? []).length > 0;
+    view !== "all" || flt.length > 0 || !!q || search.gby !== undefined || (search.sort ?? []).length > 0;
 
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
@@ -2044,7 +2058,7 @@ function FilterValueInput({
       />
     );
   }
-  if (op === "is_any_of" || op === "is_none_of") {
+  if (op === "is_any_of" || op === "is_none_of" || op === "contains_all") {
     const cur = Array.isArray(rule.v) ? (rule.v as string[]) : [];
     return (
       <MultiSelectInline
@@ -2170,7 +2184,7 @@ function GroupByControl({
   const labels = value
     .map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k)
     .join(" › ");
-  const display = value.length === 0 ? "Statuss" : labels;
+  const display = value.length === 0 ? "Bez grupēšanas" : labels;
   const setLevel = (i: number, k: string) => {
     const next = value.slice();
     if (k === "_none") {
@@ -2207,7 +2221,12 @@ function GroupByControl({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-2">
         <div className="space-y-1.5">
-          {(value.length === 0 ? ["status"] : value).map((k, i) => (
+          {value.length === 0 && (
+            <div className="px-1 py-1 text-[11px] text-muted-foreground">
+              Bez grupēšanas
+            </div>
+          )}
+          {value.map((k, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <span className="text-[10px] font-medium uppercase text-muted-foreground">
                 L{i + 1}
@@ -2222,24 +2241,34 @@ function GroupByControl({
                     {g.label}
                   </option>
                 ))}
-                {value.length > 0 && (
-                  <option value="_none">— noņemt līmeni —</option>
-                )}
+                <option value="_none">— noņemt līmeni —</option>
               </select>
             </div>
           ))}
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs"
-            onClick={addLevel}
-            disabled={value.length >= 3}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Pievienot līmeni
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={addLevel}
+              disabled={value.length >= 3}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Pievienot līmeni
+            </Button>
+            {value.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => onChange([])}
+              >
+                Bez grupēšanas
+              </Button>
+            )}
+          </div>
           <div className="flex gap-1">
             <Button
               size="sm"
