@@ -394,6 +394,7 @@ const CRM_RPCS = [
   "bulk_assign_ppv",
   "bulk_create_task",
   "log_lead_communication",
+  "get_lead_360_profile",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
