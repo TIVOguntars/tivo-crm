@@ -303,6 +303,7 @@ const CRM_VIEWS = [
   "import_sessions",
   "import_changes",
   "lead_row_communication_counts",
+  "leads_list_display",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
