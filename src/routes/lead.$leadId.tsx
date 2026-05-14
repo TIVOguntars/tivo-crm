@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import {
   ArrowLeft,
@@ -169,6 +169,17 @@ function channelIcon(channel: string) {
 /* -------------------------- page -------------------------- */
 
 function LeadProfilePage() {
+  const navigate = useNavigate();
+  const goBackToList = () => {
+    let prev: Record<string, unknown> | null = null;
+    try {
+      const raw = sessionStorage.getItem("leadi:lastSearch");
+      if (raw) prev = JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
+    navigate({ to: "/leadi", search: (prev ?? {}) as never });
+  };
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
@@ -293,11 +304,9 @@ function LeadProfilePage() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/leadi">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Atpakaļ uz sarakstu
-          </Link>
+        <Button variant="ghost" size="sm" onClick={goBackToList}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Atpakaļ uz sarakstu
         </Button>
         <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
       </div>

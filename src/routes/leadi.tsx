@@ -1132,9 +1132,14 @@ function LeadiPage() {
     (id: string) => {
       const idx = visibleRows.findIndex((l) => l.lead_id === id);
       if (idx >= 0) setActiveIdx(idx);
+      try {
+        sessionStorage.setItem("leadi:lastSearch", JSON.stringify(search));
+      } catch {
+        /* ignore */
+      }
       navigate({ to: "/lead/$leadId", params: { leadId: id } });
     },
-    [visibleRows, navigate],
+    [visibleRows, navigate, search],
   );
 
   // Auto-next: after a workflow action completes inside the drawer,
