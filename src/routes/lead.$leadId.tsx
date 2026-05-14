@@ -368,10 +368,6 @@ function LeadProfilePage() {
                       {leadTitle}
                     </h1>
                     <StatusBadge status={leadStatus} />
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ marginLeft: 50 }}>
-                      <span className="text-[10px] uppercase tracking-wide">PPV</span>
-                      <span className="text-foreground font-medium">{ownerLabel}</span>
-                    </div>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     {leadCountry && (
@@ -397,6 +393,10 @@ function LeadProfilePage() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase tracking-wide">PPV</span>
+                    <span className="text-foreground font-medium">{ownerLabel}</span>
+                  </div>
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wide">Pēdējā aktivitāte</span>
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
