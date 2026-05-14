@@ -2184,7 +2184,7 @@ function GroupByControl({
   const labels = value
     .map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k)
     .join(" › ");
-  const display = value.length === 0 ? "Statuss" : labels;
+  const display = value.length === 0 ? "Bez grupēšanas" : labels;
   const setLevel = (i: number, k: string) => {
     const next = value.slice();
     if (k === "_none") {
@@ -2221,7 +2221,12 @@ function GroupByControl({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-2">
         <div className="space-y-1.5">
-          {(value.length === 0 ? ["status"] : value).map((k, i) => (
+          {value.length === 0 && (
+            <div className="px-1 py-1 text-[11px] text-muted-foreground">
+              Bez grupēšanas
+            </div>
+          )}
+          {value.map((k, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <span className="text-[10px] font-medium uppercase text-muted-foreground">
                 L{i + 1}
@@ -2236,24 +2241,34 @@ function GroupByControl({
                     {g.label}
                   </option>
                 ))}
-                {value.length > 0 && (
-                  <option value="_none">— noņemt līmeni —</option>
-                )}
+                <option value="_none">— noņemt līmeni —</option>
               </select>
             </div>
           ))}
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs"
-            onClick={addLevel}
-            disabled={value.length >= 3}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Pievienot līmeni
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={addLevel}
+              disabled={value.length >= 3}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Pievienot līmeni
+            </Button>
+            {value.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => onChange([])}
+              >
+                Bez grupēšanas
+              </Button>
+            )}
+          </div>
           <div className="flex gap-1">
             <Button
               size="sm"
