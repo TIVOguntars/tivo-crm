@@ -1,17 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Children, Fragment, isValidElement, useMemo, useState } from "react";
-import { ArrowLeft, Mail, MessageSquare, Send, Phone, MessageCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
-import { useCrmView } from "@/hooks/useCrmView";
-import { usePublicTable } from "@/hooks/usePublicTable";
-import { UnifiedActivityTimeline } from "@/components/UnifiedActivityTimeline";
-import { LeadProjects } from "@/components/LeadProjects";
-import { LeadActionHistory } from "@/components/LeadActionHistory";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useCrmRpc } from "@/hooks/useCrmRpc";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -20,45 +21,29 @@ export const Route = createFileRoute("/lead/$leadId")({
 /* -------------------------- helpers -------------------------- */
 
 const NA = "Nav datu";
+type Row = Record<string, unknown>;
 
-function isEmptyValue(value: unknown): boolean {
-  if (value == null) return true;
-  if (Array.isArray(value)) {
-    return value.every((v) => v == null || String(v).trim() === "");
-  }
-  if (typeof value === "object") {
-    try {
-      const s = JSON.stringify(value);
-      return s === "{}" || s === "[]" || s === "null";
-    } catch {
-      return false;
-    }
-  }
-  return String(value).trim() === "";
+function asArray(v: unknown): Row[] {
+  if (Array.isArray(v)) return v as Row[];
+  if (v && typeof v === "object") return [v as Row];
+  return [];
 }
-
-function fmt(value: unknown): string {
-  if (value == null) return NA;
-  if (Array.isArray(value)) {
-    const arr = value.map((v) => (v == null ? "" : String(v))).filter((s) => s.trim() !== "");
-    return arr.length === 0 ? NA : arr.join(", ");
-  }
-  if (typeof value === "object") {
-    try {
-      const s = JSON.stringify(value);
-      return s === "{}" || s === "[]" ? NA : s;
-    } catch {
-      return String(value);
-    }
-  }
-  const s = String(value).trim();
+function asObject(v: unknown): Row | null {
+  if (v && typeof v === "object" && !Array.isArray(v)) return v as Row;
+  return null;
+}
+function str(v: unknown): string {
+  if (v == null) return "";
+  return typeof v === "string" ? v : String(v);
+}
+function fmt(v: unknown): string {
+  const s = str(v).trim();
   return s === "" ? NA : s;
 }
-
-function fmtDate(value: unknown): string {
-  if (value == null || value === "") return "";
-  const d = new Date(String(value));
-  if (Number.isNaN(d.getTime())) return String(value);
+function fmtDate(v: unknown): string {
+  if (v == null || v === "") return NA;
+  const d = new Date(str(v));
+  if (Number.isNaN(d.getTime())) return str(v);
   return d.toLocaleString("lv-LV", {
     year: "numeric",
     month: "2-digit",
@@ -67,1479 +52,481 @@ function fmtDate(value: unknown): string {
     minute: "2-digit",
   });
 }
-
-function fmtDateOnly(value: unknown): string {
-  if (value == null || value === "") return "";
-  const d = new Date(String(value));
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString("lv-LV", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
-
-function fmtBool(value: unknown): string {
-  if (value == null || value === "") return "";
-  if (typeof value === "boolean") return value ? "Jā" : "Nē";
-  const s = String(value).trim().toLowerCase();
+function fmtBool(v: unknown): string {
+  if (v == null || v === "") return NA;
+  if (typeof v === "boolean") return v ? "Jā" : "Nē";
+  const s = str(v).trim().toLowerCase();
   if (["true", "t", "1", "yes", "ja", "jā"].includes(s)) return "Jā";
   if (["false", "f", "0", "no", "ne", "nē"].includes(s)) return "Nē";
-  return String(value);
+  return str(v);
 }
-
-function prettifyText(s: string): string {
-  return s.includes("_") ? s.replace(/_/g, " ") : s;
+function fmtMoney(v: unknown): string {
+  if (v == null || v === "") return NA;
+  const n = Number(v);
+  if (Number.isNaN(n)) return str(v);
+  return n.toLocaleString("lv-LV", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
 }
-
-/** Look up a field in row OR row.metadata (if metadata is an object). */
-function pick(row: Record<string, unknown> | null | undefined, ...keys: string[]): unknown {
+function pick(row: Row | null | undefined, ...keys: string[]): unknown {
   if (!row) return undefined;
-  const meta =
-    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
-      ? (row.metadata as Record<string, unknown>)
-      : null;
   for (const k of keys) {
-    if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
-    if (meta && meta[k] !== undefined && meta[k] !== null && meta[k] !== "") return meta[k];
+    const v = row[k];
+    if (v !== undefined && v !== null && v !== "") return v;
   }
   return undefined;
 }
-
-const NEXT_ACTION_LV: Record<string, string> = {
-  "contact immediately": "Sazināties nekavējoties",
-  "warm follow-up": "Veikt atkārtotu kontaktu",
-  "warm followup": "Veikt atkārtotu kontaktu",
-  "start outreach": "Uzsākt komunikāciju",
-  "try another channel": "Izmantot citu kanālu",
-  "no action": "Nav darbību",
-};
-
-const CHANNEL_LV: Record<string, string> = {
-  email: "E-pasts",
-  sms: "SMS",
-  call: "Zvans",
-  whatsapp: "WhatsApp",
-};
-
-const DIRECTION_LV: Record<string, string> = {
-  outbound: "Izejošs",
-  inbound: "Ienākošs",
-};
-
-const COMM_STATUS_LV: Record<string, string> = {
-  sent: "Nosūtīts",
-  delivered: "Piegādāts",
-  opened: "Atvērts",
-  clicked: "Klikšķis",
-  replied: "Atbilde",
-  reply: "Atbilde",
-  inbound_received: "Saņemts",
-  bounced: "Atgriezts",
-  complained: "Sūdzība",
-  failed: "Neizdevās",
-};
-
-const TIMELINE_EVENT_LV: Record<string, string> = {
-  sent: "Nosūtīts",
-  delivered: "Piegādāts",
-  opened: "Atvērts",
-  clicked: "Klikšķis",
-  replied: "Atbildēts",
-  reply: "Atbildēts",
-  inbound_received: "Atbildēts",
-  bounced: "Neizdevās",
-  failed: "Neizdevās",
-  complained: "Neizdevās",
-  suppressed: "Neizdevās",
-};
-
-function clickedTargetLabel(
-  ev: Record<string, unknown>,
-  links: Array<Record<string, unknown>>,
-): string {
-  const meta = (ev.metadata && typeof ev.metadata === "object" && !Array.isArray(ev.metadata)
-    ? (ev.metadata as Record<string, unknown>)
-    : null);
-  const linkType = meta && typeof meta.link_type === "string" ? meta.link_type.trim() : "";
-  if (linkType) return CLICK_TAG_LV[linkType.toLowerCase()] ?? linkType;
-  const linkUrl = meta && typeof meta.link_url === "string" ? meta.link_url.trim() : "";
-  if (linkUrl) return linkUrl;
-  const raw = ev.raw_payload;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const url = (raw as Record<string, unknown>).url;
-    if (typeof url === "string" && url.trim() !== "") return url.trim();
+function section(profile: Row | null, ...keys: string[]): Row[] {
+  if (!profile) return [];
+  for (const k of keys) {
+    if (profile[k] !== undefined) return asArray(profile[k]);
   }
-  // fallback: use tracking link match
-  const tags = clickTagsForEvent(ev, links);
-  if (tags.length > 0) return tags[0];
-  return "Nezināms links";
+  return [];
+}
+function sectionObject(profile: Row | null, ...keys: string[]): Row | null {
+  if (!profile) return null;
+  for (const k of keys) {
+    if (profile[k] !== undefined) {
+      const arr = asArray(profile[k]);
+      if (arr.length > 0) return arr[0];
+      return asObject(profile[k]);
+    }
+  }
+  return null;
 }
 
-function tx(map: Record<string, string>, value: unknown): string {
-  const raw = value == null ? "" : String(value).trim().toLowerCase();
-  if (!raw) return NA;
-  return map[raw] ?? String(value);
+/* -------------------------- UI primitives -------------------------- */
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm text-foreground break-words">{value}</span>
+    </div>
+  );
 }
 
-function txOpt(map: Record<string, string>, value: unknown): string {
-  const raw = value == null ? "" : String(value).trim().toLowerCase();
-  if (!raw) return "";
-  return map[raw] ?? String(value);
+function SectionCard({
+  title,
+  description,
+  count,
+  children,
+}: {
+  title: string;
+  description?: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">{title}</CardTitle>
+          {typeof count === "number" && (
+            <span className="text-xs text-muted-foreground">{count}</span>
+          )}
+        </div>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function PeopleFields({ person }: { person: Row }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <Field label="Vārds" value={fmt(pick(person, "full_name", "name"))} />
+      <Field label="E-pasts" value={fmt(pick(person, "email_normalized", "email"))} />
+      <Field label="Telefons" value={fmt(pick(person, "phone_raw", "phone"))} />
+      <Field label="E.164" value={fmt(pick(person, "phone_e164"))} />
+      <Field label="Comm. status" value={fmt(pick(person, "communication_status"))} />
+      <Field label="Loma" value={fmt(pick(person, "role"))} />
+      <Field label="Decision maker" value={fmtBool(pick(person, "is_decision_maker"))} />
+    </div>
+  );
 }
 
 /* -------------------------- page -------------------------- */
 
 function LeadProfilePage() {
   const { leadId } = Route.useParams();
-  const [openComm, setOpenComm] = useState<Record<string, unknown> | null>(null);
+  const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
+  const [showRaw, setShowRaw] = useState(false);
 
-  // Galvenie lead dati — migrēts no analytics.leads_overview uz
-  // crm.lead_drawer_summary (analytics shēmas piekļuve liegta).
-  const overviewQ = useCrmView(
-    "lead_drawer_summary",
-    `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
-  );
-
-  // Engagement kopsavilkums (var nebūt pieejams – kļūdu apstrādājam mīksti)
-  const engagementQ = useAnalyticsView(
-    "lead_engagement_summary",
-    `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
-  );
-
-  // Prioritāte
-  const priorityQ = useAnalyticsView(
-    "lead_priority_queue",
-    `lead_id=eq.${encodeURIComponent(leadId)}&limit=1`,
-  );
-
-  const profile = (overviewQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
-
-  // currentLead.lead_id MUST come from analytics.leads_overview.lead_id
-  // (which equals public.leads.id). No fallbacks.
-  const currentLeadId = (profile?.lead_id as string | undefined) ?? null;
-
-  // Komunikācijas — strikti pēc public.leads.id
-  const commsQ = usePublicTable(
-    "communications",
-    currentLeadId
-      ? `lead_id=eq.${encodeURIComponent(currentLeadId)}&select=id,lead_id,direction,channel,subject,from_address,to_address,current_status,sent_at,received_at,created_at,html_body,text_body,metadata,attachments_info,automation_step,template_key,reference_code&order=sent_at.desc.nullslast,received_at.desc.nullslast,created_at.desc.nullslast&limit=200`
-      : "",
-    { fresh: true, enabled: !!currentLeadId },
-  );
-
-  const engagement = (engagementQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
-  const priorityRow = (priorityQ.data?.rows?.[0] ?? null) as Record<string, unknown> | null;
-
-  const profileError = (overviewQ.error as Error | null)?.message || overviewQ.data?.error;
-
-  // Tolerant to both shapes: { rows: [...] } (server fn) or [...] (raw array)
-  const comms = (Array.isArray(commsQ.data) ? commsQ.data : (commsQ.data?.rows ?? [])) as Array<
-    Record<string, unknown>
-  >;
-  const commsError =
-    (commsQ.error as Error | null)?.message ||
-    (Array.isArray(commsQ.data) ? null : commsQ.data?.error);
-
-  const commIds = useMemo(
-    () =>
-      comms.map((c) => c.id ?? c.communication_id).filter((v): v is string | number => v != null),
-    [comms],
-  );
-  const hasComms = commIds.length > 0;
-  // public.communication_events is not exposed via the CRM API layer
-  // (permission denied). Operational UI no longer reads raw event rows; the
-  // communications timeline renders message rows only.
-
-  const trackingLinksQueryStr = hasComms
-    ? `communication_id=in.(${commIds.map((id) => String(id)).join(",")})&select=id,communication_id,link_key,tracking_code,original_url,destination_url,metadata&limit=2000`
-    : "";
-  const trackingLinksQ = usePublicTable("tracking_links", trackingLinksQueryStr, {
-    enabled: hasComms,
-    fresh: true,
-  });
-
-  // Sort comms by sent_at ASC for "next communication time" fallback window.
-  const sortedCommsAsc = useMemo(() => {
-    return [...comms].sort((a, b) => {
-      const ta =
-        new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() || 0;
-      const tb =
-        new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() || 0;
-      return ta - tb;
-    });
-  }, [comms]);
-
-  const eventsByComm = useMemo(() => {
-    const map = new Map<string, Array<Record<string, unknown>>>();
-    if (!hasComms) return map;
-
-    // Merge + dedupe events from both queries by event id.
-    const seen = new Set<string>();
-    const allEvents: Array<Record<string, unknown>> = [];
-    const pushEv = (ev: Record<string, unknown>) => {
-      const id = String(ev.id ?? "");
-      const key = id || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}|${ev.communication_id ?? ""}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      allEvents.push(ev);
-    };
-    // Events source removed: public.communication_events is no longer
-    // accessible from operational UI. allEvents stays empty; matching
-    // logic below safely degrades to empty per-comm event lists.
-
-    const evMeta = (ev: Record<string, unknown>): Record<string, unknown> | null => {
-      const m = ev.metadata;
-      return m && typeof m === "object" && !Array.isArray(m)
-        ? (m as Record<string, unknown>)
-        : null;
-    };
-    const commMeta = (c: Record<string, unknown>) => {
-      const m = c.metadata;
-      return m && typeof m === "object" && !Array.isArray(m)
-        ? (m as Record<string, unknown>)
-        : null;
-    };
-
-    // Build per-comm lookup helpers
-    const commById = new Map<string, Record<string, unknown>>();
-    for (const c of comms) {
-      const cid = String(c.id ?? c.communication_id ?? "");
-      if (cid) commById.set(cid, c);
+  const rpcError = (q.error as Error | null)?.message || q.data?.error;
+  const raw = q.data?.rows?.[0] ?? null;
+  const profile: Row | null = (() => {
+    if (!raw) return null;
+    if (typeof raw === "object" && "profile" in raw && raw.profile) {
+      return asObject(raw.profile);
     }
+    return raw as Row;
+  })();
 
-    // Index "next sent_at" per outbound id, for the fifth fallback window.
-    const nextSentAt = new Map<string, number>();
-    for (let i = 0; i < sortedCommsAsc.length; i++) {
-      const c = sortedCommsAsc[i];
-      const cid = String(c.id ?? c.communication_id ?? "");
-      if (!cid) continue;
-      const nxt = sortedCommsAsc[i + 1];
-      const nt = nxt
-        ? new Date(String(nxt.sent_at ?? nxt.received_at ?? nxt.created_at ?? 0)).getTime() || Number.POSITIVE_INFINITY
-        : Number.POSITIVE_INFINITY;
-      nextSentAt.set(cid, nt);
-    }
+  const header =
+    sectionObject(profile, "lead", "lead_header", "header") ?? profile;
+  const people = section(profile, "people");
+  const companies = section(profile, "companies");
+  const objects = section(profile, "objects");
+  const tasks = section(profile, "tasks");
+  const notes = section(profile, "notes");
+  const nextActions = section(profile, "next_actions", "actions");
+  const communications = section(profile, "communications", "comms");
 
-    const matchesComm = (
-      ev: Record<string, unknown>,
-      c: Record<string, unknown>,
-      cid: string,
-    ): boolean => {
-      // 1. Direct communication_id match
-      if (String(ev.communication_id ?? "") === cid) return true;
-      const m = evMeta(ev);
-      if (!m) return false;
-      // 2. metadata.reply_to_communication_id
-      if (m.reply_to_communication_id != null && String(m.reply_to_communication_id) === cid)
-        return true;
-      // 3. metadata.inbound_communication_id
-      if (m.inbound_communication_id != null && String(m.inbound_communication_id) === cid)
-        return true;
-      // 4. Same email thread / reference
-      const cm = commMeta(c);
-      const cRef =
-        (c.reference_code as string | undefined) ??
-        (cm?.reference_code as string | undefined) ??
-        "";
-      const eRef =
-        (ev.reference_code as string | undefined) ??
-        (m.reference_code as string | undefined) ??
-        "";
-      if (cRef && eRef && String(cRef) === String(eRef)) return true;
-      const providerMsgId =
-        (c.provider_message_id as string | undefined) ??
-        (cm?.provider_message_id as string | undefined) ??
-        (cm?.message_id as string | undefined) ??
-        "";
-      if (providerMsgId) {
-        const inReplyTo = m.in_reply_to;
-        if (typeof inReplyTo === "string" && inReplyTo.includes(String(providerMsgId))) return true;
-        const refs = m.references;
-        if (typeof refs === "string" && refs.includes(String(providerMsgId))) return true;
-        if (Array.isArray(refs) && refs.some((r) => String(r) === String(providerMsgId)))
-          return true;
-      }
-      // 5. Same lead + within window [sent_at, next sent_at)
-      const evLead = String(ev.lead_id ?? "");
-      const cLead = String(c.lead_id ?? "");
-      if (evLead && cLead && evLead === cLead) {
-        const sentAt =
-          new Date(String(c.sent_at ?? c.received_at ?? c.created_at ?? 0)).getTime() || 0;
-        const nxt = nextSentAt.get(cid) ?? Number.POSITIVE_INFINITY;
-        const evAt = new Date(String(ev.event_timestamp ?? 0)).getTime() || 0;
-        if (sentAt > 0 && evAt >= sentAt && evAt < nxt) return true;
-      }
-      return false;
-    };
-
-    for (const c of comms) {
-      const cid = String(c.id ?? c.communication_id ?? "");
-      if (!cid) continue;
-      const commTime =
-        new Date(String(c.sent_at ?? c.received_at ?? c.created_at ?? 0)).getTime() || 0;
-      const list: Array<Record<string, unknown>> = [];
-      const used = new Set<string>();
-      for (const ev of allEvents) {
-        const evId = String(ev.id ?? "");
-        const k = evId || `${ev.event_type ?? ""}|${ev.event_timestamp ?? ""}`;
-        if (used.has(k)) continue;
-        if (matchesComm(ev, c, cid)) {
-          // Rule 5: never show replied/clicked/opened/delivered events that
-          // happened before the communication was sent.
-          const evType = String(ev.event_type ?? "").toLowerCase();
-          const evAt = new Date(String(ev.event_timestamp ?? 0)).getTime() || 0;
-          const isPostSendEvent = ["delivered", "opened", "clicked", "replied"].includes(evType);
-          if (isPostSendEvent && commTime > 0 && evAt > 0 && evAt < commTime) {
-            continue;
-          }
-          used.add(k);
-          list.push(ev);
-        }
-      }
-      list.sort((a, b) => {
-        const ta = new Date(String(a.event_timestamp ?? 0)).getTime() || 0;
-        const tb = new Date(String(b.event_timestamp ?? 0)).getTime() || 0;
-        return ta - tb;
-      });
-      map.set(cid, list);
-    }
-    return map;
-  }, [hasComms, comms, sortedCommsAsc]);
-
-  const trackingLinksByComm = useMemo(() => {
-    const map = new Map<string, Array<Record<string, unknown>>>();
-    const rows = (trackingLinksQ.data?.rows ?? []) as Array<Record<string, unknown>>;
-    for (const link of rows) {
-      const k = String(link.communication_id ?? "");
-      if (!k) continue;
-      const list = map.get(k) ?? [];
-      list.push(link);
-      map.set(k, list);
-    }
-    return map;
-  }, [trackingLinksQ.data]);
-
-  /* ------ lauku izvilkšana ------ */
-
-  const fullNameRaw = pick(profile, "name");
-  const fullName = fullNameRaw ? String(fullNameRaw) : `Lead #${leadId}`;
-  const status = pick(profile, "lead_status_label", "status", "current_status");
-  const rating = pick(profile, "rating");
-  const priority =
-    pick(priorityRow, "priority") ??
-    pick(profile, "priority_label", "priority");
-  const tagsRaw = pick(profile, "tags");
-  const tagsStr = isEmptyValue(tagsRaw) ? "" : fmt(tagsRaw);
-  const ppv = pick(profile, "ppv_name", "ppv_vards", "ppv");
-  const owner = pick(profile, "visible_action_owner", "owner", "owner_name");
-
-  const email = pick(profile, "email_normalized", "email");
-  const phone = pick(
-    profile,
-    "telefons_e164",
-    "telefons_raw",
-    "phone_e164",
-    "phone_raw",
-    "phone",
-  );
-  const country = pick(profile, "country");
-  const source = pick(profile, "source");
-  const sourceDetailed = pick(profile, "source_detailed");
-  const b2bRaw = pick(profile, "is_b2b", "b2b");
-  const b2b = b2bRaw == null ? "" : fmtBool(b2bRaw);
-
-  // Objekts / projekts
-  const m2 = pick(profile, "platiba_m2");
-  const summa = pick(profile, "summa");
-  const planotaBuvniecibaText = pick(profile, "planota_buvnieciba_text");
-  const formaZeme = pick(profile, "forma_zeme");
-  const formaProjekts = pick(profile, "forma_projekts");
-  const formaZinaNoLead = pick(profile, "forma_zina_no_lead");
-
-  // Darba info
-  const nextActionRaw = pick(profile, "visible_action", "next_action");
-  const nextActionTr = nextActionRaw
-    ? (NEXT_ACTION_LV[String(nextActionRaw).trim().toLowerCase()] ?? String(nextActionRaw))
-    : "";
-  const termins = fmtDate(
-    pick(profile, "visible_action_due_at", "next_action_due_date", "due_date"),
-  );
-  const lastContact = fmtDate(pick(profile, "last_contact_date", "last_contact_at"));
-  const automatizacija = pick(profile, "automation", "automation_name", "automation_status");
-  const automatizacijasDatums = fmtDate(pick(profile, "automation_date", "automation_at"));
-  const atcelsanasIemesls = pick(
-    profile,
-    "cancel_reason",
-    "atcelšanas_iemesls",
-    "cancellation_reason",
-  );
-  const situacijasPiezimes = pick(profile, "situation_notes", "situācijas_piezīmes", "notes");
-
-  // Engagement / reaction
-  const lastEvent = pick(engagement ?? undefined, "last_event_type", "last_event");
-  const lastEventAt = fmtDate(pick(engagement ?? undefined, "last_event_at", "last_activity_at"));
-  const reactionRaw = pick(
-    engagement ?? undefined,
-    "has_reaction",
-    "reacted",
-    "positive_reactions",
-  );
-  const reaction =
-    reactionRaw == null
-      ? ""
-      : typeof reactionRaw === "number"
-        ? reactionRaw > 0
-          ? "Jā"
-          : "Nē"
-        : fmtBool(reactionRaw);
-  const reactionType = pick(engagement ?? undefined, "last_reaction_type", "reaction_type");
-
-  // Tehniski
-  const syncedAt = fmtDate(pick(profile, "synced_at", "updated_at"));
-  const metaRaw = profile?.metadata;
-  const metaStr =
-    metaRaw && typeof metaRaw === "object"
-      ? JSON.stringify(metaRaw, null, 2)
-      : metaRaw == null
-        ? NA
-        : String(metaRaw);
+  const primaryContact =
+    people.find((p) => pick(p, "is_primary", "is_primary_contact") === true) ??
+    people[0] ??
+    null;
 
   return (
-    <>
-      <div className="mb-2">
-        <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-          <Link to="/darba-rinda">
+    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/leadi">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Atpakaļ uz Darba rindu
+            Atpakaļ uz sarakstu
           </Link>
         </Button>
+        <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
       </div>
 
-      {profileError && <ErrorState message={profileError} />}
-      {!profileError && overviewQ.isLoading && <LoadingState />}
-      {!profileError && !overviewQ.isLoading && !profile && (
-        <EmptyState label="Profils nav atrasts" />
+      {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
+      {!q.isLoading && rpcError && <ErrorState message={rpcError} />}
+      {!q.isLoading && !rpcError && !profile && (
+        <EmptyState label="Lead profils nav atrasts." />
       )}
 
-      {profile && (
-        <div className="space-y-3">
-          {/* === Header — kompakta rinda === */}
-          <header className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-              <h1 className="text-base font-semibold text-foreground">{fullName}</h1>
-              <InlineField label="Statuss" value={status} />
-              <InlineField
-                label="Reitings · Prioritāte"
-                value={
-                  isEmptyValue(rating) && isEmptyValue(priority)
-                    ? ""
-                    : `${isEmptyValue(rating) ? "—" : String(rating)} · ${
-                        isEmptyValue(priority) ? "—" : String(priority)
-                      }`
-                }
-              />
-              <InlineField label="Tagi" value={tagsStr} />
-              <InlineField label="PPV" value={ppv} />
-              <span className="ml-auto font-mono text-[11px] text-muted-foreground">{leadId}</span>
-            </div>
-            {(!isEmptyValue(email) || !isEmptyValue(phone) || !isEmptyValue(country)) && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border/60 pt-1.5">
-                <InlineField label="Email" value={email} />
-                <InlineField label="Telefons" value={phone} />
-                <InlineField label="Valsts" value={country} />
+      {!q.isLoading && !rpcError && profile && (
+        <>
+          {/* 1. Header */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg">
+                    {fmt(pick(header, "lead_name", "name", "title", "summary"))}
+                  </CardTitle>
+                  <CardDescription>
+                    {fmt(pick(header, "source", "lead_source"))}
+                  </CardDescription>
+                </div>
+                <StatusBadge status={str(pick(header, "status", "lead_status"))} />
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Status" value={fmt(pick(header, "status", "lead_status"))} />
+              <Field label="Source" value={fmt(pick(header, "source", "lead_source"))} />
+              <Field label="Created" value={fmtDate(pick(header, "created_at"))} />
+              <Field label="Updated" value={fmtDate(pick(header, "updated_at"))} />
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Field
+                  label="Summary"
+                  value={fmt(pick(header, "summary", "description"))}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 2. People */}
+          <SectionCard
+            title="People"
+            count={people.length}
+            description="Primary contact un visi saistītie cilvēki."
+          >
+            {people.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="space-y-4">
+                {primaryContact && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="mb-3 text-xs font-medium uppercase tracking-wide text-primary">
+                      Primary contact
+                    </div>
+                    <PeopleFields person={primaryContact} />
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                        <th className="py-2 pr-3">Vārds</th>
+                        <th className="py-2 pr-3">E-pasts</th>
+                        <th className="py-2 pr-3">Telefons</th>
+                        <th className="py-2 pr-3">E.164</th>
+                        <th className="py-2 pr-3">Comm. status</th>
+                        <th className="py-2 pr-3">Loma</th>
+                        <th className="py-2 pr-3">Decision maker</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {people.map((p, i) => (
+                        <tr
+                          key={String(pick(p, "id", "person_id") ?? i)}
+                          className="border-b last:border-0"
+                        >
+                          <td className="py-2 pr-3">{fmt(pick(p, "full_name", "name"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(p, "email_normalized", "email"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(p, "phone_raw", "phone"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(p, "phone_e164"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(p, "communication_status"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(p, "role"))}</td>
+                          <td className="py-2 pr-3">{fmtBool(pick(p, "is_decision_maker"))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
-          </header>
+          </SectionCard>
 
-          {/* === Nākamā darbība === */}
-          <section className="rounded-lg border-2 border-primary/40 bg-primary/5 px-4 py-2.5 shadow-sm ring-1 ring-primary/10">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                Nākamā darbība
-              </span>
-              <InlineField label="Darbība" value={nextActionTr} alwaysShow />
-              <InlineField label="Atbildīgais" value={owner} alwaysShow />
-              <InlineField label="Termiņš" value={termins} alwaysShow />
-              <div className="ml-auto flex items-center gap-1">
-                <ActionIconButton title="E-pasts" icon={Mail} />
-                <ActionIconButton title="SMS" icon={MessageSquare} />
-                <ActionIconButton title="Telegram" icon={Send} />
-                <ActionIconButton title="Zvans" icon={Phone} />
-                <ActionIconButton title="WhatsApp" icon={MessageCircle} />
+          {/* 3. Companies */}
+          <SectionCard title="Companies" count={companies.length}>
+            {companies.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                      <th className="py-2 pr-3">Uzņēmums</th>
+                      <th className="py-2 pr-3">Valsts</th>
+                      <th className="py-2 pr-3">Pilsēta</th>
+                      <th className="py-2 pr-3">Loma</th>
+                      <th className="py-2 pr-3">Primary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companies.map((c, i) => (
+                      <tr
+                        key={String(pick(c, "id", "company_id") ?? i)}
+                        className="border-b last:border-0"
+                      >
+                        <td className="py-2 pr-3">{fmt(pick(c, "company_name", "name"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "country"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "city"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "relationship_role", "role"))}</td>
+                        <td className="py-2 pr-3">{fmtBool(pick(c, "is_primary_company", "is_primary"))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </section>
+            )}
+          </SectionCard>
 
-          {/* === CILNES === */}
-          <Tabs defaultValue="parskats" className="w-full">
-            <TabsList className="h-8">
-              <TabsTrigger value="parskats" className="text-xs">
-                Pārskats
-              </TabsTrigger>
-              <TabsTrigger value="projekts" className="text-xs">
-                Projekts
-              </TabsTrigger>
-              <TabsTrigger value="tehniski" className="text-xs">
-                Tehniski
-              </TabsTrigger>
-              <TabsTrigger value="uzdevumi" className="text-xs">
-                Uzdevumi
-              </TabsTrigger>
-              <TabsTrigger value="vesture" className="text-xs">
-                Vēsture
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="parskats" className="mt-2">
-              <Section title="Pārskats">
-                <Grid>
-                  <Field label="Avots" value={source} alwaysShow />
-                  <Field label="Detalizēts avots" value={sourceDetailed} alwaysShow />
-                  <Field label="B2B" value={b2b} alwaysShow />
-                  <Field label="Pēdējais notikums" value={lastEvent} alwaysShow />
-                  <Field label="Pēdējā aktivitāte" value={lastEventAt} alwaysShow />
-                  <Field label="Reakcija" value={reaction} alwaysShow />
-                  <Field label="Reakcijas tips" value={reactionType} alwaysShow />
-                  <Field label="Pēdējās saziņas datums" value={lastContact} alwaysShow />
-                  <Field label="Automatizācija" value={automatizacija} alwaysShow />
-                  <Field label="Automatizācijas datums" value={automatizacijasDatums} alwaysShow />
-                  <Field label="Atcelšanas iemesls" value={atcelsanasIemesls} alwaysShow />
-                  <Field label="Situācijas piezīmes" value={situacijasPiezimes} wide alwaysShow />
-                </Grid>
-              </Section>
-            </TabsContent>
-
-            <TabsContent value="projekts" className="mt-2">
-              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Objekti
-                </h2>
-                <LeadProjects leadId={currentLeadId} />
-              </section>
-            </TabsContent>
-
-            <TabsContent value="tehniski" className="mt-2">
-              <Section title="Tehniski">
-                <Grid>
-                  <Field label="lead_id" value={leadId} mono />
-                  <Field label="synced_at" value={syncedAt} />
-                  <Field label="Komunikāciju skaits" value={String(comms.length)} />
-                  <Field
-                    label="Notikumu skaits"
-                    value={String(
-                      Array.from(eventsByComm.values()).reduce((sum, arr) => sum + arr.length, 0),
-                    )}
-                  />
-                </Grid>
-                <div className="mt-2">
-                  <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    metadata
-                  </div>
-                  <pre className="max-h-72 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-[11px] leading-snug text-foreground">
-                    {metaStr}
-                  </pre>
-                </div>
-              </Section>
-            </TabsContent>
-
-            <TabsContent value="uzdevumi" className="mt-2">
-              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Pabeigtie uzdevumi
-                </h2>
-                <LeadActionHistory leadId={currentLeadId} />
-              </section>
-            </TabsContent>
-
-            <TabsContent value="vesture" className="mt-2">
-              <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Lead vēsture
-                </h2>
-                <UnifiedActivityTimeline
-                  leadId={currentLeadId}
-                  defaultCategory="all"
-                  limit={100}
-                  leadStatus={status == null ? null : String(status)}
-                />
-              </section>
-            </TabsContent>
-          </Tabs>
-
-          {/* === Komunikācijas (ārpus cilnēm) === */}
-          <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Komunikāciju vēsture
-            </h2>
-            <UnifiedActivityTimeline
-              leadId={currentLeadId}
-              defaultCategory="communications"
-              leadStatus={status == null ? null : String(status)}
-            />
-          </section>
-        </div>
-      )}
-
-      <EmailPreviewDialog
-        comm={openComm}
-        eventsByComm={eventsByComm}
-        onClose={() => setOpenComm(null)}
-      />
-    </>
-  );
-}
-
-/* -------------------------- layout primitives -------------------------- */
-
-/** Recursively check whether a React subtree contains any visible Field. */
-function hasAnyField(children: React.ReactNode): boolean {
-  let found = false;
-  Children.forEach(children, (child) => {
-    if (found) return;
-    if (!isValidElement(child)) return;
-    const t = child.type as unknown as { displayName?: string; name?: string };
-    const name = t?.displayName || t?.name;
-    if (name === "Field") {
-      found = true;
-      return;
-    }
-    const sub = (child.props as { children?: React.ReactNode })?.children;
-    if (sub && hasAnyField(sub)) found = true;
-  });
-  return found;
-}
-
-function Section({
-  title,
-  children,
-  emptyLabel,
-}: {
-  title: string;
-  children: React.ReactNode;
-  emptyLabel?: string;
-}) {
-  const empty = !hasAnyField(children);
-  return (
-    <section className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
-      {empty ? (
-        <div className="text-xs italic text-muted-foreground">{emptyLabel ?? NA}</div>
-      ) : (
-        children
-      )}
-    </section>
-  );
-}
-
-function CompactSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </span>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function ActionIconButton({
-  title,
-  icon: Icon,
-  onClick,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
-function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
-}
-
-function Field({
-  label,
-  value,
-  mono,
-  emphasize,
-  wide,
-  alwaysShow,
-}: {
-  label: string;
-  value: unknown;
-  mono?: boolean;
-  emphasize?: boolean;
-  wide?: boolean;
-  alwaysShow?: boolean;
-}) {
-  const empty = isEmptyValue(value);
-  if (empty && !alwaysShow) return null;
-  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
-  const shown = empty ? "\u00A0" : prettifyText(display);
-  return (
-    <div
-      className={`flex items-baseline gap-2 text-sm ${wide ? "sm:col-span-2 lg:col-span-3" : ""}`}
-    >
-      <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span
-        className={[
-          "min-w-0 text-foreground",
-          mono ? "font-mono text-xs" : "",
-          "font-semibold",
-          wide ? "whitespace-pre-wrap break-words" : "truncate",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        title={wide ? undefined : shown}
-      >
-        {shown}
-      </span>
-    </div>
-  );
-}
-Field.displayName = "Field";
-
-function InlineField({
-  label,
-  value,
-  emphasize,
-  alwaysShow,
-}: {
-  label: string;
-  value: unknown;
-  emphasize?: boolean;
-  alwaysShow?: boolean;
-}) {
-  const empty = isEmptyValue(value);
-  if (empty && !alwaysShow) return null;
-  const display = empty ? "\u00A0" : typeof value === "string" ? value : fmt(value);
-  const shown = empty ? "\u00A0" : prettifyText(display);
-  return (
-    <span className="inline-flex items-baseline gap-1.5 text-sm">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="font-semibold text-foreground">{shown}</span>
-    </span>
-  );
-}
-
-/* -------------------------- communications timeline -------------------------- */
-
-const EVENT_DOT_CLS: Record<string, string> = {
-  sent: "bg-blue-500",
-  delivered: "bg-emerald-500",
-  opened: "bg-sky-500",
-  clicked: "bg-violet-500",
-  replied: "bg-primary",
-  reply: "bg-primary",
-  inbound_received: "bg-primary",
-  bounced: "bg-amber-500",
-  complained: "bg-amber-600",
-  failed: "bg-destructive",
-};
-
-const REPLY_EVENT_TYPES = new Set(["replied", "reply", "inbound_received"]);
-
-function belongsToCommunication(ev: Record<string, unknown>, communicationId: string): boolean {
-  return communicationId !== "" && String(ev.communication_id ?? "") === communicationId;
-}
-
-function rawSubjectValue(row: Record<string, unknown>): string {
-  const value = row.subject ?? metaValue(row, "subject") ?? metaValue(row, "email_subject");
-  return value == null ? "" : String(value).trim();
-}
-
-function eventSubjectContainsOutboundSubject(
-  ev: Record<string, unknown>,
-  outbound: Record<string, unknown>,
-): boolean {
-  const outboundSubject = rawSubjectValue(outbound).toLowerCase();
-  const eventSubject = rawSubjectValue(ev).toLowerCase();
-  return outboundSubject !== "" && eventSubject.includes(outboundSubject);
-}
-
-function eventDotCls(eventType: unknown): string {
-  const k = String(eventType ?? "")
-    .trim()
-    .toLowerCase();
-  return EVENT_DOT_CLS[k] ?? "bg-muted-foreground/60";
-}
-
-const CLICK_TAG_LV: Record<string, string> = {
-  cta: "CTA poga",
-  ppv_email: "PPV e-pasts",
-  ppv_phone: "Telefons",
-  phone: "Telefons",
-  website: "Mājaslapa",
-  homepage: "Mājaslapa",
-};
-
-function metaValue(row: Record<string, unknown>, key: string): unknown {
-  const meta = row.metadata;
-  return meta && typeof meta === "object" && !Array.isArray(meta)
-    ? (meta as Record<string, unknown>)[key]
-    : undefined;
-}
-
-function emailStep(c: Record<string, unknown>): string {
-  const value =
-    c.automation_step ?? c.template_key ?? c.content_ref ?? metaValue(c, "automation_step");
-  return value == null || String(value).trim() === "" ? "" : String(value);
-}
-
-function subjectText(c: Record<string, unknown>): string {
-  const value = c.subject ?? metaValue(c, "email_subject");
-  return value == null || String(value).trim() === "" ? NA : String(value);
-}
-
-function eventLinkKey(ev: Record<string, unknown>): string {
-  const raw = ev.raw_payload;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const key = (raw as Record<string, unknown>).link_key;
-    if (key != null && String(key).trim() !== "") return String(key);
-  }
-  return String(ev.tracking_link_id ?? "");
-}
-
-function linkTypeLabel(link: Record<string, unknown>): string {
-  const type = String(metaValue(link, "link_type") ?? "")
-    .trim()
-    .toLowerCase();
-  if (CLICK_TAG_LV[type]) return CLICK_TAG_LV[type];
-  const url = String(link.destination_url ?? link.original_url ?? "").toLowerCase();
-  if (url.startsWith("tel:")) return "Telefons";
-  if (url.startsWith("mailto:")) return "PPV e-pasts";
-  if (url.includes("tivohouses")) return "Mājaslapa";
-  return "CTA poga";
-}
-
-function clickTagsForEvent(
-  ev: Record<string, unknown>,
-  links: Array<Record<string, unknown>>,
-): string[] {
-  if (
-    String(ev.event_type ?? "")
-      .trim()
-      .toLowerCase() !== "clicked"
-  )
-    return [];
-  const key = eventLinkKey(ev);
-  const matched = links.find(
-    (link) => String(link.link_key ?? link.tracking_code ?? link.id ?? "") === key,
-  );
-  const labels = matched ? [linkTypeLabel(matched)] : links.map(linkTypeLabel);
-  return Array.from(new Set(labels)).filter(Boolean);
-}
-
-function ClickTag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-      {children}
-    </span>
-  );
-}
-
-function CommunicationsTimeline({
-  comms,
-  loading,
-  error,
-  eventsByComm,
-  trackingLinksByComm,
-  eventsLoading,
-  onOpenEmail,
-}: {
-  comms: Array<Record<string, unknown>>;
-  loading: boolean;
-  error?: string | null;
-  eventsByComm: Map<string, Array<Record<string, unknown>>>;
-  trackingLinksByComm: Map<string, Array<Record<string, unknown>>>;
-  eventsLoading: boolean;
-  onOpenEmail?: (c: Record<string, unknown>) => void;
-}) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const toggleExpanded = (id: string) =>
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  if (error) return <ErrorState message={error} />;
-  if (loading) return <LoadingState />;
-  // Filter out empty emails: e-pasts ar tukšu saturu UN bez pielikumiem netiek rādīts.
-  const visibleComms = (comms ?? []).filter((c) => {
-    const ch = String(c.channel ?? "").toLowerCase();
-    const isEmail = ch.includes("email") || ch.includes("mail") || ch.includes("past");
-    if (!isEmail) return true;
-    const hasBody = readHtml(c).trim() !== "" || readText(c).trim() !== "";
-    if (hasBody) return true;
-    const commId = String(c.id ?? c.communication_id ?? "");
-    const events = commId ? (eventsByComm.get(commId) ?? []) : [];
-    for (const ev of events) {
-      if (extractAttachmentNames(ev.metadata).length > 0) return true;
-    }
-    if (extractAttachmentNames(c.metadata).length > 0) return true;
-    if (extractAttachmentNames(c.attachments_info).length > 0) return true;
-    return false;
-  });
-  if (!visibleComms || visibleComms.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-        Komunikāciju vēl nav
-      </div>
-    );
-  }
-
-  // Sort newest -> oldest by coalesce(sent_at, received_at, created_at)
-  const sorted = [...visibleComms].sort((a, b) => {
-    const ta = new Date(String(a.sent_at ?? a.received_at ?? a.created_at ?? 0)).getTime() || 0;
-    const tb = new Date(String(b.sent_at ?? b.received_at ?? b.created_at ?? 0)).getTime() || 0;
-    return tb - ta;
-  });
-
-  return (
-    <div className="w-full max-w-full overflow-hidden rounded-md border border-border">
-      <table className="w-full max-w-full table-auto border-collapse text-left text-xs">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr className="border-b border-border">
-            <th className="w-8 px-2 py-2 font-medium uppercase" aria-label="Izvērst" />
-            <th className="px-3 py-2 font-medium uppercase">Datums</th>
-            <th className="px-3 py-2 font-medium uppercase">Saziņa</th>
-            <th className="px-3 py-2 font-medium uppercase">Statuss</th>
-            <th className="px-3 py-2 font-medium uppercase">E-pasta solis</th>
-            <th className="px-3 py-2 font-medium uppercase">Temats</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((c, i) => {
-            const sentAt = c.sent_at ?? c.received_at ?? c.created_at;
-            const commId = String(c.id ?? c.communication_id ?? "");
-            const rawEvents = commId
-              ? (eventsByComm.get(commId) ?? []).filter((ev) => belongsToCommunication(ev, commId))
-              : [];
-            const links = commId ? (trackingLinksByComm.get(commId) ?? []) : [];
-            const dir = String(c.direction ?? "").toLowerCase();
-            // Outbound rows: NOTIKUMI uses only events whose communication_id
-            // exactly equals this outbound communication id. Reply e-mail events
-            // must also contain the outbound subject in their own subject.
-            const matchingReplyEvents =
-              dir === "outbound"
-                ? rawEvents.filter((ev) => {
-                    const eventType = String(ev.event_type ?? "")
-                      .trim()
-                      .toLowerCase();
-                    return (
-                      REPLY_EVENT_TYPES.has(eventType) && eventSubjectContainsOutboundSubject(ev, c)
-                    );
-                  })
-                : [];
-            const events =
-              dir === "outbound" && matchingReplyEvents.length > 0
-                ? [
-                    ...rawEvents.filter(
-                      (ev) =>
-                        String(ev.event_type ?? "")
-                          .trim()
-                          .toLowerCase() === "sent",
-                    ),
-                    ...matchingReplyEvents,
-                  ]
-                : [];
-
-            const meta0 =
-              c.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata)
-                ? (c.metadata as Record<string, unknown>)
-                : null;
-            const previewText =
-              meta0 && typeof meta0.body_preview === "string"
-                ? (meta0.body_preview as string).trim()
-                : "";
-            const hasPreview = !!previewText;
-            const hasEvents = events.length > 0;
-            const rowKey = commId || String(i);
-            const isOpen = !!expanded[rowKey];
-            // Timeline events for the accordion: all events for this communication,
-            // sorted ascending by event_timestamp.
-            const timelineEvents = [...rawEvents].sort((a, b) => {
-              const ta = new Date(String(a.event_timestamp ?? 0)).getTime() || 0;
-              const tb = new Date(String(b.event_timestamp ?? 0)).getTime() || 0;
-              return ta - tb;
-            });
-            return (
-              <Fragment key={commId || i}>
-                <tr
-                  key={`${commId || i}-row`}
-                  className={`align-top ${hasPreview || hasEvents || isOpen ? "" : "border-b border-border"}`}
-                >
-                  <td className="px-2 py-2 align-top">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExpanded(rowKey);
-                      }}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      aria-label={isOpen ? "Sakļaut notikumus" : "Izvērst notikumus"}
-                      aria-expanded={isOpen}
-                    >
-                      {isOpen ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{fmtDate(sentAt)}</td>
-                  <td className="px-3 py-2">
-                    {(() => {
-                      const ch = String(c.channel ?? "").toLowerCase();
-                      const isEmail =
-                        ch.includes("email") || ch.includes("mail") || ch.includes("past");
-                      const dirRaw = String(c.direction ?? "").toLowerCase();
-                      let label = tx(CHANNEL_LV, c.channel);
-                      if (isEmail) {
-                        label = dirRaw === "inbound" ? "Ienākošs e-pasts" : "Izejošs e-pasts";
-                      }
-                      const badge = (
-                        <ChannelBadge value={label} direction={String(c.direction ?? "")} />
-                      );
-                      if (isEmail && onOpenEmail) {
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => onOpenEmail(c)}
-                            className="cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring rounded"
-                            title="Atvērt e-pastu"
-                          >
-                            {badge}
-                          </button>
-                        );
-                      }
-                      return badge;
-                    })()}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">
-                    {tx(COMM_STATUS_LV, c.current_status ?? c.status)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-foreground">{emailStep(c)}</td>
-                  <td className="px-3 py-2 text-foreground break-words">{subjectText(c)}</td>
-                </tr>
-                {hasPreview && (
-                  <tr
-                    key={`${commId || i}-preview`}
-                    className={hasEvents || isOpen ? "" : "border-b border-border"}
+          {/* 4. Objects */}
+          <SectionCard title="Objects" count={objects.length}>
+            {objects.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {objects.map((o, i) => (
+                  <div
+                    key={String(pick(o, "id", "object_id") ?? i)}
+                    className="rounded-lg border bg-card p-4"
                   >
-                    <td colSpan={6} className="relative p-0">
-                      <div className="relative h-5 w-full">
-                        <div className="absolute inset-x-10 top-0 truncate text-xs text-muted-foreground">
-                          {previewText}
-                        </div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="font-medium">
+                        {fmt(pick(o, "object_name", "name"))}
                       </div>
-                    </td>
-                  </tr>
-                )}
-                {isOpen && (
-                  <tr key={`${commId || i}-timeline`} className="border-b border-border">
-                    <td colSpan={6} className="px-10 pb-3 pt-1">
-                      <div className="border-l border-border pl-3">
-                        <div className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">
-                          Notikumu vēsture
-                        </div>
-                        {eventsLoading && timelineEvents.length === 0 ? (
-                          <div className="text-xs text-muted-foreground">Ielādē notikumus…</div>
-                        ) : timelineEvents.length === 0 ? (
-                          <div className="text-xs text-muted-foreground">Nav notikumu vēstures</div>
-                        ) : (
-                          <ol className="space-y-1">
-                            {timelineEvents.map((ev, j) => {
-                              const eventType = String(ev.event_type ?? "")
-                                .trim()
-                                .toLowerCase();
-                              const label =
-                                TIMELINE_EVENT_LV[eventType] ??
-                                tx(COMM_STATUS_LV, ev.event_type);
-                              const isClicked = eventType === "clicked";
-                              return (
-                                <li
-                                  key={j}
-                                  className="flex flex-wrap items-center gap-2 text-xs"
-                                >
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full ${eventDotCls(ev.event_type)}`}
-                                  />
-                                  <span className="font-semibold text-foreground">{label}:</span>
-                                  <span className="text-muted-foreground">
-                                    {fmtDate(ev.event_timestamp)}
-                                  </span>
-                                  {isClicked && (
-                                    <span className="text-foreground">
-                                      — {clickedTargetLabel(ev, links)}
-                                    </span>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ol>
+                      <StatusBadge status={str(pick(o, "sales_status"))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Tips" value={fmt(pick(o, "object_type"))} />
+                      <Field label="Sales status" value={fmt(pick(o, "sales_status"))} />
+                      <Field label="Land status" value={fmt(pick(o, "land_status"))} />
+                      <Field label="Project status" value={fmt(pick(o, "project_status"))} />
+                      <div className="col-span-2">
+                        <Field label="Adrese" value={fmt(pick(o, "address"))} />
+                      </div>
+                      <Field label="Budžets" value={fmtMoney(pick(o, "budget_amount"))} />
+                      <Field label="Estimated value" value={fmtMoney(pick(o, "estimated_value"))} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* 5. Tasks */}
+          <SectionCard title="Tasks" count={tasks.length}>
+            {tasks.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                      <th className="py-2 pr-3">Tituls</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Prioritāte</th>
+                      <th className="py-2 pr-3">Termiņš</th>
+                      <th className="py-2 pr-3">Atbildīgais</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasks.map((t, i) => (
+                      <tr
+                        key={String(pick(t, "id", "task_id") ?? i)}
+                        className="border-b last:border-0"
+                      >
+                        <td className="py-2 pr-3">{fmt(pick(t, "title", "name"))}</td>
+                        <td className="py-2 pr-3">
+                          <StatusBadge status={str(pick(t, "status"))} />
+                        </td>
+                        <td className="py-2 pr-3">{fmt(pick(t, "priority"))}</td>
+                        <td className="py-2 pr-3">{fmtDate(pick(t, "due_at"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(t, "assigned_user_id"))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* 6. Notes */}
+          <SectionCard title="Notes" count={notes.length}>
+            {notes.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="space-y-3">
+                {notes.map((n, i) => (
+                  <div
+                    key={String(pick(n, "id", "note_id") ?? i)}
+                    className="rounded-lg border bg-card p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>{fmt(pick(n, "note_type"))}</span>
+                        {pick(n, "is_pinned") === true && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                            Piespraust
+                          </span>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ChannelBadge({ value, direction = "" }: { value: string; direction?: string }) {
-  const v = value.toLowerCase();
-  const dir = direction.toLowerCase();
-  let cls = "bg-muted text-muted-foreground";
-  if (v.includes("e-past") || v.includes("email") || v.includes("pasts")) {
-    if (dir === "inbound" || dir === "ienākošs")
-      cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-    else cls = "bg-blue-500/10 text-blue-700 dark:text-blue-300";
-  } else if (v.includes("sms")) cls = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  else if (v.includes("zvan") || v.includes("call"))
-    cls = "bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  else if (v.includes("whats")) cls = "bg-green-500/10 text-green-700 dark:text-green-300";
-  return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {value}
-    </span>
-  );
-}
-
-function readHtml(c: Record<string, unknown>): string {
-  const meta = c.metadata as Record<string, unknown> | null | undefined;
-  if (meta && typeof meta === "object") {
-    const bh = (meta as Record<string, unknown>).body_html;
-    if (typeof bh === "string" && bh.trim() !== "") return bh;
-    const payload = (meta as Record<string, unknown>).resend_payload as
-      | Record<string, unknown>
-      | undefined;
-    if (payload && typeof payload === "object") {
-      const h = (payload as Record<string, unknown>).html;
-      if (typeof h === "string" && h.trim() !== "") return h;
-    }
-  }
-  const direct = c.html_body;
-  if (typeof direct === "string" && direct.trim() !== "") return direct;
-  return "";
-}
-
-function readText(c: Record<string, unknown>): string {
-  const direct = c.text_body;
-  if (typeof direct === "string" && direct.trim() !== "") return direct;
-  const meta = c.metadata as Record<string, unknown> | null | undefined;
-  if (meta && typeof meta === "object") {
-    const payload = (meta as Record<string, unknown>).resend_payload as
-      | Record<string, unknown>
-      | undefined;
-    if (payload && typeof payload === "object") {
-      const t = (payload as Record<string, unknown>).text;
-      if (typeof t === "string" && t.trim() !== "") return t;
-    }
-  }
-  return "";
-}
-
-/** Render plain-text email with visual separation for quoted replies. */
-function renderEmailText(text: string): React.ReactNode {
-  // Split on a line of 10+ underscores (common reply separator)
-  const parts = text.split(/(_{10,})/);
-  const nodes: React.ReactNode[] = [];
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (/^_{10,}$/.test(part)) {
-      // separator → visual divider with spacing
-      nodes.push(<div key={`sep-${i}`} className="my-6 border-t-2 border-border" />);
-    } else if (i > 0 && part.trim()) {
-      // everything after the separator = quoted original email
-      nodes.push(
-        <div
-          key={`q-${i}`}
-          className="border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground"
-        >
-          {formatEmailBlock(part.trim())}
-        </div>,
-      );
-    } else if (part.trim()) {
-      // reply text (before separator)
-      nodes.push(<div key={`r-${i}`}>{part.trim()}</div>);
-    }
-  }
-  return <>{nodes}</>;
-}
-
-/** Format an email text block: detect header lines and bullet points. */
-function formatEmailBlock(block: string): React.ReactNode {
-  // Try to detect email header pattern (Van:, From:, Verzonden:, Sent:, Aan:, To:, Onderwerp:, Subject:)
-  const headerPattern =
-    /^(Van|From|Verzonden|Sent|Aan|To|Onderwerp|Subject|Date|Datum|Cc|Bcc):\s*/im;
-  const lines = block.split("\n");
-  const result: React.ReactNode[] = [];
-
-  // Detect if first line has inline headers like "Van: ... Verzonden: ... Aan: ... Onderwerp: ..."
-  const firstLine = lines[0] || "";
-  const inlineHeaders =
-    firstLine.match(/(Van|From):\s/i) && firstLine.match(/(Onderwerp|Subject):\s/i);
-
-  if (inlineHeaders) {
-    // Split inline headers into separate lines
-    const headerStr = lines.shift() || "";
-    const headerKeys = [
-      "Van",
-      "From",
-      "Verzonden",
-      "Sent",
-      "Aan",
-      "To",
-      "Onderwerp",
-      "Subject",
-      "Date",
-      "Datum",
-      "Cc",
-      "Bcc",
-    ];
-    const regex = new RegExp(`\\s*(?=(${headerKeys.join("|")}):\\s)`, "gi");
-    const headerLines = headerStr.split(regex).filter((s) => s.trim());
-
-    // Deduplicate: regex split may produce key-only fragments; rejoin them
-    const merged: string[] = [];
-    for (const h of headerLines) {
-      if (headerKeys.some((k) => h.trim().toLowerCase() === k.toLowerCase())) {
-        // This is just a key fragment, append next part
-        merged.push(h);
-      } else if (
-        merged.length > 0 &&
-        headerKeys.some((k) => merged[merged.length - 1].trim().toLowerCase() === k.toLowerCase())
-      ) {
-        merged[merged.length - 1] = merged[merged.length - 1] + h;
-      } else {
-        merged.push(h);
-      }
-    }
-
-    result.push(
-      <div key="hdrs" className="mb-3 space-y-0.5 text-xs">
-        {merged.map((line, j) => {
-          const colonIdx = line.indexOf(":");
-          if (colonIdx > 0) {
-            return (
-              <div key={j}>
-                <span className="font-semibold">{line.slice(0, colonIdx + 1)}</span>
-                {line.slice(colonIdx + 1)}
+                      <span>{fmtDate(pick(n, "created_at"))}</span>
+                    </div>
+                    <div className="whitespace-pre-wrap text-sm text-foreground">
+                      {fmt(pick(n, "content", "body"))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            );
-          }
-          return <div key={j}>{line}</div>;
-        })}
-      </div>,
-    );
+            )}
+          </SectionCard>
 
-    // Remaining body
-    const bodyText = lines.join("\n").trim();
-    if (bodyText) {
-      result.push(<div key="body">{bodyText}</div>);
-    }
-  } else {
-    result.push(<Fragment key="plain">{block}</Fragment>);
-  }
+          {/* 7. Next Actions */}
+          <SectionCard title="Next Actions" count={nextActions.length}>
+            {nextActions.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                      <th className="py-2 pr-3">Darbība</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Termiņš</th>
+                      <th className="py-2 pr-3">Prioritāte</th>
+                      <th className="py-2 pr-3">Avots</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nextActions.map((a, i) => (
+                      <tr
+                        key={String(pick(a, "id", "action_id") ?? i)}
+                        className="border-b last:border-0"
+                      >
+                        <td className="py-2 pr-3">{fmt(pick(a, "action_type"))}</td>
+                        <td className="py-2 pr-3">
+                          <StatusBadge status={str(pick(a, "status"))} />
+                        </td>
+                        <td className="py-2 pr-3">{fmtDate(pick(a, "due_at"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(a, "priority_score", "priority"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(a, "source"))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
 
-  return <>{result}</>;
-}
+          {/* 8. Communications */}
+          <SectionCard title="Communications" count={communications.length}>
+            {communications.length === 0 ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                      <th className="py-2 pr-3">Kanāls</th>
+                      <th className="py-2 pr-3">Virziens</th>
+                      <th className="py-2 pr-3">Subject</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Provider</th>
+                      <th className="py-2 pr-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {communications.map((c, i) => (
+                      <tr
+                        key={String(pick(c, "id", "communication_id") ?? i)}
+                        className="border-b last:border-0"
+                      >
+                        <td className="py-2 pr-3">{fmt(pick(c, "channel"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "direction"))}</td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "subject"))}</td>
+                        <td className="py-2 pr-3">
+                          <StatusBadge status={str(pick(c, "status", "current_status"))} />
+                        </td>
+                        <td className="py-2 pr-3">{fmt(pick(c, "provider"))}</td>
+                        <td className="py-2 pr-3">{fmtDate(pick(c, "created_at"))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
 
-function formatAttachments(value: unknown): string {
-  if (value == null) return "";
-  if (Array.isArray(value)) {
-    const names = value
-      .map((item) => {
-        if (item == null) return "";
-        if (typeof item === "string") return item;
-        if (typeof item === "object") {
-          const o = item as Record<string, unknown>;
-          const name = o.filename ?? o.name ?? o.file_name ?? o.title ?? o.path;
-          if (name != null && String(name).trim() !== "") return String(name);
-          try {
-            return JSON.stringify(o);
-          } catch {
-            return "";
-          }
-        }
-        return String(item);
-      })
-      .map((s) => s.trim())
-      .filter((s) => s !== "");
-    return names.join(", ");
-  }
-  if (typeof value === "object") {
-    try {
-      const s = JSON.stringify(value);
-      return s === "{}" || s === "[]" || s === "null" ? "" : s;
-    } catch {
-      return "";
-    }
-  }
-  const s = String(value).trim();
-  return s;
-}
-
-/* -------------------------- email modal -------------------------- */
-
-function extractAttachmentNames(metadata: unknown): string[] {
-  if (!metadata || typeof metadata !== "object") return [];
-  const meta = metadata as Record<string, unknown>;
-  let raw = meta.attachment_names ?? meta.attachments ?? meta.attachment_filenames;
-  if (raw == null) return [];
-  if (typeof raw === "string") {
-    try {
-      raw = JSON.parse(raw);
-    } catch {
-      return [];
-    }
-  }
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((v: unknown) => {
-      if (v == null) return "";
-      if (typeof v === "string") return v;
-      if (typeof v === "object") {
-        const o = v as Record<string, unknown>;
-        return String(o.name ?? o.filename ?? o.file_name ?? "");
-      }
-      return String(v);
-    })
-    .filter((s: string) => s.trim() !== "");
-}
-
-function EmailPreviewDialog({
-  comm,
-  eventsByComm,
-  onClose,
-}: {
-  comm: Record<string, unknown> | null;
-  eventsByComm: Map<string, Array<Record<string, unknown>>>;
-  onClose: () => void;
-}) {
-  const open = !!comm;
-  const subject = comm ? fmt(comm.subject) : NA;
-  const sentAt = comm ? fmtDate(comm.sent_at ?? comm.received_at) : NA;
-  const html = useMemo(() => (comm ? readHtml(comm) : ""), [comm]);
-  const text = useMemo(() => (comm ? readText(comm) : ""), [comm]);
-
-  const fromAddr = comm ? fmt(comm.from_address) : NA;
-  const toAddr = comm ? fmt(comm.to_address) : NA;
-  const popupMeta =
-    comm && comm.metadata && typeof comm.metadata === "object" && !Array.isArray(comm.metadata)
-      ? (comm.metadata as Record<string, unknown>)
-      : null;
-  const ccVal = popupMeta?.cc;
-  const bccVal = popupMeta?.bcc;
-  const ccText = ccVal != null && !isEmptyValue(ccVal) ? fmt(ccVal) : "";
-  const bccText = bccVal != null && !isEmptyValue(bccVal) ? fmt(bccVal) : "";
-
-  const attachmentNames = useMemo(() => {
-    if (!comm) return [];
-    // 1. Try communication_events.metadata.attachment_names
-    const commId = String(comm.id ?? comm.communication_id ?? "");
-    const events = commId ? (eventsByComm.get(commId) ?? []) : [];
-    for (const ev of events) {
-      const names = extractAttachmentNames(ev.metadata);
-      if (names.length > 0) return names;
-    }
-    // 2. Fallback: communications.metadata.attachment_names
-    const names = extractAttachmentNames(comm.metadata);
-    if (names.length > 0) return names;
-    // 3. Fallback: communications.attachments_info column
-    const infoNames = extractAttachmentNames(comm.attachments_info);
-    if (infoNames.length > 0) return infoNames;
-    return [];
-  }, [comm, eventsByComm]);
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-5xl w-[95vw] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>E-pasta saturs</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">No</span>
-            <span className="text-foreground break-all">{fromAddr}</span>
-          </div>
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Kam</span>
-            <span className="text-foreground break-all">{toAddr}</span>
-          </div>
-          {ccText && (
-            <div className="grid grid-cols-[120px_1fr] gap-2">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Cc</span>
-              <span className="text-foreground break-all">{ccText}</span>
-            </div>
-          )}
-          {bccText && (
-            <div className="grid grid-cols-[120px_1fr] gap-2">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Bcc</span>
-              <span className="text-foreground break-all">{bccText}</span>
-            </div>
-          )}
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Temats</span>
-            <span className="text-foreground">{subject}</span>
-          </div>
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Datums</span>
-            <span className="text-foreground">{sentAt}</span>
-          </div>
-        </div>
-
-        {attachmentNames.length > 0 && (
-          <div className="mt-2 rounded-md border border-border bg-muted/30 p-3">
-            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Pievienotie faili
-            </div>
-            <ul className="list-disc space-y-0.5 pl-5 text-sm text-foreground">
-              {attachmentNames.map((name: string, idx: number) => (
-                <li key={idx}>{name}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="mt-2 max-h-[60vh] overflow-hidden rounded-md border border-border bg-background">
-          {html ? (
-            <iframe
-              title="E-pasta saturs"
-              sandbox=""
-              srcDoc={`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:12px;max-width:100%;overflow-x:hidden;word-wrap:break-word;overflow-wrap:anywhere;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111}*{max-width:100%!important;box-sizing:border-box}img,video,table{height:auto!important;max-width:100%!important}table{table-layout:fixed!important;width:100%!important;border-collapse:collapse}pre{white-space:pre-wrap;word-break:break-word}</style></head><body>${html}</body></html>`}
-              className="h-[60vh] w-full block"
-            />
-          ) : text ? (
-            <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap p-4 text-sm text-foreground">
-              {renderEmailText(text)}
-            </div>
-          ) : (
-            <div className="p-6 text-sm text-muted-foreground">E-pasta saturs nav saglabāts.</div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          {/* 9. Technical raw preview */}
+          <Card>
+            <CardHeader>
+              <button
+                type="button"
+                onClick={() => setShowRaw((v) => !v)}
+                className="flex w-full items-center justify-between gap-2 text-left"
+              >
+                <CardTitle className="text-base">Technical raw preview</CardTitle>
+                {showRaw ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              <CardDescription>
+                get_lead_360_profile RPC neapstrādāta atbilde.
+              </CardDescription>
+            </CardHeader>
+            {showRaw && (
+              <CardContent>
+                <pre className="max-h-[480px] overflow-auto rounded-md border bg-muted p-3 text-xs">
+                  {JSON.stringify(profile, null, 2)}
+                </pre>
+              </CardContent>
+            )}
+          </Card>
+        </>
+      )}
+    </div>
   );
 }
