@@ -552,7 +552,7 @@ function LeadiPage() {
   );
 
   const overview = useCrmView(
-    "next_action_queue_display_enriched",
+    "leads_list_display",
     overviewQuery,
   );
   const overviewLeadIds = useMemo(() => {
@@ -634,29 +634,16 @@ function LeadiPage() {
     return map;
   }, [reitingsView.data]);
 
-  // Per-lead communication counters (📞 / ✉️ / 💬 outbound / inbound).
-  // Source of truth: backend view crm.lead_row_communication_counts.
-  const rowCountsQuery = useMemo(() => {
-    const cols =
-      "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count";
-    if (overviewLeadIds.length === 0) return `${cols}&limit=0`;
-    const ids = overviewLeadIds
-      .map((id) => id.replace(/"/g, ""))
-      .join(",");
-    return `${cols}&lead_id=in.(${ids})&limit=${overviewLeadIds.length}`;
-  }, [overviewLeadIds]);
-  const rowCounts = useCrmView(
-    "lead_row_communication_counts",
-    rowCountsQuery,
-  );
+  // Per-lead communication counters (📞 / ✉️ / 💬 outbound / inbound)
+  // are part of crm.leads_list_display rows directly.
   const commCounts = useMemo(() => {
     const map = new Map<
       string,
       { call: [number, number]; email: [number, number]; chat: [number, number] }
     >();
-    const rows = (rowCounts.data?.rows ?? []) as Row[];
+    const rows = (overview.data?.rows ?? []) as Row[];
     for (const r of rows) {
-      const lid = s(r.lead_id);
+      const lid = s(r.lead_id) || s(r.id);
       if (!lid) continue;
       map.set(lid, {
         email: [
@@ -674,7 +661,7 @@ function LeadiPage() {
       });
     }
     return map;
-  }, [rowCounts.data]);
+  }, [overview.data]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
