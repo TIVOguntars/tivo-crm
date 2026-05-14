@@ -12,6 +12,10 @@ import {
   Phone as PhoneIcon,
   MessageSquare,
   Activity,
+  StickyNote,
+  CheckSquare,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -23,6 +27,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 
 export const Route = createFileRoute("/lead/$leadId")({
