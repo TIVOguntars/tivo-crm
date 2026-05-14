@@ -208,11 +208,12 @@ function LeadProfilePage() {
   const primaryPhone = primaryPhoneE164 || primaryPhoneRaw;
   const waNumber = primaryPhoneE164.replace(/[^\d]/g, "");
 
-  const ownerLabel = fmt(
-    pick(header, "owner_name", "owner", "assigned_user_name", "assigned_user_id"),
-  );
-
   const rawData = asObject(pick(header, "raw_data")) ?? null;
+  const ownerLabel = fmt(
+    pick(rawData, "ppv_vards") ??
+      pick(legacyContext, "ppv_vards") ??
+      pick(header, "owner_name", "owner", "assigned_user_name", "assigned_user_id"),
+  );
   const leadTitle =
     str(pick(primaryData, "full_name")) ||
     str(pick(legacyContext, "full_name")) ||
@@ -289,11 +290,11 @@ function LeadProfilePage() {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wide">Last activity</span>
+                    <span className="text-[10px] uppercase tracking-wide">Pēdējā aktivitāte</span>
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wide">Owner</span>
+                    <span className="text-[10px] uppercase tracking-wide">Atbildīgais</span>
                     <span className="text-foreground">{ownerLabel}</span>
                   </div>
                 </div>
@@ -309,12 +310,12 @@ function LeadProfilePage() {
                     {primaryPhone ? (
                       <a href={`tel:${primaryPhone}`}>
                         <Phone className="h-3.5 w-3.5 mr-1" />
-                        Call
+                        Zvanīt
                       </a>
                     ) : (
                       <span>
                         <Phone className="h-3.5 w-3.5 mr-1" />
-                        Call
+                        Zvanīt
                       </span>
                     )}
                   </Button>
@@ -328,12 +329,12 @@ function LeadProfilePage() {
                     {primaryEmail ? (
                       <a href={`mailto:${primaryEmail}`}>
                         <Mail className="h-3.5 w-3.5 mr-1" />
-                        Email
+                        E-pasts
                       </a>
                     ) : (
                       <span>
                         <Mail className="h-3.5 w-3.5 mr-1" />
-                        Email
+                        E-pasts
                       </span>
                     )}
                   </Button>
@@ -362,7 +363,7 @@ function LeadProfilePage() {
                   </Button>
                   <Button size="sm" disabled title="Drīzumā">
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add Task
+                    Pievienot uzdevumu
                   </Button>
                 </div>
               </div>
@@ -373,8 +374,8 @@ function LeadProfilePage() {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* LEFT */}
             <div className="space-y-4 xl:col-span-1">
-              {/* Contact */}
-              <Panel title="Contact" count={people.length}>
+              {/* Kontakts */}
+              <Panel title="Kontakts" count={people.length}>
                 {people.length === 0 ? (
                   <Empty />
                 ) : (
@@ -382,15 +383,15 @@ function LeadProfilePage() {
                     {primaryContact && (
                       <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
                         <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-primary">
-                          Primary
+                          Primārais kontakts
                         </div>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <Field label="Vārds" value={fmt(pick(primaryData, "full_name", "name"))} />
                           <Field label="E-pasts" value={fmt(primaryEmail)} />
                           <Field label="Telefons" value={fmt(primaryPhoneRaw)} />
                           <Field label="E.164" value={fmt(primaryPhoneE164)} />
-                          <Field label="Comm. status" value={fmt(pick(primaryContact, "communication_status"))} />
-                          <Field label="Decision maker" value={fmtBool(pick(primaryContact, "is_decision_maker"))} />
+                          <Field label="Komunikācijas statuss" value={fmt(pick(primaryContact, "communication_status"))} />
+                          <Field label="Lēmuma pieņēmējs" value={fmtBool(pick(primaryContact, "is_decision_maker"))} />
                         </div>
                       </div>
                     )}
@@ -430,22 +431,14 @@ function LeadProfilePage() {
                 )}
               </Panel>
 
-              {/* Legacy / Import Context */}
-              <Panel title="Legacy / Import Context">
+              {/* Importa konteksts */}
+              <Panel title="Importa konteksts">
                 {!legacyContext ? (
                   <Empty />
                 ) : (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Field label="Full name" value={fmt(pick(legacyContext, "full_name"))} />
-                    <Field label="E-pasts" value={fmt(pick(legacyContext, "email_normalized"))} />
-                    <Field label="Telefons" value={fmt(pick(legacyContext, "telefons_neapstradats"))} />
-                    <Field label="E.164" value={fmt(pick(legacyContext, "telefons_e164"))} />
                     <Field label="Valsts" value={fmt(pick(legacyContext, "valsts"))} />
-                    <Field label="Tags" value={fmt(pick(legacyContext, "tags"))} />
-                    <Field label="Objekts" value={fmt(pick(legacyContext, "objekts"))} />
-                    <Field label="Forma zeme" value={fmt(pick(legacyContext, "forma_zeme"))} />
-                    <Field label="Forma projekts" value={fmt(pick(legacyContext, "forma_projekts"))} />
-                    <Field label="Plānota būvniecība" value={fmt(pick(legacyContext, "planota_buvnieciba_text"))} />
+                    <Field label="Tagi" value={fmt(pick(legacyContext, "tags"))} />
                     <Field label="Automatizācija" value={fmt(pick(legacyContext, "automatizacija"))} />
                     <Field label="Autom. datums" value={fmtDate(pick(legacyContext, "automatizacijas_datums"))} />
                     <Field label="PPV vārds" value={fmt(pick(legacyContext, "ppv_vards"))} />
@@ -456,8 +449,8 @@ function LeadProfilePage() {
                 )}
               </Panel>
 
-              {/* Companies */}
-              <Panel title="Companies" count={companies.length}>
+              {/* Uzņēmumi */}
+              <Panel title="Uzņēmumi" count={companies.length}>
                 {companies.length === 0 ? (
                   <Empty />
                 ) : (
@@ -467,7 +460,7 @@ function LeadProfilePage() {
                         <tr className="border-b text-left text-[10px] uppercase text-muted-foreground">
                           <th className="py-1.5 pr-2">Uzņēmums</th>
                           <th className="py-1.5 pr-2">Loma</th>
-                          <th className="py-1.5 pr-2">Primary</th>
+                          <th className="py-1.5 pr-2">Primārais</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -498,9 +491,27 @@ function LeadProfilePage() {
                 )}
               </Panel>
 
-              {/* Objects */}
-              <Panel title="Objects" count={objects.length}>
-                {objects.length === 0 ? (
+              {/* Objekti */}
+              <Panel title="Objekti" count={objects.length || (legacyContext ? 1 : 0)}>
+                {objects.length === 0 && legacyContext ? (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-primary">
+                      Primārais objekts
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="col-span-2">
+                        <Field label="Objekts" value={fmt(pick(legacyContext, "objekts"))} />
+                      </div>
+                      <Field label="Forma zeme" value={fmt(pick(legacyContext, "forma_zeme"))} />
+                      <Field label="Forma projekts" value={fmt(pick(legacyContext, "forma_projekts"))} />
+                      <div className="col-span-2">
+                        <Field label="Plānotā būvniecība" value={fmt(pick(legacyContext, "planota_buvnieciba_text"))} />
+                      </div>
+                      <Field label="Tagi" value={fmt(pick(legacyContext, "tags"))} />
+                      <Field label="Valsts" value={fmt(pick(legacyContext, "valsts"))} />
+                    </div>
+                  </div>
+                ) : objects.length === 0 ? (
                   <Empty />
                 ) : (
                   <div className="space-y-2">
@@ -519,14 +530,14 @@ function LeadProfilePage() {
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <Field label="Tips" value={fmt(pick(objectData, "object_type"))} />
-                            <Field label="Land" value={fmt(pick(objectData, "land_status"))} />
-                            <Field label="Project" value={fmt(pick(objectData, "project_status"))} />
+                            <Field label="Zeme" value={fmt(pick(objectData, "land_status"))} />
+                            <Field label="Projekts" value={fmt(pick(objectData, "project_status"))} />
                             <Field label="Budžets" value={fmtMoney(pick(objectData, "budget_amount"))} />
                             <div className="col-span-2">
                               <Field label="Adrese" value={fmt(pick(objectData, "address"))} />
                             </div>
-                            <Field label="Est. value" value={fmtMoney(pick(objectData, "estimated_value"))} />
-                            <Field label="Primary" value={fmtBool(pick(o, "is_primary_object", "is_primary"))} />
+                            <Field label="Aplēstā vērtība" value={fmtMoney(pick(objectData, "estimated_value"))} />
+                            <Field label="Primārais" value={fmtBool(pick(o, "is_primary_object", "is_primary"))} />
                           </div>
                         </div>
                       );
@@ -538,8 +549,8 @@ function LeadProfilePage() {
 
             {/* RIGHT */}
             <div className="space-y-4 xl:col-span-2">
-              {/* Activity timeline */}
-              <Panel title="Activity Timeline" count={timeline.length}>
+              {/* Aktivitātes */}
+              <Panel title="Aktivitātes" count={timeline.length}>
                 {timeline.length === 0 ? (
                   <Empty />
                 ) : (
@@ -580,8 +591,8 @@ function LeadProfilePage() {
                 )}
               </Panel>
 
-              {/* Communications table */}
-              <Panel title="Communications" count={communications.length}>
+              {/* Komunikācija */}
+              <Panel title="Komunikācija" count={communications.length}>
                 {communications.length === 0 ? (
                   <Empty />
                 ) : (
@@ -591,10 +602,10 @@ function LeadProfilePage() {
                         <tr className="border-b text-left text-[10px] uppercase text-muted-foreground">
                           <th className="py-1.5 pr-2">Kanāls</th>
                           <th className="py-1.5 pr-2">Virziens</th>
-                          <th className="py-1.5 pr-2">Subject</th>
+                          <th className="py-1.5 pr-2">Temats</th>
                           <th className="py-1.5 pr-2">Status</th>
-                          <th className="py-1.5 pr-2">Provider</th>
-                          <th className="py-1.5 pr-2">Created</th>
+                          <th className="py-1.5 pr-2">Sniedzējs</th>
+                          <th className="py-1.5 pr-2">Izveidots</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -621,7 +632,7 @@ function LeadProfilePage() {
 
               {/* Tasks + Next Actions side by side on wide */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Panel title="Tasks" count={tasks.length}>
+                <Panel title="Uzdevumi" count={tasks.length}>
                   {tasks.length === 0 ? (
                     <Empty />
                   ) : (
@@ -644,7 +655,7 @@ function LeadProfilePage() {
                   )}
                 </Panel>
 
-                <Panel title="Next Actions" count={nextActions.length}>
+                <Panel title="Nākamās darbības" count={nextActions.length}>
                   {nextActions.length === 0 ? (
                     <Empty />
                   ) : (
@@ -668,8 +679,8 @@ function LeadProfilePage() {
                 </Panel>
               </div>
 
-              {/* Notes */}
-              <Panel title="Notes" count={notes.length}>
+              {/* Piezīmes */}
+              <Panel title="Piezīmes" count={notes.length}>
                 {notes.length === 0 ? (
                   <Empty />
                 ) : (
@@ -709,7 +720,7 @@ function LeadProfilePage() {
                 onClick={() => setShowRaw((v) => !v)}
                 className="flex w-full items-center justify-between gap-2 text-left"
               >
-                <CardTitle className="text-sm font-medium">Technical raw preview</CardTitle>
+                <CardTitle className="text-sm font-medium">Tehniskais skats</CardTitle>
                 {showRaw ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
