@@ -65,7 +65,8 @@ const leadiSearchSchema = z.object({
   view: fallback(z.string(), "all").default("all"),
   q: fallback(z.string().optional(), undefined),
   flt: fallback(z.array(filterRuleSchema), []).default([]),
-  gby: fallback(z.array(z.string()).max(3), []).default([]),
+  // gby: undefined = use default ["status"]; [] = explicit no grouping
+  gby: fallback(z.array(z.string()).max(3).optional(), undefined),
   sort: fallback(z.array(sortRuleSchema), []).default([]),
   // legacy back-compat — read on first load only
   seg: fallback(z.string().optional(), undefined),
@@ -326,7 +327,7 @@ const FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries(
 const OPERATORS_BY_TYPE: Record<FieldType, string[]> = {
   enum: ["is", "is_not", "is_any_of", "is_none_of", "is_empty", "is_not_empty"],
   string: ["is", "is_not", "is_empty", "is_not_empty"],
-  tags: ["is_any_of", "is_none_of", "is_empty", "is_not_empty"],
+  tags: ["is_any_of", "contains_all", "is_none_of", "is_empty", "is_not_empty"],
   number: ["is", "is_not", "gt", "lt", "is_empty", "is_not_empty"],
   date: ["last_x_days", "before_x_days", "is_empty", "is_not_empty"],
   next_action_date: [
@@ -346,6 +347,7 @@ const OP_LABELS: Record<string, string> = {
   is_not: "nav",
   is_any_of: "ir viens no",
   is_none_of: "nav neviens no",
+  contains_all: "satur visus",
   is_empty: "ir tukšs",
   is_not_empty: "nav tukšs",
   gt: "lielāks par",
@@ -388,6 +390,17 @@ function evalRule(l: Lead, r: FilterRule): boolean {
         return !arr.some((x) => tags.includes(x));
       }
       return !arr.includes(s(val).toLowerCase());
+    }
+    case "contains_all": {
+      const arr = (Array.isArray(r.v) ? r.v : []).map((x) =>
+        String(x).toLowerCase(),
+      );
+      if (arr.length === 0) return true;
+      if (def.type === "tags") {
+        const tags = (val as string[]).map((t) => t.toLowerCase());
+        return arr.every((x) => tags.includes(x));
+      }
+      return false;
     }
     case "is_empty":
       if (def.type === "tags") return (val as string[]).length === 0;
@@ -734,7 +747,8 @@ function LeadiPage() {
   const view = search.view ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
   const flt: FilterRule[] = (search.flt ?? []) as FilterRule[];
-  const gby: string[] = (search.gby ?? []).length > 0 ? search.gby : ["status"];
+  // search.gby === undefined → default ["status"]; [] → user explicitly chose no grouping
+  const gby: string[] = search.gby ?? ["status"];
   const sort: SortRule[] = (search.sort ?? []) as SortRule[];
 
   const [drawerLeadId] = useState<string | null>(null);
@@ -1152,7 +1166,7 @@ function LeadiPage() {
     });
 
   const hasActive =
-    view !== "all" || flt.length > 0 || !!q || (search.gby ?? []).length > 0 || (search.sort ?? []).length > 0;
+    view !== "all" || flt.length > 0 || !!q || search.gby !== undefined || (search.sort ?? []).length > 0;
 
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
@@ -2044,7 +2058,7 @@ function FilterValueInput({
       />
     );
   }
-  if (op === "is_any_of" || op === "is_none_of") {
+  if (op === "is_any_of" || op === "is_none_of" || op === "contains_all") {
     const cur = Array.isArray(rule.v) ? (rule.v as string[]) : [];
     return (
       <MultiSelectInline
