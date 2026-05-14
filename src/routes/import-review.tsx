@@ -224,7 +224,7 @@ function SessionsCard() {
                       className="cursor-pointer"
                       onClick={() =>
                         navigate({
-                          search: (prev) => ({ ...prev, session: id }),
+                          search: (prev: SearchState) => ({ ...prev, session: id }),
                         })
                       }
                     >
@@ -345,7 +345,7 @@ function ChangesCard() {
   };
 
   const setFilter = (k: keyof SearchState, v: string | undefined) => {
-    navigate({ search: (prev) => ({ ...prev, [k]: v }) });
+    navigate({ search: (prev: SearchState) => ({ ...prev, [k]: v }) });
   };
 
   return (
