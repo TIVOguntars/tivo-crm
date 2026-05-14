@@ -111,7 +111,7 @@ function sectionObject(profile: Row | null, ...keys: string[]): Row | null {
 /* -------------------------- UI primitives -------------------------- */
 
 function Empty({ label = NA }: { label?: string }) {
-  return <div className="text-sm text-muted-foreground py-4">{label}</div>;
+  return <div className="text-sm text-muted-foreground py-3">{label}</div>;
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -223,8 +223,46 @@ function LeadProfilePage() {
     NA;
   const leadSource =
     str(pick(header, "source", "lead_source")) ||
+    str(pick(rawData, "source")) ||
     str(pick(legacyContext, "source", "avots_detalizets")) ||
     NA;
+  const leadCountry =
+    str(pick(primaryData, "country")) ||
+    str(pick(rawData, "valsts")) ||
+    str(pick(legacyContext, "valsts")) ||
+    "";
+  const leadRegisteredAt =
+    pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
+  const leadStatus = str(pick(header, "status", "lead_status"));
+  const leadTags = (() => {
+    const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
+    if (!t) return "";
+    if (Array.isArray(t)) return t.map(str).filter(Boolean).join(", ");
+    return str(t);
+  })();
+
+  const commStats = useMemo(() => {
+    const buckets = {
+      phone: { total: 0, replied: 0 },
+      email: { total: 0, replied: 0 },
+      chat: { total: 0, replied: 0 },
+    };
+    for (const c of communications) {
+      const ch = str(pick(c, "channel")).toLowerCase();
+      const dir = str(pick(c, "direction")).toLowerCase();
+      const st = str(pick(c, "status", "current_status")).toLowerCase();
+      const replied = dir.includes("in") || /repl|answer|atbild/.test(st);
+      let key: keyof typeof buckets | null = null;
+      if (ch.includes("mail")) key = "email";
+      else if (ch.includes("phone") || ch.includes("call")) key = "phone";
+      else if (ch.includes("whats") || ch.includes("sms") || ch.includes("chat"))
+        key = "chat";
+      if (!key) continue;
+      buckets[key].total += 1;
+      if (replied) buckets[key].replied += 1;
+    }
+    return buckets;
+  }, [communications]);
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
@@ -279,10 +317,26 @@ function LeadProfilePage() {
                     <h1 className="text-base font-semibold truncate">
                       {leadTitle}
                     </h1>
-                    <StatusBadge status={str(pick(header, "status", "lead_status"))} />
+                    <StatusBadge status={leadStatus} />
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {leadSource}
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    {leadCountry && (
+                      <>
+                        <span className="font-medium text-foreground">
+                          {leadCountry}
+                        </span>
+                        <span>•</span>
+                      </>
+                    )}
+                    <span title="Zvani atbildēti / kopā">
+                      📞 {commStats.phone.replied}/{commStats.phone.total}
+                    </span>
+                    <span title="E-pasti atbildēti / kopā">
+                      ✉️ {commStats.email.replied}/{commStats.email.total}
+                    </span>
+                    <span title="WhatsApp / SMS atbildēti / kopā">
+                      💬 {commStats.chat.replied}/{commStats.chat.total}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -294,7 +348,7 @@ function LeadProfilePage() {
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wide">Atbildīgais</span>
+                    <span className="text-[10px] uppercase tracking-wide">PPV</span>
                     <span className="text-foreground">{ownerLabel}</span>
                   </div>
                 </div>
@@ -370,6 +424,16 @@ function LeadProfilePage() {
             </CardContent>
           </Card>
 
+          {/* Pamatdati */}
+          <Card className="shadow-sm">
+            <CardContent className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-4">
+              <Field label="Avots" value={fmt(leadSource)} />
+              <Field label="Reģistrēts" value={fmtDate(leadRegisteredAt)} />
+              <Field label="Statuss" value={<StatusBadge status={leadStatus} />} />
+              <Field label="PPV" value={ownerLabel} />
+            </CardContent>
+          </Card>
+
           {/* Two-column workspace */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* LEFT */}
@@ -391,7 +455,7 @@ function LeadProfilePage() {
                           <Field label="Telefons" value={fmt(primaryPhoneRaw)} />
                           <Field label="E.164" value={fmt(primaryPhoneE164)} />
                           <Field label="Komunikācijas statuss" value={fmt(pick(primaryContact, "communication_status"))} />
-                          <Field label="Lēmuma pieņēmējs" value={fmtBool(pick(primaryContact, "is_decision_maker"))} />
+                          <Field label="Tagi" value={fmt(leadTags)} />
                         </div>
                       </div>
                     )}
@@ -427,24 +491,6 @@ function LeadProfilePage() {
                         </table>
                       </div>
                     )}
-                  </div>
-                )}
-              </Panel>
-
-              {/* Importa konteksts */}
-              <Panel title="Importa konteksts">
-                {!legacyContext ? (
-                  <Empty />
-                ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Field label="Valsts" value={fmt(pick(legacyContext, "valsts"))} />
-                    <Field label="Tagi" value={fmt(pick(legacyContext, "tags"))} />
-                    <Field label="Automatizācija" value={fmt(pick(legacyContext, "automatizacija"))} />
-                    <Field label="Autom. datums" value={fmtDate(pick(legacyContext, "automatizacijas_datums"))} />
-                    <Field label="PPV vārds" value={fmt(pick(legacyContext, "ppv_vards"))} />
-                    <Field label="Avots detalizēts" value={fmt(pick(legacyContext, "avots_detalizets"))} />
-                    <Field label="Smartsheet created" value={fmtDate(pick(legacyContext, "smartsheet_created_at"))} />
-                    <Field label="Last SS change" value={fmtDate(pick(legacyContext, "last_smartsheet_change_at"))} />
                   </div>
                 )}
               </Panel>
@@ -657,7 +703,28 @@ function LeadProfilePage() {
 
                 <Panel title="Nākamās darbības" count={nextActions.length}>
                   {nextActions.length === 0 ? (
-                    <Empty />
+                    (() => {
+                      const autom =
+                        pick(rawData, "automatizacija") ??
+                        pick(legacyContext, "automatizacija");
+                      const automAt =
+                        pick(rawData, "automatizacijas_datums") ??
+                        pick(legacyContext, "automatizacijas_datums");
+                      if (!autom && !automAt) return <Empty />;
+                      return (
+                        <ul className="divide-y">
+                          <li className="flex items-center justify-between gap-2 py-2">
+                            <div className="min-w-0">
+                              <div className="text-sm truncate">{fmt(autom)}</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {fmtDate(automAt)} · automatizācija
+                              </div>
+                            </div>
+                            <StatusBadge status="planned" />
+                          </li>
+                        </ul>
+                      );
+                    })()
                   ) : (
                     <ul className="divide-y">
                       {nextActions.map((a, i) => (
