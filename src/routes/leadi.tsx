@@ -36,7 +36,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
-import { LeadDrawer } from "@/components/LeadDrawer";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
@@ -1173,12 +1172,11 @@ function LeadiPage() {
 
   const openLead = useCallback(
     (id: string) => {
-      setDrawerLeadId(id);
-      setDrawerOpen(true);
       const idx = visibleRows.findIndex((l) => l.lead_id === id);
       if (idx >= 0) setActiveIdx(idx);
+      navigate({ to: "/lead/$leadId", params: { leadId: id } });
     },
-    [visibleRows],
+    [visibleRows, navigate],
   );
 
   // Auto-next: after a workflow action completes inside the drawer,
@@ -1876,13 +1874,6 @@ function LeadiPage() {
         </div>
       )}
 
-      <LeadDrawer
-        leadId={drawerLeadId}
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        onPatch={patchLead}
-        onActionCompleted={handleActionCompleted}
-      />
     </TooltipProvider>
   );
 }
