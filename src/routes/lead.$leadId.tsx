@@ -304,11 +304,9 @@ function LeadProfilePage() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/leadi">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Atpakaļ uz sarakstu
-          </Link>
+        <Button variant="ghost" size="sm" onClick={goBackToList}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Atpakaļ uz sarakstu
         </Button>
         <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
       </div>
