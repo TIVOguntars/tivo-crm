@@ -720,16 +720,12 @@ function LeadiPage() {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
       .map((r) => {
-        const displayLeadId = s(r.lead_id) || s(r.id);
-        if (!displayLeadId) return null;
-        const id = crmLeadIdByKnownId.get(displayLeadId);
+        const id = s(r.lead_id) || s(r.id);
         if (!id) {
-          console.warn("[leadi] Missing canonical crm.leads.id", {
-            displayLeadId,
-            row: r,
-          });
+          console.warn("[leadi] Missing lead_id", { row: r });
           return null;
         }
+        const displayLeadId = id;
         const phone = s(
           r.phone_e164 || r.telefons_e164 || r.telefons_raw || r.phone_raw,
         );
