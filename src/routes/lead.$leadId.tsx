@@ -287,13 +287,19 @@ function LeadProfilePage() {
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
-    for (const c of communications) {
-      const v = pick(c, "created_at");
-      if (v) {
-        const t = new Date(str(v)).getTime();
-        if (!Number.isNaN(t)) candidates.push(t);
+    const pushFrom = (rows: Row[], ...keys: string[]) => {
+      for (const r of rows) {
+        const v = pick(r, ...keys);
+        if (v) {
+          const t = new Date(str(v)).getTime();
+          if (!Number.isNaN(t)) candidates.push(t);
+        }
       }
-    }
+    };
+    pushFrom(communications, "created_at", "occurred_at", "sent_at");
+    pushFrom(notes, "created_at", "updated_at");
+    pushFrom(tasks, "completed_at", "updated_at", "created_at");
+    pushFrom(nextActions, "completed_at", "updated_at", "created_at");
     const upd = pick(header, "updated_at");
     if (upd) {
       const t = new Date(str(upd)).getTime();
@@ -301,15 +307,40 @@ function LeadProfilePage() {
     }
     if (!candidates.length) return null;
     return new Date(Math.max(...candidates)).toISOString();
-  }, [communications, header]);
+  }, [communications, notes, tasks, nextActions, header]);
 
-  const timeline = useMemo(() => {
-    return [...communications].sort((a, b) => {
-      const ta = new Date(str(pick(a, "created_at"))).getTime() || 0;
-      const tb = new Date(str(pick(b, "created_at"))).getTime() || 0;
-      return tb - ta;
+  type TLItem = {
+    key: string;
+    kind: "comm" | "note";
+    ts: number;
+    raw: Row;
+  };
+  const timeline = useMemo<TLItem[]>(() => {
+    const items: TLItem[] = [];
+    communications.forEach((c, i) => {
+      const ts =
+        new Date(str(pick(c, "created_at", "occurred_at", "sent_at"))).getTime() || 0;
+      items.push({
+        key: `c:${str(pick(c, "id", "communication_id")) || i}`,
+        kind: "comm",
+        ts,
+        raw: c,
+      });
     });
-  }, [communications]);
+    notes.forEach((n, i) => {
+      const ts =
+        new Date(str(pick(n, "created_at", "updated_at"))).getTime() || 0;
+      items.push({
+        key: `n:${str(pick(n, "id", "note_id")) || i}`,
+        kind: "note",
+        ts,
+        raw: n,
+      });
+    });
+    return items.sort((a, b) => b.ts - a.ts);
+  }, [communications, notes]);
+
+  const [openItem, setOpenItem] = useState<TLItem | null>(null);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
