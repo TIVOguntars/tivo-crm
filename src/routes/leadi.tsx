@@ -18,8 +18,13 @@ import {
   X,
   Search,
   AlertTriangle,
-  Zap,
   Star,
+  Layers,
+  ArrowUpDown,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Eye,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +34,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Tooltip,
   TooltipContent,
@@ -42,43 +48,28 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { FiltersSearch } from "@/lib/filters";
 
-/* ----------------------- Saved views ----------------------- */
+/* ============================ URL search schema ============================ */
 
-const VIEWS = [
-  "all",
-  "mani",
-  "jauni",
-  "sodien",
-  "bez_kontakta",
-  "karstie",
-  "konflikti",
-  "atbildeja",
-  "gaida_atbildi",
-  "aktiva_sazina",
-  "nav_kontakta",
-] as const;
-type View = (typeof VIEWS)[number];
-
-const VIEW_LABELS: Record<View, string> = {
-  all: "Visi",
-  mani: "Mani",
-  jauni: "Jauni",
-  sodien: "Šodien",
-  bez_kontakta: "Bez kontakta",
-  karstie: "Karstie",
-  konflikti: "Konflikti",
-  atbildeja: "Atbildēja",
-  gaida_atbildi: "Gaida atbildi",
-  aktiva_sazina: "Aktīva saziņa",
-  nav_kontakta: "Nav kontakta",
-};
+const filterRuleSchema = z.object({
+  f: z.string(),
+  op: z.string(),
+  v: z.unknown().optional(),
+});
+const sortRuleSchema = z.object({
+  f: z.string(),
+  d: z.enum(["asc", "desc"]).default("desc"),
+});
 
 const leadiSearchSchema = z.object({
-  seg: fallback(z.enum(VIEWS), "all").default("all"),
-  status: fallback(z.array(z.string()), []).default([]),
+  view: fallback(z.string(), "all").default("all"),
   q: fallback(z.string().optional(), undefined),
+  flt: fallback(z.array(filterRuleSchema), []).default([]),
+  gby: fallback(z.array(z.string()).max(3), []).default([]),
+  sort: fallback(z.array(sortRuleSchema), []).default([]),
+  // legacy back-compat — read on first load only
+  seg: fallback(z.string().optional(), undefined),
+  status: fallback(z.array(z.string()), []).default([]),
   countries: fallback(z.array(z.string()), []).default([]),
   sources: fallback(z.array(z.string()), []).default([]),
   owners: fallback(z.array(z.string()), []).default([]),
@@ -86,12 +77,15 @@ const leadiSearchSchema = z.object({
   tags: fallback(z.array(z.string()), []).default([]),
 });
 
+type FilterRule = z.infer<typeof filterRuleSchema>;
+type SortRule = z.infer<typeof sortRuleSchema>;
+
 export const Route = createFileRoute("/leadi")({
   validateSearch: zodValidator(leadiSearchSchema),
   component: LeadiPage,
 });
 
-/* ----------------------- Types & helpers ----------------------- */
+/* ============================ Types & helpers ============================ */
 
 type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
@@ -107,9 +101,11 @@ interface Lead {
   source: string;
   status: string;
   owner: string;
+  owner_user_id: string;
   ppv: string;
+  ppv_user_id: string;
   next_action: string;
-  next_action_due: string | null;
+  next_action_due: string | null; // effective_due_at
   queue_bucket_label: string;
   last_activity: string | null;
   tags: string[];
@@ -162,56 +158,14 @@ function leadDisplayName(r: Row): string {
   }
   return "";
 }
-function initials(name: string): string {
-  if (!name) return "—";
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "—";
-}
 
 const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
-// Single shared grid template for header, queue separator and data rows.
-// Columns: selection | priority | ppv | lead | tags | status | owner | next_action | last_activity | actions
-// Tuned to fit within desktop viewport with no horizontal scroll.
 const LEADS_GRID =
   "grid grid-cols-[32px_92px_64px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_130px_140px_140px_124px]";
 
-function relativeTime(v: string | null): string {
-  const t = parseDate(v);
-  if (t == null) return "—";
-  const diff = Date.now() - t;
-  if (diff < 0) {
-    const ahead = -diff;
-    if (ahead < MS_HOUR) return `pēc ${Math.max(1, Math.round(ahead / MS_MIN))}m`;
-    if (ahead < MS_DAY) return `pēc ${Math.round(ahead / MS_HOUR)}h`;
-    return `pēc ${Math.round(ahead / MS_DAY)}d`;
-  }
-  if (diff < 5 * MS_MIN) return "tikko";
-  if (diff < MS_HOUR) return `pirms ${Math.round(diff / MS_MIN)}m`;
-  if (diff < 6 * MS_HOUR) return `pirms ${Math.round(diff / MS_HOUR)}h`;
-  const now = new Date();
-  const then = new Date(t);
-  const sameDay =
-    now.getFullYear() === then.getFullYear() &&
-    now.getMonth() === then.getMonth() &&
-    now.getDate() === then.getDate();
-  if (sameDay) return "šodien";
-  const yest = new Date(now);
-  yest.setDate(now.getDate() - 1);
-  const isYest =
-    yest.getFullYear() === then.getFullYear() &&
-    yest.getMonth() === then.getMonth() &&
-    yest.getDate() === then.getDate();
-  if (isYest) return "vakar";
-  const days = Math.round(diff / MS_DAY);
-  if (days < 30) return `${days}d`;
-  if (days < 365) return `${Math.round(days / 30)}m`;
-  return `${Math.round(days / 365)}g`;
-}
-
-/** Operational date format: DD.MM.YYYY (no time). */
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
@@ -225,50 +179,6 @@ function fmtDate(v: string | null): string {
     .replace(/\//g, ".");
 }
 
-/** Operational date+time when SLA-critical or manually scheduled. */
-function fmtDateTime(v: string | null): string {
-  const t = parseDate(v);
-  if (t == null) return "—";
-  const parts = new Intl.DateTimeFormat("lv-LV", {
-    timeZone: "Europe/Riga",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date(t));
-  const get = (type: string) =>
-    parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("day")}.${get("month")}.${get("year")} ${get("hour")}:${get("minute")}`;
-}
-
-/** Returns true and logs a warning when a date is meaningfully in the future. */
-function isFutureDate(v: string | null, label: string, leadId?: string): boolean {
-  const t = parseDate(v);
-  if (t == null) return false;
-  // 5 minute tolerance for clock skew
-  if (t > Date.now() + 5 * 60_000) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[leadi] Date in future for ${label}${leadId ? ` (lead ${leadId})` : ""}: ${v}`,
-    );
-    return true;
-  }
-  return false;
-}
-
-function isSameDay(t: number, now = Date.now()): boolean {
-  const a = new Date(t);
-  const b = new Date(now);
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-/** Latvian relative time: "pirms 5 min", "pirms 3 h", "pirms 2 dienām", "pirms 3 nedēļām", "pirms 4 mēnešiem", "pirms 2 gadiem". */
 function fmtRelative(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "";
@@ -289,14 +199,393 @@ function fmtRelative(v: string | null): string {
   return `pirms ${y} ${y === 1 ? "gada" : "gadiem"}`;
 }
 
-/* ----------------------- Status badge ----------------------- */
+function isFutureDate(v: string | null): boolean {
+  const t = parseDate(v);
+  if (t == null) return false;
+  return t > Date.now() + 5 * 60_000;
+}
 
+/* ----- Europe/Riga calendar helpers (next_action_date) ----- */
 
-/** PRIORITĀTE column — stars + muted score. */
+function rigaYmd(t: number): { y: number; m: number; d: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Riga",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(t));
+  const get = (k: string) => Number(parts.find((p) => p.type === k)?.value);
+  return { y: get("year"), m: get("month"), d: get("day") };
+}
+function isRigaSameDay(a: number, b: number): boolean {
+  const x = rigaYmd(a);
+  const y = rigaYmd(b);
+  return x.y === y.y && x.m === y.m && x.d === y.d;
+}
+/** Bucket for next-action grouping. */
+function nextActionBucket(due: string | null): string {
+  const t = parseDate(due);
+  if (t == null) return "Nav darbības";
+  const now = Date.now();
+  if (t < now && !isRigaSameDay(t, now)) return "Kavēts";
+  if (isRigaSameDay(t, now)) return "Šodien";
+  if (isRigaSameDay(t, now + MS_DAY)) return "Rīt";
+  if (t <= now + 7 * MS_DAY) return "Nākamās 7 dienas";
+  return "Vēlāk";
+}
+const NEXT_ACTION_BUCKET_ORDER = [
+  "Kavēts",
+  "Šodien",
+  "Rīt",
+  "Nākamās 7 dienas",
+  "Vēlāk",
+  "Nav darbības",
+];
+
+function priorityBucket(score: number): string {
+  if (score >= 80) return "Karsts (80–100)";
+  if (score >= 60) return "Augsta (60–79)";
+  if (score >= 40) return "Vidēja (40–59)";
+  if (score >= 20) return "Zema (20–39)";
+  if (score >= 1) return "Auksts (1–19)";
+  return "Nav (0)";
+}
+const PRIORITY_BUCKET_ORDER = [
+  "Karsts (80–100)",
+  "Augsta (60–79)",
+  "Vidēja (40–59)",
+  "Zema (20–39)",
+  "Auksts (1–19)",
+  "Nav (0)",
+];
+
+/* ============================ Field catalog ============================ */
+
+type FieldType =
+  | "enum"
+  | "tags"
+  | "number"
+  | "date"
+  | "next_action_date"
+  | "string";
+
+type FieldDef = {
+  key: string;
+  label: string;
+  type: FieldType;
+  get: (l: Lead) => unknown;
+};
+
+const FIELDS: FieldDef[] = [
+  { key: "status", label: "Statuss", type: "enum", get: (l) => l.status },
+  { key: "owner", label: "Atbildīgais", type: "enum", get: (l) => l.owner },
+  { key: "ppv", label: "PPV", type: "enum", get: (l) => l.ppv },
+  { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
+  { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
+  {
+    key: "priority_score",
+    label: "Prioritātes punkti",
+    type: "number",
+    get: (l) => l.priority_score,
+  },
+  {
+    key: "communication_state",
+    label: "Komunikācijas stāvoklis",
+    type: "enum",
+    get: (l) => l.communication_state,
+  },
+  {
+    key: "action_label",
+    label: "Nākamā darbība",
+    type: "string",
+    get: (l) => l.next_action,
+  },
+  {
+    key: "last_communication_at",
+    label: "Pēdējā komunikācija",
+    type: "date",
+    get: (l) => l.last_communication_at,
+  },
+  {
+    key: "created_at",
+    label: "Izveidots",
+    type: "date",
+    get: (l) => l.created_at,
+  },
+  {
+    key: "next_action_date",
+    label: "Nākamās darbības datums",
+    type: "next_action_date",
+    get: (l) => l.next_action_due,
+  },
+];
+const FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries(
+  FIELDS.map((f) => [f.key, f]),
+);
+
+const OPERATORS_BY_TYPE: Record<FieldType, string[]> = {
+  enum: ["is", "is_not", "is_any_of", "is_none_of", "is_empty", "is_not_empty"],
+  string: ["is", "is_not", "is_empty", "is_not_empty"],
+  tags: ["is_any_of", "is_none_of", "is_empty", "is_not_empty"],
+  number: ["is", "is_not", "gt", "lt", "is_empty", "is_not_empty"],
+  date: ["last_x_days", "before_x_days", "is_empty", "is_not_empty"],
+  next_action_date: [
+    "is_empty",
+    "is_not_empty",
+    "today",
+    "overdue",
+    "next_x_days",
+    "before_date",
+    "after_date",
+    "between_dates",
+  ],
+};
+
+const OP_LABELS: Record<string, string> = {
+  is: "ir",
+  is_not: "nav",
+  is_any_of: "ir viens no",
+  is_none_of: "nav neviens no",
+  is_empty: "ir tukšs",
+  is_not_empty: "nav tukšs",
+  gt: "lielāks par",
+  lt: "mazāks par",
+  last_x_days: "pēdējās X dienas",
+  before_x_days: "pirms X dienām",
+  today: "šodien",
+  overdue: "kavēts",
+  next_x_days: "nākamās X dienas",
+  before_date: "pirms datuma",
+  after_date: "pēc datuma",
+  between_dates: "starp datumiem",
+};
+
+function evalRule(l: Lead, r: FilterRule): boolean {
+  const def = FIELD_BY_KEY[r.f];
+  if (!def) return true;
+  const val = def.get(l);
+  switch (r.op) {
+    case "is":
+      return s(val).toLowerCase() === s(r.v).toLowerCase();
+    case "is_not":
+      return s(val).toLowerCase() !== s(r.v).toLowerCase();
+    case "is_any_of": {
+      const arr = (Array.isArray(r.v) ? r.v : []).map((x) =>
+        String(x).toLowerCase(),
+      );
+      if (def.type === "tags") {
+        const tags = (val as string[]).map((t) => t.toLowerCase());
+        return arr.some((x) => tags.includes(x));
+      }
+      return arr.includes(s(val).toLowerCase());
+    }
+    case "is_none_of": {
+      const arr = (Array.isArray(r.v) ? r.v : []).map((x) =>
+        String(x).toLowerCase(),
+      );
+      if (def.type === "tags") {
+        const tags = (val as string[]).map((t) => t.toLowerCase());
+        return !arr.some((x) => tags.includes(x));
+      }
+      return !arr.includes(s(val).toLowerCase());
+    }
+    case "is_empty":
+      if (def.type === "tags") return (val as string[]).length === 0;
+      if (def.type === "date" || def.type === "next_action_date")
+        return parseDate(val) == null;
+      if (def.type === "number") return val == null || val === 0;
+      return s(val) === "";
+    case "is_not_empty":
+      if (def.type === "tags") return (val as string[]).length > 0;
+      if (def.type === "date" || def.type === "next_action_date")
+        return parseDate(val) != null;
+      if (def.type === "number") return val != null && val !== 0;
+      return s(val) !== "";
+    case "gt":
+      return Number(val) > Number(r.v);
+    case "lt":
+      return Number(val) < Number(r.v);
+    case "last_x_days": {
+      const t = parseDate(val);
+      if (t == null) return false;
+      const days = Number(r.v) || 0;
+      return t >= Date.now() - days * MS_DAY && t <= Date.now();
+    }
+    case "before_x_days": {
+      const t = parseDate(val);
+      if (t == null) return false;
+      const days = Number(r.v) || 0;
+      return t < Date.now() - days * MS_DAY;
+    }
+    case "today": {
+      const t = parseDate(val);
+      return t != null && isRigaSameDay(t, Date.now());
+    }
+    case "overdue": {
+      const t = parseDate(val);
+      return t != null && t < Date.now() && !isRigaSameDay(t, Date.now());
+    }
+    case "next_x_days": {
+      const t = parseDate(val);
+      if (t == null) return false;
+      const days = Number(r.v) || 0;
+      return t >= Date.now() && t <= Date.now() + days * MS_DAY;
+    }
+    case "before_date": {
+      const t = parseDate(val);
+      const ref = parseDate(r.v);
+      return t != null && ref != null && t < ref;
+    }
+    case "after_date": {
+      const t = parseDate(val);
+      const ref = parseDate(r.v);
+      return t != null && ref != null && t > ref;
+    }
+    case "between_dates": {
+      const t = parseDate(val);
+      const v = (r.v ?? {}) as { from?: string; to?: string };
+      const a = parseDate(v.from);
+      const b = parseDate(v.to);
+      return t != null && a != null && b != null && t >= a && t <= b;
+    }
+    default:
+      return true;
+  }
+}
+
+/* ============================ Saved views ============================ */
+
+type SavedView = {
+  key: string;
+  label: string;
+  predicate?: (l: Lead) => boolean;
+};
+
+const SAVED_VIEWS: SavedView[] = [
+  { key: "all", label: "Visi leadi" },
+  { key: "mani", label: "Mani leadi" }, // no auth ctx — pass-through
+  {
+    key: "karstie",
+    label: "Karstie",
+    predicate: (l) =>
+      l.is_hot ||
+      l.priority_score >= 60 ||
+      l.tags.some((t) => /^(hot|karst)/i.test(t)),
+  },
+  {
+    key: "gaida_atbildi",
+    label: "Gaidu atbildi",
+    predicate: (l) =>
+      l.communication_state === "waiting" ||
+      /gaida/i.test(l.communication_label),
+  },
+  {
+    key: "bez_kontakta",
+    label: "Bez kontakta",
+    predicate: (l) =>
+      l.communication_state === "no_contact" ||
+      l.communication_label === "Nav kontakta",
+  },
+  {
+    key: "atceltie",
+    label: "Atceltie",
+    predicate: (l) => /atcelt/i.test(l.status),
+  },
+];
+const SAVED_VIEW_BY_KEY: Record<string, SavedView> = Object.fromEntries(
+  SAVED_VIEWS.map((v) => [v.key, v]),
+);
+
+/* ============================ Group fields ============================ */
+
+type GroupFieldDef = {
+  key: string;
+  label: string;
+  get: (l: Lead) => string;
+  order?: string[];
+};
+const GROUP_FIELDS: GroupFieldDef[] = [
+  { key: "status", label: "Statuss", get: (l) => l.status || "Bez statusa" },
+  {
+    key: "owner",
+    label: "Atbildīgais",
+    get: (l) => l.owner || "Nepiešķirts",
+  },
+  { key: "ppv", label: "PPV", get: (l) => l.ppv || "Nav PPV" },
+  {
+    key: "country",
+    label: "Valsts",
+    get: (l) => l.country || "Nav norādīts",
+  },
+  {
+    key: "priority_bucket",
+    label: "Prioritātes grupa",
+    get: (l) => priorityBucket(l.priority_score),
+    order: PRIORITY_BUCKET_ORDER,
+  },
+  {
+    key: "next_action_bucket",
+    label: "Nākamās darbības datums",
+    get: (l) => nextActionBucket(l.next_action_due),
+    order: NEXT_ACTION_BUCKET_ORDER,
+  },
+];
+const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
+  GROUP_FIELDS.map((g) => [g.key, g]),
+);
+
+/* ============================ Sort fields ============================ */
+
+const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
+  [
+    { key: "priority_score", label: "Prioritāte", get: (l) => l.priority_score },
+    {
+      key: "last_communication_at",
+      label: "Pēdējā komunikācija",
+      get: (l) => parseDate(l.last_communication_at) ?? 0,
+    },
+    {
+      key: "created_at",
+      label: "Izveidots",
+      get: (l) => parseDate(l.created_at) ?? 0,
+    },
+    {
+      key: "effective_due_at",
+      label: "Nākamās darbības datums",
+      get: (l) => parseDate(l.next_action_due) ?? Number.MAX_SAFE_INTEGER,
+    },
+    { key: "status", label: "Statuss", get: (l) => l.status },
+    { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
+    { key: "ppv", label: "PPV", get: (l) => l.ppv },
+    { key: "country", label: "Valsts", get: (l) => l.country },
+  ];
+const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
+  Object.fromEntries(SORT_FIELDS.map((f) => [f.key, f]));
+
+const DEFAULT_SORT: SortRule[] = [
+  { f: "priority_score", d: "desc" },
+  { f: "last_communication_at", d: "desc" },
+  { f: "created_at", d: "desc" },
+];
+
+function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
+  const rules = sort.length > 0 ? sort : DEFAULT_SORT;
+  for (const r of rules) {
+    const def = SORT_BY_KEY[r.f];
+    if (!def) continue;
+    const av = def.get(a);
+    const bv = def.get(b);
+    let cmp = 0;
+    if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+    else cmp = String(av ?? "").localeCompare(String(bv ?? ""), "lv");
+    if (cmp !== 0) return r.d === "desc" ? -cmp : cmp;
+  }
+  return 0;
+}
+
+/* ============================ Components: Priority/Comm ============================ */
+
 function PriorityCell({ score }: { score: number }) {
-  // Star buckets per spec:
-  //   0     → 0 stars (terminal status, score forced to 0)
-  //   1–19  → 1, 20–39 → 2, 40–59 → 3, 60–79 → 4, 80–100 → 5
   const stars =
     score <= 0 ? 0 : Math.max(1, Math.min(5, Math.floor(score / 20) + 1));
   return (
@@ -377,144 +666,98 @@ function CommStats({
   );
 }
 
-/* ----------------------- Filter chip popover ----------------------- */
-
-function FilterChip({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  value: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const [q, setQ] = useState("");
-  const filtered = useMemo(
-    () =>
-      options.filter((o) =>
-        q ? o.toLowerCase().includes(q.toLowerCase()) : true,
-      ),
-    [options, q],
-  );
-  const toggle = (opt: string) => {
-    if (value.includes(opt)) onChange(value.filter((v) => v !== opt));
-    else onChange([...value, opt]);
-  };
-  const active = value.length > 0;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
-            active
-              ? "border-primary/40 bg-primary/10 text-foreground"
-              : "border-border bg-background text-foreground hover:bg-muted/50",
-          )}
-        >
-          <span className="font-medium">{label}</span>
-          {active && (
-            <span className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              {value.length}
-            </span>
-          )}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
-        <div className="border-b border-border p-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={`Meklēt: ${label.toLowerCase()}`}
-              className="h-7 w-full rounded border border-input bg-background pl-7 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-        </div>
-        <div className="max-h-64 overflow-y-auto py-1">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-              Nav rezultātu
-            </div>
-          ) : (
-            filtered.map((opt) => (
-              <label
-                key={opt}
-                className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-muted/50"
-              >
-                <Checkbox
-                  checked={value.includes(opt)}
-                  onCheckedChange={() => toggle(opt)}
-                  className="h-3.5 w-3.5"
-                />
-                <span className="truncate text-foreground">{opt}</span>
-              </label>
-            ))
-          )}
-        </div>
-        {active && (
-          <div className="border-t border-border p-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-full justify-center text-xs"
-              onClick={() => onChange([])}
-            >
-              Notīrīt
-            </Button>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* ----------------------- Page ----------------------- */
+/* ============================ Page ============================ */
 
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
 
-  const seg: View = (search.seg as View) ?? "all";
-  const q = (search.q ?? "").trim().toLowerCase();
-  const fStatus = (search.status ?? []) as string[];
-  const fOwners = (search.owners ?? []) as string[];
-  const fPpvs = (search.ppvs ?? []) as string[];
-  const fCountries = (search.countries ?? []) as string[];
-  const fTags = (search.tags ?? []) as string[];
+  const setSearch = useCallback(
+    (patch: Record<string, unknown>) => {
+      navigate({
+        to: "/leadi",
+        search: ((prev: Record<string, unknown>) => ({
+          ...prev,
+          ...patch,
+        })) as never,
+        replace: true,
+      });
+    },
+    [navigate],
+  );
 
-  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
+  /* ---- legacy URL migration: seg/status/countries/owners/ppvs/tags → flt + view ---- */
+  const migrationDoneRef = useRef(false);
+  useEffect(() => {
+    if (migrationDoneRef.current) return;
+    migrationDoneRef.current = true;
+    const legacyHas =
+      !!search.seg ||
+      (search.status?.length ?? 0) > 0 ||
+      (search.countries?.length ?? 0) > 0 ||
+      (search.owners?.length ?? 0) > 0 ||
+      (search.ppvs?.length ?? 0) > 0 ||
+      (search.tags?.length ?? 0) > 0;
+    if (!legacyHas) return;
+    const segMap: Record<string, string> = {
+      bez_kontakta: "bez_kontakta",
+      karstie: "karstie",
+      gaida_atbildi: "gaida_atbildi",
+      atceltie: "atceltie",
+      mani: "mani",
+    };
+    const view = search.seg ? segMap[search.seg] ?? "all" : search.view;
+    const flt: FilterRule[] = [...(search.flt ?? [])];
+    if (search.status?.length)
+      flt.push({ f: "status", op: "is_any_of", v: search.status });
+    if (search.countries?.length)
+      flt.push({ f: "country", op: "is_any_of", v: search.countries });
+    if (search.owners?.length)
+      flt.push({ f: "owner", op: "is_any_of", v: search.owners });
+    if (search.ppvs?.length)
+      flt.push({ f: "ppv", op: "is_any_of", v: search.ppvs });
+    if (search.tags?.length)
+      flt.push({ f: "tags", op: "is_any_of", v: search.tags });
+    setSearch({
+      view,
+      flt,
+      seg: undefined,
+      status: [],
+      countries: [],
+      sources: [],
+      owners: [],
+      ppvs: [],
+      tags: [],
+    });
+  }, [search, setSearch]);
+
+  const view = search.view ?? "all";
+  const q = (search.q ?? "").trim().toLowerCase();
+  const flt: FilterRule[] = (search.flt ?? []) as FilterRule[];
+  const gby: string[] = (search.gby ?? []).length > 0 ? search.gby : ["status"];
+  const sort: SortRule[] = (search.sort ?? []) as SortRule[];
+
+  const [drawerLeadId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Optimistic per-row patches keyed by lead_id; applied after server data
-  // resolves, so drawer mutations reflect immediately without table reload.
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
-  // Persisted queue collapse state
-  const [collapsedQueues, setCollapsedQueues] = useState<Record<string, boolean>>(
-    () => {
-      if (typeof window === "undefined") return {};
+  /* ---- collapsed group state ---- */
+  const collapseStorageKey = "leadi:collapsed:v1";
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(collapseStorageKey);
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const toggleCollapsed = useCallback((path: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [path]: !prev[path] };
       try {
-        const raw = window.localStorage.getItem("leadi.collapsedQueues");
-        return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-      } catch {
-        return {};
-      }
-    },
-  );
-  const toggleQueue = useCallback((id: string) => {
-    setCollapsedQueues((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      try {
-        window.localStorage.setItem(
-          "leadi.collapsedQueues",
-          JSON.stringify(next),
-        );
+        window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
       } catch {
         /* ignore */
       }
@@ -522,27 +765,7 @@ function LeadiPage() {
     });
   }, []);
 
-  // Auto-next mode (default on for unread queue)
-  const [autoNext, setAutoNext] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const v = window.localStorage.getItem("leadi.autoNext");
-      return v == null ? true : v === "1";
-    } catch {
-      return true;
-    }
-  });
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("leadi.autoNext", autoNext ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [autoNext]);
-
-  // Keyboard navigation cursor (index into the visible flat list)
-  const [activeIdx, setActiveIdx] = useState<number>(-1);
-
+  /* ---- data ---- */
   const overviewQuery = useMemo(
     () =>
       ["select=*", "order=created_at.desc.nullslast", `limit=${PAGE_SIZE}`].join(
@@ -550,11 +773,7 @@ function LeadiPage() {
       ),
     [],
   );
-
-  const overview = useCrmView(
-    "leads_list_display",
-    overviewQuery,
-  );
+  const overview = useCrmView("leads_list_display", overviewQuery);
   const overviewLeadIds = useMemo(() => {
     const rows = (overview.data?.rows ?? []) as Row[];
     return Array.from(
@@ -570,28 +789,9 @@ function LeadiPage() {
       .join(",");
     return `select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&id=in.(${ids})&limit=${overviewLeadIds.length}`;
   }, [overviewLeadIds]);
-  const leadIdentity = useCrmView(
-    "leads",
-    leadIdentityQuery,
-  );
+  const leadIdentity = useCrmView("leads", leadIdentityQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
-  const crmLeadIdByKnownId = useMemo(() => {
-    const map = new Map<string, string>();
-    const rows = (leadIdentity.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const crmLeadId = s(r.id);
-      if (!crmLeadId) continue;
-      map.set(crmLeadId, crmLeadId);
-      const externalId = s(r.external_id);
-      if (externalId) map.set(externalId, crmLeadId);
-    }
-    return map;
-  }, [leadIdentity.data]);
-
-  // Authoritative crm.leads facts keyed by canonical crm.leads.id.
-  // The enriched queue view (next_action_queue_display_enriched) caches a
-  // stale lead_status_label and must NEVER override crm.leads.status here.
   type LeadFacts = {
     status: string;
     owner_user_id: string;
@@ -616,8 +816,6 @@ function LeadiPage() {
     return map;
   }, [leadIdentity.data]);
 
-  // Prioritātes reitings — vienīgais pareizais avots.
-  // analytics.lead_rating_calculated NETIEK lietots (vecs algoritms).
   const reitingsView = useAnalyticsView(
     "lead_reitings_preview",
     "select=lead_id,reitings&limit=20000",
@@ -634,13 +832,8 @@ function LeadiPage() {
     return map;
   }, [reitingsView.data]);
 
-  // Per-lead communication counters (📞 / ✉️ / 💬 outbound / inbound)
-  // are part of crm.leads_list_display rows directly.
   const commCounts = useMemo(() => {
-    const map = new Map<
-      string,
-      { call: [number, number]; email: [number, number]; chat: [number, number] }
-    >();
+    const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
     for (const r of rows) {
       const lid = s(r.lead_id) || s(r.id);
@@ -672,11 +865,7 @@ function LeadiPage() {
     return rows
       .map((r) => {
         const id = s(r.lead_id) || s(r.id);
-        if (!id) {
-          console.warn("[leadi] Missing lead_id", { row: r });
-          return null;
-        }
-        const displayLeadId = id;
+        if (!id) return null;
         const phone = s(
           r.phone_e164 || r.telefons_e164 || r.telefons_raw || r.phone_raw,
         );
@@ -697,15 +886,11 @@ function LeadiPage() {
         const reply_count = Number(r.reply_count ?? 0) || 0;
         const communication_state = s(r.communication_state).toLowerCase();
         const tagsArr = asTags(r.tags);
-        // Status MUST come from crm.leads.status — the enriched queue view
-        // caches a stale lead_status_label that contradicts the drawer.
         const facts = crmLeadFactsById.get(id);
         const statusStr =
           s(facts?.status) || s(r.lead_status_label || r.status);
-        // Prioritāte = analytics.lead_reitings_preview.reitings.
-        // Terminālie statusi vienmēr 0.
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const reitings = reitingsByLead.get(id) ?? reitingsByLead.get(displayLeadId);
+        const reitings = reitingsByLead.get(id);
         const priorityScore = isTerminal
           ? 0
           : Number.isFinite(reitings)
@@ -713,7 +898,7 @@ function LeadiPage() {
             : 0;
         return {
           lead_id: id,
-          display_lead_id: displayLeadId,
+          display_lead_id: id,
           name: leadDisplayName(r),
           phone,
           email,
@@ -722,7 +907,9 @@ function LeadiPage() {
           source: s(r.source),
           status: statusStr,
           owner: s(r.action_owner_label),
+          owner_user_id: s(facts?.owner_user_id),
           ppv: s(r.ppv_name || r.ppv_vards),
+          ppv_user_id: s(facts?.ppv_user_id),
           next_action,
           next_action_due,
           queue_bucket_label,
@@ -746,9 +933,8 @@ function LeadiPage() {
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead, crmLeadIdByKnownId, crmLeadFactsById]);
+  }, [overview.data, reitingsByLead, crmLeadFactsById]);
 
-  // Apply optimistic patches on top of server data
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
     return leads.map((l) =>
@@ -765,339 +951,116 @@ function LeadiPage() {
         a.localeCompare(b, "lv"),
       );
     return {
-      statuses: dedupe(
+      status: dedupe(
         fromArr(fo?.statuses).length
           ? fromArr(fo?.statuses)
           : leadsPatched.map((l) => l.status),
       ),
-      countries: dedupe(
+      country: dedupe(
         fromArr(fo?.countries).length
           ? fromArr(fo?.countries)
           : leadsPatched.map((l) => l.country),
       ),
-      owners: dedupe(
+      owner: dedupe(
         fromArr(fo?.owners).length
           ? fromArr(fo?.owners)
           : leadsPatched.map((l) => l.owner),
       ),
-      ppvs: dedupe(
-        fromArr(fo?.ppvs).length ? fromArr(fo?.ppvs) : leads.map((l) => l.ppv),
+      ppv: dedupe(
+        fromArr(fo?.ppvs).length
+          ? fromArr(fo?.ppvs)
+          : leadsPatched.map((l) => l.ppv),
       ),
       tags: dedupe(leadsPatched.flatMap((l) => l.tags)),
-    };
-  }, [filterOptions.data, leads, leadsPatched]);
+      communication_state: dedupe(
+        leadsPatched.map((l) => l.communication_state),
+      ),
+      action_label: dedupe(leadsPatched.map((l) => l.next_action)),
+    } as Record<string, string[]>;
+  }, [filterOptions.data, leadsPatched]);
 
+  /* ---- filter pipeline: saved view + advanced rules + search ---- */
   const filtered = useMemo(() => {
-    const tagsLower = fTags.map((t) => t.toLowerCase());
+    const sv = SAVED_VIEW_BY_KEY[view];
+    const pred = sv?.predicate;
     return leadsPatched.filter((l) => {
-      if (fStatus.length && !fStatus.includes(l.status)) return false;
-      if (fOwners.length && !fOwners.includes(l.owner)) return false;
-      if (fPpvs.length && !fPpvs.includes(l.ppv)) return false;
-      if (fCountries.length && !fCountries.includes(l.country)) return false;
-      if (tagsLower.length) {
-        const lower = l.tags.map((t) => t.toLowerCase());
-        if (!tagsLower.every((t) => lower.includes(t))) return false;
-      }
-      // segments
-      switch (seg) {
-        case "all":
-          break;
-        case "mani":
-          // No identity context — treat as no filter rather than fake data
-          break;
-        case "jauni":
-          if (!/jauns/i.test(l.status)) return false;
-          break;
-        case "sodien": {
-          const t = parseDate(l.created_at);
-          if (t == null || !isSameDay(t)) return false;
-          break;
-        }
-        case "bez_kontakta":
-          if (parseDate(l.last_activity) != null) return false;
-          break;
-        case "karstie":
-          if (
-            !l.tags.some((t) => /^(hot|karst)/i.test(t)) &&
-            !/karst/i.test(l.status)
-          )
-            return false;
-          break;
-        case "konflikti":
-          if (
-            !l.tags.some((t) => /konflikt/i.test(t)) &&
-            !/konflikt/i.test(l.status)
-          )
-            return false;
-          break;
-        case "atbildeja":
-          if (!l.has_unread_reply) return false;
-          break;
-        case "gaida_atbildi":
-          if (l.communication_state !== "waiting") return false;
-          break;
-        case "aktiva_sazina":
-          if (l.communication_state !== "active") return false;
-          break;
-        case "nav_kontakta":
-          if (l.communication_state !== "no_contact") return false;
-          break;
-      }
+      if (pred && !pred(l)) return false;
+      for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.email} ${l.phone} ${l.next_action}`.toLowerCase();
+          `${l.name} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [leadsPatched, fStatus, fOwners, fPpvs, fCountries, fTags, seg, q]);
+  }, [leadsPatched, view, flt, q]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
-    copy.sort((a, b) => {
-      // 1. unread reply first
-      if (a.has_unread_reply !== b.has_unread_reply)
-        return a.has_unread_reply ? -1 : 1;
-      // 2. overdue effective_due_at
-      const now = Date.now();
-      const aDue = parseDate(a.next_action_due);
-      const bDue = parseDate(b.next_action_due);
-      const aOver = aDue != null && aDue < now;
-      const bOver = bDue != null && bDue < now;
-      if (aOver !== bOver) return aOver ? -1 : 1;
-      if (aOver && bOver) return (aDue ?? 0) - (bDue ?? 0);
-      // 3. hot / high priority
-      if (a.is_hot !== b.is_hot) return a.is_hot ? -1 : 1;
-      if (a.priority_score !== b.priority_score)
-        return b.priority_score - a.priority_score;
-      // 4. waiting response
-      const aWait = a.communication_state === "waiting";
-      const bWait = b.communication_state === "waiting";
-      if (aWait !== bWait) return aWait ? -1 : 1;
-      // future due
-      if (aDue !== bDue) {
-        if (aDue == null) return 1;
-        if (bDue == null) return -1;
-        return aDue - bDue;
-      }
-      // 5. newest activity
-      const aL =
-        parseDate(a.last_communication_at) ?? parseDate(a.last_activity) ?? 0;
-      const bL =
-        parseDate(b.last_communication_at) ?? parseDate(b.last_activity) ?? 0;
-      return bL - aL;
-    });
+    copy.sort((a, b) => compareLeads(a, b, sort));
     return copy;
-  }, [filtered]);
+  }, [filtered, sort]);
 
-  /* ----------------------- Queue grouping ----------------------- */
-  type QueueId =
-    | "unread"
-    | "overdue"
-    | "waiting"
-    | "active"
-    | "no_contact"
-    | "other";
-  const QUEUE_DEFS: {
-    id: QueueId;
+  /* ---- group tree ---- */
+  type GroupNode = {
+    key: string;
     label: string;
-    accent: string;
-    dot: string;
-    defaultCollapsed: boolean;
-  }[] = [
-    {
-      id: "unread",
-      label: "Nepieciešama reakcija",
-      accent: "border-l-blue-500/70",
-      dot: "bg-blue-500",
-      defaultCollapsed: false,
-    },
-    {
-      id: "overdue",
-      label: "Kavēti",
-      accent: "border-l-rose-500/70",
-      dot: "bg-rose-500",
-      defaultCollapsed: false,
-    },
-    {
-      id: "waiting",
-      label: "Gaidām klientu",
-      accent: "border-l-amber-500/70",
-      dot: "bg-amber-500",
-      defaultCollapsed: false,
-    },
-    {
-      id: "active",
-      label: "Aktīvi",
-      accent: "border-l-emerald-500/60",
-      dot: "bg-emerald-500",
-      defaultCollapsed: true,
-    },
-    {
-      id: "no_contact",
-      label: "Bez kontakta",
-      accent: "border-l-muted-foreground/40",
-      dot: "bg-muted-foreground/60",
-      defaultCollapsed: true,
-    },
-    {
-      id: "other",
-      label: "Citi",
-      accent: "border-l-border",
-      dot: "bg-muted-foreground/40",
-      defaultCollapsed: true,
-    },
-  ];
-
-  const queues = useMemo(() => {
-    const buckets: Record<QueueId, Lead[]> = {
-      unread: [],
-      overdue: [],
-      waiting: [],
-      active: [],
-      no_contact: [],
-      other: [],
-    };
-    const now = Date.now();
-    for (const l of sorted) {
-      if (l.has_unread_reply) {
-        buckets.unread.push(l);
-        continue;
-      }
-      const dueT = parseDate(l.next_action_due);
-      if (dueT != null && dueT < now) {
-        buckets.overdue.push(l);
-        continue;
-      }
-      if (l.communication_state === "waiting") {
-        buckets.waiting.push(l);
-        continue;
-      }
-      if (l.communication_state === "active") {
-        buckets.active.push(l);
-        continue;
-      }
-      if (l.communication_state === "no_contact") {
-        buckets.no_contact.push(l);
-        continue;
-      }
-      buckets.other.push(l);
-    }
-    return buckets;
-  }, [sorted]);
-
-  // Per-queue operational metrics
-  type QueueMetrics = {
-    count: number;
-    breach: number;
-    avgWaitMin: number;
+    path: string;
+    depth: number;
+    rows: Lead[];
+    children?: GroupNode[];
   };
-  const queueMetrics = useMemo<Record<string, QueueMetrics>>(() => {
-    const now = Date.now();
-    const out: Record<string, QueueMetrics> = {};
-    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
-      const items = queues[qid];
-      let breach = 0;
-      let waitSum = 0;
-      let waitN = 0;
-      for (const l of items) {
-        // SLA reference: unread → time since last reply; overdue → time past due;
-        // waiting → since last outbound; others → since last activity.
-        let waitMs = 0;
-        if (qid === "unread") {
-          const t =
-            parseDate(l.last_reply_at) ??
-            parseDate(l.last_inbound_at) ??
-            parseDate(l.last_communication_at) ??
-            parseDate(l.created_at);
-          if (t != null) waitMs = Math.max(0, now - t);
-          if (waitMs > 4 * MS_HOUR) breach += 1;
-        } else if (qid === "overdue") {
-          const t = parseDate(l.next_action_due);
-          if (t != null) waitMs = Math.max(0, now - t);
-          if (waitMs > 7 * MS_DAY) breach += 1;
-        } else if (qid === "waiting") {
-          const t =
-            parseDate(l.last_outbound_at) ??
-            parseDate(l.last_communication_at);
-          if (t != null) waitMs = Math.max(0, now - t);
-          if (waitMs > 3 * MS_DAY) breach += 1;
-        } else {
-          const t =
-            parseDate(l.last_communication_at) ??
-            parseDate(l.last_activity) ??
-            parseDate(l.created_at);
-          if (t != null) waitMs = Math.max(0, now - t);
-        }
-        if (waitMs > 0) {
-          waitSum += waitMs;
-          waitN += 1;
-        }
+  const groupTree = useMemo<GroupNode[]>(() => {
+    function build(rows: Lead[], levels: string[], pathPrefix: string): GroupNode[] {
+      if (levels.length === 0) {
+        return [
+          {
+            key: "_leaf",
+            label: "",
+            path: pathPrefix,
+            depth: 0,
+            rows,
+          },
+        ];
       }
-      out[qid as string] = {
-        count: items.length,
-        breach,
-        avgWaitMin: waitN ? Math.round(waitSum / waitN / MS_MIN) : 0,
-      };
-    });
-    return out;
-  }, [queues]);
-
-  // Flat visible row order (respects collapse) — drives keyboard nav and auto-next
-  const visibleRows = useMemo<Lead[]>(() => {
-    const out: Lead[] = [];
-    for (const q of QUEUE_DEFS) {
-      const items = queues[q.id];
-      if (items.length === 0) continue;
-      const collapsed = collapsedQueues[q.id] ?? q.defaultCollapsed;
-      if (collapsed) continue;
-      out.push(...items);
+      const [head, ...rest] = levels;
+      const def = GROUP_FIELD_BY_KEY[head];
+      if (!def) return build(rows, rest, pathPrefix);
+      const buckets = new Map<string, Lead[]>();
+      for (const l of rows) {
+        const k = def.get(l) || "—";
+        const arr = buckets.get(k) ?? [];
+        arr.push(l);
+        buckets.set(k, arr);
+      }
+      const keys = Array.from(buckets.keys());
+      if (def.order) {
+        const idx = (k: string) => {
+          const i = def.order!.indexOf(k);
+          return i < 0 ? def.order!.length : i;
+        };
+        keys.sort((a, b) => idx(a) - idx(b));
+      } else {
+        keys.sort((a, b) => a.localeCompare(b, "lv"));
+      }
+      return keys.map((k) => {
+        const path = pathPrefix ? `${pathPrefix}>${head}=${k}` : `${head}=${k}`;
+        const childRows = buckets.get(k)!;
+        const node: GroupNode = {
+          key: k,
+          label: `${def.label}: ${k}`,
+          path,
+          depth: pathPrefix.split(">").filter(Boolean).length,
+          rows: childRows,
+        };
+        if (rest.length > 0) node.children = build(childRows, rest, path);
+        return node;
+      });
     }
-    return out;
-  }, [queues, collapsedQueues]);
+    return build(sorted, gby, "");
+  }, [sorted, gby]);
 
-  // Map lead_id → its queue id (for auto-next)
-  const leadQueueMap = useMemo<Record<string, string>>(() => {
-    const m: Record<string, string> = {};
-    (Object.keys(queues) as Array<keyof typeof queues>).forEach((qid) => {
-      queues[qid].forEach((l) => {
-        m[l.lead_id] = qid as string;
-      });
-    });
-    return m;
-  }, [queues]);
-
-  const setSearch = useCallback(
-    (patch: Record<string, unknown>) => {
-      navigate({
-        to: "/leadi",
-        search: ((prev: Record<string, unknown>) => ({ ...prev, ...patch })) as never,
-        replace: true,
-      });
-    },
-    [navigate],
-  );
-
-  const clearFilters = () =>
-    setSearch({
-      seg: undefined,
-      status: [],
-      countries: [],
-      owners: [],
-      ppvs: [],
-      tags: [],
-      q: undefined,
-    });
-
-  const hasAnyFilter =
-    seg !== "all" ||
-    fStatus.length > 0 ||
-    fOwners.length > 0 ||
-    fPpvs.length > 0 ||
-    fCountries.length > 0 ||
-    fTags.length > 0 ||
-    !!q;
-
+  /* ---- selection / bulk ---- */
   const allVisibleSelected =
     sorted.length > 0 && sorted.every((l) => selected.has(l.lead_id));
   const toggleAll = () => {
@@ -1122,16 +1085,12 @@ function LeadiPage() {
   const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
-
   const bumpActivity = useCallback(
     (id: string) => patchLead(id, { last_activity: new Date().toISOString() }),
     [patchLead],
   );
-
   const openLead = useCallback(
     (id: string) => {
-      const idx = visibleRows.findIndex((l) => l.lead_id === id);
-      if (idx >= 0) setActiveIdx(idx);
       try {
         sessionStorage.setItem("leadi:lastSearch", JSON.stringify(search));
       } catch {
@@ -1139,114 +1098,23 @@ function LeadiPage() {
       }
       navigate({ to: "/lead/$leadId", params: { leadId: id } });
     },
-    [visibleRows, navigate, search],
+    [navigate, search],
   );
-
-  // Auto-next: after a workflow action completes inside the drawer,
-  // advance to the next lead in the same queue (or close if none left).
-  const handleActionCompleted = useCallback(
-    (leadId: string) => {
-      bumpActivity(leadId);
-      if (!autoNext) return;
-      const qid = leadQueueMap[leadId];
-      if (!qid) return;
-      const peers = (queues as Record<string, Lead[]>)[qid] ?? [];
-      const i = peers.findIndex((l) => l.lead_id === leadId);
-      const next = peers[i + 1] ?? peers.find((l) => l.lead_id !== leadId);
-      if (next) {
-        openLead(next.lead_id);
-      } else {
-        setDrawerOpen(false);
-      }
-    },
-    [autoNext, leadQueueMap, queues, openLead, bumpActivity],
-  );
-
-  // Keyboard workflow
-  const phoneRef = useRef<string>("");
-  const emailRef = useRef<string>("");
+  void drawerLeadId;
+  void drawerOpen;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      )
-        return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "Escape") {
-        if (drawerOpen) {
-          setDrawerOpen(false);
-          e.preventDefault();
-        }
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        if (visibleRows.length === 0) return;
-        setActiveIdx((i) => Math.min(visibleRows.length - 1, i + 1));
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        if (visibleRows.length === 0) return;
-        setActiveIdx((i) => (i <= 0 ? 0 : i - 1));
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "Enter") {
-        const row = visibleRows[activeIdx];
-        if (row) {
-          openLead(row.lead_id);
-          e.preventDefault();
-        }
-        return;
-      }
-      const row = visibleRows[activeIdx];
-      if (!row) return;
-      const k = e.key.toLowerCase();
-      if (k === "w" && row.phone) {
-        window.open(
-          `https://wa.me/${row.phone.replace(/[^0-9]/g, "")}`,
-          "_blank",
-        );
-        bumpActivity(row.lead_id);
-        e.preventDefault();
-      } else if (k === "e" && row.email) {
-        window.location.href = `mailto:${row.email}`;
-        bumpActivity(row.lead_id);
-        e.preventDefault();
-      } else if (k === "c" && row.phone) {
-        window.location.href = `tel:${row.phone}`;
-        bumpActivity(row.lead_id);
-        e.preventDefault();
-      } else if (k === "t" || k === "r" || k === "s" || k === "a") {
-        // T = task, R = reply, S = status, A = assign — open drawer
-        openLead(row.lead_id);
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [activeIdx, visibleRows, drawerOpen, openLead, bumpActivity]);
-  // suppress unused-ref lint
-  void phoneRef;
-  void emailRef;
+    setDrawerOpen(false);
+  }, []);
 
-  const patchMany = useCallback(
-    (ids: string[], patch: BulkPatch) => {
-      setPatches((prev) => {
-        const next = { ...prev };
-        ids.forEach((id) => {
-          next[id] = { ...next[id], ...(patch as Partial<Lead>) };
-        });
-        return next;
+  const patchMany = useCallback((ids: string[], patch: BulkPatch) => {
+    setPatches((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => {
+        next[id] = { ...next[id], ...(patch as Partial<Lead>) };
       });
-    },
-    [],
-  );
-
+      return next;
+    });
+  }, []);
   const rollbackMany = useCallback(
     (ids: string[], previous: Record<string, BulkPatch>) => {
       setPatches((prev) => {
@@ -1268,37 +1136,61 @@ function LeadiPage() {
     return m;
   }, [leadsPatched]);
 
+  /* ---- toolbar handlers ---- */
+  const setView = (v: string) => setSearch({ view: v });
+  const setFlt = (next: FilterRule[]) => setSearch({ flt: next });
+  const setGby = (next: string[]) => setSearch({ gby: next });
+  const setSort = (next: SortRule[]) => setSearch({ sort: next });
+
+  const clearAll = () =>
+    setSearch({
+      view: "all",
+      flt: [],
+      gby: [],
+      sort: [],
+      q: undefined,
+    });
+
+  const hasActive =
+    view !== "all" || flt.length > 0 || !!q || (search.gby ?? []).length > 0 || (search.sort ?? []).length > 0;
+
+  const collapseAll = () => {
+    const next: Record<string, boolean> = {};
+    function walk(nodes: GroupNode[]) {
+      for (const n of nodes) {
+        if (n.key !== "_leaf") next[n.path] = true;
+        if (n.children) walk(n.children);
+      }
+    }
+    walk(groupTree);
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
+  const expandAll = () => {
+    setCollapsed({});
+    try {
+      window.localStorage.removeItem(collapseStorageKey);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
-      {/* Page header */}
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Leadi
           </h1>
           <p className="text-xs text-muted-foreground">
-            Operacionālā leadu darba vide
+            Analītiskā leadu darba vide
           </p>
         </div>
         <div className="flex items-center gap-1.5">
-          <label
-            className={cn(
-              "inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border px-2 text-xs transition-colors",
-              autoNext
-                ? "border-primary/40 bg-primary/10 text-foreground"
-                : "border-border bg-background text-foreground hover:bg-muted/50",
-            )}
-            title="Pēc darbības atvērt nākamo leadu šajā rindā"
-          >
-            <input
-              type="checkbox"
-              checked={autoNext}
-              onChange={(e) => setAutoNext(e.target.checked)}
-              className="sr-only"
-            />
-            <Zap className={cn("h-3.5 w-3.5", autoNext && "text-primary")} />
-            <span>Auto-next</span>
-          </label>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
             <Bookmark className="h-3.5 w-3.5" />
             Saglabāt skatu
@@ -1314,110 +1206,91 @@ function LeadiPage() {
         </div>
       </header>
 
-      {/* Sticky operational bar */}
-      <div className="sticky top-0 z-20 -mx-4 mb-3 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+      {/* Toolbar */}
+      <div className="sticky top-0 z-20 -mx-4 mb-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Saved views */}
-          <div className="flex flex-wrap items-center gap-1">
-            {VIEWS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setSearch({ seg: v === "all" ? undefined : v })}
-                className={cn(
-                  "h-7 rounded-md border px-2.5 text-xs transition-colors",
-                  seg === v
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-foreground hover:bg-muted/50",
-                )}
-              >
-                {VIEW_LABELS[v]}
-              </button>
-            ))}
-          </div>
+          <SavedViewSelector value={view} onChange={setView} />
 
           <div className="mx-1 h-5 w-px bg-border" aria-hidden />
 
-          {/* Search */}
-          <div className="relative min-w-[260px] flex-1 sm:max-w-sm">
+          <FilterBuilder
+            rules={flt}
+            options={options}
+            onChange={setFlt}
+          />
+
+          <GroupByControl
+            value={search.gby ?? []}
+            onChange={setGby}
+            onCollapseAll={collapseAll}
+            onExpandAll={expandAll}
+          />
+
+          <SortControl value={sort} onChange={setSort} />
+
+          <div className="relative ml-1 min-w-[220px] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search.q ?? ""}
               onChange={(e) => setSearch({ q: e.target.value || undefined })}
-              placeholder="Meklēt pēc vārda, telefona, email vai objekta"
+              placeholder="Meklēt pēc vārda, telefona, email"
               className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
-          {/* Filter chips */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <FilterChip
-              label="Statuss"
-              options={options.statuses}
-              value={fStatus}
-              onChange={(v) => setSearch({ status: v })}
-            />
-            <FilterChip
-              label="Atbildīgais"
-              options={options.owners}
-              value={fOwners}
-              onChange={(v) => setSearch({ owners: v })}
-            />
-            <FilterChip
-              label="PPV"
-              options={options.ppvs}
-              value={fPpvs}
-              onChange={(v) => setSearch({ ppvs: v })}
-            />
-            <FilterChip
-              label="Valsts"
-              options={options.countries}
-              value={fCountries}
-              onChange={(v) => setSearch({ countries: v })}
-            />
-            <FilterChip
-              label="Tags"
-              options={options.tags}
-              value={fTags}
-              onChange={(v) => setSearch({ tags: v })}
-            />
-            {hasAnyFilter && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 gap-1 px-2 text-xs"
-                onClick={clearFilters}
-              >
-                <X className="h-3 w-3" />
-                Notīrīt
-              </Button>
-            )}
-          </div>
-
           {selected.size === 0 && (
             <div className="ml-auto flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1.5 text-xs"
-              >
-                <Columns3 className="h-3.5 w-3.5" />
-                Kolonnas
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled
+                      className="h-8 gap-1.5 text-xs opacity-60"
+                    >
+                      <Columns3 className="h-3.5 w-3.5" />
+                      Kolonnas
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Drīzumā</TooltipContent>
+              </Tooltip>
+              {hasActive && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2 text-xs"
+                  onClick={clearAll}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Notīrīt visu
+                </Button>
+              )}
             </div>
           )}
         </div>
+
+        {/* Active chips */}
+        {(flt.length > 0 || q || view !== "all") && (
+          <ActiveFilterChips
+            view={view}
+            onClearView={() => setView("all")}
+            rules={flt}
+            onRemoveRule={(i) => setFlt(flt.filter((_, idx) => idx !== i))}
+            q={q}
+            onClearQ={() => setSearch({ q: undefined })}
+          />
+        )}
       </div>
 
-      {/* Bulk action bar */}
       {selected.size > 0 && (
         <BulkActionsBar
           selectedIds={Array.from(selected)}
           options={{
-            statuses: options.statuses,
-            owners: options.owners,
-            ppvs: options.ppvs,
+            statuses: options.status,
+            owners: options.owner,
+            ppvs: options.ppv,
           }}
           currentStatus={currentStatusMap}
           onClear={clearSelected}
@@ -1439,12 +1312,12 @@ function LeadiPage() {
               <div className="text-sm font-medium text-foreground">
                 Nav atrastu leadu
               </div>
-              {hasAnyFilter && (
+              {hasActive && (
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 text-xs"
-                  onClick={clearFilters}
+                  onClick={clearAll}
                 >
                   Notīrīt filtrus
                 </Button>
@@ -1452,7 +1325,7 @@ function LeadiPage() {
             </div>
           ) : (
             <div className="max-h-[calc(100vh-220px)] overflow-y-auto overflow-x-hidden">
-              <div role="table" className={cn("w-full text-xs")}> 
+              <div role="table" className={cn("w-full text-xs")}>
                 <div
                   role="rowgroup"
                   className="sticky top-0 z-10 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur"
@@ -1477,353 +1350,16 @@ function LeadiPage() {
                   </div>
                 </div>
                 <div role="rowgroup">
-                  {QUEUE_DEFS.flatMap((q) => {
-                    const items = queues[q.id];
-                    if (items.length === 0) return [];
-                    const collapsed =
-                      collapsedQueues[q.id] ?? q.defaultCollapsed;
-                    const header = (
-                      <div
-                        key={`qh-${q.id}`}
-                        role="row"
-                        className={cn(LEADS_GRID, "group/qh border-t border-border/40")}
-                      >
-                        <div role="cell" style={{ gridColumn: "1 / -1" }} className="p-0">
-                          <div className="flex items-center justify-between gap-3 px-3 py-0.5 text-[10.5px] leading-none text-muted-foreground/80">
-                            <button
-                              type="button"
-                              onClick={() => toggleQueue(q.id)}
-                              className="inline-flex items-center gap-1.5 text-left transition-colors hover:text-foreground"
-                              aria-label={
-                                collapsed ? "Izvērst rindu" : "Sakļaut rindu"
-                              }
-                            >
-                              {collapsed ? (
-                                <ChevronRight className="h-3 w-3" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3" />
-                              )}
-                              <span className="text-[10.5px] font-semibold tracking-tight text-foreground/70">
-                                {q.label}
-                              </span>
-                              <span className="tabular-nums opacity-70">
-                                {queueMetrics[q.id]?.count ?? items.length}
-                              </span>
-                            </button>
-                            <div className="flex items-center gap-3">
-                              <div className="hidden items-center gap-2 sm:flex">
-                                {(queueMetrics[q.id]?.breach ?? 0) > 0 && (
-                                  <span title="Pārkāpts SLA">
-                                    {queueMetrics[q.id]!.breach} SLA breach
-                                  </span>
-                                )}
-                                {(queueMetrics[q.id]?.breach ?? 0) > 0 &&
-                                  (queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
-                                    <span aria-hidden>•</span>
-                                  )}
-                                {(queueMetrics[q.id]?.avgWaitMin ?? 0) > 0 && (
-                                  <span title={avgLabel(q.id)}>
-                                    avg{" "}
-                                    {formatWait(queueMetrics[q.id]!.avgWaitMin)}
-                                  </span>
-                                )}
-                              </div>
-                              <div
-                                className="flex items-center gap-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover/qh:opacity-100"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        openLead(items[0].lead_id)
-                                      }
-                                      className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground"
-                                      aria-label="Atvērt pirmo"
-                                    >
-                                      <ChevronRight className="h-3 w-3" />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    Atvērt pirmo
-                                  </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const next = new Set(selected);
-                                        items.forEach((l) =>
-                                          next.add(l.lead_id),
-                                        );
-                                        setSelected(next);
-                                      }}
-                                      className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground"
-                                      aria-label="Atlasīt visus"
-                                    >
-                                      <CheckSquare className="h-3 w-3" />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    Atlasīt visus
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                    if (collapsed) return [header];
-                    const rows = items.map((l) => {
-                    const isSel = selected.has(l.lead_id);
-                    const isActive = drawerOpen && drawerLeadId === l.lead_id;
-                    const dueT = parseDate(l.next_action_due);
-                    const isOverdue = dueT != null && dueT < Date.now();
-                    const isHot = l.tags.some((t) =>
-                      /^(hot|karst)/i.test(t),
-                    );
-                    const hasUnread = l.has_unread_reply;
-                    const noContact = !parseDate(l.last_activity);
-                    // Priority cascade: unread > overdue > hot > no-contact
-                    const accentClass = hasUnread
-                      ? "before:bg-blue-500/80"
-                      : isOverdue
-                        ? "before:bg-rose-500/70"
-                        : isHot
-                          ? "before:bg-orange-500/70"
-                          : noContact
-                            ? "before:bg-muted-foreground/30"
-                            : "before:bg-transparent";
-                    // Communication label from view, with fallback by state
-                    const commLabel =
-                      l.communication_label ||
-                      (l.communication_state === "unread"
-                        ? "Atbildēja"
-                        : l.communication_state === "waiting"
-                          ? "Gaida atbildi"
-                          : l.communication_state === "active"
-                            ? "Aktīva saziņa"
-                            : l.communication_state === "event_only"
-                              ? "Ir notikums"
-                              : l.communication_state === "no_contact"
-                                ? "Nav kontakta"
-                                : "");
-                    const commTimeSrc = l.last_reply_at || l.last_communication_at;
-                    const isCursor =
-                      visibleRows[activeIdx]?.lead_id === l.lead_id;
-                    return (
-                      <div
-                        key={l.lead_id}
-                        role="row"
-                        onClick={() => openLead(l.lead_id)}
-                        className={cn(
-                          LEADS_GRID,
-                          "group relative cursor-pointer border-b border-border/30 transition-colors",
-                          "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
-                          accentClass,
-                          isActive
-                            ? "bg-primary/[0.06] shadow-[inset_3px_0_0_hsl(var(--primary))]"
-                            : isSel
-                              ? "bg-primary/[0.04]"
-                              : "hover:bg-muted/30",
-                          isCursor &&
-                            !isActive &&
-                            "ring-1 ring-inset ring-primary/40",
-                        )}
-                      >
-                        <div
-                          role="cell"
-                          className="px-1.5 py-1 flex items-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={isSel}
-                            onCheckedChange={() => toggleOne(l.lead_id)}
-                            className="h-3.5 w-3.5"
-                          />
-                        </div>
-                        {/* PRIORITĀTE */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-                          <PriorityCell score={l.priority_score} />
-                        </div>
-                        {/* PPV */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
-                          <span className="truncate">
-                            {l.ppv || (
-                              <span className="text-muted-foreground/60">—</span>
-                            )}
-                          </span>
-                        </div>
-                        {/* LEAD */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
-                              {l.name || (
-                                <span className="font-normal italic text-muted-foreground">
-                                  Neidentificēts leads
-                                </span>
-                              )}
-                            </span>
-                            {hasUnread && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
-                                    aria-label="Ir neatbildēta klienta atbilde"
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  Ir neatbildēta klienta atbilde
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
-                            <span className="text-muted-foreground/70">
-                              {l.country || "—"}
-                            </span>
-                            <span className="mx-1 opacity-40">•</span>
-                            <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
-                          </div>
-                        </div>
-                        {/* TAGI */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-                          {l.tags.length === 0 ? (
-                            <span className="text-muted-foreground/50">—</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-0.5">
-                              {normalizeTags(l.tags).slice(0, 3).map((t) => (
-                                <Tag key={t} tag={t} />
-                              ))}
-                              {l.tags.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground/55 tabular-nums">
-                                  +{l.tags.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {/* STATUSS */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-                          <StatusBadge status={l.status} />
-                        </div>
-                        {/* ATBILDĪGAIS */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-                          {l.owner ? (
-                            <span className="truncate text-foreground text-[11.5px] font-medium tabular-nums">
-                              {l.owner}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/50">—</span>
-                          )}
-                        </div>
-                        {/* NĀKAMAIS */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1">
-                          <div className="flex flex-col leading-tight">
-                            <span
-                              className={cn(
-                                "truncate text-[11.5px] font-medium",
-                                l.next_action
-                                  ? "text-foreground"
-                                  : "text-muted-foreground/60",
-                              )}
-                            >
-                              {l.next_action || "Nav darbības"}
-                            </span>
-                            {(l.queue_bucket_label || l.next_action_due) && (
-                              <span
-                                className={cn(
-                                  "truncate text-[10px] tabular-nums",
-                                  /kavēt/i.test(l.queue_bucket_label)
-                                    ? "text-rose-600 dark:text-rose-300"
-                                    : "text-muted-foreground/70",
-                                )}
-                              >
-                                {[
-                                  l.queue_bucket_label,
-                                  l.next_action_due ? fmtDate(l.next_action_due) : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" • ")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {/* AKTIVITĀTE */}
-                        <div role="cell" className="min-w-0 px-1.5 py-1">
-                          <div className="flex flex-col leading-tight">
-                            <span
-                              className={cn(
-                                "truncate text-[11.5px]",
-                                l.communication_state === "unread"
-                                  ? "font-medium text-emerald-600 dark:text-emerald-400"
-                                  : l.communication_state === "waiting"
-                                    ? "text-orange-600 dark:text-orange-400"
-                                    : l.communication_state === "no_contact"
-                                      ? "text-muted-foreground/60"
-                                      : l.communication_state === "event_only"
-                                        ? "text-muted-foreground/70"
-                                        : "text-foreground",
-                              )}
-                            >
-                              {commLabel || "—"}
-                            </span>
-                            {commTimeSrc &&
-                              !isFutureDate(commTimeSrc, "comm_time", l.lead_id) && (
-                                <span className="truncate text-[10px] text-muted-foreground/60">
-                                  {fmtRelative(commTimeSrc)}
-                                </span>
-                              )}
-                          </div>
-                        </div>
-                        <div
-                          role="cell"
-                          className="min-w-0 px-1.5 py-1 flex items-center justify-end"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
-                            <RowAction
-                              icon={<Phone className="h-3.5 w-3.5" />}
-                              label="Zvanīt"
-                              href={l.phone ? `tel:${l.phone}` : undefined}
-                              onActivate={() => bumpActivity(l.lead_id)}
-                            />
-                            <RowAction
-                              icon={<MessageCircle className="h-3.5 w-3.5" />}
-                              label="WhatsApp"
-                              href={
-                                l.phone
-                                  ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
-                                  : undefined
-                              }
-                              onActivate={() => bumpActivity(l.lead_id)}
-                            />
-                            <RowAction
-                              icon={<Mail className="h-3.5 w-3.5" />}
-                              label="E-pasts"
-                              href={l.email ? `mailto:${l.email}` : undefined}
-                              onActivate={() => bumpActivity(l.lead_id)}
-                            />
-                            <RowAction
-                              icon={<CheckSquare className="h-3.5 w-3.5" />}
-                              label="Uzdevums"
-                              onClick={() => openLead(l.lead_id)}
-                            />
-                            <RowAction
-                              icon={<StickyNote className="h-3.5 w-3.5" />}
-                              label="Piezīme"
-                              onClick={() => openLead(l.lead_id)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                    });
-                    return [header, ...rows];
-                  })}
+                  <GroupRenderer
+                    nodes={groupTree}
+                    collapsed={collapsed}
+                    toggle={toggleCollapsed}
+                    selected={selected}
+                    toggleOne={toggleOne}
+                    openLead={openLead}
+                    bumpActivity={bumpActivity}
+                    commCounts={commCounts}
+                  />
                 </div>
               </div>
             </div>
@@ -1832,12 +1368,348 @@ function LeadiPage() {
             <span>
               Rāda {sorted.length} no {leads.length}
             </span>
-            <span>Sagrupēts pa operacionālajām rindām</span>
+            <span>
+              {gby.length > 0
+                ? `Grupēts: ${gby.map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k).join(" › ")}`
+                : "Bez grupēšanas"}
+            </span>
           </div>
         </div>
       )}
-
     </TooltipProvider>
+  );
+}
+
+/* ============================ Group renderer ============================ */
+
+type GroupNode = {
+  key: string;
+  label: string;
+  path: string;
+  depth: number;
+  rows: Lead[];
+  children?: GroupNode[];
+};
+
+function GroupRenderer({
+  nodes,
+  collapsed,
+  toggle,
+  selected,
+  toggleOne,
+  openLead,
+  bumpActivity,
+  commCounts,
+}: {
+  nodes: GroupNode[];
+  collapsed: Record<string, boolean>;
+  toggle: (path: string) => void;
+  selected: Set<string>;
+  toggleOne: (id: string) => void;
+  openLead: (id: string) => void;
+  bumpActivity: (id: string) => void;
+  commCounts: Map<string, CommBuckets>;
+}) {
+  return (
+    <>
+      {nodes.flatMap((n) => {
+        if (n.key === "_leaf") {
+          return n.rows.map((l) => (
+            <LeadRow
+              key={l.lead_id}
+              l={l}
+              isSel={selected.has(l.lead_id)}
+              toggleOne={toggleOne}
+              openLead={openLead}
+              bumpActivity={bumpActivity}
+              commCounts={commCounts}
+            />
+          ));
+        }
+        const isCollapsed = !!collapsed[n.path];
+        const header = (
+          <div
+            key={`gh-${n.path}`}
+            role="row"
+            className={cn(LEADS_GRID, "border-t border-border/40 bg-muted/30")}
+          >
+            <div role="cell" style={{ gridColumn: "1 / -1" }} className="p-0">
+              <button
+                type="button"
+                onClick={() => toggle(n.path)}
+                className="flex w-full items-center gap-1.5 px-3 py-1 text-left text-[11px] hover:bg-muted/50"
+                style={{ paddingLeft: 12 + n.depth * 16 }}
+                aria-label={isCollapsed ? "Izvērst grupu" : "Sakļaut grupu"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+                <span className="font-semibold tracking-tight text-foreground/80">
+                  {n.label}
+                </span>
+                <span className="ml-1 tabular-nums text-muted-foreground/70">
+                  {n.rows.length}
+                </span>
+              </button>
+            </div>
+          </div>
+        );
+        if (isCollapsed) return [header];
+        const children = n.children ? (
+          <GroupRenderer
+            key={`gc-${n.path}`}
+            nodes={n.children}
+            collapsed={collapsed}
+            toggle={toggle}
+            selected={selected}
+            toggleOne={toggleOne}
+            openLead={openLead}
+            bumpActivity={bumpActivity}
+            commCounts={commCounts}
+          />
+        ) : (
+          <GroupRenderer
+            key={`gc-${n.path}`}
+            nodes={[
+              {
+                key: "_leaf",
+                label: "",
+                path: n.path + ">_leaf",
+                depth: n.depth + 1,
+                rows: n.rows,
+              },
+            ]}
+            collapsed={collapsed}
+            toggle={toggle}
+            selected={selected}
+            toggleOne={toggleOne}
+            openLead={openLead}
+            bumpActivity={bumpActivity}
+            commCounts={commCounts}
+          />
+        );
+        return [header, children];
+      })}
+    </>
+  );
+}
+
+/* ============================ LeadRow ============================ */
+
+function LeadRow({
+  l,
+  isSel,
+  toggleOne,
+  openLead,
+  bumpActivity,
+  commCounts,
+}: {
+  l: Lead;
+  isSel: boolean;
+  toggleOne: (id: string) => void;
+  openLead: (id: string) => void;
+  bumpActivity: (id: string) => void;
+  commCounts: Map<string, CommBuckets>;
+}) {
+  const dueT = parseDate(l.next_action_due);
+  const isOverdue = dueT != null && dueT < Date.now();
+  const isHot = l.tags.some((t) => /^(hot|karst)/i.test(t));
+  const hasUnread = l.has_unread_reply;
+  const noContact = !parseDate(l.last_activity);
+  const accentClass = hasUnread
+    ? "before:bg-blue-500/80"
+    : isOverdue
+      ? "before:bg-rose-500/70"
+      : isHot
+        ? "before:bg-orange-500/70"
+        : noContact
+          ? "before:bg-muted-foreground/30"
+          : "before:bg-transparent";
+  const commLabel =
+    l.communication_label ||
+    (l.communication_state === "unread"
+      ? "Atbildēja"
+      : l.communication_state === "waiting"
+        ? "Gaida atbildi"
+        : l.communication_state === "active"
+          ? "Aktīva saziņa"
+          : l.communication_state === "event_only"
+            ? "Ir notikums"
+            : l.communication_state === "no_contact"
+              ? "Nav kontakta"
+              : "");
+  const commTimeSrc = l.last_reply_at || l.last_communication_at;
+  return (
+    <div
+      role="row"
+      onClick={() => openLead(l.lead_id)}
+      className={cn(
+        LEADS_GRID,
+        "group relative cursor-pointer border-b border-border/30 transition-colors",
+        "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
+        accentClass,
+        isSel ? "bg-primary/[0.04]" : "hover:bg-muted/30",
+      )}
+    >
+      <div
+        role="cell"
+        className="px-1.5 py-1 flex items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={isSel}
+          onCheckedChange={() => toggleOne(l.lead_id)}
+          className="h-3.5 w-3.5"
+        />
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        <PriorityCell score={l.priority_score} />
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
+        <span className="truncate">
+          {l.ppv || <span className="text-muted-foreground/60">—</span>}
+        </span>
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
+            {l.name || (
+              <span className="font-normal italic text-muted-foreground">
+                Neidentificēts leads
+              </span>
+            )}
+          </span>
+          {hasUnread && (
+            <span
+              className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+              aria-label="Ir neatbildēta klienta atbilde"
+            />
+          )}
+        </div>
+        <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
+          <span className="text-muted-foreground/70">{l.country || "—"}</span>
+          <span className="mx-1 opacity-40">•</span>
+          <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
+        </div>
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        {l.tags.length === 0 ? (
+          <span className="text-muted-foreground/50">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-0.5">
+            {normalizeTags(l.tags).slice(0, 3).map((t) => (
+              <Tag key={t} tag={t} />
+            ))}
+            {l.tags.length > 3 && (
+              <span className="text-[10px] text-muted-foreground/55 tabular-nums">
+                +{l.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        <StatusBadge status={l.status} />
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        {l.owner ? (
+          <span className="truncate text-foreground text-[11.5px] font-medium tabular-nums">
+            {l.owner}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        )}
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1">
+        <div className="flex flex-col leading-tight">
+          <span
+            className={cn(
+              "truncate text-[11.5px] font-medium",
+              l.next_action ? "text-foreground" : "text-muted-foreground/60",
+            )}
+          >
+            {l.next_action || "Nav darbības"}
+          </span>
+          {l.next_action_due && (
+            <span
+              className={cn(
+                "truncate text-[10px] tabular-nums",
+                isOverdue
+                  ? "text-rose-600 dark:text-rose-300"
+                  : "text-muted-foreground/70",
+              )}
+            >
+              {fmtDate(l.next_action_due)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div role="cell" className="min-w-0 px-1.5 py-1">
+        <div className="flex flex-col leading-tight">
+          <span
+            className={cn(
+              "truncate text-[11.5px]",
+              l.communication_state === "unread"
+                ? "font-medium text-emerald-600 dark:text-emerald-400"
+                : l.communication_state === "waiting"
+                  ? "text-orange-600 dark:text-orange-400"
+                  : l.communication_state === "no_contact"
+                    ? "text-muted-foreground/60"
+                    : "text-foreground",
+            )}
+          >
+            {commLabel || "—"}
+          </span>
+          {commTimeSrc && !isFutureDate(commTimeSrc) && (
+            <span className="truncate text-[10px] text-muted-foreground/60">
+              {fmtRelative(commTimeSrc)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div
+        role="cell"
+        className="min-w-0 px-1.5 py-1 flex items-center justify-end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
+          <RowAction
+            icon={<Phone className="h-3.5 w-3.5" />}
+            label="Zvanīt"
+            href={l.phone ? `tel:${l.phone}` : undefined}
+            onActivate={() => bumpActivity(l.lead_id)}
+          />
+          <RowAction
+            icon={<MessageCircle className="h-3.5 w-3.5" />}
+            label="WhatsApp"
+            href={
+              l.phone
+                ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
+                : undefined
+            }
+            onActivate={() => bumpActivity(l.lead_id)}
+          />
+          <RowAction
+            icon={<Mail className="h-3.5 w-3.5" />}
+            label="E-pasts"
+            href={l.email ? `mailto:${l.email}` : undefined}
+            onActivate={() => bumpActivity(l.lead_id)}
+          />
+          <RowAction
+            icon={<CheckSquare className="h-3.5 w-3.5" />}
+            label="Uzdevums"
+            onClick={() => openLead(l.lead_id)}
+          />
+          <RowAction
+            icon={<StickyNote className="h-3.5 w-3.5" />}
+            label="Piezīme"
+            onClick={() => openLead(l.lead_id)}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1892,26 +1764,678 @@ function RowAction({
   );
 }
 
-function formatWait(min: number): string {
-  if (min < 1) return "<1m";
-  if (min < 60) return `${min}m`;
-  const h = min / 60;
-  if (h < 24) return h < 10 ? `${h.toFixed(1)}h` : `${Math.round(h)}h`;
-  const d = h / 24;
-  if (d < 10) return `${d.toFixed(1)}d`;
-  return `${Math.round(d)}d`;
+/* ============================ Saved view selector ============================ */
+
+function SavedViewSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const current = SAVED_VIEW_BY_KEY[value] ?? SAVED_VIEWS[0];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium hover:bg-muted/50"
+        >
+          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-foreground">{current.label}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-1">
+        {SAVED_VIEWS.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => onChange(v.key)}
+            className={cn(
+              "flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-muted/60",
+              v.key === value && "bg-muted/40 font-medium text-foreground",
+            )}
+          >
+            <span>{v.label}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
-function avgLabel(qid: string): string {
-  switch (qid) {
-    case "unread":
-      return "Vidējais nelasītu atbilžu vecums";
-    case "overdue":
-      return "Vidējais kavējums";
-    case "waiting":
-      return "Vidējais gaidīšanas laiks";
-    default:
-      return "Vidējais aktivitātes vecums";
+/* ============================ Filter builder ============================ */
+
+function FilterBuilder({
+  rules,
+  options,
+  onChange,
+}: {
+  rules: FilterRule[];
+  options: Record<string, string[]>;
+  onChange: (next: FilterRule[]) => void;
+}) {
+  const add = () => {
+    onChange([...rules, { f: "status", op: "is_any_of", v: [] }]);
+  };
+  const update = (i: number, patch: Partial<FilterRule>) => {
+    const next = rules.slice();
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
+  };
+  const remove = (i: number) => onChange(rules.filter((_, idx) => idx !== i));
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
+            rules.length > 0
+              ? "border-primary/40 bg-primary/10 text-foreground"
+              : "border-border bg-background text-foreground hover:bg-muted/50",
+          )}
+        >
+          <Filter className="h-3.5 w-3.5" />
+          <span>Filtri</span>
+          {rules.length > 0 && (
+            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {rules.length}
+            </span>
+          )}
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[560px] p-2">
+        <div className="space-y-1.5">
+          {rules.length === 0 && (
+            <div className="px-1 py-2 text-xs text-muted-foreground">
+              Nav aktīvu filtru.
+            </div>
+          )}
+          {rules.map((r, i) => (
+            <FilterRuleRow
+              key={i}
+              rule={r}
+              options={options}
+              onChange={(p) => update(i, p)}
+              onRemove={() => remove(i)}
+            />
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={add}>
+            <Plus className="h-3.5 w-3.5" />
+            Pievienot filtru
+          </Button>
+          {rules.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={() => onChange([])}
+            >
+              Notīrīt
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FilterRuleRow({
+  rule,
+  options,
+  onChange,
+  onRemove,
+}: {
+  rule: FilterRule;
+  options: Record<string, string[]>;
+  onChange: (patch: Partial<FilterRule>) => void;
+  onRemove: () => void;
+}) {
+  const def = FIELD_BY_KEY[rule.f] ?? FIELDS[0];
+  const ops = OPERATORS_BY_TYPE[def.type];
+  const fieldOptions = options[def.key] ?? [];
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        value={rule.f}
+        onChange={(e) => {
+          const f = e.target.value;
+          const t = FIELD_BY_KEY[f].type;
+          onChange({ f, op: OPERATORS_BY_TYPE[t][0], v: undefined });
+        }}
+        className="h-7 rounded border border-input bg-background px-1.5 text-xs"
+      >
+        {FIELDS.map((f) => (
+          <option key={f.key} value={f.key}>
+            {f.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={rule.op}
+        onChange={(e) => onChange({ op: e.target.value, v: undefined })}
+        className="h-7 rounded border border-input bg-background px-1.5 text-xs"
+      >
+        {ops.map((op) => (
+          <option key={op} value={op}>
+            {OP_LABELS[op] ?? op}
+          </option>
+        ))}
+      </select>
+      <div className="min-w-0 flex-1">
+        <FilterValueInput
+          rule={rule}
+          fieldOptions={fieldOptions}
+          onChange={(v) => onChange({ v })}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="Noņemt filtru"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function FilterValueInput({
+  rule,
+  fieldOptions,
+  onChange,
+}: {
+  rule: FilterRule;
+  fieldOptions: string[];
+  onChange: (v: unknown) => void;
+}) {
+  const def = FIELD_BY_KEY[rule.f];
+  const op = rule.op;
+
+  if (op === "is_empty" || op === "is_not_empty") {
+    return <span className="text-[11px] text-muted-foreground">—</span>;
   }
+  if (op === "today" || op === "overdue") {
+    return <span className="text-[11px] text-muted-foreground">—</span>;
+  }
+  if (op === "next_x_days" || op === "last_x_days" || op === "before_x_days") {
+    return (
+      <input
+        type="number"
+        min={1}
+        value={(rule.v as number) ?? ""}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        placeholder="Dienas"
+        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
+      />
+    );
+  }
+  if (op === "before_date" || op === "after_date") {
+    const d = rule.v ? new Date(String(rule.v)) : undefined;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 w-full rounded border border-input bg-background px-2 text-left text-xs"
+          >
+            {d ? fmtDate(d.toISOString()) : "Izvēlies datumu"}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-0">
+          <Calendar
+            mode="single"
+            selected={d}
+            onSelect={(x) => onChange(x ? x.toISOString() : undefined)}
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  }
+  if (op === "between_dates") {
+    const v = (rule.v ?? {}) as { from?: string; to?: string };
+    const from = v.from ? new Date(v.from) : undefined;
+    const to = v.to ? new Date(v.to) : undefined;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 w-full rounded border border-input bg-background px-2 text-left text-xs"
+          >
+            {from && to
+              ? `${fmtDate(from.toISOString())} → ${fmtDate(to.toISOString())}`
+              : "Izvēlies periodu"}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-0">
+          <Calendar
+            mode="range"
+            selected={{ from, to }}
+            onSelect={(r) =>
+              onChange({
+                from: r?.from ? r.from.toISOString() : undefined,
+                to: r?.to ? r.to.toISOString() : undefined,
+              })
+            }
+            numberOfMonths={2}
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  }
+  if (op === "gt" || op === "lt" || (def?.type === "number" && (op === "is" || op === "is_not"))) {
+    return (
+      <input
+        type="number"
+        value={(rule.v as number) ?? ""}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
+      />
+    );
+  }
+  if (op === "is_any_of" || op === "is_none_of") {
+    const cur = Array.isArray(rule.v) ? (rule.v as string[]) : [];
+    return (
+      <MultiSelectInline
+        options={fieldOptions}
+        value={cur}
+        onChange={onChange}
+      />
+    );
+  }
+  // single text/enum
+  if (fieldOptions.length > 0) {
+    return (
+      <select
+        value={(rule.v as string) ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
+      >
+        <option value="">—</option>
+        {fieldOptions.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={(rule.v as string) ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
+    />
+  );
 }
 
+function MultiSelectInline({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [q, setQ] = useState("");
+  const filtered = useMemo(
+    () =>
+      options.filter((o) =>
+        q ? o.toLowerCase().includes(q.toLowerCase()) : true,
+      ),
+    [options, q],
+  );
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="h-7 w-full truncate rounded border border-input bg-background px-2 text-left text-xs"
+        >
+          {value.length === 0
+            ? "Izvēlies vērtības"
+            : value.length <= 2
+              ? value.join(", ")
+              : `${value.length} izvēlēti`}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-0">
+        <div className="border-b border-border p-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Meklēt..."
+            className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto py-1">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-3 text-center text-xs text-muted-foreground">
+              Nav opciju
+            </div>
+          ) : (
+            filtered.map((o) => {
+              const checked = value.includes(o);
+              return (
+                <label
+                  key={o}
+                  className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-muted/50"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() =>
+                      onChange(
+                        checked ? value.filter((v) => v !== o) : [...value, o],
+                      )
+                    }
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="truncate">{o}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ============================ Group by control ============================ */
+
+function GroupByControl({
+  value,
+  onChange,
+  onCollapseAll,
+  onExpandAll,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  onCollapseAll: () => void;
+  onExpandAll: () => void;
+}) {
+  const labels = value
+    .map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k)
+    .join(" › ");
+  const display = value.length === 0 ? "Statuss" : labels;
+  const setLevel = (i: number, k: string) => {
+    const next = value.slice();
+    if (k === "_none") {
+      next.splice(i, 1);
+    } else {
+      next[i] = k;
+    }
+    onChange(next);
+  };
+  const addLevel = () => {
+    if (value.length >= 3) return;
+    const used = new Set(value);
+    const fallbackField = GROUP_FIELDS.find((g) => !used.has(g.key));
+    if (!fallbackField) return;
+    onChange([...value, fallbackField.key]);
+  };
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
+            value.length > 0
+              ? "border-primary/40 bg-primary/10 text-foreground"
+              : "border-border bg-background text-foreground hover:bg-muted/50",
+          )}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          <span className="text-muted-foreground">Grupēt:</span>
+          <span className="truncate text-foreground">{display}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-2">
+        <div className="space-y-1.5">
+          {(value.length === 0 ? ["status"] : value).map((k, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                L{i + 1}
+              </span>
+              <select
+                value={k}
+                onChange={(e) => setLevel(i, e.target.value)}
+                className="h-7 flex-1 rounded border border-input bg-background px-1.5 text-xs"
+              >
+                {GROUP_FIELDS.map((g) => (
+                  <option key={g.key} value={g.key}>
+                    {g.label}
+                  </option>
+                ))}
+                {value.length > 0 && (
+                  <option value="_none">— noņemt līmeni —</option>
+                )}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={addLevel}
+            disabled={value.length >= 3}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Pievienot līmeni
+          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={onExpandAll}
+            >
+              Izvērst
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={onCollapseAll}
+            >
+              Sakļaut
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ============================ Sort control ============================ */
+
+function SortControl({
+  value,
+  onChange,
+}: {
+  value: SortRule[];
+  onChange: (v: SortRule[]) => void;
+}) {
+  const display =
+    value.length === 0
+      ? "Prioritāte ↓"
+      : value
+          .map((r) => {
+            const lbl = SORT_BY_KEY[r.f]?.label ?? r.f;
+            return `${lbl} ${r.d === "desc" ? "↓" : "↑"}`;
+          })
+          .join(", ");
+  const update = (i: number, patch: Partial<SortRule>) => {
+    const next = value.slice();
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
+  };
+  const add = () =>
+    onChange([
+      ...value,
+      {
+        f: SORT_FIELDS.find((f) => !value.some((v) => v.f === f.key))?.key ??
+          SORT_FIELDS[0].key,
+        d: "desc",
+      },
+    ]);
+  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
+            value.length > 0
+              ? "border-primary/40 bg-primary/10 text-foreground"
+              : "border-border bg-background text-foreground hover:bg-muted/50",
+          )}
+        >
+          <ArrowUpDown className="h-3.5 w-3.5" />
+          <span className="text-muted-foreground">Kārtot:</span>
+          <span className="truncate text-foreground">{display}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-2">
+        <div className="space-y-1.5">
+          {value.length === 0 && (
+            <div className="rounded bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
+              Noklusētais: Prioritāte ↓ → Pēdējā komunikācija ↓ → Izveidots ↓
+            </div>
+          )}
+          {value.map((r, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <select
+                value={r.f}
+                onChange={(e) => update(i, { f: e.target.value })}
+                className="h-7 flex-1 rounded border border-input bg-background px-1.5 text-xs"
+              >
+                {SORT_FIELDS.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => update(i, { d: r.d === "desc" ? "asc" : "desc" })}
+                className="inline-flex h-7 w-7 items-center justify-center rounded border border-input hover:bg-muted/50"
+                aria-label="Pārslēgt virzienu"
+              >
+                {r.d === "desc" ? (
+                  <ArrowDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowUp className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Noņemt"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={add}>
+            <Plus className="h-3.5 w-3.5" />
+            Pievienot kārtošanu
+          </Button>
+          {value.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={() => onChange([])}
+            >
+              Atjaunot noklusēto
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ============================ Active filter chips ============================ */
+
+function ActiveFilterChips({
+  view,
+  onClearView,
+  rules,
+  onRemoveRule,
+  q,
+  onClearQ,
+}: {
+  view: string;
+  onClearView: () => void;
+  rules: FilterRule[];
+  onRemoveRule: (i: number) => void;
+  q: string;
+  onClearQ: () => void;
+}) {
+  const sv = SAVED_VIEW_BY_KEY[view];
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {view !== "all" && sv && (
+        <Chip label={`Skats: ${sv.label}`} onRemove={onClearView} />
+      )}
+      {q && <Chip label={`Meklēšana: "${q}"`} onRemove={onClearQ} />}
+      {rules.map((r, i) => {
+        const def = FIELD_BY_KEY[r.f];
+        const opLbl = OP_LABELS[r.op] ?? r.op;
+        let val = "";
+        if (Array.isArray(r.v)) val = (r.v as string[]).join(", ");
+        else if (typeof r.v === "object" && r.v) {
+          const vv = r.v as { from?: string; to?: string };
+          val = `${vv.from ? fmtDate(vv.from) : ""} → ${vv.to ? fmtDate(vv.to) : ""}`;
+        } else if (r.v != null) val = String(r.v);
+        return (
+          <Chip
+            key={i}
+            label={`${def?.label ?? r.f} ${opLbl}${val ? `: ${val}` : ""}`}
+            onRemove={() => onRemoveRule(i)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-muted/40 pl-2 pr-1 text-[11px] text-foreground">
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+        aria-label="Noņemt"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
