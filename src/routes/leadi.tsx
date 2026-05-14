@@ -641,7 +641,7 @@ function LeadiPage() {
       "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count";
     if (overviewLeadIds.length === 0) return `${cols}&limit=0`;
     const ids = overviewLeadIds
-      .map((id) => `"${id.replace(/"/g, "")}"`)
+      .map((id) => id.replace(/"/g, ""))
       .join(",");
     return `${cols}&lead_id=in.(${ids})&limit=${overviewLeadIds.length}`;
   }, [overviewLeadIds]);
