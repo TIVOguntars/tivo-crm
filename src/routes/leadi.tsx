@@ -905,11 +905,15 @@ function LeadiPage() {
           s(facts?.status) || s(r.lead_status_label || r.status);
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
         const reitings = reitingsByLead.get(id);
-        const priorityScore = isTerminal
-          ? 0
+        const rowScore = Number(
+          r.priority_score ?? r.lead_priority_score ?? NaN,
+        );
+        const fallbackScore = Number.isFinite(rowScore)
+          ? rowScore
           : Number.isFinite(reitings)
             ? (reitings as number)
             : 0;
+        const priorityScore = isTerminal ? 0 : fallbackScore;
         return {
           lead_id: id,
           display_lead_id: id,
@@ -1234,7 +1238,7 @@ function LeadiPage() {
           />
 
           <GroupByControl
-            value={search.gby ?? []}
+            value={gby}
             onChange={setGby}
             onCollapseAll={collapseAll}
             onExpandAll={expandAll}
