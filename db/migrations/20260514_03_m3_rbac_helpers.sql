@@ -1,5 +1,10 @@
 -- =====================================================================
 -- M3: RBAC helper funkcijas + trūkstošās permissions
+-- Reālie kolonnu nosaukumi:
+--   crm.roles(role_key, role_name)
+--   crm.permissions(permission_key, description)
+--   crm.role_permissions(role_id, permission_id)
+--   crm.user_roles(user_id, role_id)
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -19,10 +24,28 @@ BEGIN
         SELECT array_agg(a.attname ORDER BY a.attname)
         FROM unnest(c.conkey) k
         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k
-      ) = ARRAY['slug']
+      ) = ARRAY['permission_key']
   ) THEN
     ALTER TABLE crm.permissions
-      ADD CONSTRAINT permissions_slug_key UNIQUE (slug);
+      ADD CONSTRAINT permissions_permission_key_key UNIQUE (permission_key);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = 'crm'
+      AND t.relname = 'roles'
+      AND c.contype IN ('u', 'p')
+      AND (
+        SELECT array_agg(a.attname ORDER BY a.attname)
+        FROM unnest(c.conkey) k
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k
+      ) = ARRAY['role_key']
+  ) THEN
+    ALTER TABLE crm.roles
+      ADD CONSTRAINT roles_role_key_key UNIQUE (role_key);
   END IF;
 
   IF NOT EXISTS (
@@ -48,7 +71,7 @@ $$;
 -- ---------------------------------------------------------------------
 -- M3.1  has_role()
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION crm.has_role(_user_id uuid, _role_slug text)
+CREATE OR REPLACE FUNCTION crm.has_role(_user_id uuid, _role_key text)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -60,14 +83,14 @@ AS $$
     FROM crm.user_roles ur
     JOIN crm.roles r ON r.id = ur.role_id
     WHERE ur.user_id = _user_id
-      AND r.slug = _role_slug
+      AND r.role_key = _role_key
   );
 $$;
 
 -- ---------------------------------------------------------------------
 -- M3.2  has_permission()
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION crm.has_permission(_user_id uuid, _permission_slug text)
+CREATE OR REPLACE FUNCTION crm.has_permission(_user_id uuid, _permission_key text)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -80,7 +103,7 @@ AS $$
     JOIN crm.role_permissions rp ON rp.role_id = ur.role_id
     JOIN crm.permissions p       ON p.id       = rp.permission_id
     WHERE ur.user_id = _user_id
-      AND p.slug = _permission_slug
+      AND p.permission_key = _permission_key
   );
 $$;
 
@@ -88,13 +111,13 @@ $$;
 -- M3.3  current_user_permissions()
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION crm.current_user_permissions()
-RETURNS TABLE (permission_slug text)
+RETURNS TABLE (permission_key text)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = crm, public
 AS $$
-  SELECT DISTINCT p.slug
+  SELECT DISTINCT p.permission_key
   FROM crm.user_roles ur
   JOIN crm.role_permissions rp ON rp.role_id = ur.role_id
   JOIN crm.permissions p       ON p.id       = rp.permission_id
@@ -105,13 +128,13 @@ $$;
 -- M3.4  current_user_roles()
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION crm.current_user_roles()
-RETURNS TABLE (role_slug text, role_label text)
+RETURNS TABLE (role_key text, role_name text)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = crm, public
 AS $$
-  SELECT r.slug, r.label
+  SELECT r.role_key, r.role_name
   FROM crm.user_roles ur
   JOIN crm.roles r ON r.id = ur.role_id
   WHERE ur.user_id = auth.uid();
@@ -125,18 +148,18 @@ GRANT EXECUTE ON FUNCTION crm.current_user_roles()              TO authenticated
 -- ---------------------------------------------------------------------
 -- M3.5  Trūkstošās permissions
 -- ---------------------------------------------------------------------
-INSERT INTO crm.permissions (slug, label, description)
+INSERT INTO crm.permissions (permission_key, description)
 VALUES
-  ('view_audit',        'View audit log',        'Skatīt audit notikumu žurnālu'),
-  ('view_import_review','View import review',    'Skatīt import review skatu'),
-  ('view_validation',   'View validation',       'Skatīt validation skatu'),
-  ('add_note',          'Add note',              'Pievienot piezīmi lead-am'),
-  ('create_task',       'Create task',           'Izveidot uzdevumu'),
-  ('edit_contact',      'Edit contact',          'Rediģēt kontaktpersonu'),
-  ('add_contact',       'Add contact',           'Pievienot kontaktpersonu lead-am'),
-  ('manage_object',     'Manage object link',    'Pārvaldīt lead-object saites'),
-  ('manage_followup',   'Manage follow-up',      'Pārvaldīt follow-up uzdevumus')
-ON CONFLICT (slug) DO NOTHING;
+  ('view_audit',        'Skatīt audit notikumu žurnālu'),
+  ('view_import_review','Skatīt import review skatu'),
+  ('view_validation',   'Skatīt validation skatu'),
+  ('add_note',          'Pievienot piezīmi lead-am'),
+  ('create_task',       'Izveidot uzdevumu'),
+  ('edit_contact',      'Rediģēt kontaktpersonu'),
+  ('add_contact',       'Pievienot kontaktpersonu lead-am'),
+  ('manage_object',     'Pārvaldīt lead-object saites'),
+  ('manage_followup',   'Pārvaldīt follow-up uzdevumus')
+ON CONFLICT (permission_key) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- M3.6  Admin role permission backfill
@@ -145,5 +168,5 @@ INSERT INTO crm.role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM crm.roles r
 CROSS JOIN crm.permissions p
-WHERE r.slug = 'admin'
+WHERE r.role_key = 'admin'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
