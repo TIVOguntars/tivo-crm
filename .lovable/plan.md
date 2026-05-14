@@ -1,81 +1,59 @@
+## Goal
 
-# M1–M3 migration failu izveide
+Replace the placeholder at `/import-review` with a real, read-only audit view backed by `crm.import_sessions` and `crm.import_changes`. No DB writes, no migrations, no RPC, no approve/reject actions.
 
-Pēc apstiprināšanas izveidošu trīs jaunus migration failus ar timestamp prefiksu `supabase/migrations/` direktorijā. Saturs ir 1:1 v2 preview, ko apstiprināji — nekas papildus.
+## Approach
 
-## Faili, kas tiks izveidoti
+Reuse the existing `fetchCrmView` server function in `src/server/analytics.ts`. It already speaks PostgREST against the `crm` schema with `Accept-Profile: crm`, supports arbitrary querystrings, and is read-only. We extend its allowlist with two new identifiers — `import_sessions` and `import_changes` — which PostgREST exposes the same way for tables and views.
 
-```text
-supabase/migrations/
-  <ts>_m1_junctions_tags_summary.sql
-  <ts>_m2_indexes.sql
-  <ts>_m3_rbac_helpers.sql
-```
+No new server fn, no new client, no schema changes.
 
-> Timestamp prefiksu (`YYYYMMDDHHMMSS`) ģenerēšu izveides brīdī, lai migration secība būtu m1 → m2 → m3.
+## File changes
 
----
+1. `src/server/analytics.ts`
+   - Add `"import_sessions"` and `"import_changes"` to the `CRM_VIEWS` tuple (allowlist only — no behavior change).
 
-## m1_junctions_tags_summary.sql
+2. `src/routes/import-review.tsx` (full rewrite of the placeholder)
+   - Route guarded by `allowedRoles={["admin", "manager"]}` via existing role check pattern (keep parity with current placeholder).
+   - URL search state via `validateSearch` (zod): `session` (string id), `approval_status`, `validation_status`, `change_type`, `conflict_type` (string), `has_conflict` ("true" | "false" | undefined).
+   - Two stacked sections inside one page:
+     - **Section A — Import Sessions**
+       - Data: `useCrmView("import_sessions", query)` where `query = "select=id,source_system,import_type,status,total_records,processed_records,warnings_count,conflicts_count,approved_count,rejected_count,started_at,completed_at&order=started_at.desc.nullslast&limit=200"`.
+       - Render via shadcn `Table`. Row click sets `?session=<id>` (preserves other params). Selected row highlighted.
+       - Show counts as compact numeric cells; `status` via existing `StatusBadge`. Dates formatted (sv-SE locale ok).
+     - **Section B — Import Changes** (only mounts when `session` is set)
+       - Filter bar: 5 controls (shadcn `Select` for enums, `Switch`/`Select` for `has_conflict`). Options derived from distinct values in the currently loaded changes payload (no extra fetch). "Visi" option clears that filter.
+       - Data: `useCrmView("import_changes", query)` where query is built as:
+         - `import_session_id=eq.<session>`
+         - optional `approval_status=eq.X`, `validation_status=eq.X`, `change_type=eq.X`, `conflict_type=eq.X`
+         - optional `has_conflict=is.true` / `is.false`
+         - `order=has_conflict.desc.nullslast,created_at.desc`
+         - `limit=500`
+         - `select=id,import_session_id,entity_type,entity_id,external_id,field_name,old_value,new_value,change_type,validation_status,approval_status,has_conflict,conflict_type,conflict_reason,duplicate_detected,orphan_detected,review_action,review_note,created_at,reviewed_at`
+       - Render via shadcn `Table`. `old_value` / `new_value` shown as truncated text with full content in a `Tooltip`. Booleans (`has_conflict`, `duplicate_detected`, `orphan_detected`) rendered as small pill badges. Long-row horizontal scroll via existing `Table` wrapper.
+   - Loading: `LoadingState`. Error: `ErrorState`. Empty: `EmptyState`. (All from `src/components/DataState.tsx`.)
+   - Header via `PageHeader` ("Importa pārskats", read-only audit hint in description).
 
-- M1.1 `crm.lead_people` backfill no `crm.leads.contact_id`
-  - INSERT … WHERE NOT EXISTS (idempotents)
-  - Normalizācija: viens `is_primary_contact = true` uz lead-u (ROW_NUMBER pa metadata + id)
-- M1.2 `crm.lead_objects` backfill no `crm.lead_project_overview`
-  - DO blokā ar `information_schema.tables` esamības pārbaudi
-  - `relationship_type := 'interested_in'` literāli (bez paļaušanās uz view kolonnu)
-  - **bez `created_at`** — `ORDER BY lead_id, id`
-  - Pirmais saites ieraksts katram lead-am → `is_primary_object = true`, ja vēl nav neviena primary
-- M1.3 `crm.tags` + `crm.lead_tags`
-  - `CREATE TABLE IF NOT EXISTS`
-  - Indeksi: `tags_label_idx`, `lead_tags_tag_idx`, `lead_tags_lead_idx`
-  - `ALTER TABLE … ENABLE ROW LEVEL SECURITY` (bez policy — atsevišķā migrācijā)
-- M1.4 `ALTER TABLE crm.leads ADD COLUMN IF NOT EXISTS summary text`
+## Read-only guarantees
 
-## m2_indexes.sql
+- No mutations, no RPC, no `callCrmRpc` usage.
+- Server fn used (`fetchCrmView`) is GET-only and already in the codebase — unchanged.
+- No edit to any schema, migrations, or `public.*`.
+- No approve/reject UI elements present.
 
-Tikai `CREATE INDEX IF NOT EXISTS`:
+## Technical notes
 
-- `tasks_lead_status_due_idx` — `(lead_id, status, due_at)`
-- `tasks_assigned_status_idx` — `(assigned_user_id, status)`
-- `tasks_due_at_idx` — `(due_at)`
-- `tasks_task_type_idx` — `(task_type)`
-- `notes_lead_created_idx` — `(lead_id, created_at DESC)`
-- `notes_type_idx` — `(note_type)`
+- PostgREST exposes both tables and views identically; the allowlist constant `CRM_VIEWS` is just a name guard, so adding the two table names is the only required server change.
+- All filter params are passed through PostgREST eq/is operators — no SQL constructed in the client.
+- `react-query` cache key includes the query string, so changing filters or selected session re-fetches automatically (existing `useCrmView` behavior).
 
-Bez CHECK, bez DEFAULT izmaiņām, bez datu izmaiņām.
+## Out of scope (per request)
 
-## m3_rbac_helpers.sql
+- No write paths, no apply pipeline, no reviewer actions, no migrations, no schema changes, no public schema access, no RPC.
 
-- M3.0 Drošas UNIQUE constraint pārbaudes (DO bloks ar `pg_constraint` introspekciju):
-  - `crm.permissions(slug)` → `permissions_slug_key`, ja vēl nav UNIQUE/PK
-  - `crm.role_permissions(role_id, permission_id)` → `role_permissions_role_perm_key`, ja vēl nav
-- M3.1 `crm.has_role(_user_id uuid, _role_slug text) → boolean` — `STABLE SECURITY DEFINER`, `search_path = crm, public`
-- M3.2 `crm.has_permission(_user_id uuid, _permission_slug text) → boolean` — tāds pats profils
-- M3.3 `crm.current_user_permissions() → TABLE(permission_slug text)` — izmanto `auth.uid()`
-- M3.4 `crm.current_user_roles() → TABLE(role_slug text, role_label text)` — izmanto `auth.uid()`
-- `GRANT EXECUTE … TO authenticated` visām četrām funkcijām
-- M3.5 9 trūkstošās permissions (`INSERT … ON CONFLICT (slug) DO NOTHING`):
-  `view_audit`, `view_import_review`, `view_validation`, `add_note`, `create_task`, `edit_contact`, `add_contact`, `manage_object`, `manage_followup`
-- M3.6 Admin role backfill (`INSERT … ON CONFLICT (role_id, permission_id) DO NOTHING`)
+## Verification after implementation
 
----
-
-## Ko NEDARU šajā solī
-
-- Neveidoju `lead_contact_links` tabulu
-- Neveidoju `follow_ups` tabulu
-- Nepieskaros `tasks` / `notes` schemai (tikai indeksi)
-- Nepievienoju CHECK constraints un nemainu DEFAULT vērtības
-- Neveidoju RLS policies uz `crm.tags` / `crm.lead_tags`
-- Neveidoju write RPC (M4)
-- Nemainu UI / frontend kodu
-- Nepalaidu nekādu datu UPDATE/DELETE ārpus tā, kas jau aprakstīts M1.1 normalizācijā un M1.2 primary object aizpildē
-
-## Pēc failu izveides
-
-1. Parādīšu visu trīs failu pilnu saturu čatā (`code--view`) pārskatīšanai.
-2. Negaidu deploy bez Tavas atļaujas — apstiprini pēc satura pārskata.
-3. Pēc deploy apstiprinājuma palaidīšu migrācijas (m1 → m2 → m3 secībā).
-
-Apstiprini šo plānu, un sākšu failu izveidi.
+- Manually click a session → Changes table populates and is sorted with conflicts first.
+- Each filter narrows the result set and clears cleanly.
+- Refresh preserves selection and filters via URL.
+- Build passes (typecheck on the new route + zod schema).
