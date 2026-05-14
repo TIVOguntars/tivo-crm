@@ -318,6 +318,10 @@ function LeadProfilePage() {
                       {leadTitle}
                     </h1>
                     <StatusBadge status={leadStatus} />
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ marginLeft: 50 }}>
+                      <span className="text-[10px] uppercase tracking-wide">PPV</span>
+                      <span className="text-foreground font-medium">{ownerLabel}</span>
+                    </div>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     {leadCountry && (
@@ -346,10 +350,6 @@ function LeadProfilePage() {
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wide">Pēdējā aktivitāte</span>
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-wide">PPV</span>
-                    <span className="text-foreground">{ownerLabel}</span>
                   </div>
                 </div>
 
@@ -424,16 +424,6 @@ function LeadProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Pamatdati */}
-          <Card className="shadow-sm">
-            <CardContent className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-4">
-              <Field label="Avots" value={fmt(leadSource)} />
-              <Field label="Reģistrēts" value={fmtDate(leadRegisteredAt)} />
-              <Field label="Statuss" value={<StatusBadge status={leadStatus} />} />
-              <Field label="PPV" value={ownerLabel} />
-            </CardContent>
-          </Card>
-
           {/* Two-column workspace */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* LEFT */}
@@ -456,6 +446,15 @@ function LeadProfilePage() {
                           <Field label="E.164" value={fmt(primaryPhoneE164)} />
                           <Field label="Komunikācijas statuss" value={fmt(pick(primaryContact, "communication_status"))} />
                           <Field label="Tagi" value={fmt(leadTags)} />
+                        </div>
+                        <div className="mt-3 border-t pt-2">
+                          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Pamatdati
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <Field label="Avots" value={fmt(leadSource)} />
+                            <Field label="Reģistrēts" value={fmtDate(leadRegisteredAt)} />
+                          </div>
                         </div>
                       </div>
                     )}
