@@ -1655,7 +1655,23 @@ function LeadiPage() {
                       <div
                         key={l.lead_id}
                         role="row"
-                        onClick={() => openLead(l.lead_id)}
+                        onClick={() => {
+                          const row = l as unknown as Record<string, unknown>;
+                          const crmLeadId =
+                            (row.lead_id as string | undefined) ??
+                            (row.id as string | undefined) ??
+                            (row.crm_lead_id as string | undefined);
+                          console.log("Opening Lead 360", {
+                            crmLeadId,
+                            rowId: row.id,
+                            leadId: row.lead_id,
+                            externalId: row.external_id,
+                            objectId: row.object_id,
+                            displayLeadId: l.display_lead_id,
+                          });
+                          if (!crmLeadId) return;
+                          openLead(String(crmLeadId));
+                        }}
                         className={cn(
                           LEADS_GRID,
                           "group relative cursor-pointer border-b border-border/30 transition-colors",
