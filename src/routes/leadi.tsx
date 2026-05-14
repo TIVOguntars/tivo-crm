@@ -1160,7 +1160,7 @@ function LeadiPage() {
     setSearch({
       view: "all",
       flt: [],
-      gby: [],
+      gby: undefined,
       sort: [],
       q: undefined,
     });
