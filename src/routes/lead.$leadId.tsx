@@ -138,12 +138,13 @@ function SectionCard({
 }
 
 function PeopleFields({ person }: { person: Row }) {
+  const personData = asObject(person.person) ?? person;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <Field label="Vārds" value={fmt(pick(person, "full_name", "name"))} />
-      <Field label="E-pasts" value={fmt(pick(person, "email_normalized", "email"))} />
-      <Field label="Telefons" value={fmt(pick(person, "phone_raw", "phone"))} />
-      <Field label="E.164" value={fmt(pick(person, "phone_e164"))} />
+      <Field label="Vārds" value={fmt(pick(personData, "full_name", "name"))} />
+      <Field label="E-pasts" value={fmt(pick(personData, "email_normalized", "email"))} />
+      <Field label="Telefons" value={fmt(pick(personData, "phone_raw", "phone"))} />
+      <Field label="E.164" value={fmt(pick(personData, "phone_e164"))} />
       <Field label="Comm. status" value={fmt(pick(person, "communication_status"))} />
       <Field label="Loma" value={fmt(pick(person, "role"))} />
       <Field label="Decision maker" value={fmtBool(pick(person, "is_decision_maker"))} />
@@ -264,20 +265,23 @@ function LeadProfilePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {people.map((p, i) => (
-                        <tr
-                          key={String(pick(p, "id", "person_id") ?? i)}
-                          className="border-b last:border-0"
-                        >
-                          <td className="py-2 pr-3">{fmt(pick(p, "full_name", "name"))}</td>
-                          <td className="py-2 pr-3">{fmt(pick(p, "email_normalized", "email"))}</td>
-                          <td className="py-2 pr-3">{fmt(pick(p, "phone_raw", "phone"))}</td>
-                          <td className="py-2 pr-3">{fmt(pick(p, "phone_e164"))}</td>
-                          <td className="py-2 pr-3">{fmt(pick(p, "communication_status"))}</td>
-                          <td className="py-2 pr-3">{fmt(pick(p, "role"))}</td>
-                          <td className="py-2 pr-3">{fmtBool(pick(p, "is_decision_maker"))}</td>
-                        </tr>
-                      ))}
+                      {people.map((p, i) => {
+                        const personData = asObject(p.person) ?? p;
+                        return (
+                          <tr
+                            key={String(pick(p, "id", "person_id") ?? pick(personData, "id", "person_id") ?? i)}
+                            className="border-b last:border-0"
+                          >
+                            <td className="py-2 pr-3">{fmt(pick(personData, "full_name", "name"))}</td>
+                            <td className="py-2 pr-3">{fmt(pick(personData, "email_normalized", "email"))}</td>
+                            <td className="py-2 pr-3">{fmt(pick(personData, "phone_raw", "phone"))}</td>
+                            <td className="py-2 pr-3">{fmt(pick(personData, "phone_e164"))}</td>
+                            <td className="py-2 pr-3">{fmt(pick(p, "communication_status"))}</td>
+                            <td className="py-2 pr-3">{fmt(pick(p, "role"))}</td>
+                            <td className="py-2 pr-3">{fmtBool(pick(p, "is_decision_maker"))}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -302,18 +306,21 @@ function LeadProfilePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {companies.map((c, i) => (
-                      <tr
-                        key={String(pick(c, "id", "company_id") ?? i)}
-                        className="border-b last:border-0"
-                      >
-                        <td className="py-2 pr-3">{fmt(pick(c, "company_name", "name"))}</td>
-                        <td className="py-2 pr-3">{fmt(pick(c, "country"))}</td>
-                        <td className="py-2 pr-3">{fmt(pick(c, "city"))}</td>
-                        <td className="py-2 pr-3">{fmt(pick(c, "relationship_role", "role"))}</td>
-                        <td className="py-2 pr-3">{fmtBool(pick(c, "is_primary_company", "is_primary"))}</td>
-                      </tr>
-                    ))}
+                    {companies.map((c, i) => {
+                      const companyData = asObject(c.company) ?? c;
+                      return (
+                        <tr
+                          key={String(pick(c, "id", "company_id") ?? pick(companyData, "id", "company_id") ?? i)}
+                          className="border-b last:border-0"
+                        >
+                          <td className="py-2 pr-3">{fmt(pick(companyData, "company_name", "name"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(companyData, "country"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(companyData, "city"))}</td>
+                          <td className="py-2 pr-3">{fmt(pick(c, "relationship_role", "role"))}</td>
+                          <td className="py-2 pr-3">{fmtBool(pick(c, "is_primary_company", "is_primary"))}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -326,30 +333,35 @@ function LeadProfilePage() {
               <EmptyState label={NA} />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {objects.map((o, i) => (
-                  <div
-                    key={String(pick(o, "id", "object_id") ?? i)}
-                    className="rounded-lg border bg-card p-4"
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="font-medium">
-                        {fmt(pick(o, "object_name", "name"))}
+                {objects.map((o, i) => {
+                  const objectData = asObject(o.object) ?? o;
+                  return (
+                    <div
+                      key={String(pick(o, "id", "object_id") ?? pick(objectData, "id", "object_id") ?? i)}
+                      className="rounded-lg border bg-card p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="font-medium">
+                          {fmt(pick(objectData, "object_name", "name"))}
+                        </div>
+                        <StatusBadge status={str(pick(objectData, "sales_status"))} />
                       </div>
-                      <StatusBadge status={str(pick(o, "sales_status"))} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Tips" value={fmt(pick(o, "object_type"))} />
-                      <Field label="Sales status" value={fmt(pick(o, "sales_status"))} />
-                      <Field label="Land status" value={fmt(pick(o, "land_status"))} />
-                      <Field label="Project status" value={fmt(pick(o, "project_status"))} />
-                      <div className="col-span-2">
-                        <Field label="Adrese" value={fmt(pick(o, "address"))} />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Tips" value={fmt(pick(objectData, "object_type"))} />
+                        <Field label="Sales status" value={fmt(pick(objectData, "sales_status"))} />
+                        <Field label="Land status" value={fmt(pick(objectData, "land_status"))} />
+                        <Field label="Project status" value={fmt(pick(objectData, "project_status"))} />
+                        <div className="col-span-2">
+                          <Field label="Adrese" value={fmt(pick(objectData, "address"))} />
+                        </div>
+                        <Field label="Budžets" value={fmtMoney(pick(objectData, "budget_amount"))} />
+                        <Field label="Estimated value" value={fmtMoney(pick(objectData, "estimated_value"))} />
+                        <Field label="Relationship" value={fmt(pick(o, "relationship_type"))} />
+                        <Field label="Primary" value={fmtBool(pick(o, "is_primary_object", "is_primary"))} />
                       </div>
-                      <Field label="Budžets" value={fmtMoney(pick(o, "budget_amount"))} />
-                      <Field label="Estimated value" value={fmtMoney(pick(o, "estimated_value"))} />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </SectionCard>
