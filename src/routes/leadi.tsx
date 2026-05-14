@@ -94,7 +94,7 @@ export const Route = createFileRoute("/leadi")({
 /* ----------------------- Types & helpers ----------------------- */
 
 type Row = Record<string, unknown>;
-const PAGE_SIZE = 300;
+const PAGE_SIZE = 2000;
 
 interface Lead {
   lead_id: string;
