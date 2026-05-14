@@ -36,7 +36,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
-import { LeadDrawer } from "@/components/LeadDrawer";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
