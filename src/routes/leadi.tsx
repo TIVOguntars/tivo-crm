@@ -634,19 +634,12 @@ function LeadiPage() {
     return map;
   }, [reitingsView.data]);
 
-  // Per-lead communication counters (📞 / ✉️ / 💬 outbound/inbound).
-  // Aggregated from crm.communications since the enriched queue view
-  // does not expose channel-level counts.
-  const commsStats = useCrmView(
-    "communications",
-    "select=lead_id,channel,direction,status&limit=20000",
-  );
-  // Inbound reply events (e.g. IMAP replies) are tracked in
-  // crm.communication_events, NOT in crm.communications. Without these,
-  // a lead with 8 email replies would render as ✉️ 0/0.
+  // Per-lead communication counters (📞 / ✉️ / 💬 outbound / inbound).
+  // Source of truth: crm.communication_events. Counters represent the
+  // actual outbound vs inbound event counts (NOT total vs replies).
   const commsEvents = useCrmView(
     "communication_events",
-    "select=lead_id,channel,event_type&limit=20000",
+    "select=lead_id,channel,event_type,direction&limit=20000",
   );
   const commCounts = useMemo(() => {
     const map = new Map<
@@ -678,39 +671,56 @@ function LeadiPage() {
       }
       return cur;
     };
-    const rows = (commsStats.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      const st = s(r.status).toLowerCase();
-      if (st && !["sent", "delivered", "replied"].includes(st)) continue;
-      const bucket = channelBucket(s(r.channel).toLowerCase());
-      if (!bucket) continue;
-      const dir = s(r.direction).toLowerCase();
-      const isInbound = dir === "inbound" || dir === "in";
-      const isOutbound = dir === "outbound" || dir === "out";
-      if (!isInbound && !isOutbound) continue;
-      const cur = ensure(lid);
-      cur[bucket][isOutbound ? 0 : 1] += 1;
-    }
-    // Merge inbound reply events from crm.communication_events.
-    const evRows = (commsEvents.data?.rows ?? []) as Row[];
-    const inboundEventTypes = new Set([
+    const inboundEmailEvents = new Set([
+      "replied",
+      "reply",
+      "received",
+      "inbound",
+    ]);
+    const outboundEvents = new Set([
+      "sent",
+      "delivered",
+      "outbound",
+      "placed",
+      "dialed",
+      "call_outbound",
+      "outbound_call",
+    ]);
+    const inboundEvents = new Set([
+      "received",
+      "inbound",
+      "answered",
+      "call_inbound",
+      "inbound_call",
       "reply",
       "replied",
-      "inbound",
-      "received",
     ]);
+    const evRows = (commsEvents.data?.rows ?? []) as Row[];
     for (const r of evRows) {
       const lid = s(r.lead_id);
       if (!lid) continue;
+      const bucket = channelBucket(s(r.channel).toLowerCase());
+      if (!bucket) continue;
       const et = s(r.event_type).toLowerCase();
-      if (!inboundEventTypes.has(et)) continue;
-      const bucket = channelBucket(s(r.channel).toLowerCase()) ?? "email";
-      ensure(lid)[bucket][1] += 1;
+      const dir = s(r.direction).toLowerCase();
+      let isOutbound = false;
+      let isInbound = false;
+      if (bucket === "email") {
+        // Email: strict per spec.
+        if (et === "sent") isOutbound = true;
+        else if (inboundEmailEvents.has(et)) isInbound = true;
+      } else {
+        // Phone / chat: prefer explicit direction, fall back to event_type.
+        if (dir === "outbound" || dir === "out") isOutbound = true;
+        else if (dir === "inbound" || dir === "in") isInbound = true;
+        else if (outboundEvents.has(et)) isOutbound = true;
+        else if (inboundEvents.has(et)) isInbound = true;
+      }
+      if (!isOutbound && !isInbound) continue;
+      ensure(lid)[bucket][isOutbound ? 0 : 1] += 1;
     }
     return map;
-  }, [commsStats.data, commsEvents.data]);
+  }, [commsEvents.data]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
