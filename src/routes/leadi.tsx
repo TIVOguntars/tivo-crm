@@ -1238,7 +1238,7 @@ function LeadiPage() {
           />
 
           <GroupByControl
-            value={search.gby ?? []}
+            value={gby}
             onChange={setGby}
             onCollapseAll={collapseAll}
             onExpandAll={expandAll}
