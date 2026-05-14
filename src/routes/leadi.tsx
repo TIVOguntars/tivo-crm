@@ -2223,7 +2223,7 @@ function GroupByControl({
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-2">
+      <PopoverContent align="start" className="w-[420px] p-2">
         <div className="space-y-1.5">
           {value.length === 0 && (
             <div className="px-1 py-1 text-[11px] text-muted-foreground">
