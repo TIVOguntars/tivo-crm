@@ -212,6 +212,19 @@ function LeadProfilePage() {
     pick(header, "owner_name", "owner", "assigned_user_name", "assigned_user_id"),
   );
 
+  const rawData = asObject(pick(header, "raw_data")) ?? null;
+  const leadTitle =
+    str(pick(primaryData, "full_name")) ||
+    str(pick(legacyContext, "full_name")) ||
+    str(pick(rawData, "full_name")) ||
+    str(pick(header, "summary")) ||
+    str(pick(header, "id", "lead_id")) ||
+    NA;
+  const leadSource =
+    str(pick(header, "source", "lead_source")) ||
+    str(pick(legacyContext, "source", "avots_detalizets")) ||
+    NA;
+
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
     for (const c of communications) {
@@ -263,12 +276,12 @@ function LeadProfilePage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h1 className="text-base font-semibold truncate">
-                      {fmt(pick(header, "lead_name", "name", "title", "summary"))}
+                      {leadTitle}
                     </h1>
                     <StatusBadge status={str(pick(header, "status", "lead_status"))} />
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
-                    {fmt(pick(header, "source", "lead_source"))}
+                    {leadSource}
                   </div>
                 </div>
               </div>
