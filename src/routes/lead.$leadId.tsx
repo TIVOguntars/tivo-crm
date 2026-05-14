@@ -171,6 +171,7 @@ function LeadProfilePage() {
 
   const header =
     sectionObject(profile, "lead", "lead_header", "header") ?? profile;
+  const legacyContext = sectionObject(profile, "legacy_context");
   const people = section(profile, "people");
   const companies = section(profile, "companies");
   const objects = section(profile, "objects");
@@ -232,6 +233,33 @@ function LeadProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 2. People */}
+          {/* 1.5 Legacy / Import Context */}
+          <SectionCard title="Legacy / Import Context">
+            {!legacyContext ? (
+              <EmptyState label={NA} />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="Full name" value={fmt(pick(legacyContext, "full_name"))} />
+                <Field label="E-pasts" value={fmt(pick(legacyContext, "email_normalized"))} />
+                <Field label="Telefons" value={fmt(pick(legacyContext, "telefons_neapstradats"))} />
+                <Field label="E.164" value={fmt(pick(legacyContext, "telefons_e164"))} />
+                <Field label="Valsts" value={fmt(pick(legacyContext, "valsts"))} />
+                <Field label="Tags" value={fmt(pick(legacyContext, "tags"))} />
+                <Field label="Objekts" value={fmt(pick(legacyContext, "objekts"))} />
+                <Field label="Forma zeme" value={fmt(pick(legacyContext, "forma_zeme"))} />
+                <Field label="Forma projekts" value={fmt(pick(legacyContext, "forma_projekts"))} />
+                <Field label="Planota buvnieciba" value={fmt(pick(legacyContext, "planota_buvnieciba_text"))} />
+                <Field label="Automatizācija" value={fmt(pick(legacyContext, "automatizacija"))} />
+                <Field label="Automatizācijas datums" value={fmtDate(pick(legacyContext, "automatizacijas_datums"))} />
+                <Field label="PPV vārds" value={fmt(pick(legacyContext, "ppv_vards"))} />
+                <Field label="Avots detalizēts" value={fmt(pick(legacyContext, "avots_detalizets"))} />
+                <Field label="Smartsheet created" value={fmtDate(pick(legacyContext, "smartsheet_created_at"))} />
+                <Field label="Last Smartsheet change" value={fmtDate(pick(legacyContext, "last_smartsheet_change_at"))} />
+              </div>
+            )}
+          </SectionCard>
 
           {/* 2. People */}
           <SectionCard
