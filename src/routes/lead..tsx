@@ -14,7 +14,7 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { callCrmRpc } from "@/server/analytics";
 
-export const Route = createFileRoute("/lead/$leadId")({
+export const Route = createFileRoute("/lead/")({
   component: LeadProfilePage,
 });
 

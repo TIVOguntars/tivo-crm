@@ -19,6 +19,7 @@ import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeadLeadIdRouteImport } from './routes/lead.$leadId'
+import { Route as LeadRouteImport } from './routes/lead.'
 
 const QueueRoute = QueueRouteImport.update({
   id: '/queue',
@@ -70,6 +71,11 @@ const LeadLeadIdRoute = LeadLeadIdRouteImport.update({
   path: '/lead/$leadId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadRoute = LeadRouteImport.update({
+  id: '/lead/',
+  path: '/lead/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/lead': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/lead/'
     | '/lead/$leadId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/lead'
     | '/lead/$leadId'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/lead/'
     | '/lead/$leadId'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   LeadiRoute: typeof LeadiRoute
   ManualCorrectionsRoute: typeof ManualCorrectionsRoute
   QueueRoute: typeof QueueRoute
+  LeadRoute: typeof LeadRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
 }
 
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadLeadIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lead/': {
+      id: '/lead/'
+      path: '/lead'
+      fullPath: '/lead/'
+      preLoaderRoute: typeof LeadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -245,8 +265,18 @@ const rootRouteChildren: RootRouteChildren = {
   LeadiRoute: LeadiRoute,
   ManualCorrectionsRoute: ManualCorrectionsRoute,
   QueueRoute: QueueRoute,
+  LeadRoute: LeadRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
