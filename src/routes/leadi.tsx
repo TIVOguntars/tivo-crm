@@ -562,9 +562,13 @@ function LeadiPage() {
     ).slice(0, PAGE_SIZE);
   }, [overview.data]);
   const leadIdentityQuery = useMemo(() => {
-    if (overviewLeadIds.length === 0) return "select=id,external_id&limit=0";
-    const ids = overviewLeadIds.map((id) => `"${id.replace(/"/g, "")}"`).join(",");
-    return `select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&or=(id.in.(${ids}),external_id.in.(${ids}))&limit=${overviewLeadIds.length}`;
+    if (overviewLeadIds.length === 0) {
+      return "select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&limit=0";
+    }
+    const ids = overviewLeadIds
+      .map((id) => `"${id.replace(/"/g, "")}"`)
+      .join(",");
+    return `select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&id=in.(${ids})&limit=${overviewLeadIds.length}`;
   }, [overviewLeadIds]);
   const leadIdentity = useCrmView(
     "leads",
