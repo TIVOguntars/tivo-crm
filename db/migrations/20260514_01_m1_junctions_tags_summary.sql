@@ -58,7 +58,7 @@ BEGIN
     SELECT DISTINCT
       v.lead_id,
       v.object_id,
-      'interested_in',
+      'primary',
       jsonb_build_object('backfilled_from', 'lead_project_overview')
     FROM crm.lead_project_overview v
     WHERE v.lead_id IS NOT NULL
