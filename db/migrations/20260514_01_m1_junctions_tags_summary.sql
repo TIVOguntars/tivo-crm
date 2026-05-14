@@ -4,10 +4,10 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- M1.1  Backfill crm.lead_people no crm.leads.contact_id
+-- M1.1  Backfill crm.lead_people caur crm.people
 -- FK: crm.lead_people.person_id -> crm.people(id).
--- Tāpēc vispirms nodrošinām, ka katram contact-am ir atbilstošs people
--- ieraksts, un tikai tad veidojam lead<->person saites.
+-- Vispirms izveidojam trūkstošos crm.people no crm.contacts,
+-- pēc tam lead_people.person_id aizpildām ar crm.people.id.
 -- Match prioritāte: email_normalized -> phone_e164 -> metadata.source_contact_id.
 -- ---------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ WHERE EXISTS (
           OR (p.metadata->>'source_contact_id') = c.id::text
       );
 
--- M1.1.b  Backfill crm.lead_people, kartējot contact -> people.
+-- M1.1.b  Backfill crm.lead_people ar crm.people.id.
 INSERT INTO crm.lead_people (
   lead_id,
   person_id,
