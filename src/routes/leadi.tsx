@@ -696,9 +696,13 @@ function LeadiPage() {
       "replied",
     ]);
     const evRows = (commsEvents.data?.rows ?? []) as Row[];
+    const unmapped = new Map<string, number>();
     for (const r of evRows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
+      const rawLid = s(r.lead_id);
+      if (!rawLid) continue;
+      // communication_events.lead_id may be either canonical crm.leads.id
+      // or legacy external_id. Map to canonical id when possible.
+      const lid = crmLeadIdByKnownId.get(rawLid) ?? rawLid;
       const bucket = channelBucket(s(r.channel).toLowerCase());
       if (!bucket) continue;
       const et = s(r.event_type).toLowerCase();
@@ -717,10 +721,19 @@ function LeadiPage() {
         else if (inboundEvents.has(et)) isInbound = true;
       }
       if (!isOutbound && !isInbound) continue;
+      if (!crmLeadIdByKnownId.has(rawLid)) {
+        unmapped.set(rawLid, (unmapped.get(rawLid) ?? 0) + 1);
+      }
       ensure(lid)[bucket][isOutbound ? 0 : 1] += 1;
     }
+    if (unmapped.size > 0) {
+      console.warn(
+        "[leadi] communication_events lead_id not found in crm.leads identity map",
+        Array.from(unmapped.entries()).slice(0, 10),
+      );
+    }
     return map;
-  }, [commsEvents.data]);
+  }, [commsEvents.data, crmLeadIdByKnownId]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
