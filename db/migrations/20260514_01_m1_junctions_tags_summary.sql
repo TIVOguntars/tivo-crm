@@ -5,24 +5,92 @@
 
 -- ---------------------------------------------------------------------
 -- M1.1  Backfill crm.lead_people no crm.leads.contact_id
+-- FK: crm.lead_people.person_id -> crm.people(id).
+-- Tāpēc vispirms nodrošinām, ka katram contact-am ir atbilstošs people
+-- ieraksts, un tikai tad veidojam lead<->person saites.
+-- Match prioritāte: email_normalized -> phone_e164 -> metadata.source_contact_id.
 -- ---------------------------------------------------------------------
-INSERT INTO crm.lead_people (lead_id, person_id, role, is_primary_contact, metadata)
+
+-- M1.1.a  Izveido trūkstošos crm.people no crm.contacts.
+INSERT INTO crm.people (
+  full_name,
+  email_normalized,
+  phone_e164,
+  metadata
+)
 SELECT
-  l.id,
-  l.contact_id,
+  c.full_name,
+  c.email_normalized,
+  c.phone_e164,
+  jsonb_build_object(
+    'backfilled_from',   'contacts',
+    'source_contact_id', c.id
+  )
+FROM crm.contacts c
+WHERE EXISTS (
+        SELECT 1
+        FROM crm.leads l
+        WHERE l.contact_id = c.id
+      )
+  AND NOT EXISTS (
+        SELECT 1
+        FROM crm.people p
+        WHERE
+          (
+            c.email_normalized IS NOT NULL
+            AND p.email_normalized IS NOT NULL
+            AND p.email_normalized = c.email_normalized
+          )
+          OR (
+            c.phone_e164 IS NOT NULL
+            AND p.phone_e164 IS NOT NULL
+            AND p.phone_e164 = c.phone_e164
+          )
+          OR (p.metadata->>'source_contact_id') = c.id::text
+      );
+
+-- M1.1.b  Backfill crm.lead_people, kartējot contact -> people.
+INSERT INTO crm.lead_people (
+  lead_id,
+  person_id,
+  role,
+  is_primary_contact,
+  metadata
+)
+SELECT
+  l.id  AS lead_id,
+  p.id  AS person_id,
   'primary_contact',
   true,
-  jsonb_build_object('backfilled_from', 'leads.contact_id')
+  jsonb_build_object(
+    'backfilled_from',   'leads.contact_id',
+    'source_contact_id', c.id
+  )
 FROM crm.leads l
+JOIN crm.contacts c ON c.id = l.contact_id
+JOIN LATERAL (
+  SELECT pp.id
+  FROM crm.people pp
+  WHERE
+    (c.email_normalized IS NOT NULL AND pp.email_normalized = c.email_normalized)
+    OR (c.phone_e164    IS NOT NULL AND pp.phone_e164      = c.phone_e164)
+    OR (pp.metadata->>'source_contact_id') = c.id::text
+  ORDER BY
+    (c.email_normalized IS NOT NULL AND pp.email_normalized = c.email_normalized) DESC,
+    (c.phone_e164       IS NOT NULL AND pp.phone_e164       = c.phone_e164)       DESC,
+    ((pp.metadata->>'source_contact_id') = c.id::text)                            DESC,
+    pp.id
+  LIMIT 1
+) p ON true
 WHERE l.contact_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1
     FROM crm.lead_people lp
-    WHERE lp.lead_id = l.id
-      AND lp.person_id = l.contact_id
+    WHERE lp.lead_id   = l.id
+      AND lp.person_id = p.id
   );
 
--- Normalizācija: tikai viens is_primary_contact = true uz lead-u.
+-- M1.1.c  Normalizācija: tikai viens is_primary_contact = true uz lead-u.
 WITH ranked AS (
   SELECT
     id,
@@ -39,8 +107,8 @@ WITH ranked AS (
 UPDATE crm.lead_people lp
 SET is_primary_contact = false
 FROM ranked r
-WHERE lp.id = r.id
-  AND r.rn > 1;
+WHERE lp.id  = r.id
+  AND r.rn  > 1;
 
 -- ---------------------------------------------------------------------
 -- M1.2  Backfill crm.lead_objects no crm.lead_project_overview
