@@ -718,7 +718,14 @@ function LeadiPage() {
       .map((r) => {
         const displayLeadId = s(r.lead_id) || s(r.id);
         if (!displayLeadId) return null;
-        const id = crmLeadIdByKnownId.get(displayLeadId) ?? displayLeadId;
+        const id = crmLeadIdByKnownId.get(displayLeadId);
+        if (!id) {
+          console.warn("[leadi] Missing canonical crm.leads.id", {
+            displayLeadId,
+            row: r,
+          });
+          return null;
+        }
         const phone = s(
           r.phone_e164 || r.telefons_e164 || r.telefons_raw || r.phone_raw,
         );
@@ -1655,23 +1662,7 @@ function LeadiPage() {
                       <div
                         key={l.lead_id}
                         role="row"
-                        onClick={() => {
-                          const row = l as unknown as Record<string, unknown>;
-                          const crmLeadId =
-                            (row.lead_id as string | undefined) ??
-                            (row.id as string | undefined) ??
-                            (row.crm_lead_id as string | undefined);
-                          console.log("Opening Lead 360", {
-                            crmLeadId,
-                            rowId: row.id,
-                            leadId: row.lead_id,
-                            externalId: row.external_id,
-                            objectId: row.object_id,
-                            displayLeadId: l.display_lead_id,
-                          });
-                          if (!crmLeadId) return;
-                          openLead(String(crmLeadId));
-                        }}
+                        onClick={() => openLead(l.lead_id)}
                         className={cn(
                           LEADS_GRID,
                           "group relative cursor-pointer border-b border-border/30 transition-colors",
