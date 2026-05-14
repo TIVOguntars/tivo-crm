@@ -653,79 +653,86 @@ function LeadProfilePage() {
                 {timeline.length === 0 ? (
                   <Empty />
                 ) : (
-                  <ol className="relative space-y-3 max-h-[420px] overflow-auto pr-2">
-                    {timeline.map((c, i) => {
-                      const ch = str(pick(c, "channel"));
+                  <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
+                    {timeline.map((it) => {
+                      const r = it.raw;
+                      const isNote = it.kind === "note";
+                      const ch = str(pick(r, "channel")).toLowerCase();
+                      const dir = str(pick(r, "direction")).toLowerCase();
+                      const inbound = dir.includes("in");
+                      const subject = isNote
+                        ? str(pick(r, "note_type")) || "Piezīme"
+                        : fmt(pick(r, "subject"));
+                      const preview = isNote
+                        ? str(pick(r, "content", "body"))
+                        : str(pick(r, "preview", "body_preview", "summary"));
+                      // bg by kind/channel
+                      let bg = "bg-muted/30";
+                      let accent = "border-l-muted-foreground/40";
+                      if (isNote) {
+                        bg = "bg-amber-50 dark:bg-amber-950/20";
+                        accent = "border-l-amber-400";
+                      } else if (ch.includes("mail")) {
+                        bg = "bg-blue-50 dark:bg-blue-950/20";
+                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
+                      } else if (ch.includes("phone") || ch.includes("call")) {
+                        bg = "bg-emerald-50 dark:bg-emerald-950/20";
+                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
+                      } else if (ch.includes("whats") || ch.includes("sms") || ch.includes("chat")) {
+                        bg = "bg-violet-50 dark:bg-violet-950/20";
+                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
+                      }
                       return (
-                        <li
-                          key={String(pick(c, "id", "communication_id") ?? i)}
-                          className="flex gap-3 border-b pb-3 last:border-0"
-                        >
-                          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                            {channelIcon(ch)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="font-medium">{fmt(ch)}</span>
-                                <span className="text-muted-foreground">
-                                  {fmt(pick(c, "direction"))}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={str(pick(c, "status", "current_status"))} />
-                                <span className="text-[11px] text-muted-foreground">
-                                  {fmtDate(pick(c, "created_at"))}
-                                </span>
-                              </div>
+                        <li key={it.key}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenItem(it)}
+                            className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accent} ${bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                          >
+                            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
+                              {isNote ? <StickyNote className="h-3.5 w-3.5" /> : channelIcon(ch)}
                             </div>
-                            <div className="mt-0.5 text-sm truncate">
-                              {fmt(pick(c, "subject"))}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <span className="font-medium capitalize">
+                                    {isNote ? "Piezīme" : fmt(ch)}
+                                  </span>
+                                  {!isNote && dir && (
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                      {inbound ? (
+                                        <>
+                                          <ArrowDownLeft className="h-3 w-3" /> Ienākošs
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ArrowUpRight className="h-3 w-3" /> Izejošs
+                                        </>
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {!isNote && (
+                                    <StatusBadge status={str(pick(r, "status", "current_status"))} />
+                                  )}
+                                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                                    {fmtDate(pick(r, "created_at", "occurred_at", "sent_at", "updated_at"))}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="mt-0.5 text-sm font-medium truncate">{subject}</div>
+                              {preview && (
+                                <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                                  {preview}
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          </button>
                         </li>
                       );
                     })}
                   </ol>
-                )}
-              </Panel>
-
-              {/* Komunikācija */}
-              <Panel title="Komunikācija" count={communications.length}>
-                {communications.length === 0 ? (
-                  <Empty />
-                ) : (
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 bg-card">
-                        <tr className="border-b text-left text-[10px] uppercase text-muted-foreground">
-                          <th className="py-1.5 pr-2">Kanāls</th>
-                          <th className="py-1.5 pr-2">Virziens</th>
-                          <th className="py-1.5 pr-2">Temats</th>
-                          <th className="py-1.5 pr-2">Status</th>
-                          <th className="py-1.5 pr-2">Sniedzējs</th>
-                          <th className="py-1.5 pr-2">Izveidots</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {communications.map((c, i) => (
-                          <tr
-                            key={String(pick(c, "id", "communication_id") ?? i)}
-                            className="border-b last:border-0"
-                          >
-                            <td className="py-1.5 pr-2">{fmt(pick(c, "channel"))}</td>
-                            <td className="py-1.5 pr-2">{fmt(pick(c, "direction"))}</td>
-                            <td className="py-1.5 pr-2 truncate max-w-[280px]">{fmt(pick(c, "subject"))}</td>
-                            <td className="py-1.5 pr-2">
-                              <StatusBadge status={str(pick(c, "status", "current_status"))} />
-                            </td>
-                            <td className="py-1.5 pr-2">{fmt(pick(c, "provider"))}</td>
-                            <td className="py-1.5 pr-2 whitespace-nowrap">{fmtDate(pick(c, "created_at"))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 )}
               </Panel>
 
@@ -856,6 +863,67 @@ function LeadProfilePage() {
               </CardContent>
             )}
           </Card>
+
+          {/* Activity detail modal */}
+          <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+              {openItem && (() => {
+                const r = openItem.raw;
+                const isNote = openItem.kind === "note";
+                const ch = str(pick(r, "channel"));
+                const dir = str(pick(r, "direction"));
+                const subject = isNote
+                  ? str(pick(r, "note_type")) || "Piezīme"
+                  : fmt(pick(r, "subject"));
+                const body =
+                  str(pick(r, "body", "body_text", "body_html", "content", "preview", "body_preview", "summary")) || "";
+                return (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-base">
+                        {isNote ? <StickyNote className="h-4 w-4" /> : channelIcon(ch)}
+                        <span className="truncate">{subject}</span>
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                      {!isNote && <Field label="Kanāls" value={fmt(ch)} />}
+                      {!isNote && <Field label="Virziens" value={fmt(dir)} />}
+                      {!isNote && (
+                        <Field
+                          label="Status"
+                          value={<StatusBadge status={str(pick(r, "status", "current_status"))} />}
+                        />
+                      )}
+                      {!isNote && <Field label="Sniedzējs" value={fmt(pick(r, "provider"))} />}
+                      <Field label="Datums" value={fmtDate(pick(r, "created_at", "occurred_at", "sent_at", "updated_at"))} />
+                      {isNote && (
+                        <Field label="Tips" value={fmt(pick(r, "note_type"))} />
+                      )}
+                    </div>
+                    <div className="mt-4">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                        Saturs
+                      </div>
+                      {body ? (
+                        /<[a-z][\s\S]*>/i.test(body) ? (
+                          <div
+                            className="prose prose-sm max-w-none rounded-md border bg-muted/20 p-3 text-sm"
+                            dangerouslySetInnerHTML={{ __html: body }}
+                          />
+                        ) : (
+                          <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
+                            {body}
+                          </pre>
+                        )
+                      ) : (
+                        <div className="text-sm text-muted-foreground">Nav satura.</div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
