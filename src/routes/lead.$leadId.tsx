@@ -440,8 +440,12 @@ function LeadProfilePage() {
                           Primārais kontakts
                         </div>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          <Field label="Vārds" value={fmt(pick(primaryData, "full_name", "name"))} />
-                          <Field label="E-pasts" value={fmt(primaryEmail)} />
+                          <div className="sm:col-span-2">
+                            <Field label="Vārds" value={fmt(pick(primaryData, "full_name", "name"))} />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <Field label="E-pasts" value={fmt(primaryEmail)} />
+                          </div>
                           <Field label="Telefons" value={fmt(primaryPhoneRaw)} />
                           <Field label="E.164" value={fmt(primaryPhoneE164)} />
                           <Field label="Komunikācijas statuss" value={fmt(pick(primaryContact, "communication_status"))} />
