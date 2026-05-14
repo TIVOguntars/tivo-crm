@@ -4,11 +4,11 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- M1.1  Backfill crm.lead_people caur crm.people
+-- M1.1  Backfill crm.lead_people no crm.leads.contact_id caur crm.people
 -- FK: crm.lead_people.person_id -> crm.people(id).
--- Vispirms izveidojam trūkstošos crm.people no crm.contacts,
--- pēc tam lead_people.person_id aizpildām ar crm.people.id.
--- Match prioritāte: email_normalized -> phone_e164 -> metadata.source_contact_id.
+-- Vispirms izveido trūkstošos crm.people no crm.contacts,
+-- pēc tam lead_people.person_id aizpilda ar crm.people.id.
+-- Match: email_normalized, phone_e164, metadata.source_contact_id.
 -- ---------------------------------------------------------------------
 
 -- M1.1.a  Izveido trūkstošos crm.people no crm.contacts.
@@ -58,8 +58,8 @@ INSERT INTO crm.lead_people (
   metadata
 )
 SELECT
-  l.id  AS lead_id,
-  p.id  AS person_id,
+  l.id AS lead_id,
+  p.id AS person_id,
   'primary_contact',
   true,
   jsonb_build_object(
@@ -107,8 +107,8 @@ WITH ranked AS (
 UPDATE crm.lead_people lp
 SET is_primary_contact = false
 FROM ranked r
-WHERE lp.id  = r.id
-  AND r.rn  > 1;
+WHERE lp.id = r.id
+  AND r.rn > 1;
 
 -- ---------------------------------------------------------------------
 -- M1.2  Backfill crm.lead_objects no crm.lead_project_overview
