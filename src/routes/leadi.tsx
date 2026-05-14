@@ -635,105 +635,46 @@ function LeadiPage() {
   }, [reitingsView.data]);
 
   // Per-lead communication counters (📞 / ✉️ / 💬 outbound / inbound).
-  // Source of truth: crm.communication_events. Counters represent the
-  // actual outbound vs inbound event counts (NOT total vs replies).
-  const commsEvents = useCrmView(
-    "communication_events",
-    "select=lead_id,channel,event_type,direction&limit=20000",
+  // Source of truth: backend view crm.lead_row_communication_counts.
+  const rowCountsQuery = useMemo(() => {
+    const cols =
+      "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count";
+    if (overviewLeadIds.length === 0) return `${cols}&limit=0`;
+    const ids = overviewLeadIds
+      .map((id) => `"${id.replace(/"/g, "")}"`)
+      .join(",");
+    return `${cols}&lead_id=in.(${ids})&limit=${overviewLeadIds.length}`;
+  }, [overviewLeadIds]);
+  const rowCounts = useCrmView(
+    "lead_row_communication_counts",
+    rowCountsQuery,
   );
   const commCounts = useMemo(() => {
     const map = new Map<
       string,
       { call: [number, number]; email: [number, number]; chat: [number, number] }
     >();
-    const channelBucket = (ch: string): "call" | "email" | "chat" | null => {
-      if (ch === "call" || ch.includes("phone") || ch.includes("zvan")) return "call";
-      if (ch.includes("mail") || ch.includes("past")) return "email";
-      if (
-        ch === "sms" ||
-        ch.includes("whats") ||
-        ch.includes("messeng") ||
-        ch.includes("chat") ||
-        ch.includes("telegram")
-      )
-        return "chat";
-      return null;
-    };
-    const ensure = (lid: string) => {
-      let cur = map.get(lid);
-      if (!cur) {
-        cur = {
-          call: [0, 0] as [number, number],
-          email: [0, 0] as [number, number],
-          chat: [0, 0] as [number, number],
-        };
-        map.set(lid, cur);
-      }
-      return cur;
-    };
-    const inboundEmailEvents = new Set([
-      "replied",
-      "reply",
-      "received",
-      "inbound",
-    ]);
-    const outboundEvents = new Set([
-      "sent",
-      "delivered",
-      "outbound",
-      "placed",
-      "dialed",
-      "call_outbound",
-      "outbound_call",
-    ]);
-    const inboundEvents = new Set([
-      "received",
-      "inbound",
-      "answered",
-      "call_inbound",
-      "inbound_call",
-      "reply",
-      "replied",
-    ]);
-    const evRows = (commsEvents.data?.rows ?? []) as Row[];
-    const unmapped = new Map<string, number>();
-    for (const r of evRows) {
-      const rawLid = s(r.lead_id);
-      if (!rawLid) continue;
-      // communication_events.lead_id may be either canonical crm.leads.id
-      // or legacy external_id. Map to canonical id when possible.
-      const lid = crmLeadIdByKnownId.get(rawLid) ?? rawLid;
-      const bucket = channelBucket(s(r.channel).toLowerCase());
-      if (!bucket) continue;
-      const et = s(r.event_type).toLowerCase();
-      const dir = s(r.direction).toLowerCase();
-      let isOutbound = false;
-      let isInbound = false;
-      if (bucket === "email") {
-        // Email: strict per spec.
-        if (et === "sent") isOutbound = true;
-        else if (inboundEmailEvents.has(et)) isInbound = true;
-      } else {
-        // Phone / chat: prefer explicit direction, fall back to event_type.
-        if (dir === "outbound" || dir === "out") isOutbound = true;
-        else if (dir === "inbound" || dir === "in") isInbound = true;
-        else if (outboundEvents.has(et)) isOutbound = true;
-        else if (inboundEvents.has(et)) isInbound = true;
-      }
-      if (!isOutbound && !isInbound) continue;
-      if (!crmLeadIdByKnownId.has(rawLid)) {
-        unmapped.set(rawLid, (unmapped.get(rawLid) ?? 0) + 1);
-      }
-      ensure(lid)[bucket][isOutbound ? 0 : 1] += 1;
-    }
-    if (unmapped.size > 0) {
-      console.warn(
-        "[leadi] communication_events lead_id not found in crm.leads identity map",
-        Array.from(unmapped.entries()).slice(0, 10),
-      );
+    const rows = (rowCounts.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
+        email: [
+          Number(r.email_outbound_count) || 0,
+          Number(r.email_inbound_count) || 0,
+        ],
+        call: [
+          Number(r.call_outbound_count) || 0,
+          Number(r.call_inbound_count) || 0,
+        ],
+        chat: [
+          Number(r.chat_outbound_count) || 0,
+          Number(r.chat_inbound_count) || 0,
+        ],
+      });
     }
     return map;
-  }, [commsEvents.data, crmLeadIdByKnownId]);
+  }, [rowCounts.data]);
 
   const errorMsg =
     (overview.error as Error | null)?.message || overview.data?.error;
