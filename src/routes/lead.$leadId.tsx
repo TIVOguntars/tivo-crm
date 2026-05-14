@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import {
   ArrowLeft,
@@ -169,6 +169,17 @@ function channelIcon(channel: string) {
 /* -------------------------- page -------------------------- */
 
 function LeadProfilePage() {
+  const navigate = useNavigate();
+  const goBackToList = () => {
+    let prev: Record<string, unknown> | null = null;
+    try {
+      const raw = sessionStorage.getItem("leadi:lastSearch");
+      if (raw) prev = JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
+    navigate({ to: "/leadi", search: (prev ?? {}) as never });
+  };
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
