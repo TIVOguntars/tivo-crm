@@ -270,6 +270,21 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
+  // Source 5: priority scoring v2 — canonical source for priority_score,
+  // priority_label and recommended_status. No DB writes from here.
+  const scoringQ = useQuery({
+    queryKey: ["crm", "lead_priority_scoring_v2", canonicalLeadId],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "lead_priority_scoring_v2",
+          query: `lead_id=eq.${encodeURIComponent(canonicalLeadId)}&limit=1`,
+        },
+      }),
+    enabled: open && !!canonicalLeadId,
+    staleTime: 30_000,
+  });
+
   const channelCounts = useMemo(() => {
     const rows = (commsQ.data?.rows ?? []) as Row[];
     const out = { call: 0, email: 0, sms: 0, whatsapp: 0, inbound: 0, outbound: 0 };
@@ -292,6 +307,7 @@ export function LeadDrawer({
     const c = (l.contacts as Row | undefined) ?? {};
     const raw = (l.raw_data as Row | undefined) ?? {};
     const sum = (summaryQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const sc = (scoringQ.data?.rows?.[0] as Row | undefined) ?? {};
     return {
       // identity
       lead_id: s(l.id) || s(q.lead_id) || leadId || "",
@@ -309,8 +325,9 @@ export function LeadDrawer({
       visible_action_owner:
         s(q.action_owner_label) || s(raw.atbildigais) || "",
       ppv_name: s(q.ppv_name) || s(raw.ppv_vards) || "",
-      priority_score: q.lead_priority_score ?? null,
-      priority_label: s(q.priority_label),
+      priority_score: sc.priority_score ?? 0,
+      priority_label: s(sc.priority_label) || "Zema",
+      recommended_status: sc.recommended_status ?? null,
       // contact — CANONICAL source is crm.contacts only.
       // Validation badges depend on these exact values (no fallback).
       phone_e164: s(c.phone_e164),
@@ -343,7 +360,7 @@ export function LeadDrawer({
       created_at: s(l.created_at),
       raw_data: raw,
     };
-  }, [queueQ.data, leadQ.data, summaryQ.data, leadId]);
+  }, [queueQ.data, leadQ.data, summaryQ.data, scoringQ.data, leadId]);
 
   const loading = queueQ.isLoading || leadQ.isLoading;
 
@@ -425,7 +442,11 @@ function DrawerBody({
 
   const waPhone = phone.replace(/[^0-9]/g, "");
   const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
-  const priorityLabel = s(row.priority_label);
+  const priorityLabel = s(row.priority_label) || "Zema";
+  const recommendedStatus = s(row.recommended_status);
+  const showRecommendation =
+    !!recommendedStatus &&
+    recommendedStatus.toLowerCase() !== status.toLowerCase();
   const shortLeadId = realLeadId ? realLeadId.slice(0, 8) : "";
   const flag = countryFlag(country);
 
@@ -463,8 +484,15 @@ function DrawerBody({
               </span>
             )}
             {status && <StatusBadge status={status} />}
-            {priorityScore > 0 && (
+            {showRecommendation && (
               <span
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-dashed border-amber-400/60 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                title={`Ieteiktais statuss: ${recommendedStatus}`}
+              >
+                → {recommendedStatus}
+              </span>
+            )}
+            <span
                 className={cn(
                   "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
                   priorityScore >= 90
@@ -473,12 +501,11 @@ function DrawerBody({
                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
                       : "bg-muted text-muted-foreground",
                 )}
-                title={priorityLabel || `Prioritāte ${priorityScore}`}
+                title={`${priorityLabel} (${priorityScore})`}
               >
                 <Flame className="h-2.5 w-2.5" />
-                {priorityScore}
+                {priorityLabel} · {priorityScore}
               </span>
-            )}
           </div>
 
           {/* CENTER — secondary (owner/ppv) and tertiary (tags) — visually demoted */}
