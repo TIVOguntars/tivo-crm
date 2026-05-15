@@ -197,10 +197,11 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
-  const reitingsQ = useAnalyticsView(
-    "lead_reitings_preview",
-    `select=lead_id,reitings&lead_id=eq.${leadId}&limit=1`,
-    { enabled: !!leadId },
+  // CANONICAL priority source: crm.lead_priority_scoring_v2.
+  // Display only — never write back to crm.leads.
+  const scoringQ = useCrmView(
+    "lead_priority_scoring_v2",
+    `select=lead_id,priority_score,priority_label,recommended_status&lead_id=eq.${leadId}&limit=1`,
   );
   const commCountsQ = useCrmView(
     "leads_list_display",
@@ -224,11 +225,6 @@ function LeadProfilePage() {
     const ext = lead?.external_id;
     return ext == null ? "" : String(ext);
   })();
-  const reitingsByExtQ = useAnalyticsView(
-    "lead_reitings_preview",
-    `select=lead_id,reitings&lead_id=eq.${earlyExternalId}&limit=1`,
-    { enabled: !!earlyExternalId },
-  );
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
@@ -291,29 +287,13 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
-  const priorityScore = useMemo(() => {
-    const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
-    if (isTerminal) return 0;
-    const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
-    const rating = Number(ratingRow?.reitings);
-    if (Number.isFinite(rating) && rating > 0) return rating;
-    const ratingByExtRow = ((reitingsByExtQ.data?.rows ?? []) as Row[])[0];
-    const ratingByExt = Number(ratingByExtRow?.reitings);
-    if (Number.isFinite(ratingByExt) && ratingByExt > 0) {
-      return ratingByExt;
-    }
-    if (
-      !reitingsQ.isLoading &&
-      leadId &&
-      !ratingRow &&
-      !ratingByExtRow
-    ) {
-      console.error(
-        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview`,
-      );
-    }
-    return 0;
-  }, [leadStatus, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
+  const scoringRow = ((scoringQ.data?.rows ?? []) as Row[])[0];
+  const priorityScore = Number(scoringRow?.priority_score ?? 0) || 0;
+  const priorityLabel = String(scoringRow?.priority_label ?? "") || "Zema";
+  const recommendedStatus = String(scoringRow?.recommended_status ?? "");
+  const showRecommendedStatus =
+    !!recommendedStatus &&
+    recommendedStatus.toLowerCase() !== leadStatus.toLowerCase();
   const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
