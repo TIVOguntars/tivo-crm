@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
+import { HeaderSlot } from "@/components/HeaderSlot";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
@@ -1283,15 +1284,18 @@ function LeadiPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+      <HeaderSlot>
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-sm font-semibold tracking-tight text-foreground">
             Leadi
           </h1>
           <p className="text-xs text-muted-foreground">
             Analītiskā leadu darba vide
           </p>
         </div>
+      </HeaderSlot>
+      <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div />
         <div className="flex items-center gap-1.5">
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
             <Bookmark className="h-3.5 w-3.5" />
