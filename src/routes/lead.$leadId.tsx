@@ -444,12 +444,12 @@ function LeadProfilePage() {
                 </div>
                 <div className="hidden md:flex items-center text-xs text-muted-foreground ml-6">
                   <div className="flex flex-col">
-                    <span className="text-foreground mx-[20px]">PPV</span>
-                    <span className="text-foreground mx-[20px] font-medium">{ownerLabel}</span>
+                    <span className="text-foreground mx-[10px]">PPV</span>
+                    <span className="text-foreground mx-[10px] font-medium">{ownerLabel}</span>
                   </div>
                   <div className="flex flex-col ml-[50px]">
-                    <span className="text-foreground mx-[20px]">Prioritāte</span>
-                    <span className="text-foreground mx-[20px] font-medium flex items-center gap-1">
+                    <span className="text-foreground mx-[10px]">Prioritāte</span>
+                    <span className="text-foreground mx-[10px] font-medium flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
@@ -460,8 +460,8 @@ function LeadProfilePage() {
                     </span>
                   </div>
                   <div className="flex flex-col ml-4">
-                    <span className="text-foreground mx-[20px]">Pēdējā aktivitāte</span>
-                    <span className="text-foreground mx-[20px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
+                    <span className="text-foreground mx-[10px]">Pēdējā aktivitāte</span>
+                    <span className="text-foreground mx-[10px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
                 </div>
               </div>
