@@ -16,6 +16,7 @@ import {
   CheckSquare,
   ArrowDownLeft,
   ArrowUpRight,
+  Star,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -34,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCrmRpc } from "@/hooks/useCrmRpc";
+import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -193,6 +195,17 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
+  const reitingsQ = useAnalyticsView(
+    "lead_reitings_preview",
+    `select=lead_id,reitings&lead_id=eq.${leadId}&limit=1`,
+    { enabled: !!leadId },
+  );
+  const priorityScore = (() => {
+    const r = (reitingsQ.data?.rows ?? [])[0] as Row | undefined;
+    const n = Number(r?.reitings);
+    return Number.isFinite(n) ? n : 0;
+  })();
+  const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
@@ -392,12 +405,24 @@ function LeadProfilePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="hidden md:flex items-center text-xs text-muted-foreground ml-[100px]">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wide">PPV</span>
                     <span className="text-foreground font-medium">{ownerLabel}</span>
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col ml-[100px]">
+                    <span className="text-[10px] uppercase tracking-wide">Prioritāte</span>
+                    <span className="text-foreground font-medium flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3 w-3 ${i < priorityStars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                        />
+                      ))}
+                      <span className="ml-1">{priorityScore}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col ml-4">
                     <span className="text-[10px] uppercase tracking-wide">Pēdējā aktivitāte</span>
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
                   </div>
