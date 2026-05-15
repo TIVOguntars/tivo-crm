@@ -205,6 +205,24 @@ function LeadProfilePage() {
     "leads_list_display",
     `select=lead_id,status,priority_score,lead_priority_score,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
+  // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
+  const earlyExternalId = (() => {
+    const r0 = q.data?.rows?.[0];
+    if (!r0 || typeof r0 !== "object") return "";
+    const prof =
+      (r0 as Row).profile && typeof (r0 as Row).profile === "object"
+        ? ((r0 as Row).profile as Row)
+        : (r0 as Row);
+    const lead =
+      prof.lead && typeof prof.lead === "object" ? (prof.lead as Row) : prof;
+    const ext = lead?.external_id;
+    return ext == null ? "" : String(ext);
+  })();
+  const reitingsByExtQ = useAnalyticsView(
+    "lead_reitings_preview",
+    `select=lead_id,reitings&lead_id=eq.${earlyExternalId}&limit=1`,
+    { enabled: !!earlyExternalId },
+  );
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
@@ -278,6 +296,11 @@ function LeadProfilePage() {
     const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
     const rating = Number(ratingRow?.reitings);
     if (Number.isFinite(rating) && rating > 0) return rating;
+    const ratingByExtRow = ((reitingsByExtQ.data?.rows ?? []) as Row[])[0];
+    const ratingByExt = Number(ratingByExtRow?.reitings);
+    if (Number.isFinite(ratingByExt) && ratingByExt > 0) {
+      return ratingByExt;
+    }
     if (
       !reitingsQ.isLoading &&
       !commCountsQ.isLoading &&
@@ -290,7 +313,7 @@ function LeadProfilePage() {
       );
     }
     return 0;
-  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, leadId]);
+  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
   const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
