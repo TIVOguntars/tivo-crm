@@ -507,6 +507,25 @@ function LeadProfilePage() {
                     )}
                   </Button>
                   <Button
+                    asChild={!!primaryPhone}
+                    size="sm"
+                    variant="outline"
+                    disabled={!primaryPhone}
+                    title={primaryPhone || "Nav telefona"}
+                  >
+                    {primaryPhone ? (
+                      <a href={`sms:${primaryPhone}`}>
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                        SMS
+                      </a>
+                    ) : (
+                      <span>
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                        SMS
+                      </span>
+                    )}
+                  </Button>
+                  <Button
                     asChild={!!waNumber}
                     size="sm"
                     variant="outline"
