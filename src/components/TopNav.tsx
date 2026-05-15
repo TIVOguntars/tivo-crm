@@ -18,6 +18,7 @@ import {
 import { LogoutButton } from "@/components/AuthGate";
 import tivoLogo from "@/assets/tivo-logo.png";
 import { useCurrentRole, hasAccess, type Role } from "@/lib/roles";
+import { HeaderSlotOutlet } from "@/components/HeaderSlot";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +71,7 @@ export function TopNav() {
         <div className="flex items-center gap-2">
           <img src={tivoLogo} alt="TIVO" className="h-7 w-auto" />
           <span className="text-sm font-semibold tracking-tight">CRM</span>
+          <HeaderSlotOutlet className="ml-[50px] flex items-center" />
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto">
           <Link
