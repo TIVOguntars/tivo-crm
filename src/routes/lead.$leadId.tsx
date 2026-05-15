@@ -986,13 +986,30 @@ function LeadProfilePage() {
                 const subject = isNote
                   ? str(pick(r, "note_type")) || "Piezīme"
                   : fmt(pick(r, "subject"));
-                const htmlBody = str(pick(r, "body_html", "html", "html_body", "content_html"));
+                const activityId = str(pick(r, "id", "communication_id"));
+                const rp = !isNote && activityId ? rawPayloadById.get(activityId) : undefined;
+                const payloadHtml = rp
+                  ? str(pick(rp, "html_body", "html", "body_html", "content_html"))
+                  : "";
+                const inlineHtml = str(pick(r, "body_html", "html", "html_body", "content_html"));
+                const htmlBody = payloadHtml || inlineHtml;
                 const textBody = str(pick(r, "body_text", "body", "content", "preview", "body_preview", "summary"));
                 const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
-                const rawForRender = htmlBody || textBody;
+                const rawForRender = htmlBody || textBody || str(pick(r, "subject"));
                 const body = rawForRender || "";
+                if (!isNote && ch.toLowerCase() === "email" && !htmlBody) {
+                  console.warn(
+                    "No HTML body found for email activity",
+                    activityId,
+                    rp ? Object.keys(rp) : [],
+                    Object.keys(r),
+                  );
+                }
                 const safeHtml = bodyLooksHtml && body
-                  ? DOMPurify.sanitize(body, { USE_PROFILES: { html: true } })
+                  ? DOMPurify.sanitize(body, {
+                      USE_PROFILES: { html: true },
+                      ADD_ATTR: ["target", "rel"],
+                    })
                   : "";
                 return (
                   <>
