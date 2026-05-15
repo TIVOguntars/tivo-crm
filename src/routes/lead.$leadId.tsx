@@ -21,6 +21,7 @@ import {
 
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
   CardContent,
@@ -967,8 +968,14 @@ function LeadProfilePage() {
                 const subject = isNote
                   ? str(pick(r, "note_type")) || "Piezīme"
                   : fmt(pick(r, "subject"));
-                const body =
-                  str(pick(r, "body", "body_text", "body_html", "content", "preview", "body_preview", "summary")) || "";
+                const htmlBody = str(pick(r, "body_html", "html", "html_body", "content_html"));
+                const textBody = str(pick(r, "body_text", "body", "content", "preview", "body_preview", "summary"));
+                const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
+                const rawForRender = htmlBody || textBody;
+                const body = rawForRender || "";
+                const safeHtml = bodyLooksHtml && body
+                  ? DOMPurify.sanitize(body, { USE_PROFILES: { html: true } })
+                  : "";
                 return (
                   <>
                     <DialogHeader>
@@ -997,10 +1004,10 @@ function LeadProfilePage() {
                         Saturs
                       </div>
                       {body ? (
-                        /<[a-z][\s\S]*>/i.test(body) ? (
+                        bodyLooksHtml ? (
                           <div
-                            className="prose prose-sm max-w-none rounded-md border bg-muted/20 p-3 text-sm"
-                            dangerouslySetInnerHTML={{ __html: body }}
+                            className="prose prose-sm max-w-none rounded-md border bg-muted/20 p-3 text-sm [&_a]:text-primary [&_a]:underline"
+                            dangerouslySetInnerHTML={{ __html: safeHtml }}
                           />
                         ) : (
                           <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
