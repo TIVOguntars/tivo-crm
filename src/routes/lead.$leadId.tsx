@@ -759,6 +759,71 @@ function LeadProfilePage() {
 
             {/* RIGHT */}
             <div className="space-y-4 xl:col-span-2">
+              {/* Uzdevumi un plānotās darbības (unified future-work block) */}
+              {(() => {
+                type PlannedItem = {
+                  key: string;
+                  title: string;
+                  meta: string;
+                  status: string;
+                };
+                const items: PlannedItem[] = [];
+                tasks.forEach((t, i) => {
+                  items.push({
+                    key: `t:${str(pick(t, "id", "task_id")) || i}`,
+                    title: fmt(pick(t, "title", "name")),
+                    meta: `${fmtDate(pick(t, "due_at"))} · ${fmt(pick(t, "priority"))} · ${fmt(pick(t, "assigned_user_id"))}`,
+                    status: str(pick(t, "status")),
+                  });
+                });
+                nextActions.forEach((a, i) => {
+                  items.push({
+                    key: `a:${str(pick(a, "id", "action_id")) || i}`,
+                    title: fmt(pick(a, "action_type")),
+                    meta: `${fmtDate(pick(a, "due_at"))} · prio ${fmt(pick(a, "priority_score", "priority"))} · ${fmt(pick(a, "source"))}`,
+                    status: str(pick(a, "status")),
+                  });
+                });
+                const autom =
+                  pick(rawData, "automatizacija") ??
+                  pick(legacyContext, "automatizacija");
+                const automAt =
+                  pick(rawData, "automatizacijas_datums") ??
+                  pick(legacyContext, "automatizacijas_datums");
+                if (autom || automAt) {
+                  items.push({
+                    key: "autom:legacy",
+                    title: fmt(autom),
+                    meta: `${fmtDate(automAt)} · automatizācija`,
+                    status: "planned",
+                  });
+                }
+                return (
+                  <Panel title="Uzdevumi un plānotās darbības" count={items.length}>
+                    {items.length === 0 ? (
+                      <Empty />
+                    ) : (
+                      <ul className="divide-y">
+                        {items.map((it) => (
+                          <li
+                            key={it.key}
+                            className="flex items-center justify-between gap-2 py-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm truncate">{it.title}</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {it.meta}
+                              </div>
+                            </div>
+                            <StatusBadge status={it.status} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Panel>
+                );
+              })()}
+
               {/* Aktivitātes */}
               <Panel title="Aktivitātes" count={timeline.length}>
                 {timeline.length === 0 ? (
@@ -844,107 +909,6 @@ function LeadProfilePage() {
                       );
                     })}
                   </ol>
-                )}
-              </Panel>
-
-              {/* Tasks + Next Actions side by side on wide */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Panel title="Uzdevumi" count={tasks.length}>
-                  {tasks.length === 0 ? (
-                    <Empty />
-                  ) : (
-                    <ul className="divide-y">
-                      {tasks.map((t, i) => (
-                        <li
-                          key={String(pick(t, "id", "task_id") ?? i)}
-                          className="flex items-center justify-between gap-2 py-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm truncate">{fmt(pick(t, "title", "name"))}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {fmtDate(pick(t, "due_at"))} · {fmt(pick(t, "priority"))} · {fmt(pick(t, "assigned_user_id"))}
-                            </div>
-                          </div>
-                          <StatusBadge status={str(pick(t, "status"))} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Panel>
-
-                <Panel title="Nākamās darbības" count={nextActions.length}>
-                  {nextActions.length === 0 ? (
-                    (() => {
-                      const autom =
-                        pick(rawData, "automatizacija") ??
-                        pick(legacyContext, "automatizacija");
-                      const automAt =
-                        pick(rawData, "automatizacijas_datums") ??
-                        pick(legacyContext, "automatizacijas_datums");
-                      if (!autom && !automAt) return <Empty />;
-                      return (
-                        <ul className="divide-y">
-                          <li className="flex items-center justify-between gap-2 py-2">
-                            <div className="min-w-0">
-                              <div className="text-sm truncate">{fmt(autom)}</div>
-                              <div className="text-[11px] text-muted-foreground">
-                                {fmtDate(automAt)} · automatizācija
-                              </div>
-                            </div>
-                            <StatusBadge status="planned" />
-                          </li>
-                        </ul>
-                      );
-                    })()
-                  ) : (
-                    <ul className="divide-y">
-                      {nextActions.map((a, i) => (
-                        <li
-                          key={String(pick(a, "id", "action_id") ?? i)}
-                          className="flex items-center justify-between gap-2 py-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm truncate">{fmt(pick(a, "action_type"))}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {fmtDate(pick(a, "due_at"))} · prio {fmt(pick(a, "priority_score", "priority"))} · {fmt(pick(a, "source"))}
-                            </div>
-                          </div>
-                          <StatusBadge status={str(pick(a, "status"))} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Panel>
-              </div>
-
-              {/* Piezīmes */}
-              <Panel title="Piezīmes" count={notes.length}>
-                {notes.length === 0 ? (
-                  <Empty />
-                ) : (
-                  <div className="space-y-2">
-                    {notes.map((n, i) => (
-                      <div
-                        key={String(pick(n, "id", "note_id") ?? i)}
-                        className="rounded-md border bg-card p-2.5"
-                      >
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <span>{fmt(pick(n, "note_type"))}</span>
-                            {pick(n, "is_pinned") === true && (
-                              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
-                                Piespraust
-                              </span>
-                            )}
-                          </div>
-                          <span>{fmtDate(pick(n, "created_at"))}</span>
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm text-foreground">
-                          {fmt(pick(n, "content", "body"))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </Panel>
             </div>
