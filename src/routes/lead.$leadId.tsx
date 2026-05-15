@@ -203,7 +203,7 @@ function LeadProfilePage() {
   );
   const commCountsQ = useCrmView(
     "leads_list_display",
-    `select=lead_id,status,priority_score,lead_priority_score,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
+    `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
   // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
   const earlyExternalId = (() => {
@@ -288,11 +288,6 @@ function LeadProfilePage() {
   const priorityScore = useMemo(() => {
     const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
     if (isTerminal) return 0;
-    const listRow = ((commCountsQ.data?.rows ?? []) as Row[])[0];
-    const rowPriority = Number(
-      listRow?.priority_score ?? listRow?.lead_priority_score,
-    );
-    if (Number.isFinite(rowPriority) && rowPriority > 0) return rowPriority;
     const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
     const rating = Number(ratingRow?.reitings);
     if (Number.isFinite(rating) && rating > 0) return rating;
@@ -303,17 +298,16 @@ function LeadProfilePage() {
     }
     if (
       !reitingsQ.isLoading &&
-      !commCountsQ.isLoading &&
       leadId &&
       !ratingRow &&
-      !listRow
+      !ratingByExtRow
     ) {
       console.error(
-        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview or leads_list_display`,
+        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview`,
       );
     }
     return 0;
-  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
+  }, [leadStatus, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
   const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
