@@ -461,7 +461,7 @@ function LeadProfilePage() {
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[20px]">Pēdējā aktivitāte</span>
-                    <span className="text-foreground mx-[20px]">{fmtDate(lastActivityAt)}</span>
+                    <span className="text-foreground mx-[20px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
                 </div>
               </div>
