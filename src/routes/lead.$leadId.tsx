@@ -470,92 +470,96 @@ function LeadProfilePage() {
                 <div className="flex items-center gap-1">
                   <Button
                     asChild={!!primaryPhone}
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     disabled={!primaryPhone}
-                    title={primaryPhone || "Nav telefona"}
+                    title={primaryPhone ? `Zvanīt: ${primaryPhone}` : "Zvanīt"}
+                    aria-label="Zvanīt"
+                    className="h-8 w-8"
                   >
                     {primaryPhone ? (
-                      <a href={`tel:${primaryPhone}`}>
-                        <Phone className="h-3.5 w-3.5 mr-1" />
-                        Zvanīt
+                      <a href={`tel:${primaryPhone}`} aria-label="Zvanīt">
+                        <Phone className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span>
-                        <Phone className="h-3.5 w-3.5 mr-1" />
-                        Zvanīt
-                      </span>
+                      <Phone className="h-3.5 w-3.5" />
                     )}
                   </Button>
                   <Button
                     asChild={!!primaryEmail}
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     disabled={!primaryEmail}
-                    title={primaryEmail || "Nav e-pasta"}
+                    title={primaryEmail ? `E-pasts: ${primaryEmail}` : "E-pasts"}
+                    aria-label="E-pasts"
+                    className="h-8 w-8"
                   >
                     {primaryEmail ? (
-                      <a href={`mailto:${primaryEmail}`}>
-                        <Mail className="h-3.5 w-3.5 mr-1" />
-                        E-pasts
+                      <a href={`mailto:${primaryEmail}`} aria-label="E-pasts">
+                        <Mail className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span>
-                        <Mail className="h-3.5 w-3.5 mr-1" />
-                        E-pasts
-                      </span>
+                      <Mail className="h-3.5 w-3.5" />
                     )}
                   </Button>
                   <Button
                     asChild={!!primaryPhone}
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     disabled={!primaryPhone}
-                    title={primaryPhone || "Nav telefona"}
+                    title={primaryPhone ? `SMS: ${primaryPhone}` : "SMS"}
+                    aria-label="SMS"
+                    className="h-8 w-8"
                   >
                     {primaryPhone ? (
-                      <a href={`sms:${primaryPhone}`}>
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                        SMS
+                      <a href={`sms:${primaryPhone}`} aria-label="SMS">
+                        <MessageSquare className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span>
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                        SMS
-                      </span>
+                      <MessageSquare className="h-3.5 w-3.5" />
                     )}
                   </Button>
                   <Button
                     asChild={!!waNumber}
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     disabled={!waNumber}
-                    title={waNumber ? `+${waNumber}` : "Nav E.164 numura"}
+                    title={waNumber ? `WhatsApp: +${waNumber}` : "WhatsApp"}
+                    aria-label="WhatsApp"
+                    className="h-8 w-8"
                   >
-                    {/* SMS placeholder removed below — see SMS button before this */}
                     {waNumber ? (
                       <a
                         href={`https://wa.me/${waNumber}`}
                         target="_blank"
                         rel="noreferrer"
+                        aria-label="WhatsApp"
                       >
-                        <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                        WhatsApp
+                        <MessageCircle className="h-3.5 w-3.5" />
                       </a>
                     ) : (
-                      <span>
-                        <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                        WhatsApp
-                      </span>
+                      <MessageCircle className="h-3.5 w-3.5" />
                     )}
                   </Button>
-                  <Button size="sm" variant="outline" disabled title="Drīzumā">
-                    <StickyNote className="h-3.5 w-3.5 mr-1" />
-                    Piezīme
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled
+                    title="Piezīme"
+                    aria-label="Piezīme"
+                    className="h-8 w-8"
+                  >
+                    <StickyNote className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" disabled title="Drīzumā">
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Uzdevums
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled
+                    title="Uzdevums"
+                    aria-label="Uzdevums"
+                    className="h-8 w-8"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
