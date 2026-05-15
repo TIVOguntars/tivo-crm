@@ -206,6 +206,11 @@ function LeadProfilePage() {
     "leads_list_display",
     `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
+  const commPayloadsQ = useCrmView(
+    "communications",
+    `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
+    { all: true },
+  );
   // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
   const earlyExternalId = (() => {
     const r0 = q.data?.rows?.[0];
