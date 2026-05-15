@@ -267,6 +267,31 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
+  const priorityScore = useMemo(() => {
+    const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
+    if (isTerminal) return 0;
+    const listRow = ((commCountsQ.data?.rows ?? []) as Row[])[0];
+    const rowPriority = Number(
+      listRow?.priority_score ?? listRow?.lead_priority_score,
+    );
+    if (Number.isFinite(rowPriority) && rowPriority > 0) return rowPriority;
+    const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
+    const rating = Number(ratingRow?.reitings);
+    if (Number.isFinite(rating) && rating > 0) return rating;
+    if (
+      !reitingsQ.isLoading &&
+      !commCountsQ.isLoading &&
+      leadId &&
+      !ratingRow &&
+      !listRow
+    ) {
+      console.error(
+        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview or leads_list_display`,
+      );
+    }
+    return 0;
+  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, leadId]);
+  const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
     if (!t) return "";
