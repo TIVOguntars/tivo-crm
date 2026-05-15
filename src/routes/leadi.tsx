@@ -1164,7 +1164,7 @@ function LeadiPage() {
     setSearch({
       view: "all",
       flt: [],
-      gby: undefined,
+      gby: [],
       sort: [],
       q: undefined,
     });
