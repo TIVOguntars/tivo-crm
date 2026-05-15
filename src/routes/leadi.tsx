@@ -1285,13 +1285,11 @@ function LeadiPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <HeaderSlot>
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-sm font-semibold tracking-tight text-foreground">
+        <div className="min-w-0 leading-tight">
+          <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
             Leadi
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Analītiskā leadu darba vide
-          </p>
+          <p className="text-[11px] text-muted-foreground">Analītiskā leadu darba vide</p>
         </div>
       </HeaderSlot>
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
