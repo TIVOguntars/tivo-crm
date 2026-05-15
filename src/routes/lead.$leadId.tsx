@@ -205,6 +205,11 @@ function LeadProfilePage() {
     "leads_list_display",
     `select=lead_id,status,priority_score,lead_priority_score,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
+  // Header-derived external_id for fallback rating lookup (mirrors Leadi behavior)
+  const externalIdFromCounts = (() => {
+    const r = ((commCountsQ.data?.rows ?? []) as Row[])[0];
+    return str(r?.external_id);
+  })();
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
