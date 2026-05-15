@@ -904,12 +904,16 @@ function LeadiPage() {
         const statusStr =
           s(facts?.status) || s(r.lead_status_label || r.status);
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const reitings = Number(r.priority_score ?? r.lead_priority_score);
+        const rowPriority = Number(r.priority_score ?? r.lead_priority_score);
+        const ratingPriority =
+          reitingsByLead.get(id) ??
+          reitingsByLead.get(s(r.external_id)) ??
+          0;
         const priorityScore = isTerminal
           ? 0
-          : Number.isFinite(reitings)
-            ? reitings
-            : (reitingsByLead.get(id) ?? 0);
+          : Number.isFinite(rowPriority) && rowPriority > 0
+            ? rowPriority
+            : ratingPriority;
         return {
           lead_id: id,
           display_lead_id: id,
