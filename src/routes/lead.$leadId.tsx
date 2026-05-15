@@ -285,7 +285,6 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
-  const externalId = str(pick(header, "external_id"));
   const priorityScore = useMemo(() => {
     const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
     if (isTerminal) return 0;
