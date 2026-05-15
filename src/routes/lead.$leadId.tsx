@@ -405,7 +405,7 @@ function LeadProfilePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="hidden md:flex items-center text-xs text-muted-foreground ml-[50px]">
+                <div className="hidden md:flex items-center text-xs text-muted-foreground ml-[-50px]">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wide">PPV</span>
                     <span className="text-foreground font-medium">{ownerLabel}</span>
