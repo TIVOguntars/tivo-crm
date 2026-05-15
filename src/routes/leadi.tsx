@@ -1164,13 +1164,13 @@ function LeadiPage() {
     setSearch({
       view: "all",
       flt: [],
-      gby: undefined,
+      gby: [],
       sort: [],
       q: undefined,
     });
 
   const hasActive =
-    view !== "all" || flt.length > 0 || !!q || search.gby !== undefined || (search.sort ?? []).length > 0;
+    view !== "all" || flt.length > 0 || !!q || (search.gby && search.gby.length > 0) || (search.sort ?? []).length > 0;
 
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
