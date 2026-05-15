@@ -355,18 +355,12 @@ function LeadProfilePage() {
         }
       }
     };
+    // Match the Activities list source exactly (communications + notes).
     pushFrom(communications, "created_at", "occurred_at", "sent_at");
     pushFrom(notes, "created_at", "updated_at");
-    pushFrom(tasks, "completed_at", "updated_at", "created_at");
-    pushFrom(nextActions, "completed_at", "updated_at", "created_at");
-    const upd = pick(header, "updated_at");
-    if (upd) {
-      const t = new Date(str(upd)).getTime();
-      if (!Number.isNaN(t)) candidates.push(t);
-    }
     if (!candidates.length) return null;
     return new Date(Math.max(...candidates)).toISOString();
-  }, [communications, notes, tasks, nextActions, header]);
+  }, [communications, notes]);
 
   type TLItem = {
     key: string;
@@ -467,7 +461,7 @@ function LeadProfilePage() {
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[20px]">Pēdējā aktivitāte</span>
-                    <span className="text-foreground mx-[20px]">{fmtDate(lastActivityAt)}</span>
+                    <span className="text-foreground mx-[20px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
                 </div>
               </div>
