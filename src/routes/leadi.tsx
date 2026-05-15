@@ -901,6 +901,30 @@ function LeadiPage() {
     return map;
   }, [reitingsView.data]);
 
+  // Priority is sourced from crm.lead_priority_scoring_v2.
+  const scoringView = useCrmView(
+    "lead_priority_scoring_v2",
+    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count&limit=20000",
+    { all: true },
+  );
+  const scoringByLead = useMemo(() => {
+    const map = new Map<
+      string,
+      { score: number; label: string; recommended: string }
+    >();
+    const rows = (scoringView.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
+        score: Number(r.priority_score ?? 0) || 0,
+        label: s(r.priority_label) || "Zema",
+        recommended: s(r.recommended_status),
+      });
+    }
+    return map;
+  }, [scoringView.data]);
+
   const commCounts = useMemo(() => {
     const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
@@ -959,16 +983,21 @@ function LeadiPage() {
         const statusStr =
           s(facts?.status) || s(r.lead_status_label || r.status);
         const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const rowPriority = Number(r.priority_score ?? r.lead_priority_score);
+        const scoring = scoringByLead.get(id);
+        const rowPriority = Number(r.priority_score);
         const ratingPriority =
           reitingsByLead.get(id) ??
           reitingsByLead.get(s(r.external_id)) ??
           0;
-        const priorityScore = isTerminal
-          ? 0
-          : Number.isFinite(rowPriority) && rowPriority > 0
+        const fallbackPriority =
+          Number.isFinite(rowPriority) && rowPriority > 0
             ? rowPriority
             : ratingPriority;
+        const priorityScore = isTerminal
+          ? 0
+          : scoring
+            ? scoring.score
+            : fallbackPriority;
         return {
           lead_id: id,
           display_lead_id: id,
@@ -1006,7 +1035,7 @@ function LeadiPage() {
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead, crmLeadFactsById]);
+  }, [overview.data, reitingsByLead, crmLeadFactsById, scoringByLead]);
 
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
