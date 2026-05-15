@@ -201,6 +201,11 @@ function LeadProfilePage() {
     `select=lead_id,reitings&lead_id=eq.${leadId}&limit=1`,
     { enabled: !!leadId },
   );
+  const commCountsQ = useCrmView(
+    "leads_list_display",
+    `select=email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&id=eq.${leadId}&limit=1`,
+    { enabled: !!leadId },
+  );
   const priorityScore = (() => {
     const r = (reitingsQ.data?.rows ?? [])[0] as Row | undefined;
     const n = Number(r?.reitings);
@@ -277,27 +282,26 @@ function LeadProfilePage() {
   })();
 
   const commStats = useMemo(() => {
-    const buckets = {
-      phone: { total: 0, replied: 0 },
-      email: { total: 0, replied: 0 },
-      chat: { total: 0, replied: 0 },
+    const r = (commCountsQ.data?.rows ?? [])[0] as Row | undefined;
+    const num = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
     };
-    for (const c of communications) {
-      const ch = str(pick(c, "channel")).toLowerCase();
-      const dir = str(pick(c, "direction")).toLowerCase();
-      const st = str(pick(c, "status", "current_status")).toLowerCase();
-      const replied = dir.includes("in") || /repl|answer|atbild/.test(st);
-      let key: keyof typeof buckets | null = null;
-      if (ch.includes("mail")) key = "email";
-      else if (ch.includes("phone") || ch.includes("call")) key = "phone";
-      else if (ch.includes("whats") || ch.includes("sms") || ch.includes("chat"))
-        key = "chat";
-      if (!key) continue;
-      buckets[key].total += 1;
-      if (replied) buckets[key].replied += 1;
-    }
-    return buckets;
-  }, [communications]);
+    return {
+      phone: {
+        outbound: num(r?.call_outbound_count),
+        inbound: num(r?.call_inbound_count),
+      },
+      email: {
+        outbound: num(r?.email_outbound_count),
+        inbound: num(r?.email_inbound_count),
+      },
+      chat: {
+        outbound: num(r?.chat_outbound_count),
+        inbound: num(r?.chat_inbound_count),
+      },
+    };
+  }, [commCountsQ.data]);
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
