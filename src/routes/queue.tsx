@@ -259,7 +259,41 @@ function MiniKpi({
 function QueuePage() {
   const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
-  const rows = (view.data?.rows ?? []) as Row[];
+  const rawRows = (view.data?.rows ?? []) as Row[];
+
+  // Priority is sourced from crm.lead_priority_scoring_v2.
+  // Merge by lead_id and override priority_score / priority_label / recommended_status.
+  const scoringView = useCrmView(
+    "lead_priority_scoring_v2",
+    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count",
+    { all: true },
+  );
+  const scoringByLead = useMemo(() => {
+    const map = new Map<string, Row>();
+    const r = (scoringView.data?.rows ?? []) as Row[];
+    for (const row of r) {
+      const lid = s(row.lead_id);
+      if (lid) map.set(lid, row);
+    }
+    return map;
+  }, [scoringView.data]);
+  const rows = useMemo<Row[]>(() => {
+    if (scoringByLead.size === 0) return rawRows;
+    return rawRows.map((r) => {
+      const sc = scoringByLead.get(s(r.lead_id));
+      if (!sc) return r;
+      return {
+        ...r,
+        priority_score: sc.priority_score ?? 0,
+        priority_label: sc.priority_label ?? "Zema",
+        recommended_status: sc.recommended_status ?? null,
+        raw_priority_score: sc.raw_priority_score ?? null,
+        has_hot_tag: sc.has_hot_tag ?? null,
+        inbound_count: sc.inbound_count ?? null,
+        replied_count: sc.replied_count ?? null,
+      };
+    });
+  }, [rawRows, scoringByLead]);
 
 
   const statusOptionsView = useCrmView(
