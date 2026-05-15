@@ -977,7 +977,7 @@ function LeadProfilePage() {
 
           {/* Activity detail modal */}
           <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0">
               {openItem && (() => {
                 const r = openItem.raw;
                 const isNote = openItem.kind === "note";
@@ -1013,13 +1013,14 @@ function LeadProfilePage() {
                   : "";
                 return (
                   <>
-                    <DialogHeader>
+                    <div className="shrink-0 border-b bg-background p-6 pb-3">
+                      <DialogHeader>
                       <DialogTitle className="flex items-center gap-2 text-base">
                         {isNote ? <StickyNote className="h-4 w-4" /> : channelIcon(ch)}
                         <span className="truncate">{subject}</span>
                       </DialogTitle>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                       {!isNote && <Field label="Kanāls" value={fmt(ch)} />}
                       {!isNote && <Field label="Virziens" value={fmt(dir)} />}
                       {!isNote && (
@@ -1033,8 +1034,9 @@ function LeadProfilePage() {
                       {isNote && (
                         <Field label="Tips" value={fmt(pick(r, "note_type"))} />
                       )}
+                      </div>
                     </div>
-                    <div className="mt-4">
+                    <div className="flex-1 min-h-0 overflow-auto p-6 pt-3">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
                         Saturs
                       </div>
