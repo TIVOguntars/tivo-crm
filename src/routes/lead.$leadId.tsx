@@ -204,7 +204,6 @@ function LeadProfilePage() {
   const commCountsQ = useCrmView(
     "leads_list_display",
     `select=email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&id=eq.${leadId}&limit=1`,
-    { enabled: !!leadId },
   );
   const priorityScore = (() => {
     const r = (reitingsQ.data?.rows ?? [])[0] as Row | undefined;
@@ -396,14 +395,14 @@ function LeadProfilePage() {
                         <span>•</span>
                       </>
                     )}
-                    <span title="Zvani atbildēti / kopā">
-                      📞 {commStats.phone.replied}/{commStats.phone.total}
+                    <span title="Zvani izejošie / ienākošie">
+                      📞 {commStats.phone.outbound}/{commStats.phone.inbound}
                     </span>
-                    <span title="E-pasti atbildēti / kopā">
-                      ✉️ {commStats.email.replied}/{commStats.email.total}
+                    <span title="E-pasti izejošie / ienākošie">
+                      ✉️ {commStats.email.outbound}/{commStats.email.inbound}
                     </span>
-                    <span title="WhatsApp / SMS atbildēti / kopā">
-                      💬 {commStats.chat.replied}/{commStats.chat.total}
+                    <span title="WhatsApp / SMS izejošie / ienākošie">
+                      💬 {commStats.chat.outbound}/{commStats.chat.inbound}
                     </span>
                   </div>
                 </div>
