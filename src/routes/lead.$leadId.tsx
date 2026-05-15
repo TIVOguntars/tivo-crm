@@ -513,6 +513,7 @@ function LeadProfilePage() {
                     disabled={!waNumber}
                     title={waNumber ? `+${waNumber}` : "Nav E.164 numura"}
                   >
+                    {/* SMS placeholder removed below — see SMS button before this */}
                     {waNumber ? (
                       <a
                         href={`https://wa.me/${waNumber}`}
@@ -529,9 +530,13 @@ function LeadProfilePage() {
                       </span>
                     )}
                   </Button>
+                  <Button size="sm" variant="outline" disabled title="Drīzumā">
+                    <StickyNote className="h-3.5 w-3.5 mr-1" />
+                    Piezīme
+                  </Button>
                   <Button size="sm" disabled title="Drīzumā">
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    Pievienot uzdevumu
+                    Uzdevums
                   </Button>
                 </div>
               </div>
