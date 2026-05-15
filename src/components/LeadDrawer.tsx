@@ -270,6 +270,21 @@ export function LeadDrawer({
     staleTime: 30_000,
   });
 
+  // Source 5: priority scoring v2 — canonical source for priority_score,
+  // priority_label and recommended_status. No DB writes from here.
+  const scoringQ = useQuery({
+    queryKey: ["crm", "lead_priority_scoring_v2", canonicalLeadId],
+    queryFn: () =>
+      fetchCrmView({
+        data: {
+          view: "lead_priority_scoring_v2",
+          query: `lead_id=eq.${encodeURIComponent(canonicalLeadId)}&limit=1`,
+        },
+      }),
+    enabled: open && !!canonicalLeadId,
+    staleTime: 30_000,
+  });
+
   const channelCounts = useMemo(() => {
     const rows = (commsQ.data?.rows ?? []) as Row[];
     const out = { call: 0, email: 0, sms: 0, whatsapp: 0, inbound: 0, outbound: 0 };
@@ -292,6 +307,7 @@ export function LeadDrawer({
     const c = (l.contacts as Row | undefined) ?? {};
     const raw = (l.raw_data as Row | undefined) ?? {};
     const sum = (summaryQ.data?.rows?.[0] as Row | undefined) ?? {};
+    const sc = (scoringQ.data?.rows?.[0] as Row | undefined) ?? {};
     return {
       // identity
       lead_id: s(l.id) || s(q.lead_id) || leadId || "",
@@ -309,8 +325,9 @@ export function LeadDrawer({
       visible_action_owner:
         s(q.action_owner_label) || s(raw.atbildigais) || "",
       ppv_name: s(q.ppv_name) || s(raw.ppv_vards) || "",
-      priority_score: q.lead_priority_score ?? null,
-      priority_label: s(q.priority_label),
+      priority_score: sc.priority_score ?? 0,
+      priority_label: s(sc.priority_label) || "Zema",
+      recommended_status: sc.recommended_status ?? null,
       // contact — CANONICAL source is crm.contacts only.
       // Validation badges depend on these exact values (no fallback).
       phone_e164: s(c.phone_e164),
@@ -343,7 +360,7 @@ export function LeadDrawer({
       created_at: s(l.created_at),
       raw_data: raw,
     };
-  }, [queueQ.data, leadQ.data, summaryQ.data, leadId]);
+  }, [queueQ.data, leadQ.data, summaryQ.data, scoringQ.data, leadId]);
 
   const loading = queueQ.isLoading || leadQ.isLoading;
 
