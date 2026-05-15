@@ -203,14 +203,8 @@ function LeadProfilePage() {
   );
   const commCountsQ = useCrmView(
     "leads_list_display",
-    `select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
+    `select=lead_id,status,priority_score,lead_priority_score,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
-  const priorityScore = (() => {
-    const r = (reitingsQ.data?.rows ?? [])[0] as Row | undefined;
-    const n = Number(r?.reitings);
-    return Number.isFinite(n) ? n : 0;
-  })();
-  const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
@@ -273,6 +267,31 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
+  const priorityScore = useMemo(() => {
+    const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
+    if (isTerminal) return 0;
+    const listRow = ((commCountsQ.data?.rows ?? []) as Row[])[0];
+    const rowPriority = Number(
+      listRow?.priority_score ?? listRow?.lead_priority_score,
+    );
+    if (Number.isFinite(rowPriority) && rowPriority > 0) return rowPriority;
+    const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
+    const rating = Number(ratingRow?.reitings);
+    if (Number.isFinite(rating) && rating > 0) return rating;
+    if (
+      !reitingsQ.isLoading &&
+      !commCountsQ.isLoading &&
+      leadId &&
+      !ratingRow &&
+      !listRow
+    ) {
+      console.error(
+        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview or leads_list_display`,
+      );
+    }
+    return 0;
+  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, leadId]);
+  const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
     if (!t) return "";
