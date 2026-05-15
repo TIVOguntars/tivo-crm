@@ -203,7 +203,7 @@ function LeadProfilePage() {
   );
   const commCountsQ = useCrmView(
     "leads_list_display",
-    `select=email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&id=eq.${leadId}&limit=1`,
+    `select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
   const priorityScore = (() => {
     const r = (reitingsQ.data?.rows ?? [])[0] as Row | undefined;
