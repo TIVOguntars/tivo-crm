@@ -281,7 +281,13 @@ function LeadProfilePage() {
   })();
 
   const commStats = useMemo(() => {
-    const r = (commCountsQ.data?.rows ?? [])[0] as Row | undefined;
+    const rows = (commCountsQ.data?.rows ?? []) as Row[];
+    const r = rows[0];
+    if (!commCountsQ.isLoading && !r && leadId) {
+      console.error(
+        `[lead 360] leads_list_display returned no row for lead_id=${leadId}`,
+      );
+    }
     const num = (v: unknown) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
@@ -300,7 +306,7 @@ function LeadProfilePage() {
         inbound: num(r?.chat_inbound_count),
       },
     };
-  }, [commCountsQ.data]);
+  }, [commCountsQ.data, commCountsQ.isLoading, leadId]);
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
