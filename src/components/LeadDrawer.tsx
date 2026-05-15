@@ -442,7 +442,11 @@ function DrawerBody({
 
   const waPhone = phone.replace(/[^0-9]/g, "");
   const priorityScore = Number(row.priority_score ?? row.priority ?? 0);
-  const priorityLabel = s(row.priority_label);
+  const priorityLabel = s(row.priority_label) || "Zema";
+  const recommendedStatus = s(row.recommended_status);
+  const showRecommendation =
+    !!recommendedStatus &&
+    recommendedStatus.toLowerCase() !== status.toLowerCase();
   const shortLeadId = realLeadId ? realLeadId.slice(0, 8) : "";
   const flag = countryFlag(country);
 
@@ -480,8 +484,15 @@ function DrawerBody({
               </span>
             )}
             {status && <StatusBadge status={status} />}
-            {priorityScore > 0 && (
+            {showRecommendation && (
               <span
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-dashed border-amber-400/60 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                title={`Ieteiktais statuss: ${recommendedStatus}`}
+              >
+                → {recommendedStatus}
+              </span>
+            )}
+            <span
                 className={cn(
                   "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
                   priorityScore >= 90
@@ -490,12 +501,11 @@ function DrawerBody({
                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
                       : "bg-muted text-muted-foreground",
                 )}
-                title={priorityLabel || `Prioritāte ${priorityScore}`}
+                title={`${priorityLabel} (${priorityScore})`}
               >
                 <Flame className="h-2.5 w-2.5" />
-                {priorityScore}
+                {priorityLabel} · {priorityScore}
               </span>
-            )}
           </div>
 
           {/* CENTER — secondary (owner/ppv) and tertiary (tags) — visually demoted */}
