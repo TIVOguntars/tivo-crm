@@ -17,7 +17,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
-import { useHeaderSlot } from "@/components/HeaderSlot";
+import { HeaderSlot } from "@/components/HeaderSlot";
 
 export const Route = createFileRoute("/")({
   component: PārskatsPage,
@@ -327,17 +327,16 @@ function PārskatsPage() {
     return items;
   }, [tasksHigh, commsSummary, workflowErrors, dq, importRows]);
 
-  useHeaderSlot(
-    <div className="min-w-0 leading-tight">
-      <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
-        Pārskats
-      </h1>
-      <p className="text-[11px] text-muted-foreground">Operatīvais kontroles centrs</p>
-    </div>
-  );
-
   return (
     <>
+      <HeaderSlot>
+        <div className="min-w-0 leading-tight">
+          <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
+            Pārskats
+          </h1>
+          <p className="text-[11px] text-muted-foreground">Operatīvais kontroles centrs</p>
+        </div>
+      </HeaderSlot>
       {/* Sticky filter / action bar */}
       <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-end gap-3">
