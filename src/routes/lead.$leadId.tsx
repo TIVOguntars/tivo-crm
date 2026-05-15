@@ -402,10 +402,7 @@ function LeadProfilePage() {
                     </span>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="hidden md:flex items-center text-xs text-muted-foreground ml-[-17px]">
+                <div className="hidden md:flex items-center text-xs text-muted-foreground ml-6">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wide">PPV</span>
                     <span className="text-foreground font-medium">{ownerLabel}</span>
@@ -427,7 +424,9 @@ function LeadProfilePage() {
                     <span className="text-foreground">{fmtDate(lastActivityAt)}</span>
                   </div>
                 </div>
+              </div>
 
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1">
                   <Button
                     asChild={!!primaryPhone}
