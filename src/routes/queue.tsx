@@ -706,7 +706,7 @@ function QueuePage() {
                 const pLabel = s(r.priority_label);
                 const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
-                const score = n(r.lead_priority_score) || n(r.priority_score);
+                const score = n(r.priority_score);
                 return (
                   <TableRow
                     key={s(r.id) || s(r.queue_id) || s(r.next_action_id) || i}
@@ -905,7 +905,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "priority":
       return n(r.sort_priority);
     case "score":
-      return n(r.lead_priority_score) || n(r.priority_score);
+      return n(r.priority_score);
     case "due": {
       const v = r.effective_due_at ?? r.due_at;
       return v ? new Date(String(v)).getTime() : 0;
