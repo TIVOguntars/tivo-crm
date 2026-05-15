@@ -386,7 +386,6 @@ function LeadProfilePage() {
           <ArrowLeft className="mr-1 h-4 w-4" />
           Atpakaļ uz sarakstu
         </Button>
-        <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
       </div>
 
       {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
