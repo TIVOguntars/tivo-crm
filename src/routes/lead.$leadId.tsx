@@ -194,6 +194,12 @@ function LeadProfilePage() {
     }
     navigate({ to: "/leadi", search: (prev ?? {}) as never });
   };
+  useHeaderSlot(
+    <Button variant="ghost" size="sm" onClick={goBackToList} className="h-8 px-2">
+      <ArrowLeft className="mr-1 h-4 w-4" />
+      Atpakaļ uz sarakstu
+    </Button>
+  );
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
@@ -382,13 +388,6 @@ function LeadProfilePage() {
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={goBackToList}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Atpakaļ uz sarakstu
-        </Button>
-      </div>
-
       {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
       {!q.isLoading && rpcError && <ErrorState message={rpcError} />}
       {!q.isLoading && !rpcError && !profile && <Empty label="Lead profils nav atrasts." />}
