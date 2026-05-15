@@ -744,6 +744,61 @@ function LeadiPage() {
     });
   }, [search, setSearch]);
 
+  /* ---- persist & restore session filters/grouping/sort/view ---- */
+  const sessionStorageKey = "leadi:session:v1";
+  const restoreDoneRef = useRef(false);
+  useEffect(() => {
+    if (restoreDoneRef.current) return;
+    restoreDoneRef.current = true;
+    if (typeof window === "undefined") return;
+    const urlIsFresh =
+      (search.view ?? "all") === "all" &&
+      (search.flt?.length ?? 0) === 0 &&
+      (search.sort?.length ?? 0) === 0 &&
+      search.gby === undefined &&
+      !search.q;
+    if (!urlIsFresh) return;
+    try {
+      const raw = window.localStorage.getItem(sessionStorageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        view?: string;
+        flt?: FilterRule[];
+        gby?: string[];
+        sort?: SortRule[];
+        q?: string;
+      };
+      const patch: Record<string, unknown> = {};
+      if (saved.view && saved.view !== "all") patch.view = saved.view;
+      if (saved.flt && saved.flt.length > 0) patch.flt = saved.flt;
+      if (Array.isArray(saved.gby)) patch.gby = saved.gby;
+      if (saved.sort && saved.sort.length > 0) patch.sort = saved.sort;
+      if (saved.q) patch.q = saved.q;
+      if (Object.keys(patch).length > 0) setSearch(patch);
+    } catch {
+      /* ignore */
+    }
+  }, [search, setSearch]);
+
+  useEffect(() => {
+    if (!restoreDoneRef.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        sessionStorageKey,
+        JSON.stringify({
+          view: search.view,
+          flt: search.flt,
+          gby: search.gby,
+          sort: search.sort,
+          q: search.q,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [search.view, search.flt, search.gby, search.sort, search.q]);
+
   const view = search.view ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
   const flt: FilterRule[] = (search.flt ?? []) as FilterRule[];
