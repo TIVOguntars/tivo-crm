@@ -206,6 +206,11 @@ function LeadProfilePage() {
     "leads_list_display",
     `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
+  const commPayloadsQ = useCrmView(
+    "communications",
+    `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
+    { all: true },
+  );
   // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
   const earlyExternalId = (() => {
     const r0 = q.data?.rows?.[0];
@@ -395,6 +400,19 @@ function LeadProfilePage() {
   }, [communications, notes]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
+
+  const rawPayloadById = useMemo(() => {
+    const map = new Map<string, Row>();
+    const rows = (commPayloadsQ.data?.rows ?? []) as Row[];
+    for (const row of rows) {
+      const id = str(row.id);
+      const rp = row.raw_payload;
+      if (id && rp && typeof rp === "object") {
+        map.set(id, rp as Row);
+      }
+    }
+    return map;
+  }, [commPayloadsQ.data]);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -968,13 +986,30 @@ function LeadProfilePage() {
                 const subject = isNote
                   ? str(pick(r, "note_type")) || "Piezīme"
                   : fmt(pick(r, "subject"));
-                const htmlBody = str(pick(r, "body_html", "html", "html_body", "content_html"));
+                const activityId = str(pick(r, "id", "communication_id"));
+                const rp = !isNote && activityId ? rawPayloadById.get(activityId) : undefined;
+                const payloadHtml = rp
+                  ? str(pick(rp, "html_body", "html", "body_html", "content_html"))
+                  : "";
+                const inlineHtml = str(pick(r, "body_html", "html", "html_body", "content_html"));
+                const htmlBody = payloadHtml || inlineHtml;
                 const textBody = str(pick(r, "body_text", "body", "content", "preview", "body_preview", "summary"));
                 const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
-                const rawForRender = htmlBody || textBody;
+                const rawForRender = htmlBody || textBody || str(pick(r, "subject"));
                 const body = rawForRender || "";
+                if (!isNote && ch.toLowerCase() === "email" && !htmlBody) {
+                  console.warn(
+                    "No HTML body found for email activity",
+                    activityId,
+                    rp ? Object.keys(rp) : [],
+                    Object.keys(r),
+                  );
+                }
                 const safeHtml = bodyLooksHtml && body
-                  ? DOMPurify.sanitize(body, { USE_PROFILES: { html: true } })
+                  ? DOMPurify.sanitize(body, {
+                      USE_PROFILES: { html: true },
+                      ADD_ATTR: ["target", "rel"],
+                    })
                   : "";
                 return (
                   <>
