@@ -212,20 +212,6 @@ function LeadProfilePage() {
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
     { all: true },
   );
-  // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
-  const earlyExternalId = (() => {
-    const r0 = q.data?.rows?.[0];
-    if (!r0 || typeof r0 !== "object") return "";
-    const prof =
-      (r0 as Row).profile && typeof (r0 as Row).profile === "object"
-        ? ((r0 as Row).profile as Row)
-        : (r0 as Row);
-    const lead =
-      prof.lead && typeof prof.lead === "object" ? (prof.lead as Row) : prof;
-    const ext = lead?.external_id;
-    return ext == null ? "" : String(ext);
-  })();
-
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
