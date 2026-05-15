@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useHeaderSlot } from "@/components/HeaderSlot";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
