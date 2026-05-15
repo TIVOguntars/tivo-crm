@@ -455,7 +455,15 @@ function LeadProfilePage() {
                           className={`h-3 w-3 ${i < priorityStars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
                         />
                       ))}
-                      <span className="ml-1">{priorityScore}</span>
+                      <span className="ml-1">{priorityLabel} · {priorityScore}</span>
+                      {showRecommendedStatus && (
+                        <span
+                          className="ml-2 inline-flex items-center rounded border border-dashed border-amber-400/60 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                          title={`Ieteiktais statuss: ${recommendedStatus}`}
+                        >
+                          → {recommendedStatus}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex flex-col ml-4">
