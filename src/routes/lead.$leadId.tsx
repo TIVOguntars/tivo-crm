@@ -267,6 +267,7 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
+  const externalId = str(pick(header, "external_id"));
   const priorityScore = useMemo(() => {
     const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
     if (isTerminal) return 0;
@@ -278,6 +279,11 @@ function LeadProfilePage() {
     const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
     const rating = Number(ratingRow?.reitings);
     if (Number.isFinite(rating) && rating > 0) return rating;
+    const ratingByExtRow = ((reitingsByExtQ.data?.rows ?? []) as Row[])[0];
+    const ratingByExt = Number(ratingByExtRow?.reitings);
+    if (Number.isFinite(ratingByExt) && ratingByExt > 0) {
+      return ratingByExt;
+    }
     if (
       !reitingsQ.isLoading &&
       !commCountsQ.isLoading &&
@@ -290,7 +296,7 @@ function LeadProfilePage() {
       );
     }
     return 0;
-  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, leadId]);
+  }, [leadStatus, commCountsQ.data, commCountsQ.isLoading, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
   const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
