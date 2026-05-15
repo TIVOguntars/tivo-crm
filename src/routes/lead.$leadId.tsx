@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/dialog";
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -197,10 +196,11 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
-  const reitingsQ = useAnalyticsView(
-    "lead_reitings_preview",
-    `select=lead_id,reitings&lead_id=eq.${leadId}&limit=1`,
-    { enabled: !!leadId },
+  // CANONICAL priority source: crm.lead_priority_scoring_v2.
+  // Display only — never write back to crm.leads.
+  const scoringQ = useCrmView(
+    "lead_priority_scoring_v2",
+    `select=lead_id,priority_score,priority_label,recommended_status&lead_id=eq.${leadId}&limit=1`,
   );
   const commCountsQ = useCrmView(
     "leads_list_display",
@@ -211,25 +211,6 @@ function LeadProfilePage() {
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
     { all: true },
   );
-  // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
-  const earlyExternalId = (() => {
-    const r0 = q.data?.rows?.[0];
-    if (!r0 || typeof r0 !== "object") return "";
-    const prof =
-      (r0 as Row).profile && typeof (r0 as Row).profile === "object"
-        ? ((r0 as Row).profile as Row)
-        : (r0 as Row);
-    const lead =
-      prof.lead && typeof prof.lead === "object" ? (prof.lead as Row) : prof;
-    const ext = lead?.external_id;
-    return ext == null ? "" : String(ext);
-  })();
-  const reitingsByExtQ = useAnalyticsView(
-    "lead_reitings_preview",
-    `select=lead_id,reitings&lead_id=eq.${earlyExternalId}&limit=1`,
-    { enabled: !!earlyExternalId },
-  );
-
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
@@ -291,29 +272,13 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
-  const priorityScore = useMemo(() => {
-    const isTerminal = /atcelt|nekvalific|pabeigt/i.test(leadStatus);
-    if (isTerminal) return 0;
-    const ratingRow = ((reitingsQ.data?.rows ?? []) as Row[])[0];
-    const rating = Number(ratingRow?.reitings);
-    if (Number.isFinite(rating) && rating > 0) return rating;
-    const ratingByExtRow = ((reitingsByExtQ.data?.rows ?? []) as Row[])[0];
-    const ratingByExt = Number(ratingByExtRow?.reitings);
-    if (Number.isFinite(ratingByExt) && ratingByExt > 0) {
-      return ratingByExt;
-    }
-    if (
-      !reitingsQ.isLoading &&
-      leadId &&
-      !ratingRow &&
-      !ratingByExtRow
-    ) {
-      console.error(
-        `[lead 360] no priority found for lead_id=${leadId} in lead_reitings_preview`,
-      );
-    }
-    return 0;
-  }, [leadStatus, reitingsQ.data, reitingsQ.isLoading, reitingsByExtQ.data, leadId]);
+  const scoringRow = ((scoringQ.data?.rows ?? []) as Row[])[0];
+  const priorityScore = Number(scoringRow?.priority_score ?? 0) || 0;
+  const priorityLabel = String(scoringRow?.priority_label ?? "") || "Zema";
+  const recommendedStatus = String(scoringRow?.recommended_status ?? "");
+  const showRecommendedStatus =
+    !!recommendedStatus &&
+    recommendedStatus.toLowerCase() !== leadStatus.toLowerCase();
   const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
@@ -475,7 +440,15 @@ function LeadProfilePage() {
                           className={`h-3 w-3 ${i < priorityStars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
                         />
                       ))}
-                      <span className="ml-1">{priorityScore}</span>
+                      <span className="ml-1">{priorityLabel} · {priorityScore}</span>
+                      {showRecommendedStatus && (
+                        <span
+                          className="ml-2 inline-flex items-center rounded border border-dashed border-amber-400/60 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                          title={`Ieteiktais statuss: ${recommendedStatus}`}
+                        >
+                          → {recommendedStatus}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex flex-col ml-4">
