@@ -205,6 +205,24 @@ function LeadProfilePage() {
     "leads_list_display",
     `select=lead_id,status,priority_score,lead_priority_score,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
+  // Derive external_id from the 360 RPC profile to enable Leadi-style rating fallback.
+  const earlyExternalId = (() => {
+    const r0 = q.data?.rows?.[0];
+    if (!r0 || typeof r0 !== "object") return "";
+    const prof =
+      (r0 as Row).profile && typeof (r0 as Row).profile === "object"
+        ? ((r0 as Row).profile as Row)
+        : (r0 as Row);
+    const lead =
+      prof.lead && typeof prof.lead === "object" ? (prof.lead as Row) : prof;
+    const ext = lead?.external_id;
+    return ext == null ? "" : String(ext);
+  })();
+  const reitingsByExtQ = useAnalyticsView(
+    "lead_reitings_preview",
+    `select=lead_id,reitings&lead_id=eq.${earlyExternalId}&limit=1`,
+    { enabled: !!earlyExternalId },
+  );
 
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
