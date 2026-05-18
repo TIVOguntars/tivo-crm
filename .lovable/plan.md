@@ -1,211 +1,177 @@
-## Correction Summary
 
-The previous preview was wrong because it sorted **individual steps** globally by `step_order`. That tears apart workflow cadence — step 1 of instance A would land next to step 1 of instance B, while step 2 of instance A could end up days later out of relation to step 1.
+# FINAL Migration Preview — BJ/PPV Workflow Configuration Settings (corrected)
 
-The corrected algorithm slots **whole workflow instances** into the 80/day grid, then derives every step time from that anchor + the step's `delay_minutes` offset, preserving the original cadence exactly.
+Settings rows only. **Not executed. No migration file created. No RPCs, no task generation, no cron, no frontend.**
 
-## Introspection (current state)
+---
 
-| metric | value |
-|---|---|
-| eligible queued email rows | **778** |
-| distinct workflow instances | **164** |
-| manual overrides excluded (locked or edited) | 0 |
-| schema join path | `workflow_steps.workflow_id → workflow_definitions.id`, then `workflow_definitions.workflow_key = workflow_instances.workflow_key` (note: `workflow_steps.workflow_instance_id` is NULL on all 16 rows — steps are defined at workflow level, not per instance) |
-| max step delay observed | 60 480 min (= 42 days) — cadence span per instance up to 42 days |
+## Corrections applied vs previous plan
 
-`workflow_instances` columns used: `id, workflow_key, priority, started_at`.
-`workflow_steps` columns used: `workflow_id, template_key, step_order, delay_minutes`.
+1. **Role naming.** `BJ` removed (BJ = person, not role). `Mārketinga saziņa` → `Mārketings`. Canonical roles in config: `PPV`, `Mārketings`, `Projektētājs`, `Tāmētājs`.
+2. **`outreach.daily_quota.role`** = `"Mārketings"`.
+3. **`workflow.stop_rules.Nesasniedzams.manual_resume`** = `true` (was `false`).
+4. All other 11 keys unchanged from approved plan.
 
-## Corrected Scheduling Algorithm
+---
 
-1. **Eligibility filter** (unchanged):
-   ```
-   status='queued' AND channel='email'
-   AND workflow_instance_id IS NOT NULL
-   AND COALESCE((metadata->>'allocator_locked')::bool,false)=false
-   AND (metadata->>'edited_at') IS NULL
-   ```
-2. **Per instance**, compute `min_delay = min(workflow_steps.delay_minutes)` over the steps that match the instance's queued template_keys. This is the instance's offset zero.
-3. **Order instances** for slot allocation:
-   ```
-   ORDER BY COALESCE(wi.priority,0) DESC,
-            wi.started_at ASC NULLS LAST,
-            wi.id
-   ```
-4. **Allocate one anchor slot per instance** on the 80/day, 2-min grid starting **tomorrow 08:00 Europe/Riga**:
-   - `slot = row_number()-1` over instances
-   - `anchor_utc = (tomorrow 08:00 Riga) + floor(slot/80) days + (slot mod 80) * 2 min`
-   - With 164 instances → 3 days of anchors (days 1‒2 full at 80, day 3 = 4 anchors).
-5. **Derive each step's new time** from its instance anchor:
-   ```
-   proposed_scheduled_for = anchor_utc + (ws.delay_minutes - min_delay_per_instance) * INTERVAL '1 minute'
-   ```
-6. **Relative cadence preserved** = `true` by construction, since every step keeps its `delay_minutes - min_delay` offset relative to its instance anchor.
+## `crm.settings` (already inspected)
 
-Slot capacity (80/day, 2 min) applies to **instance anchors only** — derived steps land at whatever `delay_minutes` dictates and do not consume slots. This matches the rule "move whole workflow blocks, not individual steps".
+Columns: `id uuid PK`, `setting_key text UNIQUE NOT NULL`, `setting_group text NOT NULL`, `value_json jsonb NOT NULL`, `description text`, `is_active bool NOT NULL default true`, `created_by/updated_by uuid → crm.profiles`, `created_at/updated_at timestamptz`. Unique on `setting_key` enables safe idempotent upsert. No existing rows for any of the 13 target keys.
 
-## Corrected Preview SQL (READ-ONLY)
+---
+
+## Final SQL preview (DO NOT EXECUTE)
 
 ```sql
-WITH eligible AS (
-  SELECT q.id              AS queue_id,
-         q.lead_id,
-         q.template_key,
-         q.scheduled_for   AS current_scheduled_for,
-         q.workflow_instance_id,
-         q.created_at,
-         wi.priority       AS instance_priority,
-         wi.started_at     AS instance_started_at,
-         wi.workflow_key
-  FROM   crm.communication_queue q
-  JOIN   crm.workflow_instances  wi ON wi.id = q.workflow_instance_id
-  WHERE  q.status = 'queued'
-    AND  q.channel = 'email'
-    AND  q.workflow_instance_id IS NOT NULL
-    AND  COALESCE((q.metadata->>'allocator_locked')::boolean,false) = false
-    AND  (q.metadata->>'edited_at') IS NULL
-),
-step_join AS (
-  SELECT e.*,
-         ws.step_order,
-         ws.delay_minutes
-  FROM   eligible e
-  JOIN   crm.workflow_definitions wd ON wd.workflow_key = e.workflow_key
-  JOIN   crm.workflow_steps       ws ON ws.workflow_id  = wd.id
-                                    AND ws.template_key = e.template_key
-),
-per_instance AS (
-  SELECT workflow_instance_id,
-         min(instance_priority)   AS instance_priority,
-         min(instance_started_at) AS instance_started_at,
-         min(delay_minutes)       AS min_delay,
-         min(current_scheduled_for) AS old_instance_anchor
-  FROM   step_join
-  GROUP  BY workflow_instance_id
-),
-instance_slots AS (
-  SELECT pi.*,
-         (row_number() OVER (
-            ORDER BY COALESCE(pi.instance_priority,0) DESC,
-                     pi.instance_started_at ASC NULLS LAST,
-                     pi.workflow_instance_id
-          ) - 1) AS slot
-  FROM   per_instance pi
-),
-instance_anchors AS (
-  SELECT s.*,
-         (slot / 80) AS day_offset,
-         (slot % 80) AS day_row_number,
-         (((CURRENT_DATE AT TIME ZONE 'Europe/Riga')::date + 1
-            + INTERVAL '8 hours'
-            + (slot / 80) * INTERVAL '1 day'
-            + (slot % 80) * INTERVAL '2 minutes')
-          AT TIME ZONE 'Europe/Riga') AS new_instance_anchor
-  FROM   instance_slots s
-),
-proposed AS (
-  SELECT sj.queue_id,
-         sj.lead_id,
-         sj.workflow_instance_id,
-         sj.workflow_key,
-         sj.template_key,
-         sj.step_order,
-         sj.delay_minutes,
-         sj.current_scheduled_for,
-         ia.instance_priority,
-         ia.old_instance_anchor,
-         ia.new_instance_anchor,
-         ia.day_offset      AS anchor_day_offset,
-         ia.day_row_number  AS anchor_day_slot,
-         (ia.new_instance_anchor
-          + (sj.delay_minutes - ia.min_delay) * INTERVAL '1 minute'
-         ) AS proposed_scheduled_for,
-         true AS relative_offset_preserved
-  FROM   step_join sj
-  JOIN   instance_anchors ia USING (workflow_instance_id)
-)
-SELECT *
-FROM   proposed
-ORDER  BY instance_priority DESC NULLS LAST,
-          anchor_day_offset,
-          anchor_day_slot,
-          step_order;
+-- Idempotent: existing rows with the same setting_key are preserved verbatim.
+INSERT INTO crm.settings (setting_group, setting_key, value_json, description, is_active) VALUES
+
+('task','task.types',
+ '{"values":["call","sms","whatsapp","email","zoom","meeting","status_change","task_created","task_completed","note","other"]}'::jsonb,
+ 'Allowed task_type values for crm.tasks', true),
+
+('task','task.statuses',
+ '{"values":["planned","overdue","in_progress","completed","cancelled","skipped","failed"]}'::jsonb,
+ 'Allowed status values for crm.tasks', true),
+
+('activity','activity.types',
+ '{"values":["call","sms","whatsapp","email","zoom","meeting","status_change","task_created","task_completed","note","other"]}'::jsonb,
+ 'Allowed activity_type values for crm.activities', true),
+
+('call','call.outcomes',
+ '{"values":["talked","no_answer","busy","voicemail","wrong_number","callback_requested","not_interested","do_not_contact","agreed_ppv_followup"]}'::jsonb,
+ 'Outcome codes for completed call tasks', true),
+
+('message','message.outcomes',
+ '{"values":["sent","delivered","replied","no_reply","failed","opt_out"]}'::jsonb,
+ 'Outcome codes for SMS/WhatsApp/email message tasks', true),
+
+('contact','contact.limits',
+ '{"calls":4,"sms_whatsapp":2,"emails":4,"on_limit_status":"Nesasniedzams","automation_continues":true}'::jsonb,
+ 'Per-lead contact-attempt limits before status becomes Nesasniedzams. Automation continues.', true),
+
+('outreach','outreach.daily_quota',
+ '{"role":"Mārketings","per_ppv_user":{"UC":10,"MO":10}}'::jsonb,
+ 'Daily outreach quota per PPV user group, executed by role Mārketings', true),
+
+('outreach','outreach.eligible_statuses',
+ '{"values":["Jauns","Nesasniedzams"]}'::jsonb,
+ 'Lead statuses eligible for outreach planning', true),
+
+('calendar','calendar.business_days',
+ '{"timezone":"Europe/Riga","working_days":["Mon","Tue","Wed","Thu","Fri"],"holidays":[]}'::jsonb,
+ 'Business-day calendar for all schedulers', true),
+
+('automation','automation.weekend_policy',
+ '{"human_tasks_weekends_allowed":false,"manual_tasks_weekends_allowed":true,"sis_b2c_weekends_allowed":true,"sis_b2b_weekends_allowed":false}'::jsonb,
+ 'Weekend execution policy per actor type', true),
+
+('ppv','ppv.auto_reschedule',
+ '{"no_answer_days":2,"business_days_only":true}'::jsonb,
+ 'Auto-reschedule rule for PPV no_answer tasks when user does not reschedule manually', true),
+
+('status','status.on_outcome',
+ '{"not_interested":"Nekvalificējas","do_not_contact":"Nesasniedzams","opt_out":"Atlikts","agreed_ppv_followup":"Piesaistīšana"}'::jsonb,
+ 'Outcome → target lead status mapping', true),
+
+('workflow','workflow.stop_rules',
+ '{"Nekvalificējas":{"stops":true,"manual_resume":true},"Atlikts":{"stops":true,"manual_resume":true},"Nesasniedzams":{"stops":false,"manual_resume":true}}'::jsonb,
+ 'Per-status automation stop rules', true)
+
+ON CONFLICT (setting_key) DO NOTHING;
 ```
 
-## Proof that cadence is preserved
+Properties:
+- `ON CONFLICT (setting_key) DO NOTHING` → never overwrites existing rows.
+- No DDL, no RLS change, no trigger change, no FK touched.
+- Re-running is safe; second run affects 0 rows.
+
+---
+
+## Self-check queries (read-only)
 
 ```sql
--- Per-instance integrity: every relative offset must match exactly.
-SELECT count(*) AS instances_with_drift
-FROM (
-  SELECT workflow_instance_id,
-         max( (proposed_scheduled_for - new_instance_anchor)
-              - (delay_minutes - min(delay_minutes) OVER (PARTITION BY workflow_instance_id))
-                * INTERVAL '1 minute' ) AS drift
-  FROM   proposed
-  GROUP  BY workflow_instance_id
-) d
-WHERE drift <> INTERVAL '0';
--- expected: 0
+-- 1) All 13 keys present
+SELECT setting_key FROM crm.settings
+WHERE setting_key IN (
+ 'task.types','task.statuses','activity.types',
+ 'call.outcomes','message.outcomes','contact.limits',
+ 'outreach.daily_quota','outreach.eligible_statuses',
+ 'calendar.business_days','automation.weekend_policy',
+ 'ppv.auto_reschedule','status.on_outcome','workflow.stop_rules')
+ORDER BY setting_key;
+-- Expect: 13 rows.
+
+-- 2) Group bucketing
+SELECT setting_group, count(*) FROM crm.settings
+WHERE setting_group IN ('task','activity','call','message','contact','outreach','calendar','automation','ppv','status','workflow')
+GROUP BY setting_group ORDER BY setting_group;
+-- Expect: task=2, activity=1, call=1, message=1, contact=1, outreach=2,
+--         calendar=1, automation=1, ppv=1, status=1, workflow=1.
+
+-- 3) Role correction landed
+SELECT value_json->>'role' AS role
+FROM crm.settings WHERE setting_key='outreach.daily_quota';
+-- Expect: 'Mārketings'.
+
+-- 4) Stop-rules correction landed
+SELECT value_json->'Nesasniedzams' AS nesasniedzams_rule
+FROM crm.settings WHERE setting_key='workflow.stop_rules';
+-- Expect: {"stops": false, "manual_resume": true}.
+
+-- 5) Mapped statuses exist in catalog
+SELECT (kv).value AS status_value,
+       EXISTS (SELECT 1 FROM crm.lead_statuses ls WHERE ls.status_key=(kv).value) AS exists_in_catalog
+FROM (SELECT jsonb_each_text(value_json) AS kv FROM crm.settings WHERE setting_key='status.on_outcome') t;
+-- Expect: all true (Nekvalificējas, Nesasniedzams, Atlikts, Piesaistīšana).
+
+-- 6) Eligible statuses exist in catalog
+SELECT x AS status_value,
+       EXISTS (SELECT 1 FROM crm.lead_statuses ls WHERE ls.status_key=x) AS exists_in_catalog
+FROM crm.settings, jsonb_array_elements_text(value_json->'values') x
+WHERE setting_key='outreach.eligible_statuses';
+-- Expect: Jauns=true, Nesasniedzams=true.
+
+-- 7) Forbidden role tokens absent
+SELECT setting_key, value_json
+FROM crm.settings
+WHERE setting_group IN ('outreach','status','workflow','automation','ppv')
+  AND value_json::text ~* '("BJ"|"Mārketinga saziņa")';
+-- Expect: 0 rows.
 ```
+
+---
+
+## Rollback SQL (DO NOT EXECUTE)
 
 ```sql
--- Per-lead order preserved
-SELECT bool_and(ok) AS per_lead_workflow_order_preserved
-FROM (
-  SELECT lead_id,
-         rank() OVER (PARTITION BY lead_id ORDER BY step_order)
-       = rank() OVER (PARTITION BY lead_id ORDER BY proposed_scheduled_for) AS ok
-  FROM proposed
-) x;
--- expected: true
+-- Hard rollback (removes only the 13 seeded keys)
+DELETE FROM crm.settings
+WHERE setting_key IN (
+ 'task.types','task.statuses','activity.types',
+ 'call.outcomes','message.outcomes','contact.limits',
+ 'outreach.daily_quota','outreach.eligible_statuses',
+ 'calendar.business_days','automation.weekend_policy',
+ 'ppv.auto_reschedule','status.on_outcome','workflow.stop_rules');
+
+-- Soft rollback alternative (keeps audit trail)
+-- UPDATE crm.settings SET is_active=false, updated_at=now()
+-- WHERE setting_key IN ( ...same list... );
 ```
 
-```sql
--- Anchor capacity check
-SELECT date_trunc('day', new_instance_anchor AT TIME ZONE 'Europe/Riga') AS day,
-       count(DISTINCT workflow_instance_id) AS anchors_on_day
-FROM   instance_anchors
-GROUP  BY 1 ORDER BY 1;
--- expected: 80, 80, 4
-```
+No FK references `crm.settings`; rollback is non-cascading and safe.
 
-## Expected Summary
+---
 
-| field | expected |
-|---|---|
-| eligible rows | 778 |
-| distinct workflow instances | 164 |
-| instance anchors per day | 80, 80, 4 (3 days) |
-| earliest proposed time | tomorrow 08:00 Europe/Riga (highest priority anchor) |
-| latest proposed time | day-3 anchor + up to 42 days cadence → ~day 45 |
-| relative offset preserved per instance | true (proved above) |
-| per-lead workflow order preserved | true |
-| manual / locked rows excluded | yes (filter active; 0 today) |
-| non-workflow rows excluded | yes (1 row without `workflow_instance_id` skipped) |
-| sent / sending / failed / cancelled / blocked touched | none |
-| dispatcher / cron / sends | unchanged |
+## Scope confirmation
 
-## What this plan does NOT do
+- ✅ Settings rows only (13 keys).
+- ❌ No RPCs.
+- ❌ No task generation.
+- ❌ No cron / pg_cron change.
+- ❌ No dispatcher / allocator change.
+- ❌ No frontend change.
+- ❌ No DDL on tables, no RLS edits.
+- Existing settings preserved by design.
 
-- No `UPDATE` is included or executed.
-- No migration file created.
-- No dispatcher / cron / sends touched.
-- Lovable frontend unchanged.
-
-When approved, the next step will be a single migration containing the same CTEs above wrapped in:
-```
-UPDATE crm.communication_queue q
-SET    scheduled_for = p.proposed_scheduled_for,
-       metadata = q.metadata || jsonb_build_object(
-         'reschedule_batch','global_instance_reschedule_v2',
-         'reschedule_at', now(),
-         'previous_scheduled_for', q.scheduled_for)
-FROM   proposed p
-WHERE  q.id = p.queue_id
-  AND  q.status='queued' AND q.channel='email'
-  AND  COALESCE((q.metadata->>'allocator_locked')::bool,false)=false
-  AND  (q.metadata->>'edited_at') IS NULL;
-```
-— idempotent via `metadata.reschedule_batch`.
+Awaiting approval before execution.
