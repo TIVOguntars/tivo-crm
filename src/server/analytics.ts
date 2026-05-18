@@ -233,57 +233,6 @@ export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
     }
   });
 
-const PUBLIC_TABLES = [
-  "communications",
-  "tracking_links",
-] as const;
-export type PublicTable = (typeof PUBLIC_TABLES)[number];
-
-async function queryPublicTable(
-  table: PublicTable,
-  query: string,
-): Promise<AnalyticsRow[]> {
-  const { url, key } = getEnv();
-  const endpoint = `${url}/rest/v1/${table}${query ? `?${query}` : ""}`;
-
-  const res = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Accept-Profile": "public",
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Neizdevās nolasīt public.${table} (${res.status}): ${text.slice(0, 300)}`,
-    );
-  }
-
-  return (await res.json()) as AnalyticsRow[];
-}
-
-export const fetchPublicTable = createServerFn({ method: "GET" })
-  .inputValidator((input: { table: PublicTable; query?: string }) => {
-    if (!PUBLIC_TABLES.includes(input.table)) {
-      throw new Error(`Nezināma tabula: ${input.table}`);
-    }
-    return { table: input.table, query: input.query ?? "" };
-  })
-  .handler(async ({ data }) => {
-    try {
-      const rows = await queryPublicTable(data.table, data.query);
-      return { rows, error: null as string | null };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Nezināma kļūda";
-      console.error("[public]", message);
-      return { rows: [] as AnalyticsRow[], error: message };
-    }
-  });
-
 const CRM_VIEWS = [
   "next_action_queue",
   "next_action_queue_ui",
