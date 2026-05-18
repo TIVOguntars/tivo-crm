@@ -1084,11 +1084,28 @@ function LeadProfilePage() {
                     <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
                       <DialogHeader className="overflow-visible">
                         <div className="flex items-center justify-between w-full gap-4">
-                          <div className="min-w-0 flex-1">
-                            <DialogTitle className="flex items-center gap-2 text-base">
-                              {isNote ? <StickyNote className="h-4 w-4 shrink-0" /> : channelIcon(ch)}
-                              <span className="truncate">{subject}</span>
-                            </DialogTitle>
+                          <div className="flex items-center gap-2">
+                            {!isNote && isEmail && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
+                                  onClick={handleReply}
+                                  disabled={!replyTo}
+                                >
+                                  <Reply className="h-3.5 w-3.5 mr-1" />
+                                  Atbildēt
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
+                                  onClick={handleForward}
+                                >
+                                  <Forward className="h-3.5 w-3.5 mr-1" />
+                                  Pārsūtīt
+                                </Button>
+                              </>
+                            )}
                           </div>
                           <DialogClose asChild>
                             <Button
@@ -1101,27 +1118,10 @@ function LeadProfilePage() {
                             </Button>
                           </DialogClose>
                         </div>
-                        {!isNote && isEmail && (
-                          <div className="flex w-full items-center gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
-                              onClick={handleReply}
-                              disabled={!replyTo}
-                            >
-                              <Reply className="h-3.5 w-3.5 mr-1" />
-                              Atbildēt
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
-                              onClick={handleForward}
-                            >
-                              <Forward className="h-3.5 w-3.5 mr-1" />
-                              Pārsūtīt
-                            </Button>
-                          </div>
-                        )}
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                          {isNote ? <StickyNote className="h-4 w-4 shrink-0" /> : channelIcon(ch)}
+                          <span className="truncate">{subject}</span>
+                        </DialogTitle>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                       {!isNote && <Field label="Kanāls" value={fmt(ch)} />}
