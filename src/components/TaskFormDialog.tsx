@@ -151,7 +151,6 @@ export function TaskFormDialog({
             p_required_role: null,
             p_workflow_instance_id: null,
             p_parent_task_id: null,
-            p_metadata: { source: "manual_ui" },
             p_metadata: {
               source: "manual_ui",
               ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
