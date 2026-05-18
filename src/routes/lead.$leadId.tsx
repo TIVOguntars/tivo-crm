@@ -164,6 +164,28 @@ function cleanPreview(raw: unknown): string {
   return v;
 }
 
+/* Map known automation template keys to short human labels. */
+const TEMPLATE_LABEL_MAP: Record<string, string> = {
+  email_getestimate_1: "getestimate 1",
+  email_getestimate_2: "getestimate 2",
+  email_getestimate_3: "getestimate 3",
+  email_getestimate_4: "getestimate 4",
+  email_transition_to_sketch: "transition to sketch",
+  email_sketch_1: "sketch 1",
+  email_sketch_2: "sketch 2",
+  email_sketch_3: "sketch 3",
+  email_sketch_4: "sketch 4",
+};
+function templateLabel(key: string): string {
+  if (!key) return "";
+  const k = key.trim();
+  if (TEMPLATE_LABEL_MAP[k]) return TEMPLATE_LABEL_MAP[k];
+  const lower = k.toLowerCase();
+  if (TEMPLATE_LABEL_MAP[lower]) return TEMPLATE_LABEL_MAP[lower];
+  // generic fallback: strip "email_" prefix and replace underscores
+  return lower.replace(/^email_/, "").replace(/_/g, " ");
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
@@ -914,6 +936,13 @@ function LeadProfilePage() {
                         ? ""
                         : (rp && str(pick(rp, "current_status"))) ||
                             str(pick(r, "status", "current_status"));
+                      const templateKey = !isNote && isEmail
+                        ? (str(pick(r, "template_key", "automation_step")) ||
+                            (rp && str(pick(rp, "template_key", "automation_step"))) ||
+                            (rpMeta && str(pick(rpMeta, "template_key", "automation_step"))) ||
+                            "")
+                        : "";
+                      const tplLabel = templateLabel(templateKey);
                       // bg by kind/channel
                       let bg = "bg-muted/30";
                       let accent = "border-l-muted-foreground/40";
@@ -957,6 +986,14 @@ function LeadProfilePage() {
                                           <ArrowUpRight className="h-3 w-3" /> Izejošs
                                         </>
                                       )}
+                                    </span>
+                                  )}
+                                  {isEmail && tplLabel && (
+                                    <span
+                                      title={templateKey}
+                                      className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                                    >
+                                      {tplLabel}
                                     </span>
                                   )}
                                 </div>
