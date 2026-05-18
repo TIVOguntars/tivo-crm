@@ -665,10 +665,10 @@ function LeadProfilePage() {
                   <Button
                     size="icon"
                     variant="outline"
-                    disabled
                     title="Uzdevums"
                     aria-label="Uzdevums"
                     className="h-8 w-8"
+                    onClick={() => setTaskDialogOpen(true)}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
