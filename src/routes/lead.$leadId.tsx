@@ -489,6 +489,7 @@ function LeadProfilePage() {
   }, [communications, notes, rawPayloadById]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
+  const [editQueueId, setEditQueueId] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
