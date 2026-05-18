@@ -1,3 +1,7 @@
+// ⚠️ LEGACY ROUTE — DO NOT LINK FROM PRIMARY NAVIGATION
+// Canonical lead detail screen is `/lead/$leadId` (src/routes/lead.$leadId.tsx).
+// This file is preserved for backwards compatibility only and must not be
+// referenced from Darba rinda, Leadi list, or any new CRM flow.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -209,6 +213,10 @@ function LeadProfilePage() {
           </Link>
         </Button>
         <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
+      </div>
+
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+        Legacy skats. Jaunais CRM lead profile pieejams: <Link to="/leadi" className="underline font-medium">atveriet no Leadi saraksta</Link>.
       </div>
 
       {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
