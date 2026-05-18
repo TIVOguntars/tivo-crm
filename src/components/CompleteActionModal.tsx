@@ -140,6 +140,7 @@ export function CompleteActionModal({
   open,
   onOpenChange,
   leadId,
+  taskId,
   defaultOwner,
   isHumanPrimary,
   visibleAction,
@@ -148,6 +149,7 @@ export function CompleteActionModal({
   open: boolean;
   onOpenChange: (o: boolean) => void;
   leadId: string | null;
+  taskId?: string | null;
   defaultOwner: string;
   isHumanPrimary?: boolean;
   visibleAction?: string;
@@ -198,7 +200,7 @@ export function CompleteActionModal({
 
   const handleSubmit = async () => {
     if (!leadId) return;
-    if (!isHumanPrimary || !visibleAction || !visibleAction.trim()) {
+    if (!taskId && (!isHumanPrimary || !visibleAction || !visibleAction.trim())) {
       setError("Šim leadam nav aktīvas cilvēka darbības.");
       return;
     }
@@ -209,20 +211,30 @@ export function CompleteActionModal({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await callCrmRpc({
-        data: {
-          fn: "complete_human_action",
-          params: {
-            p_lead_id: leadId,
-            p_completed_by: null,
-            p_completion_note: note.trim() ? note.trim() : null,
-            p_next_action: hasNext ? nextAction : null,
-            p_next_owner: hasNext && owner.trim() ? owner.trim() : null,
-            p_next_due_date:
-              hasNext && due ? format(due, "yyyy-MM-dd") : null,
-          },
-        },
-      });
+      const res = taskId
+        ? await callCrmRpc({
+            data: {
+              fn: "rpc_complete_task",
+              params: {
+                p_task_id: taskId,
+                p_notes: note.trim() ? note.trim() : null,
+              },
+            },
+          })
+        : await callCrmRpc({
+            data: {
+              fn: "complete_human_action",
+              params: {
+                p_lead_id: leadId,
+                p_completed_by: null,
+                p_completion_note: note.trim() ? note.trim() : null,
+                p_next_action: hasNext ? nextAction : null,
+                p_next_owner: hasNext && owner.trim() ? owner.trim() : null,
+                p_next_due_date:
+                  hasNext && due ? format(due, "yyyy-MM-dd") : null,
+              },
+            },
+          });
       if (res.error) {
         setError(res.error);
         setSubmitting(false);
