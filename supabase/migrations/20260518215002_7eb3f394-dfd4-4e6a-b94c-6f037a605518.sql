@@ -1,0 +1,1 @@
+INSERT INTO crm.audit_source_types (source_type, name) VALUES ('rpc', 'RPC') ON CONFLICT DO NOTHING;
