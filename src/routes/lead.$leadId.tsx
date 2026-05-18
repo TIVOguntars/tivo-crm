@@ -1079,7 +1079,7 @@ function LeadProfilePage() {
                   : "";
                 return (
                   <>
-                    <div className="sticky top-0 z-50 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
                       <DialogHeader className="overflow-visible">
                         <div className="flex items-center justify-between w-full gap-4">
                           <div className="min-w-0 flex-1">
@@ -1089,24 +1089,22 @@ function LeadProfilePage() {
                             </DialogTitle>
                           </div>
                           {!isNote && isEmail && (
-                            <div className="relative z-50 flex shrink-0 items-center gap-2">
+                            <div className="flex shrink-0 items-center gap-2">
                               <Button
                                 size="sm"
                                 variant="default"
                                 onClick={handleReply}
                                 disabled={!replyTo}
-                                className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60 disabled:text-white"
                               >
-                                <Reply className="h-3.5 w-3.5" />
+                                <Reply className="h-3.5 w-3.5 mr-1" />
                                 Atbildēt
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={handleForward}
-                                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
                               >
-                                <Forward className="h-3.5 w-3.5" />
+                                <Forward className="h-3.5 w-3.5 mr-1" />
                                 Pārsūtīt
                               </Button>
                             </div>
