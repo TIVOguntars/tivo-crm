@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -27,7 +27,6 @@ import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
-import { LeadDrawer } from "@/components/LeadDrawer";
 
 const STATUS_ORDER = ["Jauns", "Nesasniedzams", "Piesaistīšana", "Kvalificēts"];
 const mapStatus = (raw: string): string => {
@@ -174,7 +173,17 @@ function parseTags(value: unknown): string[] {
 }
 
 function leadLabel(row: Row): string {
-  return s(row.name) || s(row.object_name) || (s(row.lead_id) ? `Lead #${s(row.lead_id)}` : "—");
+  return (
+    s(row.full_name) ||
+    s(row.name) ||
+    s(row.object_name) ||
+    "Bez vārda"
+  );
+}
+
+function leadSecondary(row: Row): string {
+  const parts = [s(row.country), s(row.ppv_email), s(row.ppv_phone)].filter(Boolean);
+  return parts.join(" · ");
 }
 
 function TagsCell({ tags }: { tags: string[] }) {
@@ -258,7 +267,6 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
-  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Priority is sourced from crm.lead_priority_scoring_v2.
@@ -547,7 +555,7 @@ function QueuePage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <PageHeader
-        title="Darba rinda"
+        title="Uzdevumi"
         description="Nākamās darbības ar leadiem"
       />
 
@@ -733,12 +741,18 @@ function QueuePage() {
                     <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
                     <TableCell className="py-3 align-top">
                       {leadId ? (
-                        <button
-                          className="line-clamp-2 max-w-[280px] text-left text-primary/90 hover:underline"
-                          onClick={() => setDrawerLeadId(leadId)}
+                        <Link
+                          to="/lead/$leadId"
+                          params={{ leadId }}
+                          className="block max-w-[280px] text-left text-primary/90 hover:underline"
                         >
-                          {leadLabel(r)}
-                        </button>
+                          <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
+                          {leadSecondary(r) && (
+                            <div className="line-clamp-1 text-[10px] text-muted-foreground">
+                              {leadSecondary(r)}
+                            </div>
+                          )}
+                        </Link>
                       ) : (
                         <span className="line-clamp-2 max-w-[280px]">{leadLabel(r)}</span>
                       )}
@@ -752,14 +766,18 @@ function QueuePage() {
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-[11px]"
-                        onClick={() => leadId && setDrawerLeadId(leadId)}
-                      >
-                        Atvērt
-                      </Button>
+                      {leadId ? (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                        >
+                          <Link to="/lead/$leadId" params={{ leadId }}>
+                            Atvērt
+                          </Link>
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );
@@ -769,19 +787,6 @@ function QueuePage() {
           </div>
         </div>
       )}
-      <LeadDrawer
-        leadId={drawerLeadId}
-        open={drawerLeadId !== null}
-        onOpenChange={(o) => { if (!o) setDrawerLeadId(null); }}
-        onActionCompleted={async (completedId) => {
-          const result = await view.refetch();
-          const newRows = (result.data?.rows ?? []) as Row[];
-          const stillExists = newRows.some((r) => s(r.lead_id) === completedId);
-          if (!stillExists) {
-            setDrawerLeadId(null);
-          }
-        }}
-      />
     </div>
   );
 }
