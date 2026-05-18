@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -24,11 +25,27 @@ export function AuthGate({ children }: AuthGateProps) {
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  async function ensureSupabaseSession() {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return;
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.error("[auth] anonymous sign-in failed", error.message);
+      }
+    } catch (e) {
+      console.error("[auth] ensureSupabaseSession", e);
+    }
+  }
+
   // Initial session check after mount
   useEffect(() => {
     setHydrated(true);
-    setAuthed(isSessionValid());
-    if (!isSessionValid()) {
+    const valid = isSessionValid();
+    setAuthed(valid);
+    if (valid) {
+      void ensureSupabaseSession();
+    } else {
       clearAuth();
     }
   }, []);
@@ -38,6 +55,7 @@ export function AuthGate({ children }: AuthGateProps) {
     setAuthed(false);
     setPassword("");
     setError(null);
+    void supabase.auth.signOut().catch(() => {});
   }, []);
 
   // Activity tracking + inactivity timer (only when authed)
@@ -81,6 +99,7 @@ export function AuthGate({ children }: AuthGateProps) {
       setAuthed(true);
       setError(null);
       setPassword("");
+      void ensureSupabaseSession();
     } else {
       setError("Nepareiza parole");
     }
