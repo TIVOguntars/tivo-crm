@@ -1,168 +1,97 @@
-# Backfill Email Allocator — SQL Preview (v2, corrected)
 
-Scope unchanged: allocator + planner metadata + a one-line metadata stamp in `queue_item_reschedule`. No changes to dispatcher, reconciler, pg_net, Resend, retry, cron, workflow_steps, or queue status lifecycle.
+## Goal
 
-## 1. `crm.rebalance_backfill_email_schedule`
+Fix the "Uzdevumi un plānotās darbības" panel on the lead detail page so it correctly reflects future-only automation emails, uses the real queued date, follows the requested layout, and lets the user edit template + scheduled time for queue rows.
 
-```sql
-CREATE OR REPLACE FUNCTION crm.rebalance_backfill_email_schedule(
-    p_start_date date DEFAULT current_date
-)
-RETURNS TABLE(
-    queue_id        uuid,
-    old_scheduled   timestamptz,
-    new_scheduled   timestamptz,
-    slot_date       date
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = crm, public, extensions
-AS $$
-DECLARE
-    v_tz            constant text     := 'Europe/Riga';
-    v_window_start  constant time     := time '08:00';
-    v_window_end    constant time     := time '18:00';
-    v_spacing       constant interval := interval '2 minutes';
-    v_daily_cap     constant int      := 80;
+Scope: `src/routes/lead.$leadId.tsx` only. No dispatcher, cron, allocator, or workflow changes.
 
-    v_current_date     date := p_start_date;
-    v_slot_local       timestamp;
-    v_slot_utc         timestamptz;
-    v_allocated_today  int  := 0;
-    r                  record;
-BEGIN
-    v_slot_local := (v_current_date::timestamp + v_window_start);
+## Findings from audit
 
-    FOR r IN
-        SELECT q.id,
-               q.scheduled_for,
-               q.created_at,
-               COALESCE((q.metadata->>'priority_score')::numeric, 0) AS prio
-        FROM crm.communication_queue q
-        WHERE q.status = 'queued'
-          AND q.channel = 'email'
-          AND q.metadata->>'daily_bucket' = 'existing'
-          AND q.scheduled_for <= now()
-          AND COALESCE((q.metadata->>'allocator_locked')::boolean, false) = false
-        ORDER BY prio DESC,
-                 q.scheduled_for ASC NULLS LAST,
-                 q.created_at ASC
-        FOR UPDATE SKIP LOCKED
-    LOOP
-        IF v_allocated_today >= v_daily_cap THEN
-            v_current_date    := v_current_date + 1;
-            v_slot_local      := (v_current_date::timestamp + v_window_start);
-            v_allocated_today := 0;
-        END IF;
+- View `crm.v_lead_planned_actions` already filters queue rows to `status IN ('queued','sending','blocked')`, and exposes `scheduled_for` directly from `crm.communication_queue.scheduled_for`. We must use that field verbatim — current UI does (good), but layout currently formats it with `fmtDate` (date only) instead of date+time.
+- For lead `021af8b6...`:
+  - `crm.communications` shows `email_getestimate_1` already sent (`raw_payload.automation_step = "E_mail getestimate 1"`, outbound, 2026‑04‑29).
+  - `crm.communication_queue` still has a `queued` row with `template_key='email_getestimate_1'` scheduled 2026‑05‑19.
+  - That is why the panel shows an already-sent template. The view does not cross-check sent communications. Dedupe must happen in the frontend (allowed: existing safe data, no DB change).
+- Available safe RPCs (already in DB, no new SQL needed):
+  - `crm.queue_item_edit(p_id, p_subject, p_body, p_recipient, p_template_key, p_content_html, p_content_text)`
+  - `crm.queue_item_reschedule(p_id, p_when timestamptz)`
+- `crm.message_templates` (`template_key`, `template_name`, `is_active`, `channel`) joined with `crm.message_template_versions` (`is_published`) gives the dropdown of valid templates. We restrict the dropdown client-side to the 9 allowed automation keys.
 
-        IF v_slot_local::time >= v_window_end THEN
-            v_current_date    := v_current_date + 1;
-            v_slot_local      := (v_current_date::timestamp + v_window_start);
-            v_allocated_today := 0;
-        END IF;
+## Implementation
 
-        v_slot_utc := (v_slot_local AT TIME ZONE v_tz);
+### 1. Dedupe already-sent automation emails
 
-        UPDATE crm.communication_queue
-           SET scheduled_for = v_slot_utc,
-               metadata = COALESCE(metadata, '{}'::jsonb)
-                          || jsonb_build_object(
-                                'rebalanced_at',       now(),
-                                'rebalanced_for_date', v_current_date::text,
-                                'allocator',           'backfill_scheduler_v1'
-                             )
-         WHERE id = r.id;
+In the planned-actions block in `src/routes/lead.$leadId.tsx`:
 
-        queue_id      := r.id;
-        old_scheduled := r.scheduled_for;
-        new_scheduled := v_slot_utc;
-        slot_date     := v_current_date;
-        RETURN NEXT;
+- Build a `sentTemplateKeys: Set<string>` from `commPayloadsQ` (already loaded) + `timelineQ` data: iterate outbound email rows, normalize `raw_payload.automation_step` and `raw_payload.template_key` with the same `normalizeTemplateKey()` used by the Activities badge (strip `e_mail_` prefix, lowercase, underscores), and add to the set when it matches one of the 9 known keys.
+- When mapping `plannedRows`, for `source === 'queue'` skip the row if its `template_key` (from `tplMap`) is already in `sentTemplateKeys`.
 
-        v_allocated_today := v_allocated_today + 1;
-        v_slot_local      := v_slot_local + v_spacing;
-    END LOOP;
+### 2. Date logic
 
-    RETURN;
-END;
-$$;
+- Keep using `r.scheduled_for` straight from the view (no recomputation).
+- Render as `dd.MM.yyyy HH:mm` using existing `fmtDateTime` helper (or extend `fmtDate` call to a datetime formatter already used in Activities). Remove the `· kind` suffix.
+
+### 3. Three-column layout
+
+Replace the current `<li>` markup with a 3-column flex row:
+
+- Col 1 (left, `flex-1 min-w-0`):
+  - line 1: `templateLabel(template_key)` (human-readable, e.g. "getestimate 1")
+  - line 2: subject (muted, truncate)
+- Col 2 (right-aligned, fixed-ish width, before status): responsible person. For queue rows hard-code `"SIS"`. For task rows fall back to existing owner field if present.
+- Col 3 (right): two stacked lines, right-aligned — `StatusBadge` ("Plānots" for queued) on top, datetime below in muted text.
+
+Whole row becomes a `<button>` (or `<li role="button">`) for queue rows so it opens the edit modal; non-queue rows stay non-clickable.
+
+### 4. Edit modal (queue rows only)
+
+New component `PlannedQueueEditDialog` inside the same file (kept local, no new files needed unless it grows; can extract later). Uses shadcn `Dialog`.
+
+Fields:
+- **Template**: shadcn `Select` populated by a new `useCrmView('message_templates', 'select=template_key,template_name,is_active&channel=eq.email&is_active=eq.true', { all: true })` query, then filtered client-side to the 9 allowed keys:
+  `email_getestimate_1..4`, `email_transition_to_sketch`, `email_sketch_1..4`.
+- **Scheduled at**: shadcn date picker + time `<input type="time">` combined into a single `Date` → ISO string.
+
+Save behavior:
+1. If template_key changed → call `crm.queue_item_edit` via RPC (`supabase.schema('crm').rpc('queue_item_edit', { p_id, p_subject: currentSubject, p_body: currentBody ?? '', p_recipient: currentRecipient ?? '', p_template_key: newKey })`). Subject/body/recipient passed unchanged (we don't expose them in this modal yet) — pull from the existing queue row we already fetched.
+2. If scheduled_for changed → call `crm.queue_item_reschedule({ p_id, p_when })`.
+3. On success: `queueTemplatesQ.refetch()` + `plannedActionsQ.refetch()`, close dialog, toast success. On error: toast error, keep dialog open.
+
+Note on allocator bypass: `queue_item_reschedule` writes `scheduled_for` directly — no allocator gate is invoked from the frontend, which matches the "manual override is intentional" requirement. No backend changes.
+
+### 5. Data fetched
+
+Augment `queueTemplatesQ` selection to include the fields the edit RPC needs:
+
+```
+select=id,template_key,subject,body,recipient,scheduled_for,status
 ```
 
-Eligibility now requires: `status='queued'` AND `channel='email'` AND `daily_bucket='existing'` AND **overdue** (`scheduled_for <= now()`) AND **not manually locked** (`allocator_locked` is false/absent).
+so the edit modal can submit `queue_item_edit` without re-fetching.
 
-## 2. `crm.queue_item_reschedule` — add allocator lock stamp
+Add a new query for templates dropdown (only enabled when modal opens):
 
-Surgical change: only the `metadata` update gains `allocator_locked: true`. All status checks, permission checks, audit events, and return shape stay identical.
-
-```sql
--- inside the existing UPDATE in crm.queue_item_reschedule(...)
-UPDATE crm.communication_queue
-   SET scheduled_for = p_new_scheduled_for,
-       metadata = COALESCE(metadata, '{}'::jsonb)
-                  || jsonb_build_object(
-                        'rescheduled_at',    now(),
-                        'rescheduled_by',    auth.uid(),
-                        'allocator_locked',  true
-                     )
- WHERE id = p_queue_id
-   AND status IN ('queued', 'blocked');
+```
+useCrmView('message_templates', 'select=template_key,template_name,channel,is_active&is_active=eq.true&channel=eq.email', { all: true })
 ```
 
-No other `queue_item_*` RPC is touched.
+### 6. Out of scope (explicit)
 
-## 3. `crm.generate_email_plan_for_lead` — metadata tagging only
+- Task rows and `next_action` rows remain read-only — no modal for them.
+- No changes to dispatcher, allocator, cron, workflow generator, or historical Activities rendering.
 
-Backfill mode is now strictly explicit. Age-based detection removed.
+## Technical details
 
-```sql
-v_is_backfill := (p_reason IN ('backfill', 'historical_import'));
+- Files changed: `src/routes/lead.$leadId.tsx` only.
+- RPCs used: `crm.queue_item_edit`, `crm.queue_item_reschedule` (both pre-existing, security definer in DB).
+- Views/tables read: `crm.v_lead_planned_actions`, `crm.communication_queue`, `crm.message_templates`, `crm.communications` (already loaded via `commPayloadsQ` and timeline).
+- Dedupe key derivation reuses existing `normalizeTemplateKey()` + `TEMPLATE_LABEL_MAP` already in the file.
+- New imports: `Dialog*` from `@/components/ui/dialog`, `Select*` from `@/components/ui/select`, `Calendar` + `Popover` (existing shadcn datepicker pattern), `toast` from `sonner`.
 
-v_priority_score := 0;  -- MVP; real scoring engine wired later
+## Verification checklist after build
 
-IF v_is_backfill THEN
-    v_queue_metadata := jsonb_build_object(
-        'queue_type',     'backfill',
-        'daily_bucket',   'existing',
-        'priority_score', v_priority_score
-    );
-ELSE
-    v_queue_metadata := jsonb_build_object(
-        'queue_type',     'new_lead',
-        'daily_bucket',   'new',
-        'priority_score', v_priority_score
-    );
-END IF;
-```
-
-Each existing `INSERT INTO crm.communication_queue (...)` keeps every other column and only sets `metadata := COALESCE(<existing_metadata>, '{}'::jsonb) || v_queue_metadata`. Scheduling, recipient resolution, template lookup, blocked_reason, audit events — unchanged.
-
-## Explicitly NOT changed
-
-- `crm.dispatch_email_queue_once`
-- `crm.reconcile_email_send_responses`
-- pg_net / Resend / retry / sending logic
-- cron schedules
-- `crm.workflow_steps`
-- queue status lifecycle (queued/sending/sent/failed/blocked/cancelled)
-- new-lead scheduling cadence
-- other `queue_item_*` RPCs
-
-## Verification (after apply, manual)
-
-```sql
--- candidates the allocator would touch
-SELECT id, scheduled_for, metadata->>'priority_score' AS prio,
-       metadata->>'allocator_locked' AS locked
-FROM crm.communication_queue
-WHERE status='queued' AND channel='email'
-  AND metadata->>'daily_bucket'='existing'
-  AND scheduled_for <= now()
-  AND COALESCE((metadata->>'allocator_locked')::boolean, false) = false
-ORDER BY (metadata->>'priority_score')::numeric DESC NULLS LAST,
-         scheduled_for ASC, created_at ASC;
-
--- run allocator starting tomorrow
-SELECT * FROM crm.rebalance_backfill_email_schedule(current_date + 1);
-```
-
-No execution, no cron, no dispatch performed by this preview.
+1. For lead `021af8b6...`, the panel no longer lists `email_getestimate_1` (already sent), and still lists `email_getestimate_2..4`, `email_transition_to_sketch`, `email_sketch_1..4`.
+2. Each row shows scheduled date+time matching `crm.communication_queue.scheduled_for`.
+3. Layout: template+subject left, "SIS" middle-right, "Plānots" + datetime stacked far right.
+4. Clicking a queue row opens the edit modal; saving template change or new datetime updates the row (verified by refetch) without sending the email.
+5. No console errors; non-queue rows unchanged and not clickable.
