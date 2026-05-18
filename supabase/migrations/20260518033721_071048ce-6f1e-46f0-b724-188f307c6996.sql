@@ -1,0 +1,399 @@
+CREATE OR REPLACE FUNCTION crm.generate_email_plan_for_lead(p_lead_id uuid, p_reason text DEFAULT 'tag_trigger'::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public'
+AS $function$
+DECLARE
+  v_workflow_key text; v_workflow_id uuid;
+  v_started_at timestamptz; v_hot_removed timestamptz; v_lead_created timestamptz;
+  v_instance_id uuid; v_recipient text;
+  v_step record; v_tpl record;
+  v_status text; v_blocked text; v_body text;
+  v_warnings jsonb := '[]'::jsonb;
+BEGIN
+  IF crm.lead_has_tag(p_lead_id,'hot') THEN RETURN NULL; END IF;
+  v_workflow_key := crm.email_workflow_key_for_lead(p_lead_id);
+  IF v_workflow_key IS NULL THEN RETURN NULL; END IF;
+
+  SELECT id INTO v_workflow_id FROM crm.workflow_definitions
+   WHERE workflow_key = v_workflow_key LIMIT 1;
+  IF v_workflow_id IS NULL THEN RETURN NULL; END IF;
+
+  IF EXISTS (SELECT 1 FROM crm.workflow_instances
+             WHERE entity_type='lead' AND entity_id=p_lead_id
+               AND workflow_key=v_workflow_key
+               AND status IN ('pending','running','paused'))
+  THEN RETURN NULL; END IF;
+
+  SELECT created_at INTO v_lead_created FROM crm.leads WHERE id=p_lead_id;
+  v_hot_removed := crm.get_lead_hot_removed_at(p_lead_id);
+  v_started_at  := GREATEST(v_lead_created, COALESCE(v_hot_removed, v_lead_created));
+  v_recipient   := crm.lead_email_recipient(p_lead_id);
+
+  INSERT INTO crm.workflow_instances
+    (entity_type, entity_id, workflow_key, workflow_name,
+     status, started_at, current_step_key, metadata)
+  VALUES ('lead', p_lead_id, v_workflow_key, v_workflow_key,
+          'running', v_started_at, NULL,
+          jsonb_build_object('reason',p_reason,
+                             'hot_removed_at',v_hot_removed,
+                             'lead_created_at',v_lead_created))
+  RETURNING id INTO v_instance_id;
+
+  FOR v_step IN
+    SELECT * FROM crm.workflow_steps
+    WHERE workflow_id = v_workflow_id AND is_active = true
+    ORDER BY step_order
+  LOOP
+    SELECT * INTO v_tpl FROM crm.get_published_template(v_step.template_key);
+
+    v_status := 'queued'; v_blocked := NULL;
+    IF v_tpl.version_id IS NULL THEN
+      v_status := 'blocked'; v_blocked := 'no_published_template_version';
+      v_warnings := v_warnings || jsonb_build_object(
+        'template_key', v_step.template_key, 'warning', v_blocked);
+    ELSIF v_recipient IS NULL OR v_recipient = '' THEN
+      v_status := 'blocked'; v_blocked := 'missing_email';
+    END IF;
+
+    v_body := COALESCE(v_tpl.content_html, v_tpl.content_text);
+
+    INSERT INTO crm.lead_next_actions
+      (lead_id, action_type, status, due_at, workflow_step_id, source, metadata)
+    VALUES (p_lead_id, 'send_email', 'pending',
+            v_started_at + make_interval(mins => v_step.delay_minutes),
+            v_step.id, 'email_workflow',
+            jsonb_build_object('workflow_instance_id', v_instance_id,
+                               'template_key', v_step.template_key));
+
+    INSERT INTO crm.communication_queue
+      (lead_id, channel, direction, template_key, recipient,
+       subject, body, scheduled_for, status, requires_approval,
+       blocked_reason, workflow_instance_id,
+       max_attempts, attempt_count, metadata)
+    VALUES (p_lead_id, 'email', 'outbound', v_step.template_key, v_recipient,
+            v_tpl.subject, v_body,
+            v_started_at + make_interval(mins => v_step.delay_minutes),
+            v_status, false, v_blocked, v_instance_id, 3, 0,
+            jsonb_build_object('workflow_step_id', v_step.id,
+                               'template_version_id', v_tpl.version_id,
+                               'content_html', v_tpl.content_html,
+                               'content_text', v_tpl.content_text));
+  END LOOP;
+
+  INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+  VALUES ('lead', p_lead_id, 'automation', 'automation', 'email_plan_generated', 'email_plan_generated',
+          jsonb_build_object('workflow_key', v_workflow_key,
+                             'instance_id', v_instance_id,
+                             'reason', p_reason,
+                             'warnings', v_warnings));
+  RETURN v_instance_id;
+END $function$;
+
+CREATE OR REPLACE FUNCTION crm.pause_email_workflow_for_lead(p_lead_id uuid)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public'
+AS $function$
+DECLARE v_count int := 0;
+BEGIN
+  UPDATE crm.workflow_instances
+     SET status='paused',
+         metadata = COALESCE(metadata,'{}'::jsonb)
+                  || jsonb_build_object('paused_at', now(), 'pause_reason','hot_tag_added')
+   WHERE entity_type='lead' AND entity_id=p_lead_id
+     AND status IN ('pending','running');
+
+  UPDATE crm.communication_queue
+     SET status='blocked',
+         blocked_reason='hot_tag',
+         metadata = COALESCE(metadata,'{}'::jsonb)
+                  || jsonb_build_object('blocked_at', now())
+   WHERE lead_id=p_lead_id AND status IN ('queued','sending');
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  UPDATE crm.lead_next_actions
+     SET status='cancelled'
+   WHERE lead_id=p_lead_id AND status='pending'
+     AND source='email_workflow';
+
+  INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+  VALUES ('lead', p_lead_id, 'automation', 'automation', 'email_plan_paused', 'email_plan_paused',
+          jsonb_build_object('blocked_queue_rows', v_count));
+  RETURN v_count;
+END $function$;
+
+CREATE OR REPLACE FUNCTION crm.queue_item_cancel(p_id uuid, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public'
+AS $function$
+BEGIN
+  UPDATE crm.communication_queue
+     SET status='cancelled',
+         blocked_reason = COALESCE(blocked_reason, p_reason),
+         metadata = COALESCE(metadata,'{}'::jsonb)
+                  || jsonb_build_object('cancel_reason', p_reason,
+                                        'cancelled_at',  now(),
+                                        'cancelled_by',  auth.uid())
+   WHERE id = p_id AND status IN ('queued','blocked');
+
+  INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+  SELECT 'communication_queue', p_id, 'automation', 'automation', 'queue_item_cancelled', 'queue_item_cancelled',
+         jsonb_build_object('reason', p_reason);
+END $function$;
+
+CREATE OR REPLACE FUNCTION crm.queue_item_reschedule(p_id uuid, p_when timestamp with time zone)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public'
+AS $function$
+BEGIN
+  UPDATE crm.communication_queue
+     SET scheduled_for = p_when,
+         metadata = COALESCE(metadata,'{}'::jsonb)
+                  || jsonb_build_object('rescheduled_at', now(),
+                                        'rescheduled_by', auth.uid())
+   WHERE id = p_id AND status IN ('queued','blocked');
+
+  INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+  SELECT 'communication_queue', p_id, 'automation', 'automation', 'queue_item_rescheduled', 'queue_item_rescheduled',
+         jsonb_build_object('scheduled_for', p_when);
+END $function$;
+
+CREATE OR REPLACE FUNCTION crm.dispatch_email_queue_once()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public', 'extensions'
+AS $function$
+DECLARE
+  v_state    crm.email_send_state%ROWTYPE;
+  v_now_local timestamptz; v_today date;
+  v_row      crm.communication_queue%ROWTYPE;
+  v_payload  jsonb;
+  v_req_id   bigint;
+  v_api_key  text;
+  v_html     text; v_text text;
+BEGIN
+  SELECT * INTO v_state FROM crm.email_send_state WHERE id = 1 FOR UPDATE;
+
+  v_now_local := now() AT TIME ZONE v_state.timezone;
+  v_today     := (v_now_local)::date;
+
+  IF (v_now_local::time) < v_state.send_window_start
+     OR (v_now_local::time) >= v_state.send_window_end THEN
+    RETURN 0;
+  END IF;
+
+  IF v_state.current_day IS DISTINCT FROM v_today THEN
+    UPDATE crm.email_send_state
+       SET current_day = v_today, sent_count_today = 0, updated_at = now()
+     WHERE id = 1 RETURNING * INTO v_state;
+  END IF;
+
+  IF v_state.sent_count_today >= v_state.daily_limit THEN RETURN 0; END IF;
+
+  IF v_state.last_sent_at IS NOT NULL
+     AND now() - v_state.last_sent_at < make_interval(secs => v_state.min_interval_seconds) THEN
+    RETURN 0;
+  END IF;
+
+  SELECT q.* INTO v_row
+    FROM crm.communication_queue q
+   WHERE q.status='queued' AND q.channel='email'
+     AND q.scheduled_for <= now()
+     AND (q.requires_approval = false OR q.approved_at IS NOT NULL)
+     AND q.recipient IS NOT NULL
+     AND NOT crm.lead_has_tag(q.lead_id,'hot')
+   ORDER BY q.scheduled_for
+   FOR UPDATE SKIP LOCKED LIMIT 1;
+
+  IF NOT FOUND THEN RETURN 0; END IF;
+
+  SELECT decrypted_secret INTO v_api_key
+    FROM vault.decrypted_secrets WHERE name='RESEND_API_KEY' LIMIT 1;
+  IF v_api_key IS NULL THEN
+    UPDATE crm.communication_queue
+       SET status='blocked', blocked_reason='missing_resend_api_key'
+     WHERE id = v_row.id;
+    RETURN 0;
+  END IF;
+
+  v_html := COALESCE(v_row.metadata->>'content_html', v_row.body);
+  v_text := v_row.metadata->>'content_text';
+
+  v_payload := jsonb_strip_nulls(jsonb_build_object(
+    'from',    v_state.from_address,
+    'to',      jsonb_build_array(v_row.recipient),
+    'subject', v_row.subject,
+    'html',    v_html,
+    'text',    v_text));
+
+  SELECT net.http_post(
+    url     := v_state.resend_endpoint,
+    headers := jsonb_build_object(
+      'Authorization','Bearer '||v_api_key,
+      'Content-Type','application/json'),
+    body    := v_payload
+  ) INTO v_req_id;
+
+  UPDATE crm.communication_queue
+     SET status        = 'sending',
+         attempt_count = COALESCE(attempt_count,0) + 1,
+         metadata = COALESCE(metadata,'{}'::jsonb)
+                  || jsonb_build_object('pg_net_request_id', v_req_id,
+                                        'dispatched_at', now())
+   WHERE id = v_row.id;
+
+  UPDATE crm.email_send_state
+     SET last_sent_at     = now(),
+         sent_count_today = sent_count_today + 1,
+         updated_at       = now()
+   WHERE id = 1;
+
+  INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+  VALUES ('communication_queue', v_row.id, 'automation', 'automation', 'email_dispatched', 'email_dispatched',
+          jsonb_build_object('pg_net_request_id', v_req_id,
+                             'recipient', v_row.recipient,
+                             'template_key', v_row.template_key));
+  RETURN 1;
+END $function$;
+
+CREATE OR REPLACE FUNCTION crm.reconcile_email_send_responses(p_limit integer DEFAULT 200)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'crm', 'public', 'extensions'
+AS $function$
+DECLARE
+  v_row     crm.communication_queue%ROWTYPE;
+  v_req_id  bigint;
+  v_resp    record;
+  v_count   int := 0;
+  v_msg_id  text;
+  v_html    text;
+BEGIN
+  FOR v_row IN
+    SELECT * FROM crm.communication_queue
+     WHERE status = 'sending'
+       AND (metadata ? 'pg_net_request_id')
+     ORDER BY (metadata->>'dispatched_at')::timestamptz NULLS FIRST
+     LIMIT p_limit
+     FOR UPDATE SKIP LOCKED
+  LOOP
+    v_req_id := (v_row.metadata->>'pg_net_request_id')::bigint;
+
+    SELECT id, status_code, content, error_msg, timed_out
+      INTO v_resp
+      FROM net._http_response
+     WHERE id = v_req_id;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    IF v_resp.status_code BETWEEN 200 AND 299 THEN
+      BEGIN
+        v_msg_id := (v_resp.content::jsonb)->>'id';
+      EXCEPTION WHEN OTHERS THEN v_msg_id := NULL;
+      END;
+
+      v_html := COALESCE(v_row.metadata->>'content_html', v_row.body);
+
+      INSERT INTO crm.communications
+        (lead_id, channel, direction, subject, body,
+         status, provider, provider_message_id, raw_payload)
+      VALUES
+        (v_row.lead_id, 'email', 'outbound', v_row.subject, v_html,
+         'sent', 'resend', v_msg_id,
+         jsonb_build_object(
+           'queue_id',             v_row.id,
+           'workflow_instance_id', v_row.workflow_instance_id,
+           'recipient',            v_row.recipient,
+           'template_key',         v_row.template_key,
+           'pg_net_request_id',    v_req_id,
+           'content_text',         v_row.metadata->>'content_text',
+           'resend_response',      v_resp.content));
+
+      UPDATE crm.communication_queue
+         SET status='sent',
+             metadata = COALESCE(metadata,'{}'::jsonb)
+                      || jsonb_build_object('sent_at', now(),
+                                            'provider_message_id', v_msg_id,
+                                            'http_status', v_resp.status_code)
+       WHERE id = v_row.id;
+
+      UPDATE crm.lead_next_actions
+         SET status='completed'
+       WHERE lead_id = v_row.lead_id
+         AND status  = 'pending'
+         AND workflow_step_id = (v_row.metadata->>'workflow_step_id')::uuid;
+
+      UPDATE crm.workflow_instances
+         SET current_step_key = v_row.template_key,
+             status = CASE
+               WHEN NOT EXISTS (
+                 SELECT 1 FROM crm.communication_queue cq
+                 WHERE cq.workflow_instance_id = v_row.workflow_instance_id
+                   AND cq.id <> v_row.id
+                   AND cq.status IN ('queued','sending','blocked'))
+               THEN 'completed' ELSE status END,
+             completed_at = CASE
+               WHEN NOT EXISTS (
+                 SELECT 1 FROM crm.communication_queue cq
+                 WHERE cq.workflow_instance_id = v_row.workflow_instance_id
+                   AND cq.id <> v_row.id
+                   AND cq.status IN ('queued','sending','blocked'))
+               THEN now() ELSE completed_at END
+       WHERE id = v_row.workflow_instance_id;
+
+      INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+      VALUES ('communication_queue', v_row.id, 'automation', 'automation', 'email_sent', 'email_sent',
+              jsonb_build_object('http_status', v_resp.status_code,
+                                 'provider_message_id', v_msg_id,
+                                 'pg_net_request_id', v_req_id));
+
+    ELSE
+      IF COALESCE(v_row.attempt_count,0) >= COALESCE(v_row.max_attempts,3) THEN
+        UPDATE crm.communication_queue
+           SET status='failed',
+               blocked_reason = COALESCE(blocked_reason,
+                  'http_'||COALESCE(v_resp.status_code::text,'error')),
+               metadata = COALESCE(metadata,'{}'::jsonb)
+                        || jsonb_build_object(
+                             'failed_at', now(),
+                             'http_status', v_resp.status_code,
+                             'error_msg', v_resp.error_msg,
+                             'timed_out', v_resp.timed_out,
+                             'response',  v_resp.content)
+         WHERE id = v_row.id;
+
+        INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+        VALUES ('communication_queue', v_row.id, 'automation', 'automation', 'email_failed_terminal', 'email_failed_terminal',
+                jsonb_build_object('http_status', v_resp.status_code,
+                                   'error_msg', v_resp.error_msg));
+      ELSE
+        UPDATE crm.communication_queue
+           SET status='queued',
+               metadata = COALESCE(metadata,'{}'::jsonb)
+                        || jsonb_build_object(
+                             'last_error_at', now(),
+                             'last_http_status', v_resp.status_code,
+                             'last_error_msg', v_resp.error_msg)
+         WHERE id = v_row.id;
+
+        INSERT INTO crm.audit_events(entity_type, entity_id, action_type, source_type, event_key, event_name, metadata)
+        VALUES ('communication_queue', v_row.id, 'automation', 'automation', 'email_failed_retry', 'email_failed_retry',
+                jsonb_build_object('http_status', v_resp.status_code,
+                                   'attempt', v_row.attempt_count));
+      END IF;
+    END IF;
+
+    v_count := v_count + 1;
+  END LOOP;
+
+  RETURN v_count;
+END $function$;
