@@ -269,7 +269,7 @@ function MiniKpi({
 }
 
 function QueuePage() {
-  const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
+  const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Filter: only show human-action rows. Exclude system/automation rows
