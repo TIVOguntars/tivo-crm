@@ -936,6 +936,13 @@ function LeadProfilePage() {
                         ? ""
                         : (rp && str(pick(rp, "current_status"))) ||
                             str(pick(r, "status", "current_status"));
+                      const templateKey = !isNote && isEmail
+                        ? (str(pick(r, "template_key", "automation_step")) ||
+                            (rp && str(pick(rp, "template_key", "automation_step"))) ||
+                            (rpMeta && str(pick(rpMeta, "template_key", "automation_step"))) ||
+                            "")
+                        : "";
+                      const tplLabel = templateLabel(templateKey);
                       // bg by kind/channel
                       let bg = "bg-muted/30";
                       let accent = "border-l-muted-foreground/40";
@@ -979,6 +986,14 @@ function LeadProfilePage() {
                                           <ArrowUpRight className="h-3 w-3" /> Izejošs
                                         </>
                                       )}
+                                    </span>
+                                  )}
+                                  {isEmail && tplLabel && (
+                                    <span
+                                      title={templateKey}
+                                      className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                                    >
+                                      {tplLabel}
                                     </span>
                                   )}
                                 </div>
