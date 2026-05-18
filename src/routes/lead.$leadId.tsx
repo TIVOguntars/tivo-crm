@@ -44,6 +44,7 @@ import {
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
+import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { toast } from "sonner";
 import {
   Select,
