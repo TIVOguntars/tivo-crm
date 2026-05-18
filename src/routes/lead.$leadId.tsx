@@ -212,6 +212,15 @@ function LeadProfilePage() {
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
     { all: true },
   );
+  const plannedActionsQ = useCrmView(
+    "v_lead_planned_actions",
+    `select=source,id,lead_id,kind,status,scheduled_for,title,metadata&lead_id=eq.${leadId}&order=scheduled_for.asc.nullslast`,
+  );
+  const queueTemplatesQ = useCrmView(
+    "communication_queue",
+    `select=id,template_key&lead_id=eq.${leadId}`,
+    { all: true },
+  );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
