@@ -44,6 +44,7 @@ import {
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
+import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { toast } from "sonner";
 import {
   Select,
@@ -497,6 +498,7 @@ function LeadProfilePage() {
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -663,10 +665,10 @@ function LeadProfilePage() {
                   <Button
                     size="icon"
                     variant="outline"
-                    disabled
                     title="Uzdevums"
                     aria-label="Uzdevums"
                     className="h-8 w-8"
+                    onClick={() => setTaskDialogOpen(true)}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
@@ -1411,6 +1413,16 @@ function LeadProfilePage() {
             visibleAction=""
             onCompleted={() => {
               setCompleteTaskId(null);
+              plannedActionsQ.refetch();
+            }}
+          />
+
+          <TaskFormDialog
+            leadId={leadId}
+            open={taskDialogOpen}
+            onOpenChange={setTaskDialogOpen}
+            onCreated={() => {
+              q.refetch();
               plannedActionsQ.refetch();
             }}
           />

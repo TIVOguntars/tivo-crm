@@ -28,6 +28,8 @@ import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
+import { TaskFormDialog } from "@/components/TaskFormDialog";
+import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -270,6 +272,7 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Filter: only show human-action rows. Exclude system/automation rows
@@ -574,7 +577,12 @@ function QueuePage() {
       <PageHeader
         title="Uzdevumi"
         description="Nākamās darbības ar leadiem"
-      />
+      >
+        <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          Uzdevums
+        </Button>
+      </PageHeader>
 
       <div className="mb-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {dueChips.map((c) => (
@@ -822,6 +830,14 @@ function QueuePage() {
           </div>
         </div>
       )}
+
+      <TaskFormDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        onCreated={() => {
+          view.refetch();
+        }}
+      />
     </div>
   );
 }
