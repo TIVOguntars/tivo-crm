@@ -18,7 +18,6 @@ import {
   X,
   Search,
   AlertTriangle,
-  Star,
   Layers,
   ArrowUpDown,
   Trash2,
@@ -49,6 +48,7 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PriorityCell } from "@/components/PriorityCell";
 
 /* ============================ URL search schema ============================ */
 
@@ -598,35 +598,6 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
 }
 
 /* ============================ Components: Priority/Comm ============================ */
-
-function PriorityCell({ score }: { score: number }) {
-  const stars =
-    score <= 0 ? 0 : Math.max(1, Math.min(5, Math.floor(score / 20) + 1));
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className="inline-flex items-center text-amber-500/90 dark:text-amber-400/80"
-        aria-label={`Prioritāte ${stars} no 5`}
-      >
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star
-            key={i}
-            className={cn(
-              "h-2.5 w-2.5",
-              i < stars
-                ? "fill-current"
-                : "text-muted-foreground/25 fill-transparent",
-            )}
-            strokeWidth={1.5}
-          />
-        ))}
-      </span>
-      <span className="text-[10px] tabular-nums text-muted-foreground/70">
-        {score || 0}
-      </span>
-    </div>
-  );
-}
 
 type CommBuckets = {
   call: [number, number];

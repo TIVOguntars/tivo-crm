@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as ManualCorrectionsRouteImport } from './routes/manual-corrections'
 import { Route as LeadiRouteImport } from './routes/leadi'
@@ -21,6 +22,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeadLeadIdRouteImport } from './routes/lead.$leadId'
 import { Route as LeadRouteImport } from './routes/lead.'
 
+const UzdevumiRoute = UzdevumiRouteImport.update({
+  id: '/uzdevumi',
+  path: '/uzdevumi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QueueRoute = QueueRouteImport.update({
   id: '/queue',
   path: '/queue',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/uzdevumi': typeof UzdevumiRoute
   '/lead': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/uzdevumi'
     | '/lead/'
     | '/lead/$leadId'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/uzdevumi'
     | '/lead'
     | '/lead/$leadId'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/uzdevumi'
     | '/lead/'
     | '/lead/$leadId'
   fileRoutesById: FileRoutesById
@@ -169,12 +181,20 @@ export interface RootRouteChildren {
   LeadiRoute: typeof LeadiRoute
   ManualCorrectionsRoute: typeof ManualCorrectionsRoute
   QueueRoute: typeof QueueRoute
+  UzdevumiRoute: typeof UzdevumiRoute
   LeadRoute: typeof LeadRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/uzdevumi': {
+      id: '/uzdevumi'
+      path: '/uzdevumi'
+      fullPath: '/uzdevumi'
+      preLoaderRoute: typeof UzdevumiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/queue': {
       id: '/queue'
       path: '/queue'
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadiRoute: LeadiRoute,
   ManualCorrectionsRoute: ManualCorrectionsRoute,
   QueueRoute: QueueRoute,
+  UzdevumiRoute: UzdevumiRoute,
   LeadRoute: LeadRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
 }
