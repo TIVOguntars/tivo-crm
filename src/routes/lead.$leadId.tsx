@@ -1416,6 +1416,16 @@ function LeadProfilePage() {
               plannedActionsQ.refetch();
             }}
           />
+
+          <TaskFormDialog
+            leadId={leadId}
+            open={taskDialogOpen}
+            onOpenChange={setTaskDialogOpen}
+            onCreated={() => {
+              q.refetch();
+              plannedActionsQ.refetch();
+            }}
+          />
         </>
       )}
     </div>
