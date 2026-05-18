@@ -1,90 +1,129 @@
-## A. Atbildīgais — findings
+## Root cause
 
-1. `TaskFormDialog` šobrīd sūta `p_assigned_user_id: null` un `p_required_role: null`. `crm.rpc_create_task` raksta `crm.tasks(assigned_user_id, required_role, metadata)`.
-2. User/owner lookup:
-   - `crm.profiles` eksistē (`id`, `full_name`), bet pašlaik satur **tikai 1 ierakstu** (`guntars.tiltins@gmail.com`).
-   - `crm.action_owner_options` view **neeksistē**.
-   - `auth.users` no frontend nav pieejams.
-   - Vienīgais reālais "owner" avots šobrīd ir legacy `public.leads.atbildigais` (free text) un `ppv_*` lauki.
-3. `crm.v_tasks_queue_ui.action_owner_label` ņem **tikai** `public.leads.atbildigais` — `crm.tasks.assigned_user_id` netiek lasīts vispār. Tāpēc jebkurš `p_assigned_user_id` taskam nebūtu redzams /uzdevumi.
-4. Drošākais MVP (bez DB izmaiņām):
-   - Lead 360 dialogā prefill `metadata.owner_label = lead.atbildigais` (informatīvi).
-   - Neieviest user picker — profiles ir tukšs, izvēles vērtība būtu maldinoša.
-   - Pilnvērtīgs assigned_user_id picker prasa: (a) populētu `crm.profiles`, (b) `v_tasks_queue_ui` jāpārveido lai `action_owner_label` izmantotu `COALESCE(profiles.full_name via tasks.assigned_user_id, leads.atbildigais)`. Tas ir atsevišķs DB ticket.
+`crm.audit_events.actor_user_id` FK → **`crm.profiles(id)`** (not `public.profiles`), `ON DELETE SET NULL`, column already nullable.
 
-## B. Completed task Lead 360 Aktivitātēs — findings
+`crm.rpc_create_task` calls `crm.create_audit_event(..., p_actor_user_id := v_actor, ...)` where `v_actor := auth.uid()`. The current authenticated Supabase user has no row in `crm.profiles` (`crm.profiles` contains only 1 record — `1d894781-b27d-43a9-b3e9-9da187e9eeda` / guntars), so the insert violates `audit_events_actor_user_id_fkey`.
 
-1. `crm.rpc_complete_task`:
-   - `p_create_activity DEFAULT true` — frontend `CompleteActionModal` to nepārraksta.
-   - Pie `p_create_activity=true` **ieraksta `crm.activities`** ar `task_id`, `activity_type`, `performed_by_user_id`, `summary`, `outcome_code`.
-   - Atjauno `crm.tasks.status='completed'`, `completed_at`, `outcome_code`.
-2. `crm.get_lead_360_profile` atgriež `lead, people, companies, objects, tasks, notes, next_actions, communications`. **`activities` netiek atgriezts vispār.**
-3. `lead.$leadId.tsx` Aktivitātes timeline (`useMemo` line 469) merge tikai `communications + notes`. `tasks` masīvs gan atnāk, bet timeline to neizmanto.
+## How sibling RPCs handle it
 
-**Root cause:** RPC korekti raksta `crm.activities`, bet Lead 360 to nelasa. Frontend timeline arī ignorē `tasks`-completed.
+`rpc_cancel_task`, `rpc_skip_task`, `rpc_reschedule_task`, `rpc_complete_task` all pass `auth.uid()` straight into `audit_events.actor_user_id` (some via direct INSERT, some via `create_audit_event`). They work today only because the single existing caller happens to have a matching `crm.profiles` row. **The same latent bug exists in every audit insert path.** Fixing only `rpc_create_task` would leave the others fragile.
 
-## Safest MVP — frontend only
+## Safest MVP — patch `crm.create_audit_event`
 
-Izmantot jau pieejamo `tasks` masīvu no `get_lead_360_profile` (nav nepieciešama DB izmaiņa). Filtrēt `status IN ('completed','cancelled','skipped')` un merge timeline kā `kind: "task"` ar `ts = completed_at ?? updated_at`. Render block: ikonu pēc `task_type`, `title`, status badge, `outcome_code`, `metadata.completion_notes`.
+One centralized change: resolve `p_actor_user_id` to `NULL` when no matching active profile exists, and preserve the original auth uid inside `metadata.actor_user_id_unresolved` for traceability. FK stays intact. Audit logging stays intact. No frontend change. No fake profiles. No schema change (column already nullable, FK already `ON DELETE SET NULL`).
 
-A daļa: tajā pat patch'ā prefill `TaskFormDialog` ar lead `atbildigais` saglabājot `metadata.owner_label`. Bez user picker.
+### Exact SQL
 
-## Required files
+```sql
+CREATE OR REPLACE FUNCTION crm.create_audit_event(
+  p_entity_type text, p_entity_id uuid, p_action_type text, p_source_type text,
+  p_event_key text, p_event_name text DEFAULT NULL, p_event_description text DEFAULT NULL,
+  p_before_data jsonb DEFAULT NULL, p_after_data jsonb DEFAULT NULL,
+  p_changed_fields jsonb DEFAULT NULL, p_actor_user_id uuid DEFAULT NULL,
+  p_actor_role text DEFAULT NULL, p_approval_state text DEFAULT NULL,
+  p_reason text DEFAULT NULL, p_source_system text DEFAULT NULL,
+  p_request_id text DEFAULT NULL, p_session_id text DEFAULT NULL,
+  p_ip_address inet DEFAULT NULL, p_user_agent text DEFAULT NULL,
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'crm'
+AS $$
+DECLARE
+  v_audit_event_id uuid;
+  v_resolved_actor uuid;
+  v_metadata       jsonb := COALESCE(p_metadata, '{}'::jsonb);
+BEGIN
+  -- Resolve actor against crm.profiles to avoid FK violations.
+  -- Preserve the original auth uid in metadata for traceability.
+  IF p_actor_user_id IS NOT NULL
+     AND EXISTS (SELECT 1 FROM crm.profiles WHERE id = p_actor_user_id) THEN
+    v_resolved_actor := p_actor_user_id;
+  ELSE
+    v_resolved_actor := NULL;
+    IF p_actor_user_id IS NOT NULL THEN
+      v_metadata := v_metadata
+        || jsonb_build_object('actor_user_id_unresolved', p_actor_user_id);
+    END IF;
+  END IF;
 
-- `src/routes/lead.$leadId.tsx` — paplašināt `TLItem` ar `kind: "task"`, papildināt `timeline` useMemo, papildināt render switch Aktivitātes panelī.
-- `src/components/TaskFormDialog.tsx` — pieņemt opcionālu `defaultOwnerLabel` prop un iekļaut `metadata.owner_label`.
-- (Neviena DB izmaiņa.)
+  INSERT INTO crm.audit_events (
+    entity_type, entity_id, action_type, source_type,
+    event_key, event_name, event_description,
+    before_data, after_data, changed_fields,
+    actor_user_id, actor_role, approval_state, reason,
+    source_system, request_id, session_id, ip_address, user_agent, metadata
+  )
+  VALUES (
+    p_entity_type, p_entity_id, p_action_type, p_source_type,
+    p_event_key, p_event_name, p_event_description,
+    p_before_data, p_after_data, p_changed_fields,
+    v_resolved_actor, p_actor_role, p_approval_state, p_reason,
+    p_source_system, p_request_id, p_session_id, p_ip_address, p_user_agent, v_metadata
+  )
+  RETURNING id INTO v_audit_event_id;
 
-## Build order
+  RETURN v_audit_event_id;
+END;
+$$;
+```
 
-1. Lead 360 timeline ietver completed/cancelled/skipped tasks no esošā `tasks` payload.
-2. Render block taskiem (ikona + status + outcome + notes).
-3. `TaskFormDialog` saņem `defaultOwnerLabel`, raksta `metadata.owner_label`.
-4. Verify: izpildīt task no Lead 360 → parādās Aktivitātēs bez page reload (jau invalidējam `["crm"]`).
+Plus the same guard in the **direct** `INSERT INTO crm.audit_events` blocks inside `rpc_cancel_task`, `rpc_skip_task`, `rpc_reschedule_task` (and any other RPC that bypasses `create_audit_event`). For each, wrap the actor with:
 
-## Deferred (separate ticket, requires DB)
+```sql
+CASE WHEN EXISTS (SELECT 1 FROM crm.profiles WHERE id = <actor>)
+     THEN <actor> ELSE NULL END
+```
 
-- `crm.profiles` populēt no auth.users.
-- `crm.v_tasks_queue_ui` papildināt `action_owner_label` ar `profiles.full_name` lookup pa `tasks.assigned_user_id`.
-- Pievienot `crm.action_owner_options` view.
-- Tikai pēc tam pievienot `TaskFormDialog` assigned_user_id picker.
-- Opcionāli: paplašināt `get_lead_360_profile` ar `activities` masīvu, lai nākotnē Lead 360 rādītu arī activities, kas nav saistīti ar tasks.
+I'll enumerate the exact list during the build (need a second pass over `rpc_skip_task` body to confirm whether it goes through `create_audit_event` or inline).
+
+## Why this is the safest fix
+
+1. **FK preserved** — referential integrity intact, no constraint drop.
+2. **No fake data** — never inserts placeholder `crm.profiles` rows.
+3. **Audit not lost** — event still recorded, just with `actor_user_id = NULL` and original uid stashed in `metadata.actor_user_id_unresolved`.
+4. **Frontend unchanged** — all changes are inside `SECURITY DEFINER` DB functions.
+5. **Systemic** — centralizing the guard in `create_audit_event` (the canonical helper) immediately protects future RPCs from the same failure mode, not just `rpc_create_task`.
+6. **Reversible** — once `crm.profiles` is backfilled from `auth.users`, behaviour returns to recording the real actor with zero further change.
+
+## Out of scope (deferred)
+
+- Backfilling `crm.profiles` from `auth.users` (proper long-term fix for actor traceability).
+- Adding `assigned_user_id` picker to `TaskFormDialog`.
 
 ## Exact next Build prompt
 
 ```
-Build Lead 360 completed-task visibility + task owner default. Frontend only.
+Fix audit_events actor_user_id FK violation. DB only. Do not change frontend.
+Do not drop or alter FK. Do not change column nullability (already nullable).
+Do not insert profile rows. Do not remove audit logging.
 
-Do not change DB. Do not change RPC. Do not add user picker.
+1. Replace crm.create_audit_event with the version that resolves
+   p_actor_user_id to NULL when no matching crm.profiles row exists,
+   and copies the original uid into metadata.actor_user_id_unresolved.
 
-1. src/routes/lead.$leadId.tsx
-   - Read `tasks` from get_lead_360_profile (already in profile payload).
-   - Extend TLItem with kind: "task".
-   - In timeline useMemo, append tasks where status in ('completed','cancelled','skipped'),
-     using ts = completed_at ?? updated_at ?? created_at.
-   - In Aktivitātes panelis render, add a render branch for kind="task":
-     show task_type icon, title, StatusBadge for status, outcome_code if present,
-     metadata.completion_notes if present, performed_by_user_id ignored.
-   - Keep existing comm/note rendering untouched.
-
-2. src/components/TaskFormDialog.tsx
-   - Accept new optional prop `defaultOwnerLabel?: string`.
-   - When creating, include `owner_label: defaultOwnerLabel` inside p_metadata
-     (keep existing source: "manual_ui").
-
-3. src/routes/lead.$leadId.tsx
-   - Pass lead.atbildigais as defaultOwnerLabel into <TaskFormDialog>.
-
-4. src/routes/uzdevumi.tsx
-   - No change (action_owner_label still from leads.atbildigais).
+2. In every other crm.rpc_* function that INSERTs into crm.audit_events
+   directly (rpc_cancel_task, rpc_skip_task, rpc_reschedule_task, and any
+   other found via: SELECT proname FROM pg_proc p JOIN pg_namespace n
+   ON n.oid=p.pronamespace WHERE n.nspname='crm' AND prosrc ILIKE
+   '%insert into crm.audit_events%'), wrap actor_user_id with:
+     CASE WHEN EXISTS (SELECT 1 FROM crm.profiles WHERE id = <actor>)
+          THEN <actor> ELSE NULL END
+   Preserve all other behaviour.
 
 Verify:
-- Complete a task from Lead 360 → it appears in Aktivitātes within 1 refetch.
-- Creating a new task includes metadata.owner_label.
-- Build passes.
+- rpc_create_task succeeds for an authenticated user with no crm.profiles row.
+- audit_events row is created with actor_user_id = NULL and
+  metadata->>'actor_user_id_unresolved' = the auth uid.
+- rpc_complete_task / rpc_cancel_task / rpc_skip_task / rpc_reschedule_task
+  still succeed for users that DO exist in crm.profiles, with actor_user_id
+  populated normally.
+- No FK constraint dropped.
 
 Return:
-- changed files
-- build result
-- screenshot/visual confirmation that completed task is in Aktivitātes feed
+- exact list of functions modified
+- SQL applied (migration body)
+- test result: successful task creation + matching audit row
 ```
