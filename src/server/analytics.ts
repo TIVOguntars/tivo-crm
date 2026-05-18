@@ -307,6 +307,7 @@ const CRM_VIEWS = [
   "lead_priority_scoring_v2",
   "v_lead_planned_actions",
   "communication_queue",
+  "message_templates",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
@@ -400,6 +401,8 @@ const CRM_RPCS = [
   "bulk_create_task",
   "log_lead_communication",
   "get_lead_360_profile",
+  "queue_item_edit",
+  "queue_item_reschedule",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 

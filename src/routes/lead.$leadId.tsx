@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -43,6 +43,16 @@ import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { callCrmRpc } from "@/server/analytics";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -176,6 +186,26 @@ const TEMPLATE_LABEL_MAP: Record<string, string> = {
   email_sketch_3: "sketch 3",
   email_sketch_4: "sketch 4",
 };
+const ALLOWED_AUTOMATION_KEYS: ReadonlyArray<string> = Object.keys(
+  TEMPLATE_LABEL_MAP,
+);
+function templateLabelFor(key: string): string {
+  return TEMPLATE_LABEL_MAP[key] ?? key;
+}
+/** Convert ISO/timestamptz to value usable by <input type="datetime-local">. */
+function toLocalInputValue(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInputValue(s: string): string {
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString();
+}
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function normalizeTemplateKey(raw: string): string {
   return raw
@@ -288,7 +318,7 @@ function LeadProfilePage() {
   );
   const queueTemplatesQ = useCrmView(
     "communication_queue",
-    `select=id,template_key&lead_id=eq.${leadId}`,
+    `select=id,template_key,subject,body,recipient,scheduled_for,status&lead_id=eq.${leadId}`,
     { all: true },
   );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
@@ -459,6 +489,7 @@ function LeadProfilePage() {
   }, [communications, notes, rawPayloadById]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
+  const [editQueueId, setEditQueueId] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -815,9 +846,13 @@ function LeadProfilePage() {
               {(() => {
                 type PlannedItem = {
                   key: string;
+                  source: string;
+                  queueId?: string;
                   title: string;
                   subtitle?: string;
-                  meta: string;
+                  responsible: string;
+                  scheduledIso: string;
+                  scheduledLabel: string;
                   status: string;
                 };
                 const QUEUE_STATUS_LV: Record<string, string> = {
@@ -829,45 +864,72 @@ function LeadProfilePage() {
                   cancelled: "Atcelts",
                 };
                 const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
-                const tplMap = new Map<string, string>();
+                const queueById = new Map<string, Row>();
                 for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
                   const id = str(r.id);
-                  const tk = str(r.template_key);
-                  if (id && tk) tplMap.set(id, tk);
+                  if (id) queueById.set(id, r);
                 }
-                const items: PlannedItem[] = plannedRows.map((r, i) => {
+                // Build set of already-sent automation template keys for this lead.
+                const sentTemplateKeys = new Set<string>();
+                for (const rp of rawPayloadById.values()) {
+                  const step = str(pick(rp, "automation_step", "template_key"));
+                  if (!step || UUID_RE.test(step)) continue;
+                  const norm = normalizeTemplateKey(step);
+                  if (TEMPLATE_LABEL_MAP[norm]) sentTemplateKeys.add(norm);
+                }
+                const items: PlannedItem[] = [];
+                plannedRows.forEach((r, i) => {
                   const source = str(r.source);
                   const id = str(r.id) || String(i);
                   const rawStatus = str(r.status);
-                  const scheduled = fmtDate(r.scheduled_for);
                   if (source === "queue") {
-                    const tk = tplMap.get(str(r.id)) || "";
-                    const subject = str(r.title);
+                    const qRow = queueById.get(str(r.id));
+                    const tk = str(qRow?.template_key);
+                    const tkNorm = tk ? normalizeTemplateKey(tk) : "";
+                    // Dedupe: skip queued automation emails already sent
+                    if (tkNorm && sentTemplateKeys.has(tkNorm)) return;
+                    const subject = str(r.title) || str(qRow?.subject);
                     const statusLabel =
                       QUEUE_STATUS_LV[rawStatus.toLowerCase()] || rawStatus;
-                    const kind = str(r.kind);
-                    return {
+                    const tplLabel = tkNorm ? templateLabelFor(tkNorm) : "";
+                    const scheduledIso = str(r.scheduled_for ?? qRow?.scheduled_for);
+                    items.push({
                       key: `q:${id}`,
-                      title: tk || subject || fmt(kind),
-                      subtitle: tk ? subject : undefined,
-                      meta: `${scheduled} · ${kind}`,
+                      source,
+                      queueId: id,
+                      title: tplLabel || tk || subject || fmt(str(r.kind)),
+                      subtitle: subject || undefined,
+                      responsible: "SIS",
+                      scheduledIso,
+                      scheduledLabel: fmtDate(scheduledIso),
                       status: statusLabel,
-                    };
+                    });
+                    return;
                   }
+                  const scheduledIso = str(r.scheduled_for);
                   if (source === "task") {
-                    return {
+                    items.push({
                       key: `t:${id}`,
+                      source,
                       title: fmt(r.title),
-                      meta: `${scheduled} · ${fmt(r.kind)}`,
+                      subtitle: fmt(r.kind) !== NA ? fmt(r.kind) : undefined,
+                      responsible: "",
+                      scheduledIso,
+                      scheduledLabel: fmtDate(scheduledIso),
                       status: rawStatus,
-                    };
+                    });
+                    return;
                   }
-                  return {
+                  items.push({
                     key: `${source}:${id}`,
+                    source,
                     title: fmt(r.title) !== NA ? fmt(r.title) : fmt(r.kind),
-                    meta: `${scheduled} · ${fmt(r.kind)}`,
+                    subtitle: undefined,
+                    responsible: "",
+                    scheduledIso,
+                    scheduledLabel: fmtDate(scheduledIso),
                     status: rawStatus,
-                  };
+                  });
                 });
                 return (
                   <Panel title="Uzdevumi un plānotās darbības" count={items.length}>
@@ -877,25 +939,47 @@ function LeadProfilePage() {
                       <Empty />
                     ) : (
                       <ul className="divide-y">
-                        {items.map((it) => (
-                          <li
-                            key={it.key}
-                            className="flex items-center justify-between gap-2 py-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="text-sm truncate">{it.title}</div>
-                              {it.subtitle && (
-                                <div className="text-xs text-foreground/80 truncate">
-                                  {it.subtitle}
+                        {items.map((it) => {
+                          const clickable = it.source === "queue" && !!it.queueId;
+                          const rowBody = (
+                            <div className="flex items-start justify-between gap-3 py-2 w-full">
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="text-sm truncate">{it.title}</div>
+                                {it.subtitle && (
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {it.subtitle}
+                                  </div>
+                                )}
+                              </div>
+                              {it.responsible && (
+                                <div className="text-xs text-foreground/80 whitespace-nowrap pt-0.5">
+                                  {it.responsible}
                                 </div>
                               )}
-                              <div className="text-[11px] text-muted-foreground">
-                                {it.meta}
+                              <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
+                                <StatusBadge status={it.status} />
+                                <div className="text-[11px] text-muted-foreground tabular-nums">
+                                  {it.scheduledLabel}
+                                </div>
                               </div>
                             </div>
-                            <StatusBadge status={it.status} />
-                          </li>
-                        ))}
+                          );
+                          return (
+                            <li key={it.key}>
+                              {clickable ? (
+                                <button
+                                  type="button"
+                                  className="w-full text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+                                  onClick={() => setEditQueueId(it.queueId!)}
+                                >
+                                  {rowBody}
+                                </button>
+                              ) : (
+                                rowBody
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </Panel>
@@ -1260,8 +1344,155 @@ function LeadProfilePage() {
               })()}
             </DialogContent>
           </Dialog>
+
+          {/* Planned queue item edit modal (automation emails only) */}
+          <PlannedQueueEditDialog
+            open={!!editQueueId}
+            queueRow={
+              editQueueId
+                ? (((queueTemplatesQ.data?.rows ?? []) as Row[]).find(
+                    (r) => str(r.id) === editQueueId,
+                  ) ?? null)
+                : null
+            }
+            onOpenChange={(o: boolean) => !o && setEditQueueId(null)}
+            onSaved={() => {
+              setEditQueueId(null);
+              plannedActionsQ.refetch();
+              queueTemplatesQ.refetch();
+            }}
+          />
         </>
       )}
     </div>
+  );
+}
+
+/* -------------------------- Planned queue edit dialog -------------------------- */
+
+function PlannedQueueEditDialog({
+  open,
+  queueRow,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  queueRow: Row | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const initialKey = str(queueRow?.template_key);
+  const initialIso = str(queueRow?.scheduled_for);
+
+  const [templateKey, setTemplateKey] = useState<string>(initialKey);
+  const [whenLocal, setWhenLocal] = useState<string>(toLocalInputValue(initialIso));
+  const [saving, setSaving] = useState(false);
+
+  // Reset state whenever a different queue row is opened
+  const rowId = str(queueRow?.id);
+  useEffect(() => {
+    setTemplateKey(initialKey);
+    setWhenLocal(toLocalInputValue(initialIso));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowId]);
+
+  const queueId = str(queueRow?.id);
+  const canSave = !!queueId && !!templateKey && !!whenLocal && !saving;
+
+  async function handleSave() {
+    if (!queueId) return;
+    setSaving(true);
+    try {
+      const newIso = fromLocalInputValue(whenLocal);
+      const templateChanged = templateKey && templateKey !== initialKey;
+      const dateChanged = newIso && newIso !== initialIso;
+
+      if (templateChanged) {
+        const res = await callCrmRpc({
+          data: {
+            fn: "queue_item_edit",
+            params: {
+              p_id: queueId,
+              p_subject: str(queueRow?.subject),
+              p_body: str(queueRow?.body),
+              p_recipient: str(queueRow?.recipient),
+              p_template_key: templateKey,
+            },
+          },
+        });
+        if (res.error) throw new Error(res.error);
+      }
+      if (dateChanged) {
+        const res = await callCrmRpc({
+          data: {
+            fn: "queue_item_reschedule",
+            params: { p_id: queueId, p_when: newIso },
+          },
+        });
+        if (res.error) throw new Error(res.error);
+      }
+      if (!templateChanged && !dateChanged) {
+        toast.info("Nav izmaiņu");
+        setSaving(false);
+        return;
+      }
+      toast.success("Saglabāts");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Neizdevās saglabāt");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Rediģēt automātisko e-pastu</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="queue-edit-template">Šablons</Label>
+            <Select value={templateKey} onValueChange={setTemplateKey}>
+              <SelectTrigger id="queue-edit-template">
+                <SelectValue placeholder="Izvēlies šablonu" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALLOWED_AUTOMATION_KEYS.map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {templateLabelFor(k)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="queue-edit-when">Plānotais laiks</Label>
+            <Input
+              id="queue-edit-when"
+              type="datetime-local"
+              value={whenLocal}
+              onChange={(e) => setWhenLocal(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Manuāla maiņa apiet 80/dienā limitu (apzināta lietotāja darbība).
+            </p>
+          </div>
+        </div>
+        <DialogHeader className="pt-2">
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={saving}>
+                Atcelt
+              </Button>
+            </DialogClose>
+            <Button onClick={handleSave} disabled={!canSave}>
+              {saving ? "Saglabā..." : "Saglabāt"}
+            </Button>
+          </div>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
   );
 }
