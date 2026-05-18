@@ -1090,52 +1090,38 @@ function LeadProfilePage() {
                               <span className="truncate">{subject}</span>
                             </DialogTitle>
                           </div>
-                          {!isNote && isEmail && (
-                            <div className="flex shrink-0 items-center gap-2">
-                              <Button
-                                size="sm"
-                                className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
-                                onClick={handleReply}
-                                disabled={!replyTo}
-                              >
-                                <Reply className="h-3.5 w-3.5 mr-1" />
-                                Atbildēt
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
-                                onClick={handleForward}
-                              >
-                                <Forward className="h-3.5 w-3.5 mr-1" />
-                                Pārsūtīt
-                              </Button>
-                              <DialogClose asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  aria-label="Aizvērt"
-                                  className="h-8 w-8"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </DialogClose>
-                            </div>
-                          )}
-                          {(isNote || !isEmail) && (
-                            <div className="flex shrink-0 items-center gap-2">
-                              <DialogClose asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  aria-label="Aizvērt"
-                                  className="h-8 w-8"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </DialogClose>
-                            </div>
-                          )}
+                          <DialogClose asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Aizvērt"
+                              className="h-8 w-8 shrink-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </DialogClose>
                         </div>
+                        {!isNote && isEmail && (
+                          <div className="flex w-full items-center gap-2 mt-2">
+                            <Button
+                              size="sm"
+                              className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
+                              onClick={handleReply}
+                              disabled={!replyTo}
+                            >
+                              <Reply className="h-3.5 w-3.5 mr-1" />
+                              Atbildēt
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
+                              onClick={handleForward}
+                            >
+                              <Forward className="h-3.5 w-3.5 mr-1" />
+                              Pārsūtīt
+                            </Button>
+                          </div>
+                        )}
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                       {!isNote && <Field label="Kanāls" value={fmt(ch)} />}
