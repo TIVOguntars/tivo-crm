@@ -8,7 +8,6 @@ import {
   PieChart,
   Settings,
   ShieldCheck,
-  // Users icon removed with /leadi page
   UserCog,
   PencilLine,
   Inbox,
