@@ -176,14 +176,26 @@ const TEMPLATE_LABEL_MAP: Record<string, string> = {
   email_sketch_3: "sketch 3",
   email_sketch_4: "sketch 4",
 };
-function templateLabel(key: string): string {
-  if (!key) return "";
-  const k = key.trim();
-  if (TEMPLATE_LABEL_MAP[k]) return TEMPLATE_LABEL_MAP[k];
-  const lower = k.toLowerCase();
-  if (TEMPLATE_LABEL_MAP[lower]) return TEMPLATE_LABEL_MAP[lower];
-  // generic fallback: strip "email_" prefix and replace underscores
-  return lower.replace(/^email_/, "").replace(/_/g, " ");
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normalizeTemplateKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/^e_mail_/, "email_");
+}
+/* Resolve a known template label from a list of candidate strings.
+ * UUID-shaped values are ignored (those are template_version_id, not keys).
+ * Returns "" if no candidate matches a known template. */
+function resolveTemplateLabel(...candidates: unknown[]): string {
+  for (const c of candidates) {
+    const s = typeof c === "string" ? c : c == null ? "" : String(c);
+    const t = s.trim();
+    if (!t || UUID_RE.test(t)) continue;
+    const norm = normalizeTemplateKey(t);
+    if (TEMPLATE_LABEL_MAP[norm]) return TEMPLATE_LABEL_MAP[norm];
+  }
+  return "";
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
