@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -1389,11 +1389,12 @@ function PlannedQueueEditDialog({
   const [saving, setSaving] = useState(false);
 
   // Reset state whenever a different queue row is opened
-  useMemo(() => {
+  const rowId = str(queueRow?.id);
+  useEffect(() => {
     setTemplateKey(initialKey);
     setWhenLocal(toLocalInputValue(initialIso));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [str(queueRow?.id)]);
+  }, [rowId]);
 
   const queueId = str(queueRow?.id);
   const canSave = !!queueId && !!templateKey && !!whenLocal && !saving;
