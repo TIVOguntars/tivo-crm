@@ -237,9 +237,7 @@ function LeadProfilePage() {
   const people = section(profile, "people");
   const companies = section(profile, "companies");
   const objects = section(profile, "objects");
-  const tasks = section(profile, "tasks");
   const notes = section(profile, "notes");
-  const nextActions = section(profile, "next_actions", "actions");
   const communications = section(profile, "communications", "comms");
 
   const primaryContact =
