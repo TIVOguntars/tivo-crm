@@ -16,6 +16,8 @@ import {
   CheckSquare,
   ArrowDownLeft,
   ArrowUpRight,
+  Reply,
+  Forward,
   Star,
 } from "lucide-react";
 
@@ -38,6 +40,7 @@ import {
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -1033,6 +1036,33 @@ function LeadProfilePage() {
                 const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
                 const rawForRender = htmlBody || textBody || str(pick(r, "subject"));
                 const body = rawForRender || "";
+                const replyTo =
+                  dir.toLowerCase().includes("in")
+                    ? str(pick(r, "from_address", "sender", "email")) || (rp ? str(pick(rp, "from_address", "sender", "email")) : "") || primaryEmail
+                    : toAddress || primaryEmail;
+                const buildMailto = (mode: "reply" | "forward") => {
+                  const prefix = mode === "reply" ? "RE: " : "FW: ";
+                  const needsPrefix = !new RegExp(`^${prefix.trim()}`, "i").test(subject.trim());
+                  const params = new URLSearchParams();
+                  params.set("subject", `${needsPrefix ? prefix : ""}${subject || "(bez temata)"}`);
+                  if (body) {
+                    params.set(
+                      "body",
+                      `\n\n--- ${mode === "reply" ? "Sākotnējā ziņa" : "Pārsūtītā ziņa"} ---\nDatums: ${fmtDate(dateValue)}\nTēma: ${subject}\n\n${body.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "").trim()}`,
+                    );
+                  }
+                  return `mailto:${encodeURIComponent(mode === "reply" ? replyTo : "")}?${params.toString().replace(/\+/g, "%20")}`;
+                };
+                const handleReply = () => {
+                  if (!replyTo) {
+                    toast.warning("Nav atrasta saņēmēja e-pasta adrese atbildei.");
+                    return;
+                  }
+                  window.location.href = buildMailto("reply");
+                };
+                const handleForward = () => {
+                  window.location.href = buildMailto("forward");
+                };
                 if (!isNote && ch.toLowerCase() === "email" && !htmlBody) {
                   console.warn(
                     "No HTML body found for email activity",
@@ -1049,12 +1079,39 @@ function LeadProfilePage() {
                   : "";
                 return (
                   <>
-                    <div className="shrink-0 border-b bg-background p-6 pb-3">
-                      <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-base">
-                        {isNote ? <StickyNote className="h-4 w-4" /> : channelIcon(ch)}
-                        <span className="truncate">{subject}</span>
-                      </DialogTitle>
+                    <div className="sticky top-0 z-50 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <div className="min-w-0 flex-1">
+                            <DialogTitle className="flex items-center gap-2 text-base">
+                              {isNote ? <StickyNote className="h-4 w-4 shrink-0" /> : channelIcon(ch)}
+                              <span className="truncate">{subject}</span>
+                            </DialogTitle>
+                          </div>
+                          {!isNote && isEmail && (
+                            <div className="relative z-50 flex shrink-0 items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={handleReply}
+                                disabled={!replyTo}
+                                className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60 disabled:text-white"
+                              >
+                                <Reply className="h-3.5 w-3.5" />
+                                Atbildēt
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleForward}
+                                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                              >
+                                <Forward className="h-3.5 w-3.5" />
+                                Pārsūtīt
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                       {!isNote && <Field label="Kanāls" value={fmt(ch)} />}

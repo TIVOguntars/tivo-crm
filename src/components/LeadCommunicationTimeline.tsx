@@ -1030,18 +1030,22 @@ function CommunicationViewerModal({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden p-0 sm:rounded-lg">
-        <DialogHeader className="sticky top-0 z-10 space-y-2 border-b border-border bg-background/95 px-5 py-4 pr-12 backdrop-blur">
-          <div className="flex w-full items-center justify-between gap-3">
-            <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold">
-              <span className="truncate">{commQ.isLoading ? "Ielādē…" : subject}</span>
-            </DialogTitle>
-            <div className="flex shrink-0 items-center gap-2">
+        <DialogHeader className="sticky top-0 z-50 space-y-2 overflow-visible border-b border-border bg-background/95 px-5 py-4 pr-16 backdrop-blur">
+          <div className="flex items-center justify-between w-full gap-4">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="flex min-w-0 items-center gap-2 text-base font-semibold">
+                <MessageSquareReply className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{commQ.isLoading ? "Ielādē…" : subject}</span>
+              </DialogTitle>
+            </div>
+            <div className="relative z-20 flex shrink-0 items-center gap-2">
               <Button
                 size="sm"
                 variant="default"
                 onClick={handleReply}
                 disabled={!comm || !replyTo}
                 title={replyTo ? "Atvērt noklusējuma e-pasta klientā" : "Nav saņēmēja adreses"}
+                className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60 disabled:text-white"
               >
                 <Reply className="h-3.5 w-3.5" />
                 Atbildēt
@@ -1052,6 +1056,7 @@ function CommunicationViewerModal({
                 onClick={handleForward}
                 disabled={!comm}
                 title="Atvērt noklusējuma e-pasta klientā"
+                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:text-white disabled:bg-blue-600/60 disabled:text-white"
               >
                 <Forward className="h-3.5 w-3.5" />
                 Pārsūtīt
@@ -1133,26 +1138,6 @@ function CommunicationViewerModal({
         </div>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleForward}
-            disabled={!comm}
-            title="Atvērt noklusējuma e-pasta klientā"
-          >
-            <Forward className="h-3.5 w-3.5" />
-            Pārsūtīt
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleReply}
-            disabled={!comm || !replyTo}
-            title={replyTo ? "Atvērt noklusējuma e-pasta klientā" : "Nav saņēmēja adreses"}
-          >
-            <Reply className="h-3.5 w-3.5" />
-            Atbildēt
-          </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
             <X className="h-3.5 w-3.5" />
             Aizvērt
