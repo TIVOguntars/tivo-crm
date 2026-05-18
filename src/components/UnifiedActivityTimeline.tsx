@@ -199,6 +199,16 @@ function cleanPreview(raw: string): string {
   return v;
 }
 
+let hasLoggedFirstInboundPreview = false;
+
+function logFirstInboundPreview(row: Row, renderedPreview: string): void {
+  const isInbound = ["inbound", "in"].includes(s(row.direction).toLowerCase());
+  if (!hasLoggedFirstInboundPreview && isInbound && isEmailRow(row)) {
+    hasLoggedFirstInboundPreview = true;
+    console.log("[UnifiedActivityTimeline] first inbound rendered preview", renderedPreview);
+  }
+}
+
 function previewText(row: Row): string {
   const meta = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
     ? (row.metadata as Row)
@@ -471,7 +481,10 @@ function ThreadItem({
   // Strip subject prefix for thread title
   const threadTitle = subject.replace(SUBJECT_PREFIX_RE, "").trim() || subject;
   const ts = fmtDateTime(latest.timeline_at);
-  const preview = previewText(latest);
+  const isEmailLike = isEmailRow(latest);
+  const renderedPreview = cleanPreview(previewText(latest)) || (isEmailLike ? "Nav teksta priekšskatījuma" : "");
+  const preview = renderedPreview;
+  logFirstInboundPreview(latest, renderedPreview);
 
   // Thread state derivation. Priority:
   // waiting_for_us > stale > waiting_for_client > closed
@@ -584,7 +597,7 @@ function ThreadItem({
             </div>
             {!open && preview && (
               <div className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">
-                {preview}
+                {cleanPreview(previewText(latest)) || (isEmailLike ? "Nav teksta priekšskatījuma" : "")}
               </div>
             )}
           </div>
@@ -631,10 +644,10 @@ function TimelineItem({
   const direction = dirLabel(s(row.direction));
   const status = s(row.status);
   const ts = fmtDateTime(row.timeline_at);
-  const previewRaw = previewText(row);
   const isEmailLike = isEmailRow(row);
-  const preview =
-    previewRaw || (isEmailLike ? "Nav teksta priekšskatījuma" : "");
+  const renderedPreview = cleanPreview(previewText(row)) || (isEmailLike ? "Nav teksta priekšskatījuma" : "");
+  const preview = renderedPreview;
+  logFirstInboundPreview(row, renderedPreview);
   const hasMeta =
     row.metadata != null &&
     typeof row.metadata === "object" &&
@@ -705,7 +718,7 @@ function TimelineItem({
                   !selected && "line-clamp-2",
                 )}
               >
-                {preview}
+                {cleanPreview(previewText(row)) || (isEmailLike ? "Nav teksta priekšskatījuma" : "")}
               </div>
             )}
             {selected && hasMeta && (
