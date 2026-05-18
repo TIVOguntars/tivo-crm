@@ -11,6 +11,7 @@ import { zodValidator } from "@tanstack/zod-adapter";
 
 import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
+import { AuthGate } from "@/components/AuthGate";
 import { filtersSearchSchema } from "@/lib/filters";
 import { Toaster } from "@/components/ui/sonner";
 import { HeaderSlotProvider } from "@/components/HeaderSlot";
@@ -95,15 +96,17 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <HeaderSlotProvider>
-        <div className="min-h-screen bg-background text-foreground">
-          <TopNav />
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-            <Outlet />
-          </main>
-          <Toaster position="top-right" />
-        </div>
-      </HeaderSlotProvider>
+      <AuthGate>
+        <HeaderSlotProvider>
+          <div className="min-h-screen bg-background text-foreground">
+            <TopNav />
+            <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+              <Outlet />
+            </main>
+            <Toaster position="top-right" />
+          </div>
+        </HeaderSlotProvider>
+      </AuthGate>
     </QueryClientProvider>
   );
 }
