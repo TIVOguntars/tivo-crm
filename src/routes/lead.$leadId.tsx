@@ -212,6 +212,15 @@ function LeadProfilePage() {
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
     { all: true },
   );
+  const plannedActionsQ = useCrmView(
+    "v_lead_planned_actions",
+    `select=source,id,lead_id,kind,status,scheduled_for,title,metadata&lead_id=eq.${leadId}&order=scheduled_for.asc.nullslast`,
+  );
+  const queueTemplatesQ = useCrmView(
+    "communication_queue",
+    `select=id,template_key&lead_id=eq.${leadId}`,
+    { all: true },
+  );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
@@ -228,9 +237,7 @@ function LeadProfilePage() {
   const people = section(profile, "people");
   const companies = section(profile, "companies");
   const objects = section(profile, "objects");
-  const tasks = section(profile, "tasks");
   const notes = section(profile, "notes");
-  const nextActions = section(profile, "next_actions", "actions");
   const communications = section(profile, "communications", "comms");
 
   const primaryContact =
@@ -736,43 +743,64 @@ function LeadProfilePage() {
                 type PlannedItem = {
                   key: string;
                   title: string;
+                  subtitle?: string;
                   meta: string;
                   status: string;
                 };
-                const items: PlannedItem[] = [];
-                tasks.forEach((t, i) => {
-                  items.push({
-                    key: `t:${str(pick(t, "id", "task_id")) || i}`,
-                    title: fmt(pick(t, "title", "name")),
-                    meta: `${fmtDate(pick(t, "due_at"))} · ${fmt(pick(t, "priority"))} · ${fmt(pick(t, "assigned_user_id"))}`,
-                    status: str(pick(t, "status")),
-                  });
-                });
-                nextActions.forEach((a, i) => {
-                  items.push({
-                    key: `a:${str(pick(a, "id", "action_id")) || i}`,
-                    title: fmt(pick(a, "action_type")),
-                    meta: `${fmtDate(pick(a, "due_at"))} · prio ${fmt(pick(a, "priority_score", "priority"))} · ${fmt(pick(a, "source"))}`,
-                    status: str(pick(a, "status")),
-                  });
-                });
-                const autom =
-                  pick(rawData, "automatizacija") ??
-                  pick(legacyContext, "automatizacija");
-                const automAt =
-                  pick(rawData, "automatizacijas_datums") ??
-                  pick(legacyContext, "automatizacijas_datums");
-                if (autom || automAt) {
-                  items.push({
-                    key: "autom:legacy",
-                    title: fmt(autom),
-                    meta: `${fmtDate(automAt)} · automatizācija`,
-                    status: "planned",
-                  });
+                const QUEUE_STATUS_LV: Record<string, string> = {
+                  queued: "Plānots",
+                  sending: "Sūta",
+                  sent: "Nosūtīts",
+                  failed: "Kļūda",
+                  blocked: "Bloķēts",
+                  cancelled: "Atcelts",
+                };
+                const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
+                const tplMap = new Map<string, string>();
+                for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
+                  const id = str(r.id);
+                  const tk = str(r.template_key);
+                  if (id && tk) tplMap.set(id, tk);
                 }
+                const items: PlannedItem[] = plannedRows.map((r, i) => {
+                  const source = str(r.source);
+                  const id = str(r.id) || String(i);
+                  const rawStatus = str(r.status);
+                  const scheduled = fmtDate(r.scheduled_for);
+                  if (source === "queue") {
+                    const tk = tplMap.get(str(r.id)) || "";
+                    const subject = str(r.title);
+                    const statusLabel =
+                      QUEUE_STATUS_LV[rawStatus.toLowerCase()] || rawStatus;
+                    const kind = str(r.kind);
+                    return {
+                      key: `q:${id}`,
+                      title: tk || subject || fmt(kind),
+                      subtitle: tk ? subject : undefined,
+                      meta: `${scheduled} · ${kind}`,
+                      status: statusLabel,
+                    };
+                  }
+                  if (source === "task") {
+                    return {
+                      key: `t:${id}`,
+                      title: fmt(r.title),
+                      meta: `${scheduled} · ${fmt(r.kind)}`,
+                      status: rawStatus,
+                    };
+                  }
+                  return {
+                    key: `${source}:${id}`,
+                    title: fmt(r.title) !== NA ? fmt(r.title) : fmt(r.kind),
+                    meta: `${scheduled} · ${fmt(r.kind)}`,
+                    status: rawStatus,
+                  };
+                });
                 return (
                   <Panel title="Uzdevumi un plānotās darbības" count={items.length}>
-                    {items.length === 0 ? (
+                    {plannedActionsQ.isLoading && items.length === 0 ? (
+                      <Empty label="Ielādē..." />
+                    ) : items.length === 0 ? (
                       <Empty />
                     ) : (
                       <ul className="divide-y">
@@ -783,6 +811,11 @@ function LeadProfilePage() {
                           >
                             <div className="min-w-0">
                               <div className="text-sm truncate">{it.title}</div>
+                              {it.subtitle && (
+                                <div className="text-xs text-foreground/80 truncate">
+                                  {it.subtitle}
+                                </div>
+                              )}
                               <div className="text-[11px] text-muted-foreground">
                                 {it.meta}
                               </div>
