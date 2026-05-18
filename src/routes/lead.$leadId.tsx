@@ -498,6 +498,7 @@ function LeadProfilePage() {
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
