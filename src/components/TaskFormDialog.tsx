@@ -58,11 +58,13 @@ export function TaskFormDialog({
   open,
   onOpenChange,
   onCreated,
+  defaultOwnerLabel,
 }: {
   leadId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
+  defaultOwnerLabel?: string;
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -150,6 +152,10 @@ export function TaskFormDialog({
             p_workflow_instance_id: null,
             p_parent_task_id: null,
             p_metadata: { source: "manual_ui" },
+            p_metadata: {
+              source: "manual_ui",
+              ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+            },
             p_is_auto_created: false,
             p_priority: priority,
           },
