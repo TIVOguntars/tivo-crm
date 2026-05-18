@@ -47,7 +47,12 @@ export function TaskActionsMenu({
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDue, setNewDue] = useState<string>(toLocalInputValue(currentDueIso));
 
-  const run = async (fn: string, params: Record<string, unknown>, successMsg: string) => {
+  type RpcFn =
+    | "rpc_complete_task"
+    | "rpc_reschedule_task"
+    | "rpc_cancel_task"
+    | "rpc_skip_task";
+  const run = async (fn: RpcFn, params: Record<string, unknown>, successMsg: string) => {
     setBusy(true);
     try {
       const res = await callCrmRpc({ data: { fn, params } });
