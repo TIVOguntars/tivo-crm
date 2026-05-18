@@ -975,11 +975,9 @@ function LeadProfilePage() {
                                   Imported from Smartsheet note
                                 </div>
                               )}
-                              {preview && (
-                                <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
-                                  {preview}
-                                </div>
-                              )}
+                              <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                                {cleanPreview(preview) || "Nav teksta priekšskatījuma"}
+                              </div>
                             </div>
                           </button>
                         </li>
