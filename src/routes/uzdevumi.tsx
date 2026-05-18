@@ -27,6 +27,9 @@ import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
+import { TaskActionsMenu } from "@/components/TaskActionsMenu";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STATUS_ORDER = ["Jauns", "Nesasniedzams", "Piesaistīšana", "Kvalificēts"];
 const mapStatus = (raw: string): string => {
@@ -269,6 +272,20 @@ function QueuePage() {
   const view = useCrmView("next_action_queue_filter_ui", undefined, { all: true });
   const rawRows = (view.data?.rows ?? []) as Row[];
 
+  // Filter: only show human-action rows. Exclude system/automation rows
+  // (action_owner_type === 'system', e.g. SIS smartsheet automation and
+  // automation-only planned emails).
+  const humanRows = useMemo(
+    () =>
+      rawRows.filter((r) => {
+        const ownerType = s(r.action_owner_type).toLowerCase();
+        if (ownerType === "system") return false;
+        if (s(r.action_owner_label).toUpperCase() === "SIS") return false;
+        return true;
+      }),
+    [rawRows],
+  );
+
   // Priority is sourced from crm.lead_priority_scoring_v2.
   // Merge by lead_id and override priority_score / priority_label / recommended_status.
   const scoringView = useCrmView(
@@ -286,8 +303,8 @@ function QueuePage() {
     return map;
   }, [scoringView.data]);
   const rows = useMemo<Row[]>(() => {
-    if (scoringByLead.size === 0) return rawRows;
-    return rawRows.map((r) => {
+    if (scoringByLead.size === 0) return humanRows;
+    return humanRows.map((r) => {
       const sc = scoringByLead.get(s(r.lead_id));
       if (!sc) return r;
       return {
@@ -301,7 +318,7 @@ function QueuePage() {
         replied_count: sc.replied_count ?? null,
       };
     });
-  }, [rawRows, scoringByLead]);
+  }, [humanRows, scoringByLead]);
 
 
   const statusOptionsView = useCrmView(
@@ -766,18 +783,36 @@ function QueuePage() {
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      {leadId ? (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-[11px]"
-                        >
-                          <Link to="/lead/$leadId" params={{ leadId }}>
-                            Atvērt
-                          </Link>
-                        </Button>
-                      ) : null}
+                      <div className="flex items-center justify-end gap-1">
+                        {leadId ? (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[11px]"
+                          >
+                            <Link to="/lead/$leadId" params={{ leadId }}>
+                              Atvērt
+                            </Link>
+                          </Button>
+                        ) : null}
+                        {(() => {
+                          const taskId = s(r.id);
+                          const isTask =
+                            s(r.action_source).toLowerCase() === "task" &&
+                            UUID_RE.test(taskId);
+                          if (!isTask) return null;
+                          return (
+                            <TaskActionsMenu
+                              taskId={taskId}
+                              currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
+                              onChanged={() => {
+                                view.refetch();
+                              }}
+                            />
+                          );
+                        })()}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
