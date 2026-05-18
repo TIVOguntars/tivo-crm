@@ -1,196 +1,90 @@
-## Mērķis
+## A. Atbildīgais — findings
 
-Izveidot `crm.rpc_skip_task` — RPC, kas iezīmē task kā `skipped` ar obligātu iemeslu un ieraksta activity + task_relation + audit_event. Bez DB izmaiņām šajā solī.
+1. `TaskFormDialog` šobrīd sūta `p_assigned_user_id: null` un `p_required_role: null`. `crm.rpc_create_task` raksta `crm.tasks(assigned_user_id, required_role, metadata)`.
+2. User/owner lookup:
+   - `crm.profiles` eksistē (`id`, `full_name`), bet pašlaik satur **tikai 1 ierakstu** (`guntars.tiltins@gmail.com`).
+   - `crm.action_owner_options` view **neeksistē**.
+   - `auth.users` no frontend nav pieejams.
+   - Vienīgais reālais "owner" avots šobrīd ir legacy `public.leads.atbildigais` (free text) un `ppv_*` lauki.
+3. `crm.v_tasks_queue_ui.action_owner_label` ņem **tikai** `public.leads.atbildigais` — `crm.tasks.assigned_user_id` netiek lasīts vispār. Tāpēc jebkurš `p_assigned_user_id` taskam nebūtu redzams /uzdevumi.
+4. Drošākais MVP (bez DB izmaiņām):
+   - Lead 360 dialogā prefill `metadata.owner_label = lead.atbildigais` (informatīvi).
+   - Neieviest user picker — profiles ir tukšs, izvēles vērtība būtu maldinoša.
+   - Pilnvērtīgs assigned_user_id picker prasa: (a) populētu `crm.profiles`, (b) `v_tasks_queue_ui` jāpārveido lai `action_owner_label` izmantotu `COALESCE(profiles.full_name via tasks.assigned_user_id, leads.atbildigais)`. Tas ir atsevišķs DB ticket.
 
-## Scope
+## B. Completed task Lead 360 Aktivitātēs — findings
 
-- Tikai `crm` schema
-- Bez frontend, cron, triggers, workflow advancement, automatic next-task generation
-- Bez citām DB izmaiņām
+1. `crm.rpc_complete_task`:
+   - `p_create_activity DEFAULT true` — frontend `CompleteActionModal` to nepārraksta.
+   - Pie `p_create_activity=true` **ieraksta `crm.activities`** ar `task_id`, `activity_type`, `performed_by_user_id`, `summary`, `outcome_code`.
+   - Atjauno `crm.tasks.status='completed'`, `completed_at`, `outcome_code`.
+2. `crm.get_lead_360_profile` atgriež `lead, people, companies, objects, tasks, notes, next_actions, communications`. **`activities` netiek atgriezts vispār.**
+3. `lead.$leadId.tsx` Aktivitātes timeline (`useMemo` line 469) merge tikai `communications + notes`. `tasks` masīvs gan atnāk, bet timeline to neizmanto.
 
-## Funkcijas paraksts
+**Root cause:** RPC korekti raksta `crm.activities`, bet Lead 360 to nelasa. Frontend timeline arī ignorē `tasks`-completed.
 
-`crm.rpc_skip_task(p_task_id uuid, p_skipped_reason text, p_skipped_by_user_id uuid DEFAULT auth.uid(), p_metadata jsonb DEFAULT '{}'::jsonb) RETURNS jsonb`
+## Safest MVP — frontend only
 
-- `SECURITY DEFINER`, `SET search_path = crm, public`
-- `REVOKE ALL FROM PUBLIC`, `GRANT EXECUTE TO authenticated, service_role`
+Izmantot jau pieejamo `tasks` masīvu no `get_lead_360_profile` (nav nepieciešama DB izmaiņa). Filtrēt `status IN ('completed','cancelled','skipped')` un merge timeline kā `kind: "task"` ar `ts = completed_at ?? updated_at`. Render block: ikonu pēc `task_type`, `title`, status badge, `outcome_code`, `metadata.completion_notes`.
 
-## Uzvedība
+A daļa: tajā pat patch'ā prefill `TaskFormDialog` ar lead `atbildigais` saglabājot `metadata.owner_label`. Bez user picker.
 
-1. Validē: `TASK_ID_REQUIRED`, `SKIPPED_REASON_REQUIRED` (NULL vai tukšs pēc btrim).
-2. Ielādē `crm.tasks` rindu → `TASK_NOT_FOUND` ja nav.
-3. Ja `status IN ('completed','cancelled','skipped')` → `TASK_ALREADY_FINALIZED`.
-4. `UPDATE crm.tasks` → `status='skipped'`, `skipped_reason`, `updated_at=now()`, metadata merge (`skipped_at`, `skipped_by_user_id`, `skipped_reason`).
-5. `INSERT INTO crm.activities` — type `note`, summary `Task skipped`, metadata `event_type='skipped'`, `reason`, `previous_status`.
-6. `INSERT INTO crm.task_relations` — `task → activity`, `relation_type='follows'`, metadata `event_type='skipped'`.
-7. `INSERT INTO crm.audit_events` — `event_key='task_skipped'`, before/after ar `status`, `skipped_reason`; `changed_fields=['status','skipped_reason']`.
-8. Return: `{ success, task_id, activity_id, status: 'skipped', skipped_reason }`.
+## Required files
 
-## SQL preview
+- `src/routes/lead.$leadId.tsx` — paplašināt `TLItem` ar `kind: "task"`, papildināt `timeline` useMemo, papildināt render switch Aktivitātes panelī.
+- `src/components/TaskFormDialog.tsx` — pieņemt opcionālu `defaultOwnerLabel` prop un iekļaut `metadata.owner_label`.
+- (Neviena DB izmaiņa.)
 
-```sql
-CREATE OR REPLACE FUNCTION crm.rpc_skip_task(
-  p_task_id uuid,
-  p_skipped_reason text,
-  p_skipped_by_user_id uuid DEFAULT auth.uid(),
-  p_metadata jsonb DEFAULT '{}'::jsonb
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = crm, public
-AS $$
-DECLARE
-  v_task crm.tasks%ROWTYPE;
-  v_activity_id uuid;
-BEGIN
-  IF p_task_id IS NULL THEN
-    RAISE EXCEPTION 'TASK_ID_REQUIRED';
-  END IF;
-  IF p_skipped_reason IS NULL OR btrim(p_skipped_reason) = '' THEN
-    RAISE EXCEPTION 'SKIPPED_REASON_REQUIRED';
-  END IF;
+## Build order
 
-  SELECT *
-  INTO v_task
-  FROM crm.tasks
-  WHERE id = p_task_id;
+1. Lead 360 timeline ietver completed/cancelled/skipped tasks no esošā `tasks` payload.
+2. Render block taskiem (ikona + status + outcome + notes).
+3. `TaskFormDialog` saņem `defaultOwnerLabel`, raksta `metadata.owner_label`.
+4. Verify: izpildīt task no Lead 360 → parādās Aktivitātēs bez page reload (jau invalidējam `["crm"]`).
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'TASK_NOT_FOUND';
-  END IF;
+## Deferred (separate ticket, requires DB)
 
-  IF v_task.status IN ('completed', 'cancelled', 'skipped') THEN
-    RAISE EXCEPTION 'TASK_ALREADY_FINALIZED';
-  END IF;
+- `crm.profiles` populēt no auth.users.
+- `crm.v_tasks_queue_ui` papildināt `action_owner_label` ar `profiles.full_name` lookup pa `tasks.assigned_user_id`.
+- Pievienot `crm.action_owner_options` view.
+- Tikai pēc tam pievienot `TaskFormDialog` assigned_user_id picker.
+- Opcionāli: paplašināt `get_lead_360_profile` ar `activities` masīvu, lai nākotnē Lead 360 rādītu arī activities, kas nav saistīti ar tasks.
 
-  UPDATE crm.tasks
-  SET
-    status = 'skipped',
-    skipped_reason = p_skipped_reason,
-    updated_at = now(),
-    metadata = COALESCE(metadata, '{}'::jsonb)
-      || jsonb_build_object(
-        'skipped_at', now(),
-        'skipped_by_user_id', p_skipped_by_user_id,
-        'skipped_reason', p_skipped_reason
-      )
-  WHERE id = p_task_id;
+## Exact next Build prompt
 
-  INSERT INTO crm.activities (
-    lead_id,
-    person_id,
-    object_id,
-    task_id,
-    activity_type,
-    activity_at,
-    performed_by_user_id,
-    summary,
-    outcome_code,
-    communication_basis,
-    metadata
-  )
-  VALUES (
-    v_task.lead_id,
-    v_task.person_id,
-    v_task.object_id,
-    v_task.id,
-    'note',
-    now(),
-    p_skipped_by_user_id,
-    'Task skipped',
-    NULL,
-    NULL,
-    COALESCE(p_metadata, '{}'::jsonb)
-      || jsonb_build_object(
-        'event_type', 'skipped',
-        'reason', p_skipped_reason,
-        'previous_status', v_task.status
-      )
-  )
-  RETURNING id INTO v_activity_id;
-
-  INSERT INTO crm.task_relations (
-    lead_id,
-    from_kind,
-    from_id,
-    to_kind,
-    to_id,
-    relation_type,
-    metadata,
-    created_by
-  )
-  VALUES (
-    v_task.lead_id,
-    'task',
-    v_task.id,
-    'activity',
-    v_activity_id,
-    'follows',
-    jsonb_build_object('event_type', 'skipped'),
-    p_skipped_by_user_id
-  );
-
-  INSERT INTO crm.audit_events (
-    entity_type,
-    entity_id,
-    action_type,
-    source_type,
-    event_key,
-    event_name,
-    before_data,
-    after_data,
-    changed_fields,
-    actor_user_id,
-    reason,
-    metadata
-  )
-  VALUES (
-    'task',
-    v_task.id,
-    'update',
-    'manual',
-    'task_skipped',
-    'Task skipped',
-    jsonb_build_object(
-      'status', v_task.status,
-      'skipped_reason', v_task.skipped_reason
-    ),
-    jsonb_build_object(
-      'status', 'skipped',
-      'skipped_reason', p_skipped_reason
-    ),
-    jsonb_build_array('status', 'skipped_reason'),
-    p_skipped_by_user_id,
-    p_skipped_reason,
-    COALESCE(p_metadata, '{}'::jsonb)
-  );
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'task_id', v_task.id,
-    'activity_id', v_activity_id,
-    'status', 'skipped',
-    'skipped_reason', p_skipped_reason
-  );
-END;
-$$;
-
-REVOKE ALL ON FUNCTION crm.rpc_skip_task(
-  uuid,
-  text,
-  uuid,
-  jsonb
-) FROM PUBLIC;
-
-GRANT EXECUTE ON FUNCTION crm.rpc_skip_task(
-  uuid,
-  text,
-  uuid,
-  jsonb
-) TO authenticated, service_role;
 ```
+Build Lead 360 completed-task visibility + task owner default. Frontend only.
 
-## Nākamais solis
+Do not change DB. Do not change RPC. Do not add user picker.
 
-Pēc apstiprināšanas — izveidot migration un izpildīt DB, tad parādīt verification.
+1. src/routes/lead.$leadId.tsx
+   - Read `tasks` from get_lead_360_profile (already in profile payload).
+   - Extend TLItem with kind: "task".
+   - In timeline useMemo, append tasks where status in ('completed','cancelled','skipped'),
+     using ts = completed_at ?? updated_at ?? created_at.
+   - In Aktivitātes panelis render, add a render branch for kind="task":
+     show task_type icon, title, StatusBadge for status, outcome_code if present,
+     metadata.completion_notes if present, performed_by_user_id ignored.
+   - Keep existing comm/note rendering untouched.
+
+2. src/components/TaskFormDialog.tsx
+   - Accept new optional prop `defaultOwnerLabel?: string`.
+   - When creating, include `owner_label: defaultOwnerLabel` inside p_metadata
+     (keep existing source: "manual_ui").
+
+3. src/routes/lead.$leadId.tsx
+   - Pass lead.atbildigais as defaultOwnerLabel into <TaskFormDialog>.
+
+4. src/routes/uzdevumi.tsx
+   - No change (action_owner_label still from leads.atbildigais).
+
+Verify:
+- Complete a task from Lead 360 → it appears in Aktivitātes within 1 refetch.
+- Creating a new task includes metadata.owner_label.
+- Build passes.
+
+Return:
+- changed files
+- build result
+- screenshot/visual confirmation that completed task is in Aktivitātes feed
+```

@@ -342,6 +342,15 @@ function LeadProfilePage() {
   const objects = section(profile, "objects");
   const notes = section(profile, "notes");
   const communications = section(profile, "communications", "comms");
+  const tasks = section(profile, "tasks");
+  const completedTasks = useMemo(
+    () =>
+      tasks.filter((t) => {
+        const s = str(pick(t, "status")).toLowerCase();
+        return s === "completed" || s === "cancelled" || s === "skipped";
+      }),
+    [tasks],
+  );
 
   const primaryContact =
     people.find((p) => pick(p, "is_primary", "is_primary_contact") === true) ??
@@ -450,7 +459,7 @@ function LeadProfilePage() {
 
   type TLItem = {
     key: string;
-    kind: "comm" | "note";
+    kind: "comm" | "note" | "task";
     ts: number;
     raw: Row;
   };
@@ -492,8 +501,20 @@ function LeadProfilePage() {
         raw: n,
       });
     });
+    completedTasks.forEach((t, i) => {
+      const tsStr = str(
+        pick(t, "completed_at", "updated_at", "created_at"),
+      );
+      const ts = new Date(tsStr).getTime() || 0;
+      items.push({
+        key: `t:${str(pick(t, "id", "task_id")) || i}`,
+        kind: "task",
+        ts,
+        raw: t,
+      });
+    });
     return items.sort((a, b) => b.ts - a.ts);
-  }, [communications, notes, rawPayloadById]);
+  }, [communications, notes, rawPayloadById, completedTasks]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
@@ -1035,6 +1056,86 @@ function LeadProfilePage() {
                     {timeline.map((it) => {
                       const r = it.raw;
                       const isNote = it.kind === "note";
+                      const isTask = it.kind === "task";
+                      if (isTask) {
+                        const taskType = str(pick(r, "task_type")) || "task";
+                        const taskStatus = str(pick(r, "status"));
+                        const taskTitle =
+                          str(pick(r, "title")) || fmt(taskType);
+                        const outcomeCode = str(pick(r, "outcome_code"));
+                        const tMeta =
+                          r && typeof r.metadata === "object" && r.metadata
+                            ? (r.metadata as Row)
+                            : undefined;
+                        const completionNotes = tMeta
+                          ? str(pick(tMeta, "completion_notes", "notes"))
+                          : "";
+                        const tDate = pick(
+                          r,
+                          "completed_at",
+                          "updated_at",
+                          "created_at",
+                        );
+                        const statusLc = taskStatus.toLowerCase();
+                        let bgT = "bg-slate-50 dark:bg-slate-950/20";
+                        let accentT = "border-l-slate-400";
+                        if (statusLc === "completed") {
+                          bgT = "bg-emerald-50 dark:bg-emerald-950/20";
+                          accentT = "border-l-emerald-500";
+                        } else if (statusLc === "cancelled") {
+                          bgT = "bg-rose-50 dark:bg-rose-950/20";
+                          accentT = "border-l-rose-500";
+                        } else if (statusLc === "skipped") {
+                          bgT = "bg-amber-50 dark:bg-amber-950/20";
+                          accentT = "border-l-amber-500";
+                        }
+                        const tt = taskType.toLowerCase();
+                        const taskIcon = tt.includes("call")
+                          ? <PhoneIcon className="h-3.5 w-3.5" />
+                          : tt.includes("email") || tt.includes("mail")
+                            ? <MailIcon className="h-3.5 w-3.5" />
+                            : <CheckSquare className="h-3.5 w-3.5" />;
+                        return (
+                          <li key={it.key}>
+                            <div
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2`}
+                            >
+                              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
+                                {taskIcon}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <span className="font-medium">Uzdevums</span>
+                                    <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">
+                                      {fmt(taskType)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <StatusBadge status={taskStatus} />
+                                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                                      {fmtDate(tDate)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="mt-0.5 text-sm font-medium truncate">
+                                  {taskTitle}
+                                </div>
+                                {outcomeCode && (
+                                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                    Iznākums: <span className="font-medium">{outcomeCode}</span>
+                                  </div>
+                                )}
+                                {completionNotes && (
+                                  <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                                    {completionNotes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      }
                       const ch = str(pick(r, "channel")).toLowerCase();
                       const dir = str(pick(r, "direction")).toLowerCase();
                       const inbound = dir.includes("in");
@@ -1421,6 +1522,12 @@ function LeadProfilePage() {
             leadId={leadId}
             open={taskDialogOpen}
             onOpenChange={setTaskDialogOpen}
+            defaultOwnerLabel={
+              str(pick(rawData, "atbildigais")) ||
+              str(pick(legacyContext, "atbildigais")) ||
+              str(pick(header, "atbildigais")) ||
+              undefined
+            }
             onCreated={() => {
               q.refetch();
               plannedActionsQ.refetch();
