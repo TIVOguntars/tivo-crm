@@ -2,6 +2,18 @@
 
 No inserts. No queue rows. No workflow_instances. No planner changes. Pure `SELECT`.
 
+## Source columns (corrected)
+
+`crm.v_lead_workflow_progress` exposes only:
+
+- `lead_id`
+- `last_completed_template_key`
+- `last_sent_at`
+
+It does NOT expose `template_key`, `step_order`, `workflow_key`, `status`, or `completed_at`.
+The query below derives `workflow_key` from `crm.lead_tags` and `last_completed_step_order` by
+joining `crm.workflow_steps` on `template_key`.
+
 ## Assumptions about workflow shape
 
 Two workflows, identified by `crm.workflow_definitions.workflow_key`:
@@ -56,40 +68,39 @@ busy_queue AS (
       AND q.status IN ('queued', 'sending')
 ),
 
--- 5. Last completed template per lead, from progress view.
-last_done AS (
+-- 5. Progress per lead from the (limited) progress view.
+progress AS (
     SELECT p.lead_id,
-           p.template_key   AS last_completed_template_key,
-           p.step_order     AS last_completed_step_order,
-           p.workflow_key   AS progress_workflow_key
-    FROM (
-        SELECT vp.*,
-               ROW_NUMBER() OVER (
-                   PARTITION BY vp.lead_id
-                   ORDER BY vp.step_order DESC, vp.completed_at DESC NULLS LAST
-               ) AS rn
-        FROM crm.v_lead_workflow_progress vp
-        WHERE vp.status IN ('sent', 'delivered', 'completed')
-    ) p
-    WHERE p.rn = 1
+           p.last_completed_template_key,
+           p.last_sent_at
+    FROM crm.v_lead_workflow_progress p
 ),
 
 -- 6. Eligible leads = has workflow, not hot, no active instance, no busy queue,
 --    and last completed template is NOT email_sketch_4 (fully completed).
+--    Resolve last_completed_step_order by joining workflow_steps on template_key
+--    inside the lead's workflow_definition.
 eligible AS (
     SELECT lw.lead_id,
            lw.workflow_key,
-           ld.last_completed_template_key,
-           ld.last_completed_step_order
+           wd.id                              AS workflow_id,
+           pr.last_completed_template_key,
+           pr.last_sent_at,
+           last_ws.step_order                 AS last_completed_step_order
     FROM lead_workflow lw
-    LEFT JOIN last_done       ld ON ld.lead_id = lw.lead_id
-    LEFT JOIN hot_leads       h  ON h.lead_id  = lw.lead_id
+    JOIN crm.workflow_definitions wd
+      ON wd.workflow_key = lw.workflow_key
+    LEFT JOIN progress         pr ON pr.lead_id = lw.lead_id
+    LEFT JOIN crm.workflow_steps last_ws
+      ON last_ws.workflow_id  = wd.id
+     AND last_ws.template_key = pr.last_completed_template_key
+    LEFT JOIN hot_leads        h  ON h.lead_id  = lw.lead_id
     LEFT JOIN active_instances ai ON ai.lead_id = lw.lead_id
-    LEFT JOIN busy_queue      bq ON bq.lead_id = lw.lead_id
+    LEFT JOIN busy_queue       bq ON bq.lead_id = lw.lead_id
     WHERE h.lead_id  IS NULL
       AND ai.lead_id IS NULL
       AND bq.lead_id IS NULL
-      AND COALESCE(ld.last_completed_template_key, '') <> 'email_sketch_4'
+      AND COALESCE(pr.last_completed_template_key, '') <> 'email_sketch_4'
 ),
 
 -- 7. Future steps = every workflow_step strictly after the last completed step,
@@ -99,15 +110,15 @@ future_steps AS (
     SELECT e.lead_id,
            e.workflow_key,
            e.last_completed_template_key,
+           e.last_sent_at,
+           e.last_completed_step_order,
            ws.template_key  AS next_template_key,
            ws.step_order,
            ws.delay_minutes
     FROM eligible e
-    JOIN crm.workflow_definitions wd
-      ON wd.workflow_key = e.workflow_key
     JOIN crm.workflow_steps ws
-      ON ws.workflow_id = wd.id
-     AND ws.step_order > COALESCE(e.last_completed_step_order, 0)
+      ON ws.workflow_id = e.workflow_id
+     AND ws.step_order  > COALESCE(e.last_completed_step_order, 0)
 )
 
 -- Main preview output
@@ -143,6 +154,8 @@ ORDER BY metric;
 | `lead_id` | eligible lead |
 | `workflow_key` | `getestimate` or `sketch` |
 | `last_completed_template_key` | from `crm.v_lead_workflow_progress` (NULL if none) |
+| `last_sent_at` | from `crm.v_lead_workflow_progress` (NULL if none) |
+| `last_completed_step_order` | from `crm.workflow_steps` joined on `last_completed_template_key` |
 | `next_template_key` | from `crm.workflow_steps.template_key` |
 | `step_order` | from `crm.workflow_steps.step_order` |
 | `delay_minutes` | from `crm.workflow_steps.delay_minutes` |
