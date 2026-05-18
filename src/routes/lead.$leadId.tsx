@@ -1013,7 +1013,7 @@ function LeadProfilePage() {
                                   )}
                                   {isEmail && tplLabel && (
                                     <span
-                                      title={templateKey}
+                                      title={tplLabel}
                                       className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
                                     >
                                       {tplLabel}
