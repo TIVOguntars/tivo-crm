@@ -28,6 +28,8 @@ import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
+import { TaskFormDialog } from "@/components/TaskFormDialog";
+import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
