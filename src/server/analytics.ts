@@ -415,6 +415,7 @@ export type CrmRpc = (typeof CRM_RPCS)[number];
 async function callCrmRpcRaw(
   fn: CrmRpc,
   body: Record<string, unknown>,
+  accessToken: string,
 ): Promise<AnalyticsRow[]> {
   const { url, key } = getEnv();
   const endpoint = `${url}/rest/v1/rpc/${fn}`;
@@ -422,7 +423,7 @@ async function callCrmRpcRaw(
     method: "POST",
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${accessToken}`,
       "Accept-Profile": "crm",
       "Content-Profile": "crm",
       "Content-Type": "application/json",
@@ -442,6 +443,7 @@ async function callCrmRpcRaw(
 }
 
 export const callCrmRpc = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { fn: CrmRpc; params: Record<string, unknown> }) => {
     if (!CRM_RPCS.includes(input.fn)) {
       throw new Error(`Nezināma crm RPC funkcija: ${input.fn}`);
@@ -449,8 +451,13 @@ export const callCrmRpc = createServerFn({ method: "POST" })
     return { fn: input.fn, params: input.params ?? {} };
   })
   .handler(async ({ data }) => {
+    const authHeader = getRequestHeader("authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return { rows: [] as AnalyticsRow[], error: "Unauthorized: trūkst tokens" };
+    }
     try {
-      const rows = await callCrmRpcRaw(data.fn, data.params);
+      const rows = await callCrmRpcRaw(data.fn, data.params, token);
       return { rows, error: null as string | null };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
