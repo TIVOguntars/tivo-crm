@@ -342,6 +342,10 @@ export function LeadDrawer({
       visible_action_is_human: s(q.action_owner_type) === "user",
       system_action_label: s(q.automatizacija),
       system_due_date: s(q.automatizacijas_datums),
+      // active task bridge (F4.1) — sourced from next_action_queue_display_enriched
+      active_task_id: s(q.active_task_id),
+      active_task_type: s(q.active_task_type),
+      active_task_due_at: s(q.active_task_due_at),
       // communication summary — CANONICAL: crm.lead_communication_summary
       last_communication_at: s(sum.last_communication_at),
       last_inbound_at: s(sum.last_inbound_at),
@@ -961,6 +965,7 @@ function DrawerBody({
         open={completeOpen}
         onOpenChange={setCompleteOpen}
         leadId={realLeadId}
+        taskId={s(row.active_task_id) || null}
         defaultOwner={owner}
         isHumanPrimary={isHumanPrimary}
         visibleAction={visibleAction}
