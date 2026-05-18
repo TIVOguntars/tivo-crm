@@ -133,6 +133,37 @@ function Empty({ label = NA }: { label?: string }) {
   return <div className="text-sm text-muted-foreground py-3">{label}</div>;
 }
 
+/* Strip HTML and decode entities for safe plain-text snippet rendering. */
+function htmlToPreviewText(input: string): string {
+  if (!input) return "";
+  let out = input;
+  out = out.replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  out = out.replace(/<!--[\s\S]*?-->/g, " ");
+  out = out.replace(/<![^>]*>/g, " ");
+  out = out.replace(/<\/?[a-z][^>]*>/gi, " ");
+  out = out
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(Number(d)); } catch { return ""; }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ""; }
+    });
+  return out.replace(/\s+/g, " ").trim();
+}
+function cleanPreview(raw: unknown): string {
+  let v = htmlToPreviewText(typeof raw === "string" ? raw : str(raw));
+  if (/<html|<head|<body|<style|<\/?[a-z]+/i.test(v)) {
+    v = htmlToPreviewText(v);
+  }
+  return v;
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
@@ -944,11 +975,9 @@ function LeadProfilePage() {
                                   Imported from Smartsheet note
                                 </div>
                               )}
-                              {preview && (
-                                <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
-                                  {preview}
-                                </div>
-                              )}
+                              <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                                {cleanPreview(preview) || "Nav teksta priekšskatījuma"}
+                              </div>
                             </div>
                           </button>
                         </li>
