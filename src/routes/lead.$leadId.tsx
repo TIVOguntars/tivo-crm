@@ -964,7 +964,7 @@ function LeadProfilePage() {
                               </div>
                             </div>
                           );
-                          const itemClasses = "group w-full text-left flex rounded-md border border-l-4 border-l-muted-foreground/40 bg-muted/30 px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110";
+                          const itemClasses = "group w-full text-left flex rounded-md border border-l-4 border-l-muted-foreground/40 bg-muted/50 px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110";
                           return (
                             <li key={it.key}>
                               {clickable ? (
