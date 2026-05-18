@@ -46,7 +46,7 @@ const primaryItems: readonly NavItem[] = [
 const darbsItems: readonly NavItem[] = [
   { to: "/leadi", label: "Leadi", icon: UsersIcon, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/objects", label: "Objekti", icon: Building2, exact: false, roles: ["admin", "manager", "agent"] },
-  { to: "/queue", label: "Uzdevumi", icon: ListChecks, exact: false, roles: ["admin", "manager", "agent"] },
+  { to: "/uzdevumi", label: "Uzdevumi", icon: ListChecks, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/ienakosas-zinas", label: "Ienākošās", icon: Inbox, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/import-review", label: "Importi", icon: ClipboardCheck, exact: false, roles: ["admin", "manager"] },

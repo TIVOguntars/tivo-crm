@@ -38,7 +38,7 @@ const statusSort = (label: string): number => {
   return i === -1 ? 99 : i;
 };
 
-export const Route = createFileRoute("/queue")({
+export const Route = createFileRoute("/uzdevumi")({
   component: QueuePage,
   errorComponent: ({ error }) => (
     <div className="p-6">
