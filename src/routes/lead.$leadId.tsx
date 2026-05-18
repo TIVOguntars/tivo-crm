@@ -25,6 +25,7 @@ import {
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
+import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
