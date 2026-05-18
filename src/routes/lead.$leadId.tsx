@@ -288,7 +288,7 @@ function LeadProfilePage() {
   );
   const queueTemplatesQ = useCrmView(
     "communication_queue",
-    `select=id,template_key&lead_id=eq.${leadId}`,
+    `select=id,template_key,subject,body,recipient,scheduled_for,status&lead_id=eq.${leadId}`,
     { all: true },
   );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
