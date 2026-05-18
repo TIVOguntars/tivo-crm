@@ -18,7 +18,6 @@ import {
   X,
   Search,
   AlertTriangle,
-  Star,
   Layers,
   ArrowUpDown,
   Trash2,
