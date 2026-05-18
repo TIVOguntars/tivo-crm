@@ -1036,6 +1036,33 @@ function LeadProfilePage() {
                 const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
                 const rawForRender = htmlBody || textBody || str(pick(r, "subject"));
                 const body = rawForRender || "";
+                const replyTo =
+                  dir.toLowerCase().includes("in")
+                    ? str(pick(r, "from_address", "sender", "email")) || (rp ? str(pick(rp, "from_address", "sender", "email")) : "") || primaryEmail
+                    : toAddress || primaryEmail;
+                const buildMailto = (mode: "reply" | "forward") => {
+                  const prefix = mode === "reply" ? "RE: " : "FW: ";
+                  const needsPrefix = !new RegExp(`^${prefix.trim()}`, "i").test(subject.trim());
+                  const params = new URLSearchParams();
+                  params.set("subject", `${needsPrefix ? prefix : ""}${subject || "(bez temata)"}`);
+                  if (body) {
+                    params.set(
+                      "body",
+                      `\n\n--- ${mode === "reply" ? "Sākotnējā ziņa" : "Pārsūtītā ziņa"} ---\nDatums: ${fmtDate(dateValue)}\nTēma: ${subject}\n\n${body.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "").trim()}`,
+                    );
+                  }
+                  return `mailto:${encodeURIComponent(mode === "reply" ? replyTo : "")}?${params.toString().replace(/\+/g, "%20")}`;
+                };
+                const handleReply = () => {
+                  if (!replyTo) {
+                    toast.warning("Nav atrasta saņēmēja e-pasta adrese atbildei.");
+                    return;
+                  }
+                  window.location.href = buildMailto("reply");
+                };
+                const handleForward = () => {
+                  window.location.href = buildMailto("forward");
+                };
                 if (!isNote && ch.toLowerCase() === "email" && !htmlBody) {
                   console.warn(
                     "No HTML body found for email activity",
