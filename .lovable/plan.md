@@ -1,98 +1,168 @@
-# Lead Email Workflow Automation — Migration Plan (v5 execution)
+# Backfill Email Allocator — SQL Preview (v2, corrected)
 
-Pre-execution checks confirmed by user:
-- `RESEND_API_KEY` not yet present → migration creates objects only; dispatcher will not be invoked.
-- `net._http_response` schema confirmed (`id, status_code, content_type, headers, content, timed_out, error_msg, created`) → reconciler maps to these columns.
-- `crm.email_send_state` does not exist → created by migration.
-- No `pg_cron` jobs scheduled in this migration.
+Scope unchanged: allocator + planner metadata + a one-line metadata stamp in `queue_item_reschedule`. No changes to dispatcher, reconciler, pg_net, Resend, retry, cron, workflow_steps, or queue status lifecycle.
 
-## Scope
-
-Single timestamped migration under `supabase/migrations/` containing all DDL + idempotent seed. No data backfill. No cron. No `RESEND_API_KEY` dependency at install time (dispatcher self-blocks the row at runtime if missing).
-
-## Database objects created
-
-### Tables
-- `crm.email_send_state` — singleton (id=1) holding `last_sent_at`, `current_day`, `sent_count_today`, `daily_limit=80`, `min_interval_seconds=120`, `send_window_start='08:00'`, `send_window_end='18:00'`, `timezone='Europe/Riga'`, `resend_endpoint`, `from_address`. Seeded with one row.
-
-### Views
-- `crm.v_communication_queue_state` — wraps `communication_queue` and adds `ui_state` (`sent | sending | failed | cancelled | blocked | awaiting_approval | scheduled | ready`). Non-destructive; underlying status values untouched.
-- `crm.v_lead_planned_actions` — UNION of `lead_next_actions` (status pending/in_progress), `communication_queue` (status queued/sending/blocked), `tasks` (filter `completed_at IS NULL` — no assumption on `tasks.status` vocabulary).
-
-### Functions (all `SECURITY DEFINER`, `search_path=crm,public[,extensions]`)
-- `crm.lead_email_recipient(uuid)` — COALESCE of `raw_data->>'email_normalized'`, `email_raw`, `email`.
-- `crm.lead_has_tag(uuid,text)` — slug presence check.
-- `crm.email_workflow_key_for_lead(uuid)` → `'getestimate' | 'sketch' | NULL`.
-- `crm.get_lead_hot_removed_at(uuid)` — reads `crm.audit_events` for `lead_tag_removed`/`tag_removed` with `metadata->>'tag_slug'='hot'`; optional fallback to `crm.lead_tag_events` if it exists later (uses `to_regclass`, no migration required now).
-- `crm.get_published_template(text)` → `(version_id, subject, content_html, content_text)` from latest `is_published=true` version.
-- `crm.generate_email_plan_for_lead(uuid, text)` — main planner. Skips if `hot` tag present, no workflow key, or active instance already exists. Resolves `started_at = GREATEST(lead.created_at, hot_removed_at)`. Inserts `workflow_instances`, then per step inserts `lead_next_actions` (`source='email_workflow'`) + `communication_queue` (`requires_approval=false`, status `queued` or `blocked` with `blocked_reason='no_published_template_version'|'missing_email'`). Writes `email_plan_generated` audit event with warnings.
-- `crm.pause_email_workflow_for_lead(uuid)` — sets active instances `paused`, blocks queued/sending rows with `blocked_reason='hot_tag'`, cancels pending workflow next-actions, audit event.
-- `crm.resume_email_workflow_for_lead(uuid)` — calls planner with reason `hot_removed`; tags previous paused instance with `superseded_by` in metadata.
-- `crm.tg_lead_tags_email_workflow()` + trigger `lead_tags_email_workflow` on `crm.lead_tags` (AFTER INSERT/DELETE). Hot insert → pause; hot delete → resume; getestimate/sketch insert → generate plan.
-- `crm.generate_email_plans_batch(int)` — manual batch helper; iterates leads with getestimate/sketch tag, no hot, no active instance. **Created but not scheduled.**
-- `crm.dispatch_email_queue_once()` — picks one `queued` email row eligible by window/rate-limit, reads `RESEND_API_KEY` from `vault.decrypted_secrets`. If missing → marks the row `blocked` with `blocked_reason='missing_resend_api_key'` and returns 0. Otherwise calls `net.http_post`, sets row to `sending`, stores `pg_net_request_id` + `dispatched_at` in metadata, increments `attempt_count`, updates `email_send_state`. Does **not** insert into `communications`, does **not** complete next-actions or workflow.
-- `crm.reconcile_email_send_responses(int)` — reads `net._http_response` by `id`. On 2xx: insert `crm.communications` (sent), update queue→`sent`, complete matching `lead_next_actions`, advance `workflow_instances` (mark `completed` when no remaining queued/sending/blocked rows). On non-2xx: increment attempt and either retry (`status='queued'`) or mark `failed` when `attempt_count >= max_attempts`. Audit events `email_sent | email_failed_retry | email_failed_terminal`. Skips rows whose pg_net response hasn't landed yet.
-- UI write RPCs: `crm.queue_item_cancel`, `crm.queue_item_reschedule`, `crm.queue_item_edit`, `crm.queue_item_approve`, `crm.workflow_step_set_delay`. All restricted to safe statuses; edits stamp `metadata.edited_at/edited_by`.
-
-### Workflow steps seed
-Idempotent `UPDATE`-then-`INSERT` (no ON CONFLICT — schema unique constraint not assumed) for:
-- `getestimate` workflow `e72ab303-9d0c-4d03-8032-1589383cbec5`: 9 steps with confirmed `delay_minutes` (0, 4320, 11520, 23040, 34560, 37440, 41760, 48960, 60480).
-- `sketch` workflow `67366140-d847-4855-a3a5-53e4265e78ca`: 4 steps (2880, 4320, 11520, 23040).
-- `step_type='email'`, `responsible_type='system'`, `is_active=true`.
-
-## Things explicitly NOT done in this migration
-- No `pg_cron` schedule for dispatcher / reconciler / batch.
-- No backfill of existing leads (will be a separate manual step).
-- No insert into `crm.message_templates` or `message_template_versions`.
-- No destructive remap of existing `crm.communication_queue.status` values.
-- No RLS changes.
-- No edits to existing functions (`start_lead_workflow_if_needed`, `start_workflows_batch`, `queue_communication`, `validate_communication_send` are preserved).
-
-## Safety checks built into the migration
-- All planner inserts gated by "no active instance for this lead+workflow_key".
-- `requires_approval=false` but the queue row is still skipped if `recipient` empty or template missing — surfaced via `blocked_reason`.
-- Dispatcher uses `FOR UPDATE SKIP LOCKED` and respects window + 120s + 80/day before sending.
-- Reconciler is the **only** place that creates `crm.communications` rows.
-- `net._http_response` lookup skips rows still pending → safe to call repeatedly.
-- Optional `lead_tag_events` table referenced via `to_regclass` so absence is harmless.
-
-## Verification (post-migration, before scheduling cron)
-Run on the prod DB (substitute `<LEAD_ID>`):
+## 1. `crm.rebalance_backfill_email_schedule`
 
 ```sql
--- 1. Generate plan for one lead
-SELECT crm.generate_email_plan_for_lead('<LEAD_ID>'::uuid, 'manual_test');
+CREATE OR REPLACE FUNCTION crm.rebalance_backfill_email_schedule(
+    p_start_date date DEFAULT current_date
+)
+RETURNS TABLE(
+    queue_id        uuid,
+    old_scheduled   timestamptz,
+    new_scheduled   timestamptz,
+    slot_date       date
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = crm, public, extensions
+AS $$
+DECLARE
+    v_tz            constant text     := 'Europe/Riga';
+    v_window_start  constant time     := time '08:00';
+    v_window_end    constant time     := time '18:00';
+    v_spacing       constant interval := interval '2 minutes';
+    v_daily_cap     constant int      := 80;
 
--- 2. Inspect queue + UI state
-SELECT id, ui_state, scheduled_for, template_key, recipient, subject, blocked_reason
-FROM crm.v_communication_queue_state
-WHERE lead_id = '<LEAD_ID>'::uuid
-ORDER BY scheduled_for;
+    v_current_date     date := p_start_date;
+    v_slot_local       timestamp;
+    v_slot_utc         timestamptz;
+    v_allocated_today  int  := 0;
+    r                  record;
+BEGIN
+    v_slot_local := (v_current_date::timestamp + v_window_start);
 
--- 3. Lead 360 panel
-SELECT * FROM crm.v_lead_planned_actions WHERE lead_id = '<LEAD_ID>'::uuid;
+    FOR r IN
+        SELECT q.id,
+               q.scheduled_for,
+               q.created_at,
+               COALESCE((q.metadata->>'priority_score')::numeric, 0) AS prio
+        FROM crm.communication_queue q
+        WHERE q.status = 'queued'
+          AND q.channel = 'email'
+          AND q.metadata->>'daily_bucket' = 'existing'
+          AND q.scheduled_for <= now()
+          AND COALESCE((q.metadata->>'allocator_locked')::boolean, false) = false
+        ORDER BY prio DESC,
+                 q.scheduled_for ASC NULLS LAST,
+                 q.created_at ASC
+        FOR UPDATE SKIP LOCKED
+    LOOP
+        IF v_allocated_today >= v_daily_cap THEN
+            v_current_date    := v_current_date + 1;
+            v_slot_local      := (v_current_date::timestamp + v_window_start);
+            v_allocated_today := 0;
+        END IF;
 
--- 4. (Only after RESEND_API_KEY is added) one-shot dispatch + reconcile
-SELECT crm.dispatch_email_queue_once();
--- wait a few seconds
-SELECT crm.reconcile_email_send_responses(50);
+        IF v_slot_local::time >= v_window_end THEN
+            v_current_date    := v_current_date + 1;
+            v_slot_local      := (v_current_date::timestamp + v_window_start);
+            v_allocated_today := 0;
+        END IF;
 
--- 5. Hot pause/resume
-INSERT INTO crm.lead_tags(lead_id, tag_id)
-SELECT '<LEAD_ID>'::uuid, id FROM crm.tags WHERE slug='hot';
-DELETE FROM crm.lead_tags
-USING crm.tags
-WHERE lead_tags.lead_id='<LEAD_ID>'::uuid
-  AND lead_tags.tag_id=tags.id AND tags.slug='hot';
+        v_slot_utc := (v_slot_local AT TIME ZONE v_tz);
+
+        UPDATE crm.communication_queue
+           SET scheduled_for = v_slot_utc,
+               metadata = COALESCE(metadata, '{}'::jsonb)
+                          || jsonb_build_object(
+                                'rebalanced_at',       now(),
+                                'rebalanced_for_date', v_current_date::text,
+                                'allocator',           'backfill_scheduler_v1'
+                             )
+         WHERE id = r.id;
+
+        queue_id      := r.id;
+        old_scheduled := r.scheduled_for;
+        new_scheduled := v_slot_utc;
+        slot_date     := v_current_date;
+        RETURN NEXT;
+
+        v_allocated_today := v_allocated_today + 1;
+        v_slot_local      := v_slot_local + v_spacing;
+    END LOOP;
+
+    RETURN;
+END;
+$$;
 ```
 
-## After this migration is applied
-1. Add `RESEND_API_KEY` to vault (we will request it via the secrets tool).
-2. Run the manual test SQL above against one real lead.
-3. Once verified, schedule pg_cron jobs (separate migration):
-   - `crm-email-dispatch` — every minute → `crm.dispatch_email_queue_once()`
-   - `crm-email-reconcile` — every minute → `crm.reconcile_email_send_responses(200)`
-   - `crm-email-plan-batch` — every 5 minutes → `crm.generate_email_plans_batch(200)` (only after backfill decision)
+Eligibility now requires: `status='queued'` AND `channel='email'` AND `daily_bucket='existing'` AND **overdue** (`scheduled_for <= now()`) AND **not manually locked** (`allocator_locked` is false/absent).
 
-## Frontend (no changes in this migration)
-Lead 360 "Uzdevumi un plānotās darbības" panel and queue management UI will read `crm.v_lead_planned_actions` and `crm.v_communication_queue_state` and call the `queue_item_*` RPCs in a follow-up frontend task — out of scope for this DB migration.
+## 2. `crm.queue_item_reschedule` — add allocator lock stamp
+
+Surgical change: only the `metadata` update gains `allocator_locked: true`. All status checks, permission checks, audit events, and return shape stay identical.
+
+```sql
+-- inside the existing UPDATE in crm.queue_item_reschedule(...)
+UPDATE crm.communication_queue
+   SET scheduled_for = p_new_scheduled_for,
+       metadata = COALESCE(metadata, '{}'::jsonb)
+                  || jsonb_build_object(
+                        'rescheduled_at',    now(),
+                        'rescheduled_by',    auth.uid(),
+                        'allocator_locked',  true
+                     )
+ WHERE id = p_queue_id
+   AND status IN ('queued', 'blocked');
+```
+
+No other `queue_item_*` RPC is touched.
+
+## 3. `crm.generate_email_plan_for_lead` — metadata tagging only
+
+Backfill mode is now strictly explicit. Age-based detection removed.
+
+```sql
+v_is_backfill := (p_reason IN ('backfill', 'historical_import'));
+
+v_priority_score := 0;  -- MVP; real scoring engine wired later
+
+IF v_is_backfill THEN
+    v_queue_metadata := jsonb_build_object(
+        'queue_type',     'backfill',
+        'daily_bucket',   'existing',
+        'priority_score', v_priority_score
+    );
+ELSE
+    v_queue_metadata := jsonb_build_object(
+        'queue_type',     'new_lead',
+        'daily_bucket',   'new',
+        'priority_score', v_priority_score
+    );
+END IF;
+```
+
+Each existing `INSERT INTO crm.communication_queue (...)` keeps every other column and only sets `metadata := COALESCE(<existing_metadata>, '{}'::jsonb) || v_queue_metadata`. Scheduling, recipient resolution, template lookup, blocked_reason, audit events — unchanged.
+
+## Explicitly NOT changed
+
+- `crm.dispatch_email_queue_once`
+- `crm.reconcile_email_send_responses`
+- pg_net / Resend / retry / sending logic
+- cron schedules
+- `crm.workflow_steps`
+- queue status lifecycle (queued/sending/sent/failed/blocked/cancelled)
+- new-lead scheduling cadence
+- other `queue_item_*` RPCs
+
+## Verification (after apply, manual)
+
+```sql
+-- candidates the allocator would touch
+SELECT id, scheduled_for, metadata->>'priority_score' AS prio,
+       metadata->>'allocator_locked' AS locked
+FROM crm.communication_queue
+WHERE status='queued' AND channel='email'
+  AND metadata->>'daily_bucket'='existing'
+  AND scheduled_for <= now()
+  AND COALESCE((metadata->>'allocator_locked')::boolean, false) = false
+ORDER BY (metadata->>'priority_score')::numeric DESC NULLS LAST,
+         scheduled_for ASC, created_at ASC;
+
+-- run allocator starting tomorrow
+SELECT * FROM crm.rebalance_backfill_email_schedule(current_date + 1);
+```
+
+No execution, no cron, no dispatch performed by this preview.
