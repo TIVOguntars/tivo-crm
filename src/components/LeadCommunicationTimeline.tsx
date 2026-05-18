@@ -993,6 +993,40 @@ function CommunicationViewerModal({
   const status = s(comm?.current_status);
   const attachments = getAttachments(comm);
 
+  // Manual email actions: open user's default mail client via mailto.
+  // Never call Resend / Supabase dispatcher from here — those are reserved
+  // for automated workflow sending.
+  const rawSubject = s(comm?.subject);
+  const replyTo = comm && isInbound(comm) ? fromAddress : (Array.isArray(comm?.to_address) ? s(comm?.to_address?.[0]) : s(comm?.to_address));
+  const plainBody = bodies.text || (bodies.html ? bodies.html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "").replace(/\s+\n/g, "\n").trim() : "");
+
+  const buildMailto = (mode: "reply" | "forward") => {
+    const prefix = mode === "reply" ? "RE: " : "FW: ";
+    const needsPrefix = !new RegExp(`^${prefix.trim()}`, "i").test(rawSubject.trim());
+    const subj = (needsPrefix ? prefix : "") + (rawSubject || "(bez temata)");
+    const quoted = plainBody
+      ? `\n\n--- ${mode === "reply" ? "Sākotnējā ziņa" : "Pārsūtītā ziņa"} ---\nNo: ${fromAddress}\nDatums: ${dateStr}\nTēma: ${rawSubject}\n\n${plainBody}`
+      : "";
+    const to = mode === "reply" ? replyTo : "";
+    const params = new URLSearchParams();
+    params.set("subject", subj);
+    if (quoted) params.set("body", quoted);
+    // URLSearchParams uses '+' for spaces — mail clients expect %20.
+    const qs = params.toString().replace(/\+/g, "%20");
+    return `mailto:${encodeURIComponent(to)}?${qs}`;
+  };
+
+  const handleReply = () => {
+    if (!replyTo) {
+      toast.warning("Nav atrasta saņēmēja e-pasta adrese atbildei.");
+      return;
+    }
+    window.location.href = buildMailto("reply");
+  };
+  const handleForward = () => {
+    window.location.href = buildMailto("forward");
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden p-0 sm:rounded-lg">
@@ -1075,11 +1109,23 @@ function CommunicationViewerModal({
         </div>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
-          <Button size="sm" variant="outline" disabled title="Drīzumā">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleForward}
+            disabled={!comm}
+            title="Atvērt noklusējuma e-pasta klientā"
+          >
             <Forward className="h-3.5 w-3.5" />
             Pārsūtīt
           </Button>
-          <Button size="sm" variant="default" disabled title="Drīzumā">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleReply}
+            disabled={!comm || !replyTo}
+            title={replyTo ? "Atvērt noklusējuma e-pasta klientā" : "Nav saņēmēja adreses"}
+          >
             <Reply className="h-3.5 w-3.5" />
             Atbildēt
           </Button>
