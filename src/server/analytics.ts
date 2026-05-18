@@ -403,6 +403,10 @@ const CRM_RPCS = [
   "get_lead_360_profile",
   "queue_item_edit",
   "queue_item_reschedule",
+  "rpc_complete_task",
+  "rpc_reschedule_task",
+  "rpc_cancel_task",
+  "rpc_skip_task",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
