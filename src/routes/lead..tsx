@@ -1,3 +1,7 @@
+// ⚠️ LEGACY ROUTE — DO NOT LINK FROM PRIMARY NAVIGATION
+// Canonical lead detail screen is `/lead/$leadId` (src/routes/lead.$leadId.tsx).
+// This file is preserved for backwards compatibility only and must not be
+// referenced from Darba rinda, Leadi list, or any new CRM flow.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
