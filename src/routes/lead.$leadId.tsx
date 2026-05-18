@@ -176,14 +176,26 @@ const TEMPLATE_LABEL_MAP: Record<string, string> = {
   email_sketch_3: "sketch 3",
   email_sketch_4: "sketch 4",
 };
-function templateLabel(key: string): string {
-  if (!key) return "";
-  const k = key.trim();
-  if (TEMPLATE_LABEL_MAP[k]) return TEMPLATE_LABEL_MAP[k];
-  const lower = k.toLowerCase();
-  if (TEMPLATE_LABEL_MAP[lower]) return TEMPLATE_LABEL_MAP[lower];
-  // generic fallback: strip "email_" prefix and replace underscores
-  return lower.replace(/^email_/, "").replace(/_/g, " ");
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normalizeTemplateKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/^e_mail_/, "email_");
+}
+/* Resolve a known template label from a list of candidate strings.
+ * UUID-shaped values are ignored (those are template_version_id, not keys).
+ * Returns "" if no candidate matches a known template. */
+function resolveTemplateLabel(...candidates: unknown[]): string {
+  for (const c of candidates) {
+    const s = typeof c === "string" ? c : c == null ? "" : String(c);
+    const t = s.trim();
+    if (!t || UUID_RE.test(t)) continue;
+    const norm = normalizeTemplateKey(t);
+    if (TEMPLATE_LABEL_MAP[norm]) return TEMPLATE_LABEL_MAP[norm];
+  }
+  return "";
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -936,13 +948,24 @@ function LeadProfilePage() {
                         ? ""
                         : (rp && str(pick(rp, "current_status"))) ||
                             str(pick(r, "status", "current_status"));
-                      const templateKey = !isNote && isEmail
-                        ? (str(pick(r, "template_key", "automation_step")) ||
-                            (rp && str(pick(rp, "template_key", "automation_step"))) ||
-                            (rpMeta && str(pick(rpMeta, "template_key", "automation_step"))) ||
-                            "")
+                      // Resolve template label. raw_payload.template_key is
+                      // often a UUID (template_version_id); prefer the
+                      // automation_step text and ignore UUID-shaped values.
+                      const rMeta = !isNote && r && typeof r.metadata === "object" && r.metadata
+                        ? (r.metadata as Row)
+                        : undefined;
+                      const tplLabel = !isNote && isEmail
+                        ? resolveTemplateLabel(
+                            rp && pick(rp, "automation_step"),
+                            rpMeta && pick(rpMeta, "automation_step"),
+                            rMeta && pick(rMeta, "automation_step"),
+                            pick(r, "automation_step"),
+                            rp && pick(rp, "template_key"),
+                            rpMeta && pick(rpMeta, "template_key"),
+                            rMeta && pick(rMeta, "template_key"),
+                            pick(r, "template_key"),
+                          )
                         : "";
-                      const tplLabel = templateLabel(templateKey);
                       // bg by kind/channel
                       let bg = "bg-muted/30";
                       let accent = "border-l-muted-foreground/40";
@@ -990,7 +1013,7 @@ function LeadProfilePage() {
                                   )}
                                   {isEmail && tplLabel && (
                                     <span
-                                      title={templateKey}
+                                      title={tplLabel}
                                       className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
                                     >
                                       {tplLabel}
