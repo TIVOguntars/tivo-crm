@@ -259,6 +259,8 @@ const CRM_VIEWS = [
   "communication_queue",
   "message_templates",
   "v_tasks_queue_ui",
+  "task_types",
+  "tasks",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
