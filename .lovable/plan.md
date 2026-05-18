@@ -1,177 +1,196 @@
+## Mērķis
 
-# FINAL Migration Preview — BJ/PPV Workflow Configuration Settings (corrected)
+Izveidot `crm.rpc_cancel_task` — RPC, kas atceļ vēl nefinalizētu task ar obligātu iemeslu, ieraksta activity + task_relation + audit_event. Bez DB izmaiņām šajā solī.
 
-Settings rows only. **Not executed. No migration file created. No RPCs, no task generation, no cron, no frontend.**
+## Scope
 
----
+- Tikai `crm` schema
+- Bez frontend, cron, triggers, workflow advancement, automatic next-task generation
+- Bez citām DB izmaiņām
 
-## Corrections applied vs previous plan
+## Funkcijas paraksts
 
-1. **Role naming.** `BJ` removed (BJ = person, not role). `Mārketinga saziņa` → `Mārketings`. Canonical roles in config: `PPV`, `Mārketings`, `Projektētājs`, `Tāmētājs`.
-2. **`outreach.daily_quota.role`** = `"Mārketings"`.
-3. **`workflow.stop_rules.Nesasniedzams.manual_resume`** = `true` (was `false`).
-4. All other 11 keys unchanged from approved plan.
+`crm.rpc_cancel_task(p_task_id uuid, p_cancelled_reason text, p_cancelled_by_user_id uuid DEFAULT auth.uid(), p_metadata jsonb DEFAULT '{}'::jsonb) RETURNS jsonb`
 
----
+- `SECURITY DEFINER`, `SET search_path = crm, public`
+- `REVOKE ALL FROM PUBLIC`, `GRANT EXECUTE TO authenticated, service_role`
 
-## `crm.settings` (already inspected)
+## Uzvedība
 
-Columns: `id uuid PK`, `setting_key text UNIQUE NOT NULL`, `setting_group text NOT NULL`, `value_json jsonb NOT NULL`, `description text`, `is_active bool NOT NULL default true`, `created_by/updated_by uuid → crm.profiles`, `created_at/updated_at timestamptz`. Unique on `setting_key` enables safe idempotent upsert. No existing rows for any of the 13 target keys.
+1. Validē: `TASK_ID_REQUIRED`, `CANCELLED_REASON_REQUIRED` (NULL vai tukšs pēc btrim).
+2. Ielādē `crm.tasks` rindu → `TASK_NOT_FOUND` ja nav.
+3. Ja `status IN ('completed','cancelled','skipped')` → `TASK_ALREADY_FINALIZED`.
+4. `UPDATE crm.tasks` → `status='cancelled'`, `cancelled_reason`, `updated_at=now()`, metadata merge (`cancelled_at`, `cancelled_by_user_id`, `cancelled_reason`).
+5. `INSERT INTO crm.activities` — type `note`, summary `Task cancelled`, metadata ar `event_type='cancelled'`, `reason`, `previous_status`.
+6. `INSERT INTO crm.task_relations` — `task → activity`, `relation_type='follows'`, metadata `event_type='cancelled'`.
+7. `INSERT INTO crm.audit_events` — `event_key='task_cancelled'`, before/after ar `status`, `cancelled_reason`; `changed_fields=['status','cancelled_reason']`.
+8. Return: `{ success, task_id, activity_id, status: 'cancelled', cancelled_reason }`.
 
----
-
-## Final SQL preview (DO NOT EXECUTE)
-
-```sql
--- Idempotent: existing rows with the same setting_key are preserved verbatim.
-INSERT INTO crm.settings (setting_group, setting_key, value_json, description, is_active) VALUES
-
-('task','task.types',
- '{"values":["call","sms","whatsapp","email","zoom","meeting","status_change","task_created","task_completed","note","other"]}'::jsonb,
- 'Allowed task_type values for crm.tasks', true),
-
-('task','task.statuses',
- '{"values":["planned","overdue","in_progress","completed","cancelled","skipped","failed"]}'::jsonb,
- 'Allowed status values for crm.tasks', true),
-
-('activity','activity.types',
- '{"values":["call","sms","whatsapp","email","zoom","meeting","status_change","task_created","task_completed","note","other"]}'::jsonb,
- 'Allowed activity_type values for crm.activities', true),
-
-('call','call.outcomes',
- '{"values":["talked","no_answer","busy","voicemail","wrong_number","callback_requested","not_interested","do_not_contact","agreed_ppv_followup"]}'::jsonb,
- 'Outcome codes for completed call tasks', true),
-
-('message','message.outcomes',
- '{"values":["sent","delivered","replied","no_reply","failed","opt_out"]}'::jsonb,
- 'Outcome codes for SMS/WhatsApp/email message tasks', true),
-
-('contact','contact.limits',
- '{"calls":4,"sms_whatsapp":2,"emails":4,"on_limit_status":"Nesasniedzams","automation_continues":true}'::jsonb,
- 'Per-lead contact-attempt limits before status becomes Nesasniedzams. Automation continues.', true),
-
-('outreach','outreach.daily_quota',
- '{"role":"Mārketings","per_ppv_user":{"UC":10,"MO":10}}'::jsonb,
- 'Daily outreach quota per PPV user group, executed by role Mārketings', true),
-
-('outreach','outreach.eligible_statuses',
- '{"values":["Jauns","Nesasniedzams"]}'::jsonb,
- 'Lead statuses eligible for outreach planning', true),
-
-('calendar','calendar.business_days',
- '{"timezone":"Europe/Riga","working_days":["Mon","Tue","Wed","Thu","Fri"],"holidays":[]}'::jsonb,
- 'Business-day calendar for all schedulers', true),
-
-('automation','automation.weekend_policy',
- '{"human_tasks_weekends_allowed":false,"manual_tasks_weekends_allowed":true,"sis_b2c_weekends_allowed":true,"sis_b2b_weekends_allowed":false}'::jsonb,
- 'Weekend execution policy per actor type', true),
-
-('ppv','ppv.auto_reschedule',
- '{"no_answer_days":2,"business_days_only":true}'::jsonb,
- 'Auto-reschedule rule for PPV no_answer tasks when user does not reschedule manually', true),
-
-('status','status.on_outcome',
- '{"not_interested":"Nekvalificējas","do_not_contact":"Nesasniedzams","opt_out":"Atlikts","agreed_ppv_followup":"Piesaistīšana"}'::jsonb,
- 'Outcome → target lead status mapping', true),
-
-('workflow','workflow.stop_rules',
- '{"Nekvalificējas":{"stops":true,"manual_resume":true},"Atlikts":{"stops":true,"manual_resume":true},"Nesasniedzams":{"stops":false,"manual_resume":true}}'::jsonb,
- 'Per-status automation stop rules', true)
-
-ON CONFLICT (setting_key) DO NOTHING;
-```
-
-Properties:
-- `ON CONFLICT (setting_key) DO NOTHING` → never overwrites existing rows.
-- No DDL, no RLS change, no trigger change, no FK touched.
-- Re-running is safe; second run affects 0 rows.
-
----
-
-## Self-check queries (read-only)
+## SQL preview
 
 ```sql
--- 1) All 13 keys present
-SELECT setting_key FROM crm.settings
-WHERE setting_key IN (
- 'task.types','task.statuses','activity.types',
- 'call.outcomes','message.outcomes','contact.limits',
- 'outreach.daily_quota','outreach.eligible_statuses',
- 'calendar.business_days','automation.weekend_policy',
- 'ppv.auto_reschedule','status.on_outcome','workflow.stop_rules')
-ORDER BY setting_key;
--- Expect: 13 rows.
+CREATE OR REPLACE FUNCTION crm.rpc_cancel_task(
+  p_task_id uuid,
+  p_cancelled_reason text,
+  p_cancelled_by_user_id uuid DEFAULT auth.uid(),
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = crm, public
+AS $$
+DECLARE
+  v_task crm.tasks%ROWTYPE;
+  v_activity_id uuid;
+BEGIN
+  IF p_task_id IS NULL THEN
+    RAISE EXCEPTION 'TASK_ID_REQUIRED';
+  END IF;
+  IF p_cancelled_reason IS NULL OR btrim(p_cancelled_reason) = '' THEN
+    RAISE EXCEPTION 'CANCELLED_REASON_REQUIRED';
+  END IF;
 
--- 2) Group bucketing
-SELECT setting_group, count(*) FROM crm.settings
-WHERE setting_group IN ('task','activity','call','message','contact','outreach','calendar','automation','ppv','status','workflow')
-GROUP BY setting_group ORDER BY setting_group;
--- Expect: task=2, activity=1, call=1, message=1, contact=1, outreach=2,
---         calendar=1, automation=1, ppv=1, status=1, workflow=1.
+  SELECT *
+  INTO v_task
+  FROM crm.tasks
+  WHERE id = p_task_id;
 
--- 3) Role correction landed
-SELECT value_json->>'role' AS role
-FROM crm.settings WHERE setting_key='outreach.daily_quota';
--- Expect: 'Mārketings'.
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'TASK_NOT_FOUND';
+  END IF;
 
--- 4) Stop-rules correction landed
-SELECT value_json->'Nesasniedzams' AS nesasniedzams_rule
-FROM crm.settings WHERE setting_key='workflow.stop_rules';
--- Expect: {"stops": false, "manual_resume": true}.
+  IF v_task.status IN ('completed', 'cancelled', 'skipped') THEN
+    RAISE EXCEPTION 'TASK_ALREADY_FINALIZED';
+  END IF;
 
--- 5) Mapped statuses exist in catalog
-SELECT (kv).value AS status_value,
-       EXISTS (SELECT 1 FROM crm.lead_statuses ls WHERE ls.status_key=(kv).value) AS exists_in_catalog
-FROM (SELECT jsonb_each_text(value_json) AS kv FROM crm.settings WHERE setting_key='status.on_outcome') t;
--- Expect: all true (Nekvalificējas, Nesasniedzams, Atlikts, Piesaistīšana).
+  UPDATE crm.tasks
+  SET
+    status = 'cancelled',
+    cancelled_reason = p_cancelled_reason,
+    updated_at = now(),
+    metadata = COALESCE(metadata, '{}'::jsonb)
+      || jsonb_build_object(
+        'cancelled_at', now(),
+        'cancelled_by_user_id', p_cancelled_by_user_id,
+        'cancelled_reason', p_cancelled_reason
+      )
+  WHERE id = p_task_id;
 
--- 6) Eligible statuses exist in catalog
-SELECT x AS status_value,
-       EXISTS (SELECT 1 FROM crm.lead_statuses ls WHERE ls.status_key=x) AS exists_in_catalog
-FROM crm.settings, jsonb_array_elements_text(value_json->'values') x
-WHERE setting_key='outreach.eligible_statuses';
--- Expect: Jauns=true, Nesasniedzams=true.
+  INSERT INTO crm.activities (
+    lead_id,
+    person_id,
+    object_id,
+    task_id,
+    activity_type,
+    activity_at,
+    performed_by_user_id,
+    summary,
+    outcome_code,
+    communication_basis,
+    metadata
+  )
+  VALUES (
+    v_task.lead_id,
+    v_task.person_id,
+    v_task.object_id,
+    v_task.id,
+    'note',
+    now(),
+    p_cancelled_by_user_id,
+    'Task cancelled',
+    NULL,
+    NULL,
+    COALESCE(p_metadata, '{}'::jsonb)
+      || jsonb_build_object(
+        'event_type', 'cancelled',
+        'reason', p_cancelled_reason,
+        'previous_status', v_task.status
+      )
+  )
+  RETURNING id INTO v_activity_id;
 
--- 7) Forbidden role tokens absent
-SELECT setting_key, value_json
-FROM crm.settings
-WHERE setting_group IN ('outreach','status','workflow','automation','ppv')
-  AND value_json::text ~* '("BJ"|"Mārketinga saziņa")';
--- Expect: 0 rows.
+  INSERT INTO crm.task_relations (
+    lead_id,
+    from_kind,
+    from_id,
+    to_kind,
+    to_id,
+    relation_type,
+    metadata,
+    created_by
+  )
+  VALUES (
+    v_task.lead_id,
+    'task',
+    v_task.id,
+    'activity',
+    v_activity_id,
+    'follows',
+    jsonb_build_object('event_type', 'cancelled'),
+    p_cancelled_by_user_id
+  );
+
+  INSERT INTO crm.audit_events (
+    entity_type,
+    entity_id,
+    action_type,
+    source_type,
+    event_key,
+    event_name,
+    before_data,
+    after_data,
+    changed_fields,
+    actor_user_id,
+    reason,
+    metadata
+  )
+  VALUES (
+    'task',
+    v_task.id,
+    'update',
+    'manual',
+    'task_cancelled',
+    'Task cancelled',
+    jsonb_build_object(
+      'status', v_task.status,
+      'cancelled_reason', v_task.cancelled_reason
+    ),
+    jsonb_build_object(
+      'status', 'cancelled',
+      'cancelled_reason', p_cancelled_reason
+    ),
+    jsonb_build_array('status', 'cancelled_reason'),
+    p_cancelled_by_user_id,
+    p_cancelled_reason,
+    COALESCE(p_metadata, '{}'::jsonb)
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'task_id', v_task.id,
+    'activity_id', v_activity_id,
+    'status', 'cancelled',
+    'cancelled_reason', p_cancelled_reason
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION crm.rpc_cancel_task(
+  uuid,
+  text,
+  uuid,
+  jsonb
+) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION crm.rpc_cancel_task(
+  uuid,
+  text,
+  uuid,
+  jsonb
+) TO authenticated, service_role;
 ```
 
----
+## Nākamais solis
 
-## Rollback SQL (DO NOT EXECUTE)
-
-```sql
--- Hard rollback (removes only the 13 seeded keys)
-DELETE FROM crm.settings
-WHERE setting_key IN (
- 'task.types','task.statuses','activity.types',
- 'call.outcomes','message.outcomes','contact.limits',
- 'outreach.daily_quota','outreach.eligible_statuses',
- 'calendar.business_days','automation.weekend_policy',
- 'ppv.auto_reschedule','status.on_outcome','workflow.stop_rules');
-
--- Soft rollback alternative (keeps audit trail)
--- UPDATE crm.settings SET is_active=false, updated_at=now()
--- WHERE setting_key IN ( ...same list... );
-```
-
-No FK references `crm.settings`; rollback is non-cascading and safe.
-
----
-
-## Scope confirmation
-
-- ✅ Settings rows only (13 keys).
-- ❌ No RPCs.
-- ❌ No task generation.
-- ❌ No cron / pg_cron change.
-- ❌ No dispatcher / allocator change.
-- ❌ No frontend change.
-- ❌ No DDL on tables, no RLS edits.
-- Existing settings preserved by design.
-
-Awaiting approval before execution.
+Pēc apstiprināšanas — izveidot migration un izpildīt DB, tad parādīt verification.
