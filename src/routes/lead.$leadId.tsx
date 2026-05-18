@@ -948,13 +948,24 @@ function LeadProfilePage() {
                         ? ""
                         : (rp && str(pick(rp, "current_status"))) ||
                             str(pick(r, "status", "current_status"));
-                      const templateKey = !isNote && isEmail
-                        ? (str(pick(r, "template_key", "automation_step")) ||
-                            (rp && str(pick(rp, "template_key", "automation_step"))) ||
-                            (rpMeta && str(pick(rpMeta, "template_key", "automation_step"))) ||
-                            "")
+                      // Resolve template label. raw_payload.template_key is
+                      // often a UUID (template_version_id); prefer the
+                      // automation_step text and ignore UUID-shaped values.
+                      const rMeta = !isNote && r && typeof r.metadata === "object" && r.metadata
+                        ? (r.metadata as Row)
+                        : undefined;
+                      const tplLabel = !isNote && isEmail
+                        ? resolveTemplateLabel(
+                            rp && pick(rp, "automation_step"),
+                            rpMeta && pick(rpMeta, "automation_step"),
+                            rMeta && pick(rMeta, "automation_step"),
+                            pick(r, "automation_step"),
+                            rp && pick(rp, "template_key"),
+                            rpMeta && pick(rpMeta, "template_key"),
+                            rMeta && pick(rMeta, "template_key"),
+                            pick(r, "template_key"),
+                          )
                         : "";
-                      const tplLabel = templateLabel(templateKey);
                       // bg by kind/channel
                       let bg = "bg-muted/30";
                       let accent = "border-l-muted-foreground/40";
