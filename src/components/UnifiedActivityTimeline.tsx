@@ -631,7 +631,10 @@ function TimelineItem({
   const direction = dirLabel(s(row.direction));
   const status = s(row.status);
   const ts = fmtDateTime(row.timeline_at);
-  const preview = previewText(row);
+  const previewRaw = previewText(row);
+  const isEmailLike = isEmailRow(row);
+  const preview =
+    previewRaw || (isEmailLike ? "Nav teksta priekšskatījuma" : "");
   const hasMeta =
     row.metadata != null &&
     typeof row.metadata === "object" &&
