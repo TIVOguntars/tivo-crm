@@ -43,6 +43,16 @@ import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { callCrmRpc } from "@/server/analytics";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
