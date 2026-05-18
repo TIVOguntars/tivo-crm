@@ -965,6 +965,7 @@ function DrawerBody({
         open={completeOpen}
         onOpenChange={setCompleteOpen}
         leadId={realLeadId}
+        taskId={s(row.active_task_id) || null}
         defaultOwner={owner}
         isHumanPrimary={isHumanPrimary}
         visibleAction={visibleAction}
