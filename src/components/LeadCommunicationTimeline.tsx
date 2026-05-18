@@ -22,6 +22,34 @@ function s(v: unknown): string {
   if (v == null) return "";
   return String(v);
 }
+
+/**
+ * Strip HTML tags and decode entities for compact activity-card previews.
+ * Removes <script>/<style>/<head> blocks entirely so their contents don't
+ * leak into the snippet. Safe for plain text input too.
+ */
+function htmlToPreviewText(input: string): string {
+  if (!input) return "";
+  let out = input;
+  out = out.replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  out = out.replace(/<!--[\s\S]*?-->/g, " ");
+  out = out.replace(/<![^>]*>/g, " ");
+  out = out.replace(/<\/?[a-z][^>]*>/gi, " ");
+  out = out
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(Number(d)); } catch { return ""; }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ""; }
+    });
+  return out.replace(/\s+/g, " ").trim();
+}
 function num(v: unknown): number {
   const x = typeof v === "string" ? parseFloat(v) : Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -84,12 +112,16 @@ function flattenComm(row: Row): Row {
   const previewSource =
     s(meta.body_preview) ||
     s(merged.text_body) ||
+    s((merged as Row).content_text) ||
+    s((meta as Row).text) ||
     s(merged.body) ||
+    s((merged as Row).body_html) ||
+    s((merged as Row).content_html) ||
+    s((meta as Row).html_body) ||
+    s((meta as Row).body_html) ||
+    s((meta as Row).html) ||
     "";
-  const preview = previewSource
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 280);
+  const preview = htmlToPreviewText(previewSource).slice(0, 280);
   return {
     ...merged,
     communication_id: s(merged.id) || s(row.id),
