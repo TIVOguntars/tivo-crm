@@ -347,13 +347,29 @@ function LeadProfilePage() {
     ts: number;
     raw: Row;
   };
+  const rawPayloadById = useMemo(() => {
+    const map = new Map<string, Row>();
+    const rows = (commPayloadsQ.data?.rows ?? []) as Row[];
+    for (const row of rows) {
+      const id = str(row.id);
+      const rp = row.raw_payload;
+      if (id && rp && typeof rp === "object") {
+        map.set(id, rp as Row);
+      }
+    }
+    return map;
+  }, [commPayloadsQ.data]);
   const timeline = useMemo<TLItem[]>(() => {
     const items: TLItem[] = [];
     communications.forEach((c, i) => {
-      const ts =
-        new Date(str(pick(c, "created_at", "occurred_at", "sent_at"))).getTime() || 0;
+      const id = str(pick(c, "id", "communication_id"));
+      const rp = id ? rawPayloadById.get(id) : undefined;
+      const tsStr =
+        (rp && str(pick(rp, "sent_at"))) ||
+        str(pick(c, "sent_at", "occurred_at", "created_at"));
+      const ts = new Date(tsStr).getTime() || 0;
       items.push({
-        key: `c:${str(pick(c, "id", "communication_id")) || i}`,
+        key: `c:${id || i}`,
         kind: "comm",
         ts,
         raw: c,
@@ -370,22 +386,9 @@ function LeadProfilePage() {
       });
     });
     return items.sort((a, b) => b.ts - a.ts);
-  }, [communications, notes]);
+  }, [communications, notes, rawPayloadById]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
-
-  const rawPayloadById = useMemo(() => {
-    const map = new Map<string, Row>();
-    const rows = (commPayloadsQ.data?.rows ?? []) as Row[];
-    for (const row of rows) {
-      const id = str(row.id);
-      const rp = row.raw_payload;
-      if (id && rp && typeof rp === "object") {
-        map.set(id, rp as Row);
-      }
-    }
-    return map;
-  }, [commPayloadsQ.data]);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -841,12 +844,40 @@ function LeadProfilePage() {
                       const ch = str(pick(r, "channel")).toLowerCase();
                       const dir = str(pick(r, "direction")).toLowerCase();
                       const inbound = dir.includes("in");
+                      const activityId = !isNote ? str(pick(r, "id", "communication_id")) : "";
+                      const rp = !isNote && activityId ? rawPayloadById.get(activityId) : undefined;
+                      const isEmail = ch.includes("mail");
+                      const provider = !isNote ? str(pick(r, "provider")) : "";
+                      const isSmartsheetNote = provider === "smartsheet_note";
+                      const rpMeta =
+                        rp && typeof rp.metadata === "object" && rp.metadata
+                          ? (rp.metadata as Row)
+                          : undefined;
                       const subject = isNote
                         ? str(pick(r, "note_type")) || "Piezīme"
-                        : fmt(pick(r, "subject"));
+                        : isEmail
+                          ? (str(pick(r, "subject")) ||
+                              (rp && (str(pick(rp, "automation_step")) || str(pick(rp, "template_key")))) ||
+                              "Email")
+                          : fmt(pick(r, "subject"));
                       const preview = isNote
                         ? str(pick(r, "content", "body"))
-                        : str(pick(r, "preview", "body_preview", "summary"));
+                        : isEmail
+                          ? (str(pick(r, "body", "preview", "body_preview", "summary")) ||
+                              (rpMeta && str(pick(rpMeta, "smartsheet_comment_text"))) ||
+                              (rp && str(pick(rp, "text_body", "html_body"))) ||
+                              "")
+                          : str(pick(r, "preview", "body_preview", "summary"));
+                      const dateValue = isNote
+                        ? pick(r, "created_at", "updated_at")
+                        : isEmail
+                          ? ((rp && pick(rp, "sent_at")) ||
+                              pick(r, "sent_at", "occurred_at", "created_at"))
+                          : pick(r, "created_at", "occurred_at", "sent_at", "updated_at");
+                      const statusValue = isNote
+                        ? ""
+                        : (rp && str(pick(rp, "current_status"))) ||
+                            str(pick(r, "status", "current_status"));
                       // bg by kind/channel
                       let bg = "bg-muted/30";
                       let accent = "border-l-muted-foreground/40";
@@ -895,14 +926,19 @@ function LeadProfilePage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {!isNote && (
-                                    <StatusBadge status={str(pick(r, "status", "current_status"))} />
+                                    <StatusBadge status={statusValue} />
                                   )}
                                   <span className="text-[11px] text-muted-foreground tabular-nums">
-                                    {fmtDate(pick(r, "created_at", "occurred_at", "sent_at", "updated_at"))}
+                                    {fmtDate(dateValue)}
                                   </span>
                                 </div>
                               </div>
                               <div className="mt-0.5 text-sm font-medium truncate">{subject}</div>
+                              {isSmartsheetNote && (
+                                <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                                  Imported from Smartsheet note
+                                </div>
+                              )}
                               {preview && (
                                 <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
                                   {preview}
