@@ -347,6 +347,18 @@ function LeadProfilePage() {
     ts: number;
     raw: Row;
   };
+  const rawPayloadById = useMemo(() => {
+    const map = new Map<string, Row>();
+    const rows = (commPayloadsQ.data?.rows ?? []) as Row[];
+    for (const row of rows) {
+      const id = str(row.id);
+      const rp = row.raw_payload;
+      if (id && rp && typeof rp === "object") {
+        map.set(id, rp as Row);
+      }
+    }
+    return map;
+  }, [commPayloadsQ.data]);
   const timeline = useMemo<TLItem[]>(() => {
     const items: TLItem[] = [];
     communications.forEach((c, i) => {
@@ -377,19 +389,6 @@ function LeadProfilePage() {
   }, [communications, notes, rawPayloadById]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
-
-  const rawPayloadById = useMemo(() => {
-    const map = new Map<string, Row>();
-    const rows = (commPayloadsQ.data?.rows ?? []) as Row[];
-    for (const row of rows) {
-      const id = str(row.id);
-      const rp = row.raw_payload;
-      if (id && rp && typeof rp === "object") {
-        map.set(id, rp as Row);
-      }
-    }
-    return map;
-  }, [commPayloadsQ.data]);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
