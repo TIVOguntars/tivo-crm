@@ -19,6 +19,7 @@ import {
   Reply,
   Forward,
   Star,
+  X,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -36,6 +37,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
@@ -1092,7 +1094,7 @@ function LeadProfilePage() {
                             <div className="flex shrink-0 items-center gap-2">
                               <Button
                                 size="sm"
-                                variant="default"
+                                className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
                                 onClick={handleReply}
                                 disabled={!replyTo}
                               >
@@ -1101,12 +1103,36 @@ function LeadProfilePage() {
                               </Button>
                               <Button
                                 size="sm"
-                                variant="outline"
+                                className="bg-[#95B3D7] text-white border border-[#7a9bc4] hover:bg-[#7a9bc4]"
                                 onClick={handleForward}
                               >
                                 <Forward className="h-3.5 w-3.5 mr-1" />
                                 Pārsūtīt
                               </Button>
+                              <DialogClose asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Aizvērt"
+                                  className="h-8 w-8"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </DialogClose>
+                            </div>
+                          )}
+                          {(isNote || !isEmail) && (
+                            <div className="flex shrink-0 items-center gap-2">
+                              <DialogClose asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Aizvērt"
+                                  className="h-8 w-8"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </DialogClose>
                             </div>
                           )}
                         </div>
