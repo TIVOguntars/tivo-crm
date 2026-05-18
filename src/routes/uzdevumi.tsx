@@ -830,6 +830,14 @@ function QueuePage() {
           </div>
         </div>
       )}
+
+      <TaskFormDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        onCreated={() => {
+          view.refetch();
+        }}
+      />
     </div>
   );
 }
