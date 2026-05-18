@@ -1,6 +1,6 @@
 const AUTH_KEY = "tivo_auth_v1";
 const ACTIVITY_KEY = "tivo_last_activity_v1";
-const PASSWORD = "TIVO_analitics";
+const PASSWORD = "TilC@a8452";
 export const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 
 export function isBrowser(): boolean {
