@@ -272,7 +272,7 @@ function PārskatsPage() {
         severity: "warning",
         title: `${fmt(tasksHigh)} uzdevumi ar augstu prioritāti`,
         detail: "Pārskatiet darba rindu",
-        to: "/darba-rinda",
+        to: "/queue",
       });
     }
     if (commsSummary && num(commsSummary.kludas) > 0) {
@@ -342,10 +342,10 @@ function PārskatsPage() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex items-center gap-2">
             <Link
-              to="/darba-rinda"
+              to="/queue"
               className="hidden rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent sm:inline-flex"
             >
-              Darba rinda
+              Uzdevumi
             </Link>
             <Link
               to="/leadi"
@@ -430,12 +430,12 @@ function PārskatsPage() {
                   <CompactStat to="/queue" label="Aktīvi procesi" value={fmt(wfActive)} />
                   <CompactStat label="Procesi kopā" value={fmt(wfTotal)} />
                   <CompactStat
-                    to="/darba-rinda"
+                    to="/queue"
                     label="Atvērtie uzdevumi"
                     value={fmt(tasksTotal)}
                   />
                   <CompactStat
-                    to="/darba-rinda"
+                    to="/queue"
                     label="Augsta prioritāte"
                     value={fmt(tasksHigh)}
                     tone={tasksHigh > 0 ? "warning" : undefined}
