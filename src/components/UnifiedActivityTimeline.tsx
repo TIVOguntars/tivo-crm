@@ -167,25 +167,66 @@ function dirLabel(dir: string): string {
   return "";
 }
 
+function htmlToPreviewText(input: string): string {
+  if (!input) return "";
+  let out = input;
+  out = out.replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  out = out.replace(/<!--[\s\S]*?-->/g, " ");
+  out = out.replace(/<![^>]*>/g, " ");
+  out = out.replace(/<\/?[a-z][^>]*>/gi, " ");
+  out = out
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(Number(d)); } catch { return ""; }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ""; }
+    });
+  return out.replace(/\s+/g, " ").trim();
+}
+
+function cleanPreview(raw: string): string {
+  let v = htmlToPreviewText(raw);
+  // safety: if anything HTML-ish slipped through, strip again
+  if (/<html|<head|<body|<style|<\/?[a-z]+/i.test(v)) {
+    v = htmlToPreviewText(v);
+  }
+  return v;
+}
+
 function previewText(row: Row): string {
-  const candidates = [
+  const meta = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? (row.metadata as Row)
+    : {};
+  const candidates: unknown[] = [
     row.preview,
     row.body_preview,
     row.summary,
     row.description,
     row.note,
+    meta.body_preview,
+    meta.preview,
+    meta.summary,
+    meta.description,
+    row.text_body,
+    meta.text_body,
+    meta.text,
+    row.body,
+    meta.body,
+    row.body_html,
+    row.content_html,
+    meta.html_body,
+    meta.body_html,
+    meta.html,
   ];
   for (const c of candidates) {
-    const v = s(c).trim();
-    if (v) return v.replace(/\s+/g, " ");
-  }
-  const meta = row.metadata;
-  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
-    const m = meta as Row;
-    for (const k of ["body_preview", "preview", "summary", "description"]) {
-      const v = s(m[k]).trim();
-      if (v) return v.replace(/\s+/g, " ");
-    }
+    const cleaned = cleanPreview(s(c).trim());
+    if (cleaned) return cleaned;
   }
   return "";
 }
