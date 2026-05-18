@@ -1367,3 +1367,131 @@ function LeadProfilePage() {
     </div>
   );
 }
+
+/* -------------------------- Planned queue edit dialog -------------------------- */
+
+function PlannedQueueEditDialog({
+  open,
+  queueRow,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  queueRow: Row | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const initialKey = str(queueRow?.template_key);
+  const initialIso = str(queueRow?.scheduled_for);
+
+  const [templateKey, setTemplateKey] = useState<string>(initialKey);
+  const [whenLocal, setWhenLocal] = useState<string>(toLocalInputValue(initialIso));
+  const [saving, setSaving] = useState(false);
+
+  // Reset state whenever a different queue row is opened
+  useMemo(() => {
+    setTemplateKey(initialKey);
+    setWhenLocal(toLocalInputValue(initialIso));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [str(queueRow?.id)]);
+
+  const queueId = str(queueRow?.id);
+  const canSave = !!queueId && !!templateKey && !!whenLocal && !saving;
+
+  async function handleSave() {
+    if (!queueId) return;
+    setSaving(true);
+    try {
+      const newIso = fromLocalInputValue(whenLocal);
+      const templateChanged = templateKey && templateKey !== initialKey;
+      const dateChanged = newIso && newIso !== initialIso;
+
+      if (templateChanged) {
+        const res = await callCrmRpc({
+          data: {
+            fn: "queue_item_edit",
+            params: {
+              p_id: queueId,
+              p_subject: str(queueRow?.subject),
+              p_body: str(queueRow?.body),
+              p_recipient: str(queueRow?.recipient),
+              p_template_key: templateKey,
+            },
+          },
+        });
+        if (res.error) throw new Error(res.error);
+      }
+      if (dateChanged) {
+        const res = await callCrmRpc({
+          data: {
+            fn: "queue_item_reschedule",
+            params: { p_id: queueId, p_when: newIso },
+          },
+        });
+        if (res.error) throw new Error(res.error);
+      }
+      if (!templateChanged && !dateChanged) {
+        toast.info("Nav izmaiņu");
+        setSaving(false);
+        return;
+      }
+      toast.success("Saglabāts");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Neizdevās saglabāt");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Rediģēt automātisko e-pastu</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="queue-edit-template">Šablons</Label>
+            <Select value={templateKey} onValueChange={setTemplateKey}>
+              <SelectTrigger id="queue-edit-template">
+                <SelectValue placeholder="Izvēlies šablonu" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALLOWED_AUTOMATION_KEYS.map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {templateLabelFor(k)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="queue-edit-when">Plānotais laiks</Label>
+            <Input
+              id="queue-edit-when"
+              type="datetime-local"
+              value={whenLocal}
+              onChange={(e) => setWhenLocal(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Manuāla maiņa apiet 80/dienā limitu (apzināta lietotāja darbība).
+            </p>
+          </div>
+        </div>
+        <DialogHeader className="pt-2">
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={saving}>
+                Atcelt
+              </Button>
+            </DialogClose>
+            <Button onClick={handleSave} disabled={!canSave}>
+              {saving ? "Saglabā..." : "Saglabāt"}
+            </Button>
+          </div>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  );
+}
