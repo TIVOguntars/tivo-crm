@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Read-only analytics client.
@@ -423,7 +422,7 @@ async function callCrmRpcRaw(
     method: "POST",
     headers: {
       apikey: key,
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken || key}`,
       "Accept-Profile": "crm",
       "Content-Profile": "crm",
       "Content-Type": "application/json",
@@ -443,7 +442,6 @@ async function callCrmRpcRaw(
 }
 
 export const callCrmRpc = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: { fn: CrmRpc; params: Record<string, unknown> }) => {
     if (!CRM_RPCS.includes(input.fn)) {
       throw new Error(`Nezināma crm RPC funkcija: ${input.fn}`);
@@ -453,9 +451,6 @@ export const callCrmRpc = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const authHeader = getRequestHeader("authorization") ?? "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!token) {
-      return { rows: [] as AnalyticsRow[], error: "Unauthorized: trūkst tokens" };
-    }
     try {
       const rows = await callCrmRpcRaw(data.fn, data.params, token);
       return { rows, error: null as string | null };
