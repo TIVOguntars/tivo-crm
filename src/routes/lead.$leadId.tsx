@@ -988,17 +988,48 @@ function LeadProfilePage() {
                 const isNote = openItem.kind === "note";
                 const ch = str(pick(r, "channel"));
                 const dir = str(pick(r, "direction"));
-                const subject = isNote
-                  ? str(pick(r, "note_type")) || "Piezīme"
-                  : fmt(pick(r, "subject"));
                 const activityId = str(pick(r, "id", "communication_id"));
                 const rp = !isNote && activityId ? rawPayloadById.get(activityId) : undefined;
+                const isEmail = ch.toLowerCase().includes("mail");
+                const rpMeta =
+                  rp && typeof rp.metadata === "object" && rp.metadata
+                    ? (rp.metadata as Row)
+                    : undefined;
+                const subject = isNote
+                  ? str(pick(r, "note_type")) || "Piezīme"
+                  : isEmail
+                    ? (str(pick(r, "subject")) ||
+                        (rp && (str(pick(rp, "automation_step")) || str(pick(rp, "template_key")))) ||
+                        "Email")
+                    : fmt(pick(r, "subject"));
+                const dateValue = isNote
+                  ? pick(r, "created_at", "updated_at")
+                  : isEmail
+                    ? ((rp && pick(rp, "sent_at")) || pick(r, "sent_at", "created_at"))
+                    : pick(r, "created_at", "occurred_at", "sent_at", "updated_at");
+                const statusValue = isNote
+                  ? ""
+                  : (rp && str(pick(rp, "current_status"))) ||
+                      str(pick(r, "status", "current_status"));
+                const provider = !isNote ? str(pick(r, "provider")) : "";
+                const toAddress = rp ? str(pick(rp, "to_address")) : "";
+                const templateKey = rp ? str(pick(rp, "template_key")) : "";
+                const automationStep = rp ? str(pick(rp, "automation_step")) : "";
+                const importedAt = !isNote ? str(pick(r, "created_at")) : "";
                 const payloadHtml = rp
                   ? str(pick(rp, "html_body", "html", "body_html", "content_html"))
                   : "";
                 const inlineHtml = str(pick(r, "body_html", "html", "html_body", "content_html"));
                 const htmlBody = payloadHtml || inlineHtml;
-                const textBody = str(pick(r, "body_text", "body", "content", "preview", "body_preview", "summary"));
+                const smartsheetText = rpMeta ? str(pick(rpMeta, "smartsheet_comment_text")) : "";
+                const payloadText = rp ? str(pick(rp, "text_body")) : "";
+                const textBody =
+                  (isEmail
+                    ? str(pick(r, "body"))
+                    : str(pick(r, "body_text", "body", "content", "preview", "body_preview", "summary"))) ||
+                  smartsheetText ||
+                  payloadText ||
+                  (isEmail ? "" : str(pick(r, "body_text", "preview", "body_preview", "summary")));
                 const bodyLooksHtml = !!htmlBody || /<[a-z][\s\S]*>/i.test(textBody);
                 const rawForRender = htmlBody || textBody || str(pick(r, "subject"));
                 const body = rawForRender || "";
@@ -1031,11 +1062,19 @@ function LeadProfilePage() {
                       {!isNote && (
                         <Field
                           label="Status"
-                          value={<StatusBadge status={str(pick(r, "status", "current_status"))} />}
+                          value={<StatusBadge status={statusValue} />}
                         />
                       )}
-                      {!isNote && <Field label="Sniedzējs" value={fmt(pick(r, "provider"))} />}
-                      <Field label="Datums" value={fmtDate(pick(r, "created_at", "occurred_at", "sent_at", "updated_at"))} />
+                      {!isNote && <Field label="Sniedzējs" value={fmt(provider)} />}
+                      <Field label="Datums" value={fmtDate(dateValue)} />
+                      {!isNote && toAddress && <Field label="To" value={toAddress} />}
+                      {!isNote && templateKey && <Field label="Template" value={templateKey} />}
+                      {!isNote && automationStep && (
+                        <Field label="Automation step" value={automationStep} />
+                      )}
+                      {!isNote && importedAt && (
+                        <Field label="Imported at" value={fmtDate(importedAt)} />
+                      )}
                       {isNote && (
                         <Field label="Tips" value={fmt(pick(r, "note_type"))} />
                       )}
