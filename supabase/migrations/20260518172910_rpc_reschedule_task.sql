@@ -1,0 +1,170 @@
+CREATE OR REPLACE FUNCTION crm.rpc_reschedule_task(
+  p_task_id uuid,
+  p_new_due_at timestamptz,
+  p_reason text DEFAULT NULL,
+  p_rescheduled_by_user_id uuid DEFAULT auth.uid(),
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = crm, public
+AS $$
+DECLARE
+  v_task crm.tasks%ROWTYPE;
+  v_previous_due_at timestamptz;
+  v_activity_id uuid;
+BEGIN
+  IF p_task_id IS NULL THEN
+    RAISE EXCEPTION 'TASK_ID_REQUIRED';
+  END IF;
+  IF p_new_due_at IS NULL THEN
+    RAISE EXCEPTION 'NEW_DUE_AT_REQUIRED';
+  END IF;
+
+  SELECT *
+  INTO v_task
+  FROM crm.tasks
+  WHERE id = p_task_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'TASK_NOT_FOUND';
+  END IF;
+
+  IF v_task.status IN ('completed', 'cancelled', 'skipped') THEN
+    RAISE EXCEPTION 'TASK_ALREADY_FINALIZED';
+  END IF;
+
+  v_previous_due_at := v_task.due_at;
+
+  UPDATE crm.tasks
+  SET
+    due_at = p_new_due_at,
+    status = 'in_progress',
+    updated_at = now(),
+    metadata = COALESCE(metadata, '{}'::jsonb)
+      || jsonb_build_object(
+        'last_rescheduled_at', now(),
+        'last_rescheduled_by_user_id', p_rescheduled_by_user_id,
+        'last_reschedule_reason', p_reason,
+        'previous_due_at', v_previous_due_at,
+        'new_due_at', p_new_due_at
+      )
+  WHERE id = p_task_id;
+
+  INSERT INTO crm.activities (
+    lead_id,
+    person_id,
+    object_id,
+    task_id,
+    activity_type,
+    activity_at,
+    performed_by_user_id,
+    summary,
+    outcome_code,
+    communication_basis,
+    metadata
+  )
+  VALUES (
+    v_task.lead_id,
+    v_task.person_id,
+    v_task.object_id,
+    v_task.id,
+    'note',
+    now(),
+    p_rescheduled_by_user_id,
+    'Task rescheduled',
+    NULL,
+    NULL,
+    COALESCE(p_metadata, '{}'::jsonb)
+      || jsonb_build_object(
+        'event_type', 'rescheduled',
+        'previous_due_at', v_previous_due_at,
+        'new_due_at', p_new_due_at,
+        'reason', p_reason
+      )
+  )
+  RETURNING id INTO v_activity_id;
+
+  INSERT INTO crm.task_relations (
+    lead_id,
+    from_kind,
+    from_id,
+    to_kind,
+    to_id,
+    relation_type,
+    metadata,
+    created_by
+  )
+  VALUES (
+    v_task.lead_id,
+    'task',
+    v_task.id,
+    'activity',
+    v_activity_id,
+    'follows',
+    jsonb_build_object('event_type', 'rescheduled'),
+    p_rescheduled_by_user_id
+  );
+
+  INSERT INTO crm.audit_events (
+    entity_type,
+    entity_id,
+    action_type,
+    source_type,
+    event_key,
+    event_name,
+    before_data,
+    after_data,
+    changed_fields,
+    actor_user_id,
+    reason,
+    metadata
+  )
+  VALUES (
+    'task',
+    v_task.id,
+    'update',
+    'manual',
+    'task_rescheduled',
+    'Task rescheduled',
+    jsonb_build_object(
+      'due_at', v_previous_due_at,
+      'status', v_task.status
+    ),
+    jsonb_build_object(
+      'due_at', p_new_due_at,
+      'status', 'in_progress'
+    ),
+    jsonb_build_array('due_at', 'status'),
+    p_rescheduled_by_user_id,
+    p_reason,
+    COALESCE(p_metadata, '{}'::jsonb)
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'task_id', v_task.id,
+    'activity_id', v_activity_id,
+    'previous_due_at', v_previous_due_at,
+    'new_due_at', p_new_due_at,
+    'status', 'in_progress'
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION crm.rpc_reschedule_task(
+  uuid,
+  timestamptz,
+  text,
+  uuid,
+  jsonb
+) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION crm.rpc_reschedule_task(
+  uuid,
+  timestamptz,
+  text,
+  uuid,
+  jsonb
+) TO authenticated, service_role;
