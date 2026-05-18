@@ -348,7 +348,7 @@ function PārskatsPage() {
               Darba rinda
             </Link>
             <Link
-              to="/leadi"
+              to="/darba-rinda"
               className="hidden rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent sm:inline-flex"
             >
               Leadi
@@ -387,14 +387,14 @@ function PārskatsPage() {
           <Section label="Galvenie rādītāji">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <HeroStat
-                to="/leadi"
+                to="/darba-rinda"
                 icon={<Users className="h-4 w-4" />}
                 label="Kopā leadi"
                 value={fmt(totalLeads)}
                 hint={`Kvalificēti: ${fmt(num(kpi.kvalificeti))}`}
               />
               <HeroStat
-                to="/leadi"
+                to="/darba-rinda"
                 icon={<Target className="h-4 w-4" />}
                 label="Kvalificēti"
                 value={fmt(num(kpi.kvalificeti))}
@@ -402,7 +402,7 @@ function PārskatsPage() {
                 accent="primary"
               />
               <HeroStat
-                to="/leadi"
+                to="/darba-rinda"
                 icon={<Trophy className="h-4 w-4" />}
                 label="Iegūti"
                 value={fmt(num(kpi.ieguti))}

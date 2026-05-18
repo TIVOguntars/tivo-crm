@@ -294,7 +294,7 @@ function LeadProfilePage() {
     } catch {
       /* ignore */
     }
-    navigate({ to: "/leadi", search: (prev ?? {}) as never });
+    navigate({ to: "/darba-rinda", search: (prev ?? {}) as never });
   };
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
