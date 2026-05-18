@@ -1033,7 +1033,6 @@ function CommunicationViewerModal({
         <DialogHeader className="sticky top-0 z-10 space-y-2 border-b border-border bg-background/95 px-5 py-4 pr-12 backdrop-blur">
           <div className="flex w-full items-center justify-between gap-3">
             <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold">
-              <Paperclip className="hidden" aria-hidden />
               <span className="truncate">{commQ.isLoading ? "Ielādē…" : subject}</span>
             </DialogTitle>
             <div className="flex shrink-0 items-center gap-2">
