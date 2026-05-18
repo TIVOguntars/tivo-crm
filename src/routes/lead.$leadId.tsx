@@ -980,10 +980,13 @@ function LeadProfilePage() {
                               </div>
                               {it.source === "task" && it.taskId && (
                                 <div onClick={(e) => e.stopPropagation()}>
-                                  <TaskActionsMenu
+                                   <TaskActionsMenu
                                     taskId={it.taskId}
                                     currentDueIso={it.scheduledIso}
-                                    onChanged={() => plannedActionsQ.refetch()}
+                                    onChanged={() => {
+                                      plannedActionsQ.refetch();
+                                      q.refetch();
+                                    }}
                                   />
                                 </div>
                               )}
