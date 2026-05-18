@@ -189,15 +189,15 @@ export function TaskFormDialog({
 
   // recent tasks for this lead (anchor picker)
   const recentTasksQuery = effectiveLeadId
-    ? `select=task_id,title,task_type,due_at,status&lead_id=eq.${effectiveLeadId}&order=due_at.desc&limit=50`
+    ? `select=id,title,task_type,due_at,completed_at,status&lead_id=eq.${effectiveLeadId}&order=due_at.desc.nullslast&limit=50`
     : undefined;
-  const recentTasks = useCrmView("v_tasks_queue_ui", recentTasksQuery);
+  const recentTasks = useCrmView("tasks", recentTasksQuery);
   const recentTaskRows = (recentTasks.data?.rows ?? []) as TaskRow[];
 
   // anchor task lookup for approval detection
   const anchorTask: TaskRow | undefined = useMemo(() => {
     if (relAnchorKind !== "task" || !relAnchorId) return undefined;
-    return recentTaskRows.find((r) => s(r.task_id) === relAnchorId);
+    return recentTaskRows.find((r) => s(r.id) === relAnchorId);
   }, [relAnchorKind, relAnchorId, recentTaskRows]);
 
   // Reset whenever dialog opens, and choose a sensible default type
@@ -273,7 +273,7 @@ export function TaskFormDialog({
       return { iso: "", error: "Nederīgs daudzums" };
     let anchorIso: string | undefined;
     if (relAnchorKind === "task") {
-      const t = recentTaskRows.find((r) => s(r.task_id) === relAnchorId);
+      const t = recentTaskRows.find((r) => s(r.id) === relAnchorId);
       if (!t) return { iso: "", error: "Atskaites uzdevums nav atrasts" };
       const field = relAnchorEvent === "completed_at" ? "completed_at" : "due_at";
       anchorIso = s((t as Record<string, unknown>)[field]);
@@ -870,7 +870,7 @@ export function TaskFormDialog({
                         <SelectTrigger><SelectValue placeholder="Izvēlies…" /></SelectTrigger>
                         <SelectContent>
                           {recentTaskRows.map((t) => (
-                            <SelectItem key={s(t.task_id)} value={s(t.task_id)}>
+                            <SelectItem key={s(t.id)} value={s(t.id)}>
                               [{s(t.task_type) || "—"}] {s(t.title) || "(bez nosaukuma)"}
                             </SelectItem>
                           ))}
@@ -949,7 +949,7 @@ export function TaskFormDialog({
                   );
                 })}
                 {recentTaskRows.slice(0, 10).map((t) => {
-                  const id = s(t.task_id);
+                  const id = s(t.id);
                   const k = `task:${id}`;
                   const checked = !!relatedIds[k];
                   return (
