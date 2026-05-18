@@ -207,7 +207,7 @@ function LeadProfilePage() {
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/darba-rinda">
+          <Link to="/leadi">
             <ArrowLeft className="mr-1 h-4 w-4" />
             Atpakaļ uz sarakstu
           </Link>
@@ -216,7 +216,7 @@ function LeadProfilePage() {
       </div>
 
       <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
-        Legacy skats. Jaunais CRM lead profile pieejams: <Link to="/darba-rinda" className="underline font-medium">atveriet no Leadi saraksta</Link>.
+        Legacy skats. Jaunais CRM lead profile pieejams: <Link to="/leadi" className="underline font-medium">atveriet no Leadi saraksta</Link>.
       </div>
 
       {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
