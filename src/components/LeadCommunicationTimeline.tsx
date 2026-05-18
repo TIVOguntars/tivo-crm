@@ -1031,9 +1031,33 @@ function CommunicationViewerModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden p-0 sm:rounded-lg">
         <DialogHeader className="sticky top-0 z-10 space-y-2 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
-          <DialogTitle className="pr-8 text-base font-semibold">
-            {commQ.isLoading ? "Ielādē…" : subject}
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-3">
+            <DialogTitle className="flex-1 pr-2 text-base font-semibold">
+              {commQ.isLoading ? "Ielādē…" : subject}
+            </DialogTitle>
+            <div className="flex shrink-0 items-center gap-2 pr-8">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleReply}
+                disabled={!comm || !replyTo}
+                title={replyTo ? "Atvērt noklusējuma e-pasta klientā" : "Nav saņēmēja adreses"}
+              >
+                <Reply className="h-3.5 w-3.5" />
+                Atbildēt
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleForward}
+                disabled={!comm}
+                title="Atvērt noklusējuma e-pasta klientā"
+              >
+                <Forward className="h-3.5 w-3.5" />
+                Pārsūtīt
+              </Button>
+            </div>
+          </div>
           {!commQ.isLoading && comm && (
             <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {fromAddress && (
