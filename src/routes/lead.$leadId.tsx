@@ -16,6 +16,8 @@ import {
   CheckSquare,
   ArrowDownLeft,
   ArrowUpRight,
+  Reply,
+  Forward,
   Star,
 } from "lucide-react";
 
@@ -38,6 +40,7 @@ import {
 import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
