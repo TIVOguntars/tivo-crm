@@ -389,7 +389,11 @@ function LeadProfilePage() {
   const showRecommendedStatus =
     !!recommendedStatus &&
     recommendedStatus.toLowerCase() !== leadStatus.toLowerCase();
-  const priorityStars = Math.max(0, Math.min(5, Math.round(priorityScore / 20)));
+  // Same formula as /leadi PriorityCell — keep them in sync.
+  const priorityStars =
+    priorityScore <= 0
+      ? 0
+      : Math.max(1, Math.min(5, Math.floor(priorityScore / 20) + 1));
   const leadTags = (() => {
     const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
     if (!t) return "";
