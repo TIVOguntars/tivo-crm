@@ -1079,12 +1079,39 @@ function LeadProfilePage() {
                   : "";
                 return (
                   <>
-                    <div className="shrink-0 border-b bg-background p-6 pb-3">
-                      <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-base">
-                        {isNote ? <StickyNote className="h-4 w-4" /> : channelIcon(ch)}
-                        <span className="truncate">{subject}</span>
-                      </DialogTitle>
+                    <div className="sticky top-0 z-50 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <div className="min-w-0 flex-1">
+                            <DialogTitle className="flex items-center gap-2 text-base">
+                              {isNote ? <StickyNote className="h-4 w-4 shrink-0" /> : channelIcon(ch)}
+                              <span className="truncate">{subject}</span>
+                            </DialogTitle>
+                          </div>
+                          {!isNote && isEmail && (
+                            <div className="relative z-50 flex shrink-0 items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={handleReply}
+                                disabled={!replyTo}
+                                className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60 disabled:text-white"
+                              >
+                                <Reply className="h-3.5 w-3.5" />
+                                Atbildēt
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleForward}
+                                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                              >
+                                <Forward className="h-3.5 w-3.5" />
+                                Pārsūtīt
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                       {!isNote && <Field label="Kanāls" value={fmt(ch)} />}
