@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  Mail,
+  Reply,
+  Phone,
+  Video,
+  MessageSquare,
+  MessageCircle,
+  AlertTriangle,
+  Info,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,25 +30,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { callCrmRpc } from "@/server/analytics";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useTaskTypes } from "@/hooks/useTaskTypes";
+import {
+  taskMetaSchemas,
+  type TaskTypeKey,
+  type TaskTypeRow,
+  type RelativeAnchorKind,
+  type RelativeUnit,
+  type RelatedActivityRef,
+} from "@/lib/taskTypes";
 
 type Priority = "low" | "normal" | "high";
-type TaskType = "follow_up" | "call" | "email" | "review" | "custom";
-
-const TASK_TYPES: { value: TaskType; label: string }[] = [
-  { value: "follow_up", label: "Sekošana" },
-  { value: "call", label: "Zvans" },
-  { value: "email", label: "E-pasts" },
-  { value: "review", label: "Pārskats" },
-  { value: "custom", label: "Cits" },
-];
 
 const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "low", label: "Zema" },
   { value: "normal", label: "Normāla" },
   { value: "high", label: "Augsta" },
 ];
+
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  mail: Mail,
+  reply: Reply,
+  phone: Phone,
+  video: Video,
+  "message-square": MessageSquare,
+  "message-circle": MessageCircle,
+};
+
+function TypeIcon({ keyName, className }: { keyName: string | null; className?: string }) {
+  const Cmp = (keyName && ICONS[keyName]) || Mail;
+  return <Cmp className={className ?? "h-3.5 w-3.5"} />;
+}
 
 function defaultDueLocal(): string {
   const d = new Date();
@@ -47,11 +73,35 @@ function defaultDueLocal(): string {
   return d.toISOString().slice(0, 16);
 }
 
-type LeadRow = Record<string, unknown>;
-
 function s(v: unknown): string {
   return v == null ? "" : String(v);
 }
+
+type LeadRow = Record<string, unknown>;
+type CommRow = Record<string, unknown>;
+type TaskRow = Record<string, unknown>;
+
+// ----- relative scheduling helpers -----
+function unitToMinutes(amount: number, unit: RelativeUnit): number {
+  if (unit === "minutes") return amount;
+  if (unit === "hours") return amount * 60;
+  return amount * 60 * 24;
+}
+
+function computeRelativeDue(
+  anchorIso: string,
+  direction: "before" | "after",
+  amount: number,
+  unit: RelativeUnit,
+): string | null {
+  const t = Date.parse(anchorIso);
+  if (Number.isNaN(t)) return null;
+  const sign = direction === "before" ? -1 : 1;
+  const ms = sign * unitToMinutes(amount, unit) * 60_000;
+  return new Date(t + ms).toISOString();
+}
+
+// ============================================================
 
 export function TaskFormDialog({
   leadId,
@@ -68,13 +118,43 @@ export function TaskFormDialog({
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [taskType, setTaskType] = useState<TaskType>("follow_up");
+
+  const tt = useTaskTypes();
+
+  // form state
+  const [taskType, setTaskType] = useState<TaskTypeKey>("call");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [dueLocal, setDueLocal] = useState<string>(defaultDueLocal());
   const [priority, setPriority] = useState<Priority>("normal");
 
-  // Lead picker (only when leadId not provided)
+  // type-specific metadata fields (kept loose; serialized per type)
+  const [recipient, setRecipient] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [templateKey, setTemplateKey] = useState("");
+  const [signatureKey, setSignatureKey] = useState("");
+  const [phoneE164, setPhoneE164] = useState("");
+  const [agenda, setAgenda] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState<string>("30");
+  const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
+
+  // scheduling
+  const [scheduleMode, setScheduleMode] = useState<"absolute" | "relative">("absolute");
+  const [dueLocal, setDueLocal] = useState<string>(defaultDueLocal());
+  const [relDirection, setRelDirection] = useState<"before" | "after">("after");
+  const [relAmount, setRelAmount] = useState<string>("1");
+  const [relUnit, setRelUnit] = useState<RelativeUnit>("hours");
+  const [relAnchorKind, setRelAnchorKind] = useState<RelativeAnchorKind>("task");
+  const [relAnchorId, setRelAnchorId] = useState<string>("");
+  const [relAnchorEvent, setRelAnchorEvent] = useState<string>("due_at");
+  const [relDynamicRecalc, setRelDynamicRecalc] = useState(true);
+  const [relCancelWithAnchor, setRelCancelWithAnchor] = useState(true);
+
+  // related activities (metadata only)
+  const [relatedIds, setRelatedIds] = useState<Record<string, RelatedActivityRef>>({});
+
+  // lead picker (only when leadId not provided)
   const [leadQuery, setLeadQuery] = useState("");
   const [pickedLeadId, setPickedLeadId] = useState<string>("");
   const [pickedLeadLabel, setPickedLeadLabel] = useState<string>("");
@@ -93,49 +173,278 @@ export function TaskFormDialog({
     ].join(",");
     return `select=lead_id,display_name,contact_full_name,email_normalized&or=(${or})&limit=10`;
   }, [needsPicker, trimmedQuery]);
-
-  const leadsResult = useCrmView(
-    "leads_list_display",
-    leadSearchQuery,
-  );
+  const leadsResult = useCrmView("leads_list_display", leadSearchQuery);
   const leadResults: LeadRow[] = needsPicker && leadSearchQuery
     ? ((leadsResult.data?.rows ?? []) as LeadRow[])
     : [];
 
   const effectiveLeadId = leadId ?? pickedLeadId;
 
-  // Reset form whenever dialog opens
+  // outbound emails for this lead (reply target + related)
+  const outboundEmailsQuery = effectiveLeadId
+    ? `select=id,subject,sent_at,created_at,direction,channel&lead_id=eq.${effectiveLeadId}&channel=eq.email&direction=eq.outbound&order=created_at.desc&limit=50`
+    : undefined;
+  const outboundEmails = useCrmView("communications", outboundEmailsQuery);
+  const outboundEmailRows = (outboundEmails.data?.rows ?? []) as CommRow[];
+
+  // recent tasks for this lead (anchor picker)
+  const recentTasksQuery = effectiveLeadId
+    ? `select=task_id,title,task_type,due_at,status&lead_id=eq.${effectiveLeadId}&order=due_at.desc&limit=50`
+    : undefined;
+  const recentTasks = useCrmView("v_tasks_queue_ui", recentTasksQuery);
+  const recentTaskRows = (recentTasks.data?.rows ?? []) as TaskRow[];
+
+  // anchor task lookup for approval detection
+  const anchorTask: TaskRow | undefined = useMemo(() => {
+    if (relAnchorKind !== "task" || !relAnchorId) return undefined;
+    return recentTaskRows.find((r) => s(r.task_id) === relAnchorId);
+  }, [relAnchorKind, relAnchorId, recentTaskRows]);
+
+  // Reset whenever dialog opens, and choose a sensible default type
   useEffect(() => {
-    if (open) {
-      setTaskType("follow_up");
-      setTitle("");
-      setDescription("");
-      setDueLocal(defaultDueLocal());
-      setPriority("normal");
-      setLeadQuery("");
-      setPickedLeadId("");
-      setPickedLeadLabel("");
-    }
+    if (!open) return;
+    const first = tt.rows[0]?.type_key as TaskTypeKey | undefined;
+    setTaskType((first ?? "call") as TaskTypeKey);
+    setTitle("");
+    setDescription("");
+    setPriority("normal");
+    setRecipient("");
+    setSubject("");
+    setBody("");
+    setTemplateKey("");
+    setSignatureKey("");
+    setPhoneE164("");
+    setAgenda("");
+    setMeetingUrl("");
+    setDurationMinutes("30");
+    setReplyToCommunicationId("");
+    setScheduleMode("absolute");
+    setDueLocal(defaultDueLocal());
+    setRelDirection("after");
+    setRelAmount("1");
+    setRelUnit("hours");
+    setRelAnchorKind("task");
+    setRelAnchorId("");
+    setRelAnchorEvent("due_at");
+    setRelDynamicRecalc(true);
+    setRelCancelWithAnchor(true);
+    setRelatedIds({});
+    setLeadQuery("");
+    setPickedLeadId("");
+    setPickedLeadLabel("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const canSubmit =
-    !busy &&
-    !!effectiveLeadId &&
-    !!title.trim() &&
-    !!dueLocal &&
-    !!taskType;
+  const currentTypeRow: TaskTypeRow | undefined = tt.get(taskType);
+
+  // anchor-event options based on kind
+  const anchorEventOptions = useMemo(() => {
+    if (relAnchorKind === "task") return [
+      { value: "due_at", label: "Termiņš (due_at)" },
+      { value: "completed_at", label: "Pabeigts (completed_at)" },
+    ];
+    if (relAnchorKind === "communication") return [
+      { value: "sent_at", label: "Nosūtīts (sent_at)" },
+      { value: "received_at", label: "Saņemts (received_at)" },
+    ];
+    return [{ value: "occurred_at", label: "Notikuma laiks" }];
+  }, [relAnchorKind]);
+
+  // Approval banner detection: anchor is call/zoom task AND new task mode = automatic
+  const triggersApproval = useMemo(() => {
+    if (scheduleMode !== "relative") return false;
+    if (relAnchorKind !== "task" || !anchorTask) return false;
+    const anchorType = s(anchorTask.task_type);
+    if (anchorType !== "call" && anchorType !== "zoom") return false;
+    return currentTypeRow?.mode === "automatic";
+  }, [scheduleMode, relAnchorKind, anchorTask, currentTypeRow]);
+
+  // resolve final due_at ISO from scheduling state
+  function resolveDueIso(): { iso: string; error?: string } {
+    if (scheduleMode === "absolute") {
+      const d = new Date(dueLocal);
+      if (Number.isNaN(d.getTime())) return { iso: "", error: "Nederīgs termiņš" };
+      return { iso: d.toISOString() };
+    }
+    // relative
+    if (!relAnchorId) return { iso: "", error: "Izvēlies atskaites uzdevumu" };
+    const amount = Number(relAmount);
+    if (!Number.isFinite(amount) || amount <= 0)
+      return { iso: "", error: "Nederīgs daudzums" };
+    let anchorIso: string | undefined;
+    if (relAnchorKind === "task") {
+      const t = recentTaskRows.find((r) => s(r.task_id) === relAnchorId);
+      if (!t) return { iso: "", error: "Atskaites uzdevums nav atrasts" };
+      const field = relAnchorEvent === "completed_at" ? "completed_at" : "due_at";
+      anchorIso = s((t as Record<string, unknown>)[field]);
+    } else if (relAnchorKind === "communication") {
+      const c = outboundEmailRows.find((r) => s(r.id) === relAnchorId);
+      if (!c) return { iso: "", error: "Atskaites komunikācija nav atrasta" };
+      const field = relAnchorEvent === "received_at" ? "received_at" : "sent_at";
+      anchorIso = s((c as Record<string, unknown>)[field] ?? c.created_at);
+    }
+    if (!anchorIso) return { iso: "", error: "Atskaites punkta laiks nav iestatīts" };
+    const due = computeRelativeDue(anchorIso, relDirection, amount, relUnit);
+    if (!due) return { iso: "", error: "Nevarēja aprēķināt termiņu" };
+    if (Date.parse(due) <= Date.now())
+      return { iso: "", error: "Aprēķinātais termiņš ir pagātnē" };
+    return { iso: due };
+  }
+
+  // ----- build the per-type metadata payload -----
+  function buildTypeMeta(): { meta: Record<string, unknown>; error?: string } {
+    const key = taskType;
+    let payload: Record<string, unknown> = {};
+    switch (key) {
+      case "automatic_email":
+        payload = {
+          channel: "email",
+          mode: "automatic",
+          recipient: recipient.trim(),
+          subject: subject.trim(),
+          body: body.trim(),
+          template_key: templateKey.trim() || null,
+          signature_key: signatureKey.trim() || null,
+        };
+        break;
+      case "automatic_reply_email":
+        payload = {
+          channel: "email",
+          mode: "automatic",
+          in_reply_to_communication_id: replyToCommunicationId,
+          subject: subject.trim(),
+          body: body.trim(),
+          signature_key: signatureKey.trim() || null,
+          reply_match: {
+            primary: "original_recipient_email",
+            fallback: "lead_contact_emails",
+          },
+        };
+        break;
+      case "manual_email":
+        payload = {
+          channel: "email",
+          mode: "manual",
+          recipient: recipient.trim(),
+          subject: subject.trim(),
+          body: body.trim(),
+          proof: { required: true, accept: ["crm_send", "imap_reconcile", "manual_link"] },
+        };
+        break;
+      case "call":
+        payload = {
+          channel: "call",
+          mode: "human",
+          phone_e164: phoneE164.trim(),
+          agenda: agenda.trim() || null,
+        };
+        break;
+      case "zoom":
+        payload = {
+          channel: "zoom",
+          mode: "human",
+          meeting_url: meetingUrl.trim(),
+          duration_minutes: Number(durationMinutes) || null,
+          agenda: agenda.trim() || null,
+        };
+        break;
+      case "automatic_sms":
+        payload = {
+          channel: "sms",
+          mode: "automatic",
+          recipient: recipient.trim(),
+          body: body.trim(),
+          template_key: templateKey.trim() || null,
+        };
+        break;
+      case "manual_sms":
+        payload = {
+          channel: "sms",
+          mode: "manual",
+          recipient: recipient.trim(),
+          body: body.trim(),
+          proof: { required: true, accept: ["crm_send", "manual_link", "manual_marked"] },
+        };
+        break;
+      case "automatic_whatsapp":
+        payload = {
+          channel: "whatsapp",
+          mode: "automatic",
+          recipient: recipient.trim(),
+          body: body.trim(),
+          template_key: templateKey.trim() || null,
+        };
+        break;
+      case "manual_whatsapp":
+        payload = {
+          channel: "whatsapp",
+          mode: "manual",
+          recipient: recipient.trim(),
+          body: body.trim(),
+          proof: { required: true, accept: ["crm_send", "manual_link", "manual_marked"] },
+        };
+        break;
+    }
+    const schema = taskMetaSchemas[key];
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { meta: payload, error: issue?.message ?? "Nederīgi lauki" };
+    }
+    return { meta: payload };
+  }
+
+  const canSubmit = !busy && !!effectiveLeadId && !!title.trim();
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    let iso: string;
-    try {
-      const d = new Date(dueLocal);
-      if (Number.isNaN(d.getTime())) throw new Error("invalid");
-      iso = d.toISOString();
-    } catch {
-      toast.error("Nederīgs termiņš");
+    const due = resolveDueIso();
+    if (due.error) {
+      toast.error(due.error);
       return;
     }
+    const typed = buildTypeMeta();
+    if (typed.error) {
+      toast.error(typed.error);
+      return;
+    }
+
+    // assemble envelope
+    const relativeTo =
+      scheduleMode === "relative"
+        ? {
+            anchor_kind: relAnchorKind,
+            anchor_id: relAnchorId,
+            anchor_event: relAnchorEvent,
+            offset_minutes:
+              (relDirection === "before" ? -1 : 1) *
+              unitToMinutes(Number(relAmount), relUnit),
+            dynamic_recalc: relDynamicRecalc,
+            cancel_with_anchor: relCancelWithAnchor,
+          }
+        : null;
+
+    const related = Object.values(relatedIds);
+
+    const approval = triggersApproval
+      ? {
+          actor_source: "anchor_task_owner" as const,
+          anchor_task_id: relAnchorId,
+        }
+      : null;
+
+    const metadata: Record<string, unknown> = {
+      source: "manual_ui",
+      task_type: taskType,
+      ...typed.meta,
+      ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+      ...(relativeTo ? { relative_to: relativeTo } : {}),
+      ...(related.length ? { related_activities: related } : {}),
+      ...(approval
+        ? { requires_approval: true, approval }
+        : { requires_approval: false }),
+    };
+
     setBusy(true);
     try {
       const res = await callCrmRpc({
@@ -144,17 +453,14 @@ export function TaskFormDialog({
           params: {
             p_lead_id: effectiveLeadId,
             p_task_type: taskType,
-            p_due_at: iso,
+            p_due_at: due.iso,
             p_title: title.trim(),
             p_description: description.trim() || null,
             p_assigned_user_id: null,
             p_required_role: null,
             p_workflow_instance_id: null,
             p_parent_task_id: null,
-            p_metadata: {
-              source: "manual_ui",
-              ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
-            },
+            p_metadata: metadata,
             p_is_auto_created: false,
             p_priority: priority,
           },
@@ -175,9 +481,33 @@ export function TaskFormDialog({
     }
   };
 
+  function toggleRelated(ref: RelatedActivityRef) {
+    setRelatedIds((prev) => {
+      const next = { ...prev };
+      const k = `${ref.kind}:${ref.id}`;
+      if (next[k]) delete next[k];
+      else next[k] = ref;
+      return next;
+    });
+  }
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
+  const showRecipient =
+    currentTypeRow?.channel === "email" ||
+    currentTypeRow?.channel === "sms" ||
+    currentTypeRow?.channel === "whatsapp";
+  const showRecipientForCurrent =
+    showRecipient && taskType !== "automatic_reply_email";
+  const showSubject = !!currentTypeRow?.requires_subject;
+  const showBody = !!currentTypeRow?.requires_body;
+  const isAutomatic = currentTypeRow?.mode === "automatic";
+
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Jauns uzdevums</DialogTitle>
         </DialogHeader>
@@ -213,13 +543,9 @@ export function TaskFormDialog({
                   {trimmedQuery.length >= 2 && (
                     <div className="max-h-40 overflow-y-auto rounded-md border border-border">
                       {leadsResult.isLoading ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
-                          Meklē…
-                        </div>
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Meklē…</div>
                       ) : leadResults.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
-                          Nav rezultātu
-                        </div>
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Nav rezultātu</div>
                       ) : (
                         leadResults.map((r) => {
                           const id = s(r.lead_id);
@@ -239,12 +565,6 @@ export function TaskFormDialog({
                               }}
                             >
                               {label}
-                              {s(r.email_normalized) &&
-                              s(r.email_normalized) !== label ? (
-                                <span className="ml-2 text-muted-foreground">
-                                  {s(r.email_normalized)}
-                                </span>
-                              ) : null}
                             </button>
                           );
                         })
@@ -256,90 +576,424 @@ export function TaskFormDialog({
             </div>
           )}
 
+          {/* Task type */}
           <div className="space-y-1.5">
-            <Label htmlFor="task-type">Tips</Label>
-            <Select value={taskType} onValueChange={(v) => setTaskType(v as TaskType)}>
+            <Label htmlFor="task-type">Tips *</Label>
+            <Select
+              value={taskType}
+              onValueChange={(v) => setTaskType(v as TaskTypeKey)}
+              disabled={tt.isLoading || tt.rows.length === 0}
+            >
               <SelectTrigger id="task-type">
-                <SelectValue />
+                <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
               </SelectTrigger>
               <SelectContent>
-                {TASK_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {tt.rows.map((t) => (
+                  <SelectItem key={t.type_key} value={t.type_key}>
+                    <span className="inline-flex items-center gap-2">
+                      <TypeIcon keyName={t.icon_key} />
+                      {t.label_lv}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Title */}
           <div className="space-y-1.5">
             <Label htmlFor="task-title">Virsraksts *</Label>
             <Input
               id="task-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Piem. Atzvanīt klientam"
+              placeholder={currentTypeRow?.label_lv ?? "Virsraksts"}
               maxLength={200}
             />
           </div>
 
+          {/* Type-specific fields */}
+          <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+            {showRecipientForCurrent && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-recipient">
+                  {currentTypeRow?.channel === "email" ? "Saņēmēja e-pasts *" : "Saņēmēja tālrunis *"}
+                </Label>
+                <Input
+                  id="task-recipient"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder={currentTypeRow?.channel === "email" ? "klients@piemers.lv" : "+371…"}
+                />
+              </div>
+            )}
+
+            {taskType === "automatic_reply_email" && (
+              <div className="space-y-1.5">
+                <Label>Atbildēt uz izejošo e-pastu *</Label>
+                {!effectiveLeadId ? (
+                  <p className="text-xs text-muted-foreground">Vispirms izvēlies lead.</p>
+                ) : outboundEmails.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Ielādē e-pastus…</p>
+                ) : outboundEmailRows.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Šim lead nav izejošu e-pastu.</p>
+                ) : (
+                  <Select
+                    value={replyToCommunicationId}
+                    onValueChange={(v) => {
+                      setReplyToCommunicationId(v);
+                      const target = outboundEmailRows.find((c) => s(c.id) === v);
+                      if (target && !subject) setSubject(`Re: ${s(target.subject)}`);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Izvēlies…" /></SelectTrigger>
+                    <SelectContent>
+                      {outboundEmailRows.slice(0, 50).map((c) => (
+                        <SelectItem key={s(c.id)} value={s(c.id)}>
+                          {s(c.subject) || "(bez tēmas)"} — {s(c.sent_at ?? c.created_at).slice(0, 10)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {showSubject && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-subject">Tēma *</Label>
+                <Input
+                  id="task-subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  maxLength={250}
+                />
+              </div>
+            )}
+
+            {showBody && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-body">Saturs *</Label>
+                <Textarea
+                  id="task-body"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={4}
+                  maxLength={4000}
+                />
+                {(currentTypeRow?.channel === "sms") && (
+                  <p className="text-[10px] text-muted-foreground">{body.length} / 160 rakstzīmes</p>
+                )}
+              </div>
+            )}
+
+            {(taskType === "automatic_email" ||
+              taskType === "automatic_sms" ||
+              taskType === "automatic_whatsapp") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-template">Veidne (template_key)</Label>
+                <Input
+                  id="task-template"
+                  value={templateKey}
+                  onChange={(e) => setTemplateKey(e.target.value)}
+                  placeholder="Neobligāts"
+                />
+              </div>
+            )}
+
+            {(taskType === "automatic_email" || taskType === "automatic_reply_email") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-signature">Paraksts (signature_key)</Label>
+                <Input
+                  id="task-signature"
+                  value={signatureKey}
+                  onChange={(e) => setSignatureKey(e.target.value)}
+                  placeholder="Neobligāts"
+                />
+              </div>
+            )}
+
+            {taskType === "call" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-phone">Tālrunis *</Label>
+                  <Input
+                    id="task-phone"
+                    value={phoneE164}
+                    onChange={(e) => setPhoneE164(e.target.value)}
+                    placeholder="+371…"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-agenda">Saruna par</Label>
+                  <Textarea
+                    id="task-agenda"
+                    value={agenda}
+                    onChange={(e) => setAgenda(e.target.value)}
+                    rows={2}
+                    placeholder="Neobligāts"
+                  />
+                </div>
+              </>
+            )}
+
+            {taskType === "zoom" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-zoom-url">Zoom saite *</Label>
+                  <Input
+                    id="task-zoom-url"
+                    value={meetingUrl}
+                    onChange={(e) => setMeetingUrl(e.target.value)}
+                    placeholder="https://zoom.us/j/…"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="task-zoom-duration">Ilgums (min)</Label>
+                    <Input
+                      id="task-zoom-duration"
+                      type="number"
+                      min={5}
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-zoom-agenda">Sarunas mērķis</Label>
+                  <Textarea
+                    id="task-zoom-agenda"
+                    value={agenda}
+                    onChange={(e) => setAgenda(e.target.value)}
+                    rows={2}
+                    placeholder="Neobligāts"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="task-desc">Apraksts</Label>
+            <Label htmlFor="task-desc">Iekšējās piezīmes</Label>
             <Textarea
               id="task-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Neobligāts"
-              rows={3}
+              rows={2}
               maxLength={2000}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="task-due">Termiņš *</Label>
-              <Input
-                id="task-due"
-                type="datetime-local"
-                value={dueLocal}
-                onChange={(e) => setDueLocal(e.target.value)}
-              />
+          {/* Scheduling */}
+          <div className="space-y-2">
+            <Label>Termiņš *</Label>
+            <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="absolute">Absolūts</TabsTrigger>
+                <TabsTrigger value="relative">Relatīvs</TabsTrigger>
+              </TabsList>
+              <TabsContent value="absolute" className="space-y-1.5">
+                <Input
+                  id="task-due"
+                  type="datetime-local"
+                  value={dueLocal}
+                  onChange={(e) => setDueLocal(e.target.value)}
+                />
+              </TabsContent>
+              <TabsContent value="relative" className="space-y-3">
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>Automātiska pārrēķināšana tiks aktivizēta nākamajā fāzē.</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Select value={relDirection} onValueChange={(v) => setRelDirection(v as "before" | "after")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="before">Pirms</SelectItem>
+                      <SelectItem value="after">Pēc</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={relAmount}
+                    onChange={(e) => setRelAmount(e.target.value)}
+                  />
+                  <Select value={relUnit} onValueChange={(v) => setRelUnit(v as RelativeUnit)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minutes">min</SelectItem>
+                      <SelectItem value="hours">h</SelectItem>
+                      <SelectItem value="days">d</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={relAnchorKind}
+                    onValueChange={(v) => {
+                      const k = v as RelativeAnchorKind;
+                      setRelAnchorKind(k);
+                      setRelAnchorId("");
+                      setRelAnchorEvent(k === "task" ? "due_at" : k === "communication" ? "sent_at" : "occurred_at");
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="task">Uzdevums</SelectItem>
+                      <SelectItem value="communication">Izejošs e-pasts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={relAnchorEvent} onValueChange={setRelAnchorEvent}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {anchorEventOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Atskaites punkts *</Label>
+                  {!effectiveLeadId ? (
+                    <p className="text-xs text-muted-foreground">Vispirms izvēlies lead.</p>
+                  ) : relAnchorKind === "task" ? (
+                    recentTasks.isLoading ? (
+                      <p className="text-xs text-muted-foreground">Ielādē uzdevumus…</p>
+                    ) : recentTaskRows.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Šim lead nav uzdevumu.</p>
+                    ) : (
+                      <Select value={relAnchorId} onValueChange={setRelAnchorId}>
+                        <SelectTrigger><SelectValue placeholder="Izvēlies…" /></SelectTrigger>
+                        <SelectContent>
+                          {recentTaskRows.map((t) => (
+                            <SelectItem key={s(t.task_id)} value={s(t.task_id)}>
+                              [{s(t.task_type) || "—"}] {s(t.title) || "(bez nosaukuma)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  ) : outboundEmails.isLoading ? (
+                    <p className="text-xs text-muted-foreground">Ielādē e-pastus…</p>
+                  ) : outboundEmailRows.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nav izejošu e-pastu.</p>
+                  ) : (
+                    <Select value={relAnchorId} onValueChange={setRelAnchorId}>
+                      <SelectTrigger><SelectValue placeholder="Izvēlies…" /></SelectTrigger>
+                      <SelectContent>
+                        {outboundEmailRows.map((c) => (
+                          <SelectItem key={s(c.id)} value={s(c.id)}>
+                            {s(c.subject) || "(bez tēmas)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={relDynamicRecalc}
+                      onCheckedChange={(v) => setRelDynamicRecalc(!!v)}
+                    />
+                    Dinamiska pārrēķināšana (Phase 2)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={relCancelWithAnchor}
+                      onCheckedChange={(v) => setRelCancelWithAnchor(!!v)}
+                    />
+                    Atcelt kopā ar atskaites punktu (Phase 2)
+                  </label>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Approval banner */}
+          {triggersApproval && (
+            <div className="flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>Šim uzdevumam būs nepieciešams apstiprinājums nākamajā fāzē.</span>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-priority">Prioritāte</Label>
-              <Select
-                value={priority}
-                onValueChange={(v) => setPriority(v as Priority)}
-              >
-                <SelectTrigger id="task-priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          )}
+
+          {/* Related activities */}
+          {effectiveLeadId && (outboundEmailRows.length > 0 || recentTaskRows.length > 0) && (
+            <details className="rounded-md border border-border p-3">
+              <summary className="text-sm cursor-pointer select-none">Saistītās aktivitātes (neobligāti)</summary>
+              <div className="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
+                {outboundEmailRows.slice(0, 10).map((c) => {
+                  const id = s(c.id);
+                  const k = `communication:${id}`;
+                  const checked = !!relatedIds[k];
+                  return (
+                    <label key={k} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() =>
+                          toggleRelated({
+                            kind: "communication",
+                            id,
+                            role: "context",
+                            label: s(c.subject),
+                          })
+                        }
+                      />
+                      <span className="truncate">E-pasts: {s(c.subject) || "(bez tēmas)"}</span>
+                    </label>
+                  );
+                })}
+                {recentTaskRows.slice(0, 10).map((t) => {
+                  const id = s(t.task_id);
+                  const k = `task:${id}`;
+                  const checked = !!relatedIds[k];
+                  return (
+                    <label key={k} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() =>
+                          toggleRelated({
+                            kind: "task",
+                            id,
+                            role: "context",
+                            label: s(t.title),
+                          })
+                        }
+                      />
+                      <span className="truncate">Uzd.: {s(t.title) || "(bez nosaukuma)"}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+
+          {/* Priority */}
+          <div className="space-y-1.5">
+            <Label htmlFor="task-priority">Prioritāte</Label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+              <SelectTrigger id="task-priority">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Atcelt
           </Button>
-          <Button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
-          >
+          <Button type="button" onClick={() => void handleSubmit()} disabled={!canSubmit}>
             {busy ? "Saglabā…" : "Izveidot"}
           </Button>
         </DialogFooter>
