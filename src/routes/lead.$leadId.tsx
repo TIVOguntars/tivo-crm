@@ -24,6 +24,7 @@ import {
 
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
+import { CompleteActionModal } from "@/components/CompleteActionModal";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
@@ -490,6 +491,7 @@ function LeadProfilePage() {
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
+  const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -848,6 +850,7 @@ function LeadProfilePage() {
                   key: string;
                   source: string;
                   queueId?: string;
+                  taskId?: string;
                   title: string;
                   subtitle?: string;
                   responsible: string;
@@ -911,6 +914,7 @@ function LeadProfilePage() {
                     items.push({
                       key: `t:${id}`,
                       source,
+                      taskId: id,
                       title: fmt(r.title),
                       subtitle: fmt(r.kind) !== NA ? fmt(r.kind) : undefined,
                       responsible: "",
@@ -940,7 +944,9 @@ function LeadProfilePage() {
                     ) : (
                       <ul className="divide-y">
                         {items.map((it) => {
-                          const clickable = it.source === "queue" && !!it.queueId;
+                          const clickable =
+                            (it.source === "queue" && !!it.queueId) ||
+                            (it.source === "task" && !!it.taskId);
                           const rowBody = (
                             <div className="flex items-start justify-between gap-3 py-2 w-full">
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
@@ -980,7 +986,10 @@ function LeadProfilePage() {
                                 <button
                                   type="button"
                                   className={itemClasses}
-                                  onClick={() => setEditQueueId(it.queueId!)}
+                                  onClick={() => {
+                                    if (it.source === "queue") setEditQueueId(it.queueId!);
+                                    else if (it.source === "task") setCompleteTaskId(it.taskId!);
+                                  }}
                                 >
                                   {rowBody}
                                 </button>
@@ -1372,6 +1381,20 @@ function LeadProfilePage() {
               setEditQueueId(null);
               plannedActionsQ.refetch();
               queueTemplatesQ.refetch();
+            }}
+          />
+
+          <CompleteActionModal
+            open={!!completeTaskId}
+            onOpenChange={(o) => !o && setCompleteTaskId(null)}
+            leadId={leadId}
+            taskId={completeTaskId}
+            defaultOwner=""
+            isHumanPrimary={false}
+            visibleAction=""
+            onCompleted={() => {
+              setCompleteTaskId(null);
+              plannedActionsQ.refetch();
             }}
           />
         </>
