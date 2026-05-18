@@ -215,6 +215,10 @@ function LeadProfilePage() {
         <span className="text-xs text-muted-foreground">Lead ID: {leadId}</span>
       </div>
 
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+        Legacy skats. Jaunais CRM lead profile pieejams: <Link to="/leadi" className="underline font-medium">atveriet no Leadi saraksta</Link>.
+      </div>
+
       {q.isLoading && <LoadingState label="Ielādē lead profilu..." />}
       {!q.isLoading && rpcError && <ErrorState message={rpcError} />}
 
