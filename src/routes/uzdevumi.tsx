@@ -272,6 +272,7 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Filter: only show human-action rows. Exclude system/automation rows
@@ -576,7 +577,12 @@ function QueuePage() {
       <PageHeader
         title="Uzdevumi"
         description="Nākamās darbības ar leadiem"
-      />
+      >
+        <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          Uzdevums
+        </Button>
+      </PageHeader>
 
       <div className="mb-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {dueChips.map((c) => (
