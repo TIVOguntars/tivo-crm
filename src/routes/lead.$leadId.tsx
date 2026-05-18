@@ -1355,8 +1355,7 @@ function LeadProfilePage() {
                   ) ?? null)
                 : null
             }
-            onOpenChange={(o) => !o && setEditQueueId(null)}
-            // typed below
+            onOpenChange={(o: boolean) => !o && setEditQueueId(null)}
             onSaved={() => {
               setEditQueueId(null);
               plannedActionsQ.refetch();
