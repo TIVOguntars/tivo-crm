@@ -23,31 +23,48 @@ export function AuthGate({ children }: AuthGateProps) {
   const [hydrated, setHydrated] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function ensureSupabaseSession() {
+  async function ensureSupabaseSession(): Promise<boolean> {
     try {
       const { data } = await supabase.auth.getSession();
-      if (data.session) return;
-      const { error } = await supabase.auth.signInAnonymously();
-      if (error) {
-        console.error("[auth] anonymous sign-in failed", error.message);
+      if (data.session) return true;
+      const { data: signed, error } = await supabase.auth.signInAnonymously();
+      if (error || !signed.session) {
+        console.error("[auth] anonymous sign-in failed", error?.message);
+        return false;
       }
+      return true;
     } catch (e) {
       console.error("[auth] ensureSupabaseSession", e);
+      return false;
     }
   }
 
   // Initial session check after mount
   useEffect(() => {
-    setHydrated(true);
-    const valid = isSessionValid();
-    setAuthed(valid);
-    if (valid) {
-      void ensureSupabaseSession();
-    } else {
-      clearAuth();
-    }
+    let cancelled = false;
+    (async () => {
+      const valid = isSessionValid();
+      if (!valid) {
+        clearAuth();
+        if (!cancelled) setHydrated(true);
+        return;
+      }
+      const ok = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (ok) {
+        setAuthed(true);
+      } else {
+        clearAuth();
+        setError("Neizdevās atjaunot sesiju. Pieslēdzies vēlreiz.");
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -92,17 +109,24 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, [authed, handleLogout]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (checkPassword(password)) {
-      setAuthenticated();
-      setAuthed(true);
-      setError(null);
-      setPassword("");
-      void ensureSupabaseSession();
-    } else {
+    if (!checkPassword(password)) {
       setError("Nepareiza parole");
+      return;
     }
+    setSubmitting(true);
+    const ok = await ensureSupabaseSession();
+    if (!ok) {
+      setSubmitting(false);
+      setError("Neizdevās izveidot sesiju. Mēģini vēlreiz.");
+      return;
+    }
+    setAuthenticated();
+    setAuthed(true);
+    setError(null);
+    setPassword("");
+    setSubmitting(false);
   };
 
   // Render nothing meaningful until client hydration to keep SSR output
@@ -148,8 +172,8 @@ export function AuthGate({ children }: AuthGateProps) {
                 {error}
               </p>
             )}
-            <Button type="submit" className="w-full">
-              Ielogoties
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Pieslēdzas…" : "Ielogoties"}
             </Button>
           </div>
         </form>
