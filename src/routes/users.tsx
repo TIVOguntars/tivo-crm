@@ -66,7 +66,7 @@ function StatusBadge({ status }: { status: string }) {
 function UsersPage() {
   const view = useCrmView(
     "profiles",
-    "select=id,full_name,email,phone,status_key,created_at&order=full_name.asc&limit=1000",
+    "select=id,full_name,email,status_key,created_at&order=full_name.asc&limit=1000",
     { all: true }
   );
 
