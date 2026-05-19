@@ -146,11 +146,11 @@ function PriorityBadge({ label }: { label: string }) {
   if (!label) return <span className="text-muted-foreground">—</span>;
   const tone =
     label === "Augsta"
-      ? "bg-red-600 text-white border-transparent"
-      : label === "Normāla"
-        ? "bg-orange-500 text-white border-transparent"
+      ? "bg-orange-500 text-white border-transparent"
+      : label === "Vidēja"
+        ? "bg-blue-200 text-blue-900 border-transparent"
         : label === "Zema"
-          ? "bg-slate-500 text-white border-transparent"
+          ? "bg-slate-200 text-slate-700 border-transparent"
           : "";
   return (
     <Badge
