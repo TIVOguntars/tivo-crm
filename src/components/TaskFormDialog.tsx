@@ -739,11 +739,11 @@ export function TaskFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5 shrink-0 ml-auto">
-              <Label>Prioritāte</Label>
+              <Label className="block">Prioritāte</Label>
               <div
                 role="radiogroup"
                 aria-label="Prioritāte"
-                className="inline-flex h-9 items-center rounded-md border border-input bg-background p-0.5 whitespace-nowrap"
+                className="flex h-9 w-fit items-center rounded-md border border-input bg-background p-0.5 whitespace-nowrap"
               >
                 {PRIORITY_OPTIONS.map((opt) => {
                   const active = priority === opt.value;
