@@ -1404,10 +1404,17 @@ function LeadProfilePage() {
                             : <CheckSquare className="h-3.5 w-3.5" />;
                         return (
                           <li key={it.key}>
-                            <button
-                              type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setOpenItem(it)}
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setOpenItem(it);
+                                }
+                              }}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110 cursor-pointer`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {taskIcon}
@@ -1441,7 +1448,30 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </button>
+                              <QuickActionsMenu
+                                actions={(() => {
+                                  const taskId = str(pick(r, "id", "task_id"));
+                                  const isCompleted =
+                                    taskStatus.toLowerCase() === "completed";
+                                  const list: QuickAction[] = [];
+                                  if (taskId && !isCompleted) {
+                                    list.push({
+                                      label: "Pabeigt",
+                                      onSelect: () => setCompleteTaskId(taskId),
+                                    });
+                                  }
+                                  list.push({
+                                    label: "Atvērt",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                  list.push({
+                                    label: "Rediģēt lead",
+                                    onSelect: () => setEditPanelOpen(true),
+                                  });
+                                  return list;
+                                })()}
+                              />
+                            </div>
                           </li>
                         );
                       }
