@@ -423,7 +423,7 @@ export function TaskFormDialog({
           agenda: agenda.trim() || null,
         };
         break;
-      case "draw_sketches" as TaskTypeKey:
+      case "draw_sketches":
         payload = {
           channel: "internal",
           mode: "human",

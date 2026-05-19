@@ -10,6 +10,10 @@ export const TASK_TYPE_KEYS = [
   "automatic_whatsapp",
   "manual_sms",
   "manual_whatsapp",
+  // Workflow / internal human task types (no channel payload).
+  "draw_sketches",
+  "estimate",
+  "prepare_offer",
 ] as const;
 
 export type TaskTypeKey = (typeof TASK_TYPE_KEYS)[number];
@@ -244,6 +248,10 @@ export const taskMetaSchemas: Record<TaskTypeKey, z.ZodTypeAny> = {
     recipient: phone,
     body: reqText("Saturs ir obligāts"),
   }),
+  // Workflow / internal types — no required channel payload.
+  draw_sketches: z.object({}).passthrough(),
+  estimate: z.object({}).passthrough(),
+  prepare_offer: z.object({}).passthrough(),
 };
 
 export function isKnownTaskType(key: string): key is TaskTypeKey {
