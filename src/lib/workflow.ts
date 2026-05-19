@@ -120,3 +120,102 @@ export function groupTasksByWorkflowInstance(
   }
   return m;
 }
+
+// ---------- Workflow templates (frontend-only display overlay) ----------
+//
+// These mirror the server-side workflow templates stored in crm.settings.
+// They are used purely to render a complete 3-step process card even before
+// the spawn engine has created the later tasks. No subtasks are created
+// from the client.
+
+export interface WorkflowTemplateStep {
+  step: number;
+  task_type: string;
+  label_lv: string;
+}
+
+export interface WorkflowTemplate {
+  template_key: string;
+  title_lv: string;
+  steps: WorkflowTemplateStep[];
+}
+
+export const WORKFLOW_TEMPLATES: Record<string, WorkflowTemplate> = {
+  object_preparation_v1: {
+    template_key: "object_preparation_v1",
+    title_lv: "Objekta sagatavošana",
+    steps: [
+      { step: 1, task_type: "draw_sketches", label_lv: "Zīmēt skices" },
+      { step: 2, task_type: "estimate", label_lv: "Tāmēšana" },
+      { step: 3, task_type: "prepare_offer", label_lv: "Piedāvājuma sagatavošana" },
+    ],
+  },
+};
+
+export function getWorkflowTemplate(key: string | null | undefined): WorkflowTemplate | null {
+  if (!key) return null;
+  return WORKFLOW_TEMPLATES[key] ?? null;
+}
+
+export interface WorkflowChainSlot {
+  step: number;
+  template_key: string;
+  label_lv: string;
+  task: WorkflowTaskRow | null;
+  status: WorkflowStatus | "pending"; // "pending" = template step not yet spawned
+}
+
+/**
+ * Merge a workflow template with the actual spawned tasks for one
+ * workflow_instance_id. Missing future steps become "pending" placeholders.
+ * If no template matches, falls back to deriveWorkflowChain shape.
+ */
+export function buildWorkflowChain(
+  tasks: WorkflowTaskRow[],
+): { template: WorkflowTemplate | null; slots: WorkflowChainSlot[] } {
+  const decoratedRaw = deriveWorkflowChain(tasks);
+  const templateKey =
+    decoratedRaw.find((e) => e.template_key)?.template_key ?? null;
+  const template = getWorkflowTemplate(templateKey);
+
+  if (!template) {
+    // No template overlay — return raw chain mapped to slots.
+    return {
+      template: null,
+      slots: decoratedRaw.map((e) => ({
+        step: e.step,
+        template_key: e.template_key,
+        label_lv: e.task.title || e.task.task_type || `#${e.step}`,
+        task: e.task,
+        status: e.status,
+      })),
+    };
+  }
+
+  // Index actual chain by step.
+  const byStep = new Map<number, (typeof decoratedRaw)[number]>();
+  for (const e of decoratedRaw) byStep.set(e.step, e);
+
+  return {
+    template,
+    slots: template.steps.map((ts) => {
+      const actual = byStep.get(ts.step);
+      if (actual) {
+        return {
+          step: ts.step,
+          template_key: template.template_key,
+          label_lv: actual.task.title || ts.label_lv,
+          task: actual.task,
+          status: actual.status,
+        };
+      }
+      return {
+        step: ts.step,
+        template_key: template.template_key,
+        label_lv: ts.label_lv,
+        task: null,
+        status: "pending" as const,
+      };
+    }),
+  };
+}
