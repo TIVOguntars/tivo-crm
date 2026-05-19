@@ -51,6 +51,13 @@ export const EVENT_TYPE_LV: Record<string, string> = {
   create_lead: "Leads izveidots",
   lead_created: "Leads izveidots",
   lead_imported: "Leads importēts",
+  inbound_received: "Saņemts",
+  replied: "Saņemta atbilde",
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  opened: "Atvērts",
+  clicked: "Spiests",
+  bounced: "Atgriezts",
 };
 
 export function labelRecordSource(raw: string): string {

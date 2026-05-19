@@ -1169,7 +1169,7 @@ function LeadProfilePage() {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <StatusBadge status={taskStatus} />
+                                    <StatusBadge status={taskStatus} mapKind="task" />
                                     <span className="text-[11px] text-muted-foreground tabular-nums">
                                       {fmtDate(tDate)}
                                     </span>
@@ -1210,7 +1210,7 @@ function LeadProfilePage() {
                         : isEmail
                           ? (str(pick(r, "subject")) ||
                               (rp && (str(pick(rp, "automation_step")) || str(pick(rp, "template_key")))) ||
-                              "Email")
+                              "E-pasts")
                           : fmt(pick(r, "subject"));
                       const preview = isNote
                         ? str(pick(r, "content", "body"))
@@ -1304,7 +1304,7 @@ function LeadProfilePage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {!isNote && (
-                                    <StatusBadge status={statusValue} />
+                                    <StatusBadge status={statusValue} mapKind="comm" />
                                   )}
                                   <span className="text-[11px] text-muted-foreground tabular-nums">
                                     {fmtDate(dateValue)}
@@ -1314,7 +1314,7 @@ function LeadProfilePage() {
                               <div className="mt-0.5 text-sm font-medium truncate">{subject}</div>
                               {isSmartsheetNote && (
                                 <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                                  Imported from Smartsheet note
+                                  Importēta piezīme no Smartsheet
                                 </div>
                               )}
                               <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
@@ -1390,7 +1390,7 @@ function LeadProfilePage() {
                   : isEmail
                     ? (str(pick(r, "subject")) ||
                         (rp && (str(pick(rp, "automation_step")) || str(pick(rp, "template_key")))) ||
-                        "Email")
+                          "E-pasts")
                     : fmt(pick(r, "subject"));
                 const dateValue = isNote
                   ? pick(r, "created_at", "updated_at")
@@ -1514,7 +1514,7 @@ function LeadProfilePage() {
                       {!isNote && (
                         <Field
                           label="Status"
-                          value={<StatusBadge status={statusValue} />}
+                          value={<StatusBadge status={statusValue} mapKind="comm" />}
                         />
                       )}
                       {!isNote && <Field label="Sniedzējs" value={fmt(provider)} />}
