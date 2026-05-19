@@ -10,14 +10,16 @@ import {
   MessageCircle,
   AlertTriangle,
   Info,
+  LayoutGrid,
+  FolderOpen,
+  Star,
+  ExternalLink,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -51,6 +53,34 @@ const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "normal", label: "Normāla" },
   { value: "high", label: "Augsta" },
 ];
+
+// TODO: source from crm.profiles.user_code (active users) instead of hardcoding.
+const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
+type OwnerCode = (typeof OWNER_OPTIONS)[number];
+const AUTO_OWNER: OwnerCode = "SIS";
+
+function priorityToStars(p: Priority): number {
+  return p === "high" ? 3 : p === "normal" ? 2 : 1;
+}
+function starsToPriority(n: number): Priority {
+  return n >= 3 ? "high" : n === 2 ? "normal" : "low";
+}
+function country3(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (/^[A-Za-z]{3}$/.test(t)) return t.toUpperCase();
+  return t.slice(0, 3).toUpperCase();
+}
+
+export interface TaskFormLeadContext {
+  leadName?: string;
+  country?: string;
+  primaryEmail?: string;
+  primaryPhone?: string;
+  ppvEmail?: string;
+  referenceCode?: string;
+  serverFolderUrl?: string;
+}
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   mail: Mail,
@@ -109,12 +139,14 @@ export function TaskFormDialog({
   onOpenChange,
   onCreated,
   defaultOwnerLabel,
+  leadContext,
 }: {
   leadId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
   defaultOwnerLabel?: string;
+  leadContext?: TaskFormLeadContext;
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -126,6 +158,7 @@ export function TaskFormDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
+  const [ownerCode, setOwnerCode] = useState<OwnerCode>("UC");
 
   // type-specific metadata fields (kept loose; serialized per type)
   const [recipient, setRecipient] = useState("");
@@ -133,6 +166,7 @@ export function TaskFormDialog({
   const [body, setBody] = useState("");
   const [templateKey, setTemplateKey] = useState("");
   const [signatureKey, setSignatureKey] = useState("");
+  const [replyToEmail, setReplyToEmail] = useState("");
   const [phoneE164, setPhoneE164] = useState("");
   const [agenda, setAgenda] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
@@ -208,11 +242,13 @@ export function TaskFormDialog({
     setTitle("");
     setDescription("");
     setPriority("normal");
+    setOwnerCode("UC");
     setRecipient("");
     setSubject("");
     setBody("");
     setTemplateKey("");
     setSignatureKey("");
+    setReplyToEmail(leadContext?.ppvEmail ?? "");
     setPhoneE164("");
     setAgenda("");
     setMeetingUrl("");
@@ -236,6 +272,26 @@ export function TaskFormDialog({
   }, [open]);
 
   const currentTypeRow: TaskTypeRow | undefined = tt.get(taskType);
+
+  // Auto-fill recipient + phone + owner when type or lead context changes.
+  useEffect(() => {
+    if (!open || !currentTypeRow) return;
+    const ch = currentTypeRow.channel;
+    if (ch === "email") {
+      if (!recipient && leadContext?.primaryEmail) setRecipient(leadContext.primaryEmail);
+    } else if (ch === "sms" || ch === "whatsapp") {
+      if (!recipient && leadContext?.primaryPhone) setRecipient(leadContext.primaryPhone);
+    } else if (ch === "call") {
+      if (!phoneE164 && leadContext?.primaryPhone) setPhoneE164(leadContext.primaryPhone);
+    }
+    // SIS for automatic, otherwise leave current pick (default UC on reset).
+    if (currentTypeRow.mode === "automatic") {
+      setOwnerCode(AUTO_OWNER);
+    } else if (ownerCode === AUTO_OWNER) {
+      setOwnerCode("UC");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, taskType, currentTypeRow?.channel, currentTypeRow?.mode, leadContext?.primaryEmail, leadContext?.primaryPhone]);
 
   // anchor-event options based on kind
   const anchorEventOptions = useMemo(() => {
@@ -438,6 +494,9 @@ export function TaskFormDialog({
       task_type: taskType,
       ...typed.meta,
       ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+      owner_code: ownerCode,
+      ...(replyToEmail.trim() ? { reply_to: replyToEmail.trim() } : {}),
+      ...(leadContext?.referenceCode ? { reference_code: leadContext.referenceCode } : {}),
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(approval
@@ -507,12 +566,47 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Jauns uzdevums</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background/95 backdrop-blur px-5 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate text-sm font-semibold text-foreground">
+              {leadContext?.leadName || "Jauns uzdevums"}
+            </span>
+            {leadContext?.country && (
+              <span className="shrink-0 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground">
+                {country3(leadContext.country)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {leadContext?.serverFolderUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => window.open(leadContext.serverFolderUrl!, "_blank", "noopener")}
+                title="Atvērt servera mapi"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Servera mape
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled
+              title="Drīzumā"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto px-5 py-4">
           {needsPicker && (
             <div className="space-y-1.5">
               <Label htmlFor="task-lead-search">Lead</Label>
@@ -576,28 +670,67 @@ export function TaskFormDialog({
             </div>
           )}
 
-          {/* Task type */}
-          <div className="space-y-1.5">
-            <Label htmlFor="task-type">Tips *</Label>
-            <Select
-              value={taskType}
-              onValueChange={(v) => setTaskType(v as TaskTypeKey)}
-              disabled={tt.isLoading || tt.rows.length === 0}
-            >
-              <SelectTrigger id="task-type">
-                <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
-              </SelectTrigger>
-              <SelectContent>
-                {tt.rows.map((t) => (
-                  <SelectItem key={t.type_key} value={t.type_key}>
-                    <span className="inline-flex items-center gap-2">
-                      <TypeIcon keyName={t.icon_key} />
-                      {t.label_lv}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Top row: Type · Owner · Priority */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="task-type">Tips *</Label>
+              <Select
+                value={taskType}
+                onValueChange={(v) => setTaskType(v as TaskTypeKey)}
+                disabled={tt.isLoading || tt.rows.length === 0}
+              >
+                <SelectTrigger id="task-type" className="w-auto min-w-fit gap-2">
+                  <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tt.rows.map((t) => (
+                    <SelectItem key={t.type_key} value={t.type_key}>
+                      <span className="inline-flex items-center gap-2">
+                        <TypeIcon keyName={t.icon_key} />
+                        {t.label_lv}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="task-owner">Atbildīgais</Label>
+              <Select value={ownerCode} onValueChange={(v) => setOwnerCode(v as OwnerCode)}>
+                <SelectTrigger id="task-owner" className="w-[5.5rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {OWNER_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Prioritāte</Label>
+              <div className="flex items-center h-9 gap-0.5">
+                {[1, 2, 3].map((n) => {
+                  const active = priorityToStars(priority) >= n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPriority(starsToPriority(n))}
+                      className="p-1 text-amber-500 hover:scale-110 transition"
+                      title={PRIORITIES[n - 1].label}
+                      aria-label={`Prioritāte ${PRIORITIES[n - 1].label}`}
+                    >
+                      <Star
+                        className="h-4 w-4"
+                        strokeWidth={1.5}
+                        fill={active ? "currentColor" : "transparent"}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Title */}
@@ -667,6 +800,7 @@ export function TaskFormDialog({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   maxLength={250}
+                  placeholder="[Ievadi tēmu] [{{Reference_code}}]"
                 />
               </div>
             )}
@@ -682,7 +816,13 @@ export function TaskFormDialog({
                   maxLength={4000}
                 />
                 {(currentTypeRow?.channel === "sms") && (
-                  <p className="text-[10px] text-muted-foreground">{body.length} / 160 rakstzīmes</p>
+                  <p className={
+                    body.length > 160
+                      ? "text-[10px] text-destructive font-medium"
+                      : "text-[10px] text-muted-foreground"
+                  }>
+                    {body.length} / 160 rakstzīmes
+                  </p>
                 )}
               </div>
             )}
@@ -709,6 +849,18 @@ export function TaskFormDialog({
                   value={signatureKey}
                   onChange={(e) => setSignatureKey(e.target.value)}
                   placeholder="Neobligāts"
+                />
+              </div>
+            )}
+
+            {(currentTypeRow?.channel === "email") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-reply-to">Atbildēt uz (reply-to)</Label>
+                <Input
+                  id="task-reply-to"
+                  value={replyToEmail}
+                  onChange={(e) => setReplyToEmail(e.target.value)}
+                  placeholder={leadContext?.ppvEmail || "ppv@piemers.lv"}
                 />
               </div>
             )}
@@ -944,7 +1096,19 @@ export function TaskFormDialog({
                           })
                         }
                       />
-                      <span className="truncate">E-pasts: {s(c.subject) || "(bez tēmas)"}</span>
+                      <span className="truncate flex-1">E-pasts: {s(c.subject) || "(bez tēmas)"}</span>
+                      {effectiveLeadId && (
+                        <a
+                          href={`/lead/${effectiveLeadId}#comm-${id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Atvērt"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </label>
                   );
                 })}
@@ -965,7 +1129,19 @@ export function TaskFormDialog({
                           })
                         }
                       />
-                      <span className="truncate">Uzd.: {s(t.title) || "(bez nosaukuma)"}</span>
+                      <span className="truncate flex-1">Uzd.: {s(t.title) || "(bez nosaukuma)"}</span>
+                      {effectiveLeadId && (
+                        <a
+                          href={`/lead/${effectiveLeadId}#task-${id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Atvērt"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </label>
                   );
                 })}
@@ -973,23 +1149,9 @@ export function TaskFormDialog({
             </details>
           )}
 
-          {/* Priority */}
-          <div className="space-y-1.5">
-            <Label htmlFor="task-priority">Prioritāte</Label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
-              <SelectTrigger id="task-priority">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border px-5 py-3">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Atcelt
           </Button>

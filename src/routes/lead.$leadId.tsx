@@ -1528,6 +1528,24 @@ function LeadProfilePage() {
               str(pick(header, "atbildigais")) ||
               undefined
             }
+            leadContext={{
+              leadName: leadTitle,
+              country: leadCountry,
+              primaryEmail,
+              primaryPhone,
+              ppvEmail:
+                str(pick(rawData, "ppv_epasts")) ||
+                str(pick(legacyContext, "ppv_epasts")) ||
+                undefined,
+              referenceCode:
+                str(pick(rawData, "reference_code")) ||
+                str(pick(header, "reference_code")) ||
+                undefined,
+              serverFolderUrl:
+                str(pick(rawData, "server_folder_url")) ||
+                str(pick(legacyContext, "server_folder_url")) ||
+                undefined,
+            }}
             onCreated={() => {
               q.refetch();
               plannedActionsQ.refetch();
