@@ -883,6 +883,24 @@ function LeadProfilePage() {
 
             {/* RIGHT */}
             <div className="space-y-4 xl:col-span-2">
+              {/* Workflow chains (Phase 2b.2b) */}
+              {(() => {
+                const rows = (workflowTasksQ.data?.rows ?? []) as unknown as WorkflowTaskRow[];
+                if (!rows.length) return null;
+                const groups = groupTasksByWorkflowInstance(rows);
+                if (groups.size === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    {Array.from(groups.entries()).map(([wfId, tasks]) => (
+                      <WorkflowChainStrip
+                        key={wfId}
+                        tasks={tasks}
+                        title="Workflow"
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
               {/* Uzdevumi un plānotās darbības (unified future-work block) */}
               {(() => {
                 type PlannedItem = {
