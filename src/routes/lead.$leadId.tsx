@@ -65,6 +65,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { callCrmRpc } from "@/server/analytics";
 import { QUEUE_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { getActivityStyle } from "@/lib/activityStyles";
+import {
+  classifyLocal,
+  filterLocalTimeline,
+  type DateFilter,
+  type TypeFilter,
+} from "@/lib/timelineFilters";
+import { TimelineFilters } from "@/components/timeline/TimelineFilters";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
