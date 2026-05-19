@@ -631,6 +631,10 @@ function LeadProfilePage() {
                 <div className="hidden md:flex items-center text-xs text-muted-foreground ml-6">
                   <div className="flex flex-col">
                     <span className="text-foreground mx-[10px]">PPV</span>
+                    <span className="text-foreground mx-[10px] font-medium">{ppvLabel}</span>
+                  </div>
+                  <div className="flex flex-col ml-4">
+                    <span className="text-foreground mx-[10px]">Atbildīgais</span>
                     <span className="text-foreground mx-[10px] font-medium">{ownerLabel}</span>
                   </div>
                   <div className="flex flex-col ml-[50px]">
