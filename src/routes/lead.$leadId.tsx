@@ -642,6 +642,51 @@ function LeadProfilePage() {
     setManualActivityPrefill(prefill);
     setManualActivityOpen(true);
   }
+
+  type QuickAction = {
+    label: string;
+    onSelect: () => void;
+    disabled?: boolean;
+  };
+
+  function QuickActionsMenu({ actions }: { actions: QuickAction[] }) {
+    if (actions.length === 0) return null;
+    return (
+      <div
+        className="ml-1 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              aria-label="Darbības"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {actions.map((a, i) => (
+              <DropdownMenuItem
+                key={i}
+                disabled={a.disabled}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  if (!a.disabled) a.onSelect();
+                }}
+              >
+                {a.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
