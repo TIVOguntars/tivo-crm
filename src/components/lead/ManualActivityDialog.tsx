@@ -192,6 +192,10 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       qc.invalidateQueries({ queryKey: ["crm", "v_unified_timeline"] });
       qc.invalidateQueries({ queryKey: ["crm", "activities"] });
       qc.invalidateQueries({ queryKey: ["crm", "tasks"] });
+      qc.invalidateQueries({ queryKey: ["crm", "v_lead_planned_actions"] });
+      qc.invalidateQueries({ queryKey: ["crm", "communication_queue"] });
+      await qc.refetchQueries({ queryKey: ["crm", "v_lead_planned_actions"] });
+      await qc.refetchQueries({ queryKey: ["crm-rpc", "get_lead_360_profile"] });
       onOpenChange(false);
     } catch (err) {
       toast.error(
