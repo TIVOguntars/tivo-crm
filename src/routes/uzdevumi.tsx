@@ -189,11 +189,11 @@ function taskPriorityLabel(raw: unknown): string {
   const v = s(raw).toLowerCase();
   if (!v) return "";
   if (v === "high" || v === "urgent" || v === "critical") return "Augsta";
-  if (v === "normal" || v === "medium" || v === "default") return "Normāla";
+  if (v === "normal" || v === "medium" || v === "default") return "Vidēja";
   if (v === "low") return "Zema";
   // Already a Latvian label?
   if (v === "augsta") return "Augsta";
-  if (v === "normāla" || v === "normala") return "Normāla";
+  if (v === "normāla" || v === "normala" || v === "vidēja" || v === "videja") return "Vidēja";
   if (v === "zema") return "Zema";
   return s(raw);
 }
