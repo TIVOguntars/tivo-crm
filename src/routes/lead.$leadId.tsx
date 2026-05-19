@@ -541,6 +541,10 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  // Unified timeline is the preferred source, but Lead 360 must keep
+  // working if crm.v_unified_timeline is unavailable — we fall back to the
+  // existing local timeline when the child reports it cannot load.
+  const [unifiedAvailable, setUnifiedAvailable] = useState(true);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
