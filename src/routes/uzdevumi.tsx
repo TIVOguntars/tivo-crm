@@ -890,6 +890,7 @@ function QueuePage() {
                             <TaskActionsMenu
                               taskId={taskId}
                               currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
+                              leadId={leadId || null}
                               onChanged={() => {
                                 view.refetch();
                               }}
