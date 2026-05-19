@@ -170,6 +170,10 @@ export function TaskFormDialog({
   const [durationMinutes, setDurationMinutes] = useState<string>("30");
   const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
 
+  // workflow (Phase 2b.2b — draw_sketches only)
+  const [startWorkflow, setStartWorkflow] = useState(false);
+  const [serverFolderUrl, setServerFolderUrl] = useState("");
+
   // scheduling
   const [scheduleMode, setScheduleMode] = useState<"absolute" | "relative">("absolute");
   const [dueLocal, setDueLocal] = useState<string>(defaultDueLocal());
@@ -252,6 +256,8 @@ export function TaskFormDialog({
     setMeetingUrl("");
     setDurationMinutes("30");
     setReplyToCommunicationId("");
+    setStartWorkflow(false);
+    setServerFolderUrl(leadContext?.serverFolderUrl ?? "");
     setScheduleMode("absolute");
     setDueLocal(defaultDueLocal());
     setRelDirection("after");
@@ -417,6 +423,13 @@ export function TaskFormDialog({
           agenda: agenda.trim() || null,
         };
         break;
+      case "draw_sketches" as TaskTypeKey:
+        payload = {
+          channel: "internal",
+          mode: "human",
+          agenda: agenda.trim() || null,
+        };
+        break;
       case "automatic_sms":
         payload = {
           channel: "sms",
@@ -455,6 +468,11 @@ export function TaskFormDialog({
         break;
     }
     const schema = taskMetaSchemas[key];
+    if (!schema) {
+      // Unknown / non-channel task types (e.g. draw_sketches) — no per-type
+      // schema. Skip strict validation; envelope-level checks still apply.
+      return { meta: payload };
+    }
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
@@ -470,6 +488,11 @@ export function TaskFormDialog({
     const due = resolveDueIso();
     if (due.error) {
       toast.error(due.error);
+      return;
+    }
+    const isDrawSketches = (taskType as string) === "draw_sketches";
+    if (isDrawSketches && startWorkflow && !serverFolderUrl.trim()) {
+      toast.error("Servera mapes saite ir obligāta, kad workflow ir aktīvs");
       return;
     }
     const typed = buildTypeMeta();
@@ -512,6 +535,10 @@ export function TaskFormDialog({
       ...(leadContext?.referenceCode ? { reference_code: leadContext.referenceCode } : {}),
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
+      ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
+      ...(isDrawSketches && startWorkflow
+        ? { workflow: { template_key: "object_preparation_v1", step: 1 } }
+        : {}),
       ...(approval
         ? { requires_approval: true, approval }
         : { requires_approval: false }),
@@ -998,6 +1025,34 @@ export function TaskFormDialog({
           </div>
 
           {/* Scheduling */}
+          {(taskType as string) === "draw_sketches" && (
+            <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={startWorkflow}
+                  onCheckedChange={(v) => setStartWorkflow(!!v)}
+                />
+                Sākt workflow (object_preparation_v1)
+              </label>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-server-folder">
+                  Servera mape{startWorkflow ? " *" : ""}
+                </Label>
+                <Input
+                  id="task-server-folder"
+                  value={serverFolderUrl}
+                  onChange={(e) => setServerFolderUrl(e.target.value)}
+                  placeholder="\\\\server\\projekti\\..."
+                />
+                {startWorkflow && !serverFolderUrl.trim() && (
+                  <p className="text-[10px] text-destructive font-medium">
+                    Obligāts, kad workflow ir aktīvs.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Termiņš *</Label>
             <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>

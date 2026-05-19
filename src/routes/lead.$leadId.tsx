@@ -45,6 +45,11 @@ import { useCrmRpc } from "@/hooks/useCrmRpc";
 import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
+import { WorkflowChainStrip } from "@/components/WorkflowChainStrip";
+import {
+  groupTasksByWorkflowInstance,
+  type WorkflowTaskRow,
+} from "@/lib/workflow";
 import { toast } from "sonner";
 import {
   Select,
@@ -322,6 +327,12 @@ function LeadProfilePage() {
   const queueTemplatesQ = useCrmView(
     "communication_queue",
     `select=id,template_key,subject,body,recipient,scheduled_for,status&lead_id=eq.${leadId}`,
+    { all: true },
+  );
+  // Workflow chain: load tasks belonging to any workflow_instance for this lead.
+  const workflowTasksQ = useCrmView(
+    "tasks",
+    `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&workflow_instance_id=not.is.null&order=due_at.asc.nullslast`,
     { all: true },
   );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
@@ -872,6 +883,24 @@ function LeadProfilePage() {
 
             {/* RIGHT */}
             <div className="space-y-4 xl:col-span-2">
+              {/* Workflow chains (Phase 2b.2b) */}
+              {(() => {
+                const rows = (workflowTasksQ.data?.rows ?? []) as unknown as WorkflowTaskRow[];
+                if (!rows.length) return null;
+                const groups = groupTasksByWorkflowInstance(rows);
+                if (groups.size === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    {Array.from(groups.entries()).map(([wfId, tasks]) => (
+                      <WorkflowChainStrip
+                        key={wfId}
+                        tasks={tasks}
+                        title="Workflow"
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
               {/* Uzdevumi un plānotās darbības (unified future-work block) */}
               {(() => {
                 type PlannedItem = {
