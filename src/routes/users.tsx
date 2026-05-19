@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createCrmProfile, updateCrmProfile } from "@/server/analytics";
@@ -393,7 +393,6 @@ function UserFormDialog({
 }
 
 // Tiny helper: re-run an effect when `key` changes.
-import { useEffect, useRef } from "react";
 function useStateReset(key: string, fn: () => void) {
   const last = useRef<string | null>(null);
   useEffect(() => {
