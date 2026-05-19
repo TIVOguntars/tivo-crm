@@ -26,6 +26,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
+import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
@@ -1062,6 +1063,7 @@ function LeadProfilePage() {
                                    <TaskActionsMenu
                                     taskId={it.taskId}
                                     currentDueIso={it.scheduledIso}
+                                    leadId={leadId}
                                     onChanged={() => {
                                       plannedActionsQ.refetch();
                                       q.refetch();
