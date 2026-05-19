@@ -64,7 +64,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { callCrmRpc } from "@/server/analytics";
-import { QUEUE_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { COMM_STATUS_LV, QUEUE_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { getActivityStyle } from "@/lib/activityStyles";
+import {
+  classifyLocal,
+  filterLocalTimeline,
+  type DateFilter,
+  type TypeFilter,
+} from "@/lib/timelineFilters";
+import { TimelineFilters } from "@/components/timeline/TimelineFilters";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -542,6 +550,13 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [tlType, setTlType] = useState<TypeFilter>("all");
+  const [tlDate, setTlDate] = useState<DateFilter>("all");
+  const filteredTimeline = useMemo(
+    () => filterLocalTimeline(timeline, { type: tlType, date: tlDate }),
+    [timeline, tlType, tlDate],
+  );
+  const isTimelineFiltered = tlType !== "all" || tlDate !== "all";
   // Unified timeline is the preferred source, but Lead 360 must keep
   // working if crm.v_unified_timeline is unavailable — we fall back to the
   // existing local timeline when the child reports it cannot load.
@@ -1102,15 +1117,41 @@ function LeadProfilePage() {
               })()}
 
               {/* Aktivitātes */}
-              <Panel title="Aktivitātes" count={timeline.length}>
+              <Panel
+                title="Aktivitātes"
+                count={
+                  isTimelineFiltered ? filteredTimeline.length : timeline.length
+                }
+                action={
+                  <div className="flex items-center gap-2">
+                    {isTimelineFiltered && (
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        no {timeline.length}
+                      </span>
+                    )}
+                    <TimelineFilters
+                      type={tlType}
+                      date={tlDate}
+                      onTypeChange={setTlType}
+                      onDateChange={setTlDate}
+                    />
+                  </div>
+                }
+              >
                 {/* PRIMARY: existing local timeline — communications, notes,
                     completed tasks, workflow completion items, automation,
                     audit events. Always rendered. */}
-                {timeline.length === 0 ? (
-                  <Empty />
+                {filteredTimeline.length === 0 ? (
+                  <Empty
+                    label={
+                      isTimelineFiltered
+                        ? "Nav ierakstu izvēlētajiem filtriem."
+                        : undefined
+                    }
+                  />
                 ) : (
                   <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
-                    {timeline.map((it) => {
+                    {filteredTimeline.map((it) => {
                       const r = it.raw;
                       const isNote = it.kind === "note";
                       const isTask = it.kind === "task";
@@ -1133,19 +1174,9 @@ function LeadProfilePage() {
                           "updated_at",
                           "created_at",
                         );
-                        const statusLc = taskStatus.toLowerCase();
-                        let bgT = "bg-slate-50 dark:bg-slate-950/20";
-                        let accentT = "border-l-slate-400";
-                        if (statusLc === "completed") {
-                          bgT = "bg-emerald-50 dark:bg-emerald-950/20";
-                          accentT = "border-l-emerald-500";
-                        } else if (statusLc === "cancelled") {
-                          bgT = "bg-rose-50 dark:bg-rose-950/20";
-                          accentT = "border-l-rose-500";
-                        } else if (statusLc === "skipped") {
-                          bgT = "bg-amber-50 dark:bg-amber-950/20";
-                          accentT = "border-l-amber-500";
-                        }
+                        const styleT = getActivityStyle(classifyLocal(it));
+                        const bgT = styleT.bg;
+                        const accentT = styleT.accent;
                         const tt = taskType.toLowerCase();
                         const taskIcon = tt.includes("call")
                           ? <PhoneIcon className="h-3.5 w-3.5" />
@@ -1154,8 +1185,10 @@ function LeadProfilePage() {
                             : <CheckSquare className="h-3.5 w-3.5" />;
                         return (
                           <li key={it.key}>
-                            <div
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2`}
+                            <button
+                              type="button"
+                              onClick={() => setOpenItem(it)}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {taskIcon}
@@ -1180,7 +1213,7 @@ function LeadProfilePage() {
                                 </div>
                                 {outcomeCode && (
                                   <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                    Iznākums: <span className="font-medium">{outcomeCode}</span>
+                                    Iznākums: <span className="font-medium">{lv(COMM_STATUS_LV, outcomeCode, outcomeCode)}</span>
                                   </div>
                                 )}
                                 {completionNotes && (
@@ -1189,7 +1222,7 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </div>
+                            </button>
                           </li>
                         );
                       }
@@ -1248,22 +1281,10 @@ function LeadProfilePage() {
                             pick(r, "template_key"),
                           )
                         : "";
-                      // bg by kind/channel
-                      let bg = "bg-muted/30";
-                      let accent = "border-l-muted-foreground/40";
-                      if (isNote) {
-                        bg = "bg-amber-50 dark:bg-amber-950/20";
-                        accent = "border-l-amber-400";
-                      } else if (ch.includes("mail")) {
-                        bg = "bg-blue-50 dark:bg-blue-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      } else if (ch.includes("phone") || ch.includes("call")) {
-                        bg = "bg-emerald-50 dark:bg-emerald-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      } else if (ch.includes("whats") || ch.includes("sms") || ch.includes("chat")) {
-                        bg = "bg-violet-50 dark:bg-violet-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      }
+                      // bg by kind/channel — centralized in activityStyles
+                      const _style = getActivityStyle(classifyLocal(it));
+                      const bg = _style.bg;
+                      const accent = _style.accent;
                       return (
                         <li key={it.key}>
                           <button
@@ -1373,7 +1394,129 @@ function LeadProfilePage() {
           {/* Activity detail modal */}
           <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0">
-              {openItem && (() => {
+              {openItem && openItem.kind === "task" && (() => {
+                const r = openItem.raw;
+                const taskType = str(pick(r, "task_type")) || "task";
+                const taskStatus = str(pick(r, "status"));
+                const taskTitle = str(pick(r, "title")) || fmt(taskType);
+                const outcomeCode = str(pick(r, "outcome_code"));
+                const tDate = pick(r, "completed_at", "updated_at", "created_at");
+                const tMeta =
+                  r && typeof r.metadata === "object" && r.metadata
+                    ? (r.metadata as Row)
+                    : undefined;
+                const completionNotes = tMeta
+                  ? str(pick(tMeta, "completion_notes", "notes"))
+                  : "";
+                const summary = tMeta ? str(pick(tMeta, "summary")) : "";
+                const reason = tMeta ? str(pick(tMeta, "reason")) : "";
+                const relationType = tMeta ? str(pick(tMeta, "relation_type")) : "";
+                const taskId = str(pick(r, "id", "task_id"));
+                const completedAtTs = tDate
+                  ? new Date(str(tDate)).getTime() || 0
+                  : 0;
+                const preTaskNotes = taskId
+                  ? notes.filter((n) => {
+                      const nMeta =
+                        n && typeof n.metadata === "object" && n.metadata
+                          ? (n.metadata as Row)
+                          : undefined;
+                      const linkedId = nMeta
+                        ? str(pick(nMeta, "task_id", "related_task_id"))
+                        : "";
+                      if (linkedId !== taskId) return false;
+                      const nTs =
+                        new Date(
+                          str(pick(n, "created_at", "updated_at")),
+                        ).getTime() || 0;
+                      return completedAtTs ? nTs < completedAtTs : true;
+                    })
+                  : [];
+                return (
+                  <>
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-end w-full gap-4">
+                          <DialogClose asChild>
+                            <Button size="icon" variant="ghost" aria-label="Aizvērt" className="h-8 w-8 shrink-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </DialogClose>
+                        </div>
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                          <CheckSquare className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{taskTitle}</span>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                        <Field label="Tips" value={fmt(taskType)} />
+                        <Field label="Statuss" value={<StatusBadge status={taskStatus} mapKind="task" />} />
+                        <Field label="Datums" value={fmtDate(tDate)} />
+                        {outcomeCode && (
+                          <Field label="Iznākums" value={lv(COMM_STATUS_LV, outcomeCode, outcomeCode)} />
+                        )}
+                        {reason && <Field label="Iemesls" value={reason} />}
+                        {relationType && (
+                          <Field label="Saistība" value={fmt(relationType)} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-6 pt-3 space-y-4">
+                      {preTaskNotes.length > 0 && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Piezīmes pirms uzdevuma
+                          </div>
+                          <ol className="space-y-2">
+                            {preTaskNotes.map((n, i) => (
+                              <li
+                                key={str(pick(n, "id", "note_id")) || `pre:${i}`}
+                                className="rounded-md border bg-muted/20 p-3 text-sm whitespace-pre-wrap"
+                              >
+                                {str(pick(n, "content", "body"))}
+                                <div className="mt-1 text-[11px] text-muted-foreground">
+                                  {fmtDate(pick(n, "created_at", "updated_at"))}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </section>
+                      )}
+                      {completionNotes && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Piezīmes uzdevuma izpildē
+                          </div>
+                          <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
+                            {completionNotes}
+                          </pre>
+                        </section>
+                      )}
+                      {summary && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Kopsavilkums
+                          </div>
+                          <div className="rounded-md border bg-muted/20 p-3 text-sm whitespace-pre-wrap">
+                            {summary}
+                          </div>
+                        </section>
+                      )}
+                      {tMeta && (
+                        <details className="rounded-md border bg-muted/10 p-2">
+                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                            Tehniskie dati
+                          </summary>
+                          <pre className="mt-2 max-h-[280px] overflow-auto text-[11px] whitespace-pre-wrap">
+                            {JSON.stringify(tMeta, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+              {openItem && openItem.kind !== "task" && (() => {
                 const r = openItem.raw;
                 const isNote = openItem.kind === "note";
                 const ch = str(pick(r, "channel"));
@@ -1513,19 +1656,19 @@ function LeadProfilePage() {
                       {!isNote && <Field label="Virziens" value={fmt(dir)} />}
                       {!isNote && (
                         <Field
-                          label="Status"
+                          label="Statuss"
                           value={<StatusBadge status={statusValue} mapKind="comm" />}
                         />
                       )}
                       {!isNote && <Field label="Sniedzējs" value={fmt(provider)} />}
                       <Field label="Datums" value={fmtDate(dateValue)} />
-                      {!isNote && toAddress && <Field label="To" value={toAddress} />}
-                      {!isNote && templateKey && <Field label="Template" value={templateKey} />}
+                      {!isNote && toAddress && <Field label="Saņēmējs" value={toAddress} />}
+                      {!isNote && templateKey && <Field label="Veidne" value={templateKey} />}
                       {!isNote && automationStep && (
-                        <Field label="Automation step" value={automationStep} />
+                        <Field label="Automatizācijas solis" value={automationStep} />
                       )}
                       {!isNote && importedAt && (
-                        <Field label="Imported at" value={fmtDate(importedAt)} />
+                        <Field label="Imports" value={fmtDate(importedAt)} />
                       )}
                       {isNote && (
                         <Field label="Tips" value={fmt(pick(r, "note_type"))} />
