@@ -164,6 +164,19 @@ function PriorityBadge({ label }: { label: string }) {
   );
 }
 
+function taskPriorityLabel(raw: unknown): string {
+  const v = s(raw).toLowerCase();
+  if (!v) return "";
+  if (v === "high" || v === "urgent" || v === "critical") return "Augsta";
+  if (v === "normal" || v === "medium" || v === "default") return "Normāla";
+  if (v === "low") return "Zema";
+  // Already a Latvian label?
+  if (v === "augsta") return "Augsta";
+  if (v === "normāla" || v === "normala") return "Normāla";
+  if (v === "zema") return "Zema";
+  return s(raw);
+}
+
 function parseTags(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -305,23 +318,42 @@ function QueuePage() {
     }
     return map;
   }, [scoringView.data]);
+
+  // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
+  // each carry their own priority; never inherit from sibling tasks or lead.
+  const tasksView = useCrmView("tasks", "select=id,priority", { all: true });
+  const taskPriorityById = useMemo(() => {
+    const map = new Map<string, string>();
+    const r = (tasksView.data?.rows ?? []) as Row[];
+    for (const row of r) {
+      const id = s(row.id);
+      if (id) map.set(id, s(row.priority));
+    }
+    return map;
+  }, [tasksView.data]);
+
   const rows = useMemo<Row[]>(() => {
-    if (scoringByLead.size === 0) return humanRows;
     return humanRows.map((r) => {
+      const taskRaw = taskPriorityById.get(s(r.id)) ?? "";
+      const taskLabel = taskPriorityLabel(taskRaw);
       const sc = scoringByLead.get(s(r.lead_id));
-      if (!sc) return r;
-      return {
-        ...r,
-        priority_score: sc.priority_score ?? 0,
-        priority_label: sc.priority_label ?? "Zema",
-        recommended_status: sc.recommended_status ?? null,
-        raw_priority_score: sc.raw_priority_score ?? null,
-        has_hot_tag: sc.has_hot_tag ?? null,
-        inbound_count: sc.inbound_count ?? null,
-        replied_count: sc.replied_count ?? null,
-      };
+      const base: Row = sc
+        ? {
+            ...r,
+            priority_score: sc.priority_score ?? 0,
+            priority_label: sc.priority_label ?? "Zema",
+            recommended_status: sc.recommended_status ?? null,
+            raw_priority_score: sc.raw_priority_score ?? null,
+            has_hot_tag: sc.has_hot_tag ?? null,
+            inbound_count: sc.inbound_count ?? null,
+            replied_count: sc.replied_count ?? null,
+          }
+        : { ...r };
+      base.task_priority_raw = taskRaw;
+      base.task_priority_label = taskLabel;
+      return base;
     });
-  }, [humanRows, scoringByLead]);
+  }, [humanRows, scoringByLead, taskPriorityById]);
 
 
   const statusOptionsView = useCrmView(
@@ -354,6 +386,7 @@ function QueuePage() {
   const [dueFilter, setDueFilter] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
+  const [taskPriority, setTaskPriority] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [ppv, setPpv] = useState<string>("all");
@@ -385,6 +418,10 @@ function QueuePage() {
     () => uniq(rows.map((r) => s(r.priority_label))),
     [rows],
   );
+  const taskPriorities = useMemo(
+    () => uniq(rows.map((r) => s(r.task_priority_label))),
+    [rows],
+  );
   const countries = useMemo(
     () => uniq(rows.map((r) => s(r.country))),
     [rows],
@@ -414,6 +451,8 @@ function QueuePage() {
     )
       return false;
     if (!skip.priority && priority !== "all" && s(r.priority_label) !== priority)
+      return false;
+    if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
       return false;
     if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
     if (country !== "all" && s(r.country) !== country) return false;
@@ -552,6 +591,7 @@ function QueuePage() {
     dueFilter !== "all" ||
     leadStatus !== "all" ||
     priority !== "all" ||
+    taskPriority !== "all" ||
     owner !== "all" ||
     country !== "all" ||
     ppv !== "all" ||
@@ -564,6 +604,7 @@ function QueuePage() {
     setDueFilter("all");
     setLeadStatus("all");
     setPriority("all");
+    setTaskPriority("all");
     setOwner("all");
     setCountry("all");
     setPpv("all");
