@@ -1,5 +1,4 @@
-import { CheckCircle2, Circle, CircleDashed, FolderOpen } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowRight, CheckCircle2, Circle, FolderOpen } from "lucide-react";
 import {
   parseWorkflowPlan,
   type WorkflowTaskRow,
@@ -37,6 +36,7 @@ export function WorkflowPlanCard({ task }: { task: WorkflowTaskRow }) {
 
   const parentStatus = (task.status ?? "").toLowerCase();
   const isDone = parentStatus === "completed" || parentStatus === "skipped";
+  const currentIdx = isDone ? -1 : 0;
 
   return (
     <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
@@ -70,27 +70,28 @@ export function WorkflowPlanCard({ task }: { task: WorkflowTaskRow }) {
           Sagatavošanas soļi
         </div>
         <ol className="space-y-1">
-          {plan.steps.map((s) => {
-            const disabled = !s.enabled;
-            const Icon = isDone
-              ? CheckCircle2
-              : disabled
-                ? Circle
-                : CircleDashed;
-            const tone = isDone
-              ? "text-foreground"
-              : disabled
-                ? "text-muted-foreground/60 line-through"
-                : "text-muted-foreground";
+          {plan.steps.map((s, idx) => {
+            const state: "completed" | "current" | "planned" = isDone
+              ? "completed"
+              : idx === currentIdx
+                ? "current"
+                : "planned";
+            const Icon =
+              state === "completed" ? CheckCircle2 : state === "current" ? ArrowRight : Circle;
+            const tone =
+              state === "completed"
+                ? "text-foreground"
+                : state === "current"
+                  ? "text-primary"
+                  : "text-muted-foreground";
             return (
               <li
                 key={s.step}
                 className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-sm bg-background/60 px-2 py-1.5"
               >
-                <Checkbox checked={s.enabled && isDone} disabled />
+                <Icon className={`h-3.5 w-3.5 ${tone}`} />
                 <div className="min-w-0">
                   <div className={`text-xs font-medium truncate ${tone}`}>
-                    <Icon className="mr-1 inline h-3 w-3 align-[-2px]" />
                     {s.step}. {s.label || s.task_type}
                   </div>
                 </div>
