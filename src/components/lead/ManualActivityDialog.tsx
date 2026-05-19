@@ -42,11 +42,14 @@ interface Props {
   leadId: string;
 }
 
+// Operator-visible follow-up options. `taskType` maps each option to an
+// existing crm.task_types row accepted by rpc_create_task — the RPC
+// rejects any key not present in that table.
 const FOLLOW_UP_TYPES = [
-  { value: "call_follow_up", label: "Atzvanīt" },
-  { value: "meeting_follow_up", label: "Tikšanās turpinājums" },
-  { value: "info_follow_up", label: "Nosūtīt informāciju" },
-  { value: "general_follow_up", label: "Cits follow-up" },
+  { value: "call_follow_up", label: "Atzvanīt", taskType: "call" },
+  { value: "meeting_follow_up", label: "Tikšanās turpinājums", taskType: "zoom" },
+  { value: "info_follow_up", label: "Nosūtīt informāciju", taskType: "manual_email" },
+  { value: "general_follow_up", label: "Cits follow-up", taskType: "call" },
 ] as const;
 type FollowUpType = (typeof FOLLOW_UP_TYPES)[number]["value"];
 
