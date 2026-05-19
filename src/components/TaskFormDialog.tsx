@@ -867,22 +867,14 @@ export function TaskFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5 shrink-0">
+            <div className="space-y-1.5 shrink-0 min-w-[14rem]">
               <Label htmlFor="task-owner">Atbildīgais</Label>
-              <Select
-                value={ownerCode}
-                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
+              <UserPicker
+                value={assignedUserId}
+                onChange={setAssignedUserId}
                 disabled={isAutomatic}
-              >
-                <SelectTrigger id="task-owner" className="w-[5.5rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {OWNER_OPTIONS.map((o) => (
-                    <SelectItem key={o} value={o}>{o}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={isAutomatic ? "Automātisks" : "Nav piešķirts"}
+              />
             </div>
             <div className="space-y-1.5 shrink-0 ml-auto">
               <Label className="block">Prioritāte</Label>
