@@ -583,9 +583,18 @@ function LeadProfilePage() {
           "status_change",
           "system",
         ]);
-        const body = str(pick(n, "content", "body", "text")).toLowerCase();
+        const haystack = [
+          str(pick(n, "content", "body", "text")),
+          str(pick(n, "title", "subject")),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .trim();
         const looksLikeSystemMirror =
-          /^task\s+(cancelled|completed|skipped|rescheduled|created)\b/.test(body);
+          /\btask\s+(cancelled|completed|skipped|rescheduled|created)\b/.test(haystack) ||
+          /\b(uzdevums\s+(atcelts|pabeigts|izlaists))\b/.test(haystack) ||
+          /^cancelled\b/.test(haystack) ||
+          /^atcelts\b/.test(haystack);
         if (linkedTaskId || SYSTEM_NOTE_TYPES.has(nType) || looksLikeSystemMirror) {
           return;
         }
@@ -1190,6 +1199,16 @@ function LeadProfilePage() {
                   const source = str(r.source);
                   const id = str(r.id) || String(i);
                   const rawStatus = str(r.status);
+                  // Hide cancelled/completed/skipped rows — they belong in
+                  // the Activities/history block, not active planned work.
+                  const statusLower = rawStatus.toLowerCase();
+                  if (
+                    statusLower === "cancelled" ||
+                    statusLower === "completed" ||
+                    statusLower === "skipped"
+                  ) {
+                    return;
+                  }
                   if (source === "queue") {
                     const qRow = queueById.get(str(r.id));
                     const tk = str(qRow?.template_key);
