@@ -100,6 +100,7 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       toast.success("Darbība pievienota");
       qc.invalidateQueries({ queryKey: ["crm-rpc", "get_lead_360_profile"] });
       qc.invalidateQueries({ queryKey: ["crm", "v_unified_timeline"] });
+      qc.invalidateQueries({ queryKey: ["crm", "activities"] });
       onOpenChange(false);
     } catch (err) {
       toast.error(

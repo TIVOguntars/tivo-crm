@@ -265,6 +265,7 @@ const CRM_VIEWS = [
   "profiles",
   "roles",
   "user_roles",
+  "activities",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 

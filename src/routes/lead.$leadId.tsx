@@ -360,6 +360,14 @@ function LeadProfilePage() {
     `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&task_type=in.(draw_sketches,estimate,prepare_offer)&order=due_at.asc.nullslast`,
     { all: true },
   );
+  // Manual + system activities (crm.activities). Additive — folded into the
+  // primary Activities list so manual entries (note/call/meeting) are visible
+  // without restoring the supplemental unified timeline block.
+  const activitiesQ = useCrmView(
+    "activities",
+    `select=id,lead_id,activity_type,activity_at,summary,performed_by_user_id,metadata,outcome_code&lead_id=eq.${leadId}&order=activity_at.desc`,
+    { all: true },
+  );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
@@ -514,7 +522,7 @@ function LeadProfilePage() {
 
   type TLItem = {
     key: string;
-    kind: "comm" | "note" | "task";
+    kind: "comm" | "note" | "task" | "activity";
     ts: number;
     raw: Row;
   };
@@ -568,8 +576,30 @@ function LeadProfilePage() {
         raw: t,
       });
     });
+    // Fold crm.activities rows in. Skip types already represented by other
+    // sources (tasks/communications) to avoid duplicate entries.
+    const activityRows = (activitiesQ.data?.rows ?? []) as Row[];
+    const SKIP_TYPES = new Set([
+      "task_completed",
+      "task_created",
+      "status_change",
+    ]);
+    activityRows.forEach((a, i) => {
+      const at = str(pick(a, "activity_type")).toLowerCase();
+      if (SKIP_TYPES.has(at)) return;
+      // Skip activities linked to a communication — the comm itself is shown.
+      if (str(pick(a, "communication_id"))) return;
+      const ts =
+        new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
+      items.push({
+        key: `a:${str(pick(a, "id")) || i}`,
+        kind: "activity",
+        ts,
+        raw: a,
+      });
+    });
     return items.sort((a, b) => b.ts - a.ts);
-  }, [communications, notes, rawPayloadById, completedTasks]);
+  }, [communications, notes, rawPayloadById, completedTasks, activitiesQ.data]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
@@ -1286,6 +1316,88 @@ function LeadProfilePage() {
                                 {completionNotes && (
                                   <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
                                     {completionNotes}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          </li>
+                        );
+                      }
+                      if (it.kind === "activity") {
+                        const at = str(pick(r, "activity_type")).toLowerCase();
+                        const ACTIVITY_LV: Record<string, string> = {
+                          note: "Piezīme",
+                          call: "Zvans",
+                          meeting: "Tikšanās",
+                          sms: "SMS",
+                          whatsapp: "WhatsApp",
+                          email: "E-pasts",
+                          zoom: "Zoom",
+                          other: "Cits",
+                        };
+                        const typeLabel = ACTIVITY_LV[at] || fmt(at);
+                        const aMeta =
+                          r && typeof r.metadata === "object" && r.metadata
+                            ? (r.metadata as Row)
+                            : undefined;
+                        const aSummary = str(pick(r, "summary"));
+                        const aOutcome = aMeta
+                          ? str(pick(aMeta, "manual_outcome_text"))
+                          : "";
+                        const aDate = pick(r, "activity_at", "created_at");
+                        const aUserId = str(pick(r, "performed_by_user_id"));
+                        const aActorLabel = aUserId
+                          ? resolveUserName(aUserId) || ""
+                          : "";
+                        const styleA = getActivityStyle(classifyLocal(it));
+                        const actIcon =
+                          at === "call" ? (
+                            <PhoneIcon className="h-3.5 w-3.5" />
+                          ) : at === "note" ? (
+                            <StickyNote className="h-3.5 w-3.5" />
+                          ) : at === "meeting" ? (
+                            <CheckSquare className="h-3.5 w-3.5" />
+                          ) : (
+                            <Activity className="h-3.5 w-3.5" />
+                          );
+                        return (
+                          <li key={it.key}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenItem(it)}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${styleA.accent} ${styleA.bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                            >
+                              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
+                                {actIcon}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <span className="font-medium">
+                                      {typeLabel}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                      Manuāli
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                                    {fmtDate(aDate)}
+                                  </span>
+                                </div>
+                                <div className="mt-0.5 text-sm font-medium whitespace-pre-wrap break-words">
+                                  {aSummary || "Nav apraksta"}
+                                </div>
+                                {aOutcome && (
+                                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                    Iznākums:{" "}
+                                    <span className="font-medium">
+                                      {aOutcome}
+                                    </span>
+                                  </div>
+                                )}
+                                {aActorLabel && (
+                                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                    {aActorLabel}
                                   </div>
                                 )}
                               </div>

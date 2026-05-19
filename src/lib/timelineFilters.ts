@@ -55,11 +55,20 @@ function s(v: unknown): string {
  * Classify a local Lead360 timeline item (TLItem-shaped) into an ActivityKind.
  */
 export function classifyLocal(item: {
-  kind: "comm" | "note" | "task";
+  kind: "comm" | "note" | "task" | "activity";
   raw: Row;
 }): ActivityKind {
   const { kind, raw } = item;
   if (kind === "note") return "note";
+  if (kind === "activity") {
+    const at = s(raw.activity_type).toLowerCase();
+    if (at === "note") return "note";
+    if (at === "call") return "call_out";
+    if (at === "sms") return "sms_out";
+    if (at === "whatsapp") return "whatsapp_out";
+    if (at === "email") return "email_out";
+    return "other";
+  }
   if (kind === "task") {
     const status = s(raw.status).toLowerCase();
     if (status === "cancelled") return "error";
@@ -194,7 +203,11 @@ export interface FilterState {
 }
 
 export function filterLocalTimeline<
-  T extends { kind: "comm" | "note" | "task"; ts: number; raw: Row },
+  T extends {
+    kind: "comm" | "note" | "task" | "activity";
+    ts: number;
+    raw: Row;
+  },
 >(items: T[], state: FilterState): T[] {
   const bounds = dateBounds(state.date);
   return items.filter((it) => {
