@@ -1025,6 +1025,34 @@ export function TaskFormDialog({
           </div>
 
           {/* Scheduling */}
+          {(taskType as string) === "draw_sketches" && (
+            <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={startWorkflow}
+                  onCheckedChange={(v) => setStartWorkflow(!!v)}
+                />
+                Sākt workflow (object_preparation_v1)
+              </label>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-server-folder">
+                  Servera mape{startWorkflow ? " *" : ""}
+                </Label>
+                <Input
+                  id="task-server-folder"
+                  value={serverFolderUrl}
+                  onChange={(e) => setServerFolderUrl(e.target.value)}
+                  placeholder="\\\\server\\projekti\\..."
+                />
+                {startWorkflow && !serverFolderUrl.trim() && (
+                  <p className="text-[10px] text-destructive font-medium">
+                    Obligāts, kad workflow ir aktīvs.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Termiņš *</Label>
             <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>
