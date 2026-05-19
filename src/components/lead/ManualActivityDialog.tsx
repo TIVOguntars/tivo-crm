@@ -42,11 +42,14 @@ interface Props {
   leadId: string;
 }
 
+// Operator-visible follow-up options. `taskType` maps each option to an
+// existing crm.task_types row accepted by rpc_create_task — the RPC
+// rejects any key not present in that table.
 const FOLLOW_UP_TYPES = [
-  { value: "call_follow_up", label: "Atzvanīt" },
-  { value: "meeting_follow_up", label: "Tikšanās turpinājums" },
-  { value: "info_follow_up", label: "Nosūtīt informāciju" },
-  { value: "general_follow_up", label: "Cits follow-up" },
+  { value: "call_follow_up", label: "Atzvanīt", taskType: "call" },
+  { value: "meeting_follow_up", label: "Tikšanās turpinājums", taskType: "zoom" },
+  { value: "info_follow_up", label: "Nosūtīt informāciju", taskType: "manual_email" },
+  { value: "general_follow_up", label: "Cits follow-up", taskType: "call" },
 ] as const;
 type FollowUpType = (typeof FOLLOW_UP_TYPES)[number]["value"];
 
@@ -139,14 +142,15 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       if (createFollowUp) {
         setBusyFollowUp(true);
         try {
-          const fuLabel =
-            FOLLOW_UP_TYPES.find((t) => t.value === fuType)?.label || "Follow-up";
+          const fuDef = FOLLOW_UP_TYPES.find((t) => t.value === fuType);
+          const fuLabel = fuDef?.label || "Follow-up";
+          const fuTaskType = fuDef?.taskType || "call";
           const res = await call({
             data: {
               fn: "rpc_create_task",
               params: {
                 p_lead_id: leadId,
-                p_task_type: fuType,
+                p_task_type: fuTaskType,
                 p_due_at: isoFuDueAt,
                 p_title: fuLabel,
                 p_description: fuNote.trim() || null,
@@ -157,6 +161,8 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
                 p_metadata: {
                   source: "manual",
                   follow_up_of_kind: kind,
+                  follow_up_kind: fuType,
+                  follow_up_label_lv: fuLabel,
                 },
                 p_is_auto_created: false,
                 p_priority: "normal",
