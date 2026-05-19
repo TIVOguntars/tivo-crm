@@ -1656,19 +1656,19 @@ function LeadProfilePage() {
                       {!isNote && <Field label="Virziens" value={fmt(dir)} />}
                       {!isNote && (
                         <Field
-                          label="Status"
+                          label="Statuss"
                           value={<StatusBadge status={statusValue} mapKind="comm" />}
                         />
                       )}
                       {!isNote && <Field label="Sniedzējs" value={fmt(provider)} />}
                       <Field label="Datums" value={fmtDate(dateValue)} />
-                      {!isNote && toAddress && <Field label="To" value={toAddress} />}
-                      {!isNote && templateKey && <Field label="Template" value={templateKey} />}
+                      {!isNote && toAddress && <Field label="Saņēmējs" value={toAddress} />}
+                      {!isNote && templateKey && <Field label="Veidne" value={templateKey} />}
                       {!isNote && automationStep && (
-                        <Field label="Automation step" value={automationStep} />
+                        <Field label="Automatizācijas solis" value={automationStep} />
                       )}
                       {!isNote && importedAt && (
-                        <Field label="Imported at" value={fmtDate(importedAt)} />
+                        <Field label="Imports" value={fmtDate(importedAt)} />
                       )}
                       {isNote && (
                         <Field label="Tips" value={fmt(pick(r, "note_type"))} />
