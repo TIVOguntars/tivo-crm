@@ -30,6 +30,7 @@ import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
+import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
 import { RequirePermission } from "@/components/auth/RequirePermission";
 import DOMPurify from "isomorphic-dompurify";
 import {
@@ -575,6 +576,7 @@ function LeadProfilePage() {
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editPanelOpen, setEditPanelOpen] = useState(false);
+  const [manualActivityOpen, setManualActivityOpen] = useState(false);
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
@@ -775,6 +777,18 @@ function LeadProfilePage() {
                       Rediģēt
                     </Button>
                   </RequirePermission>
+                  <RequirePermission perm="leads.activity.create">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => setManualActivityOpen(true)}
+                      title="Pievienot darbību"
+                    >
+                      <Activity className="h-3.5 w-3.5" />
+                      Pievienot darbību
+                    </Button>
+                  </RequirePermission>
                 </div>
               </div>
             </CardContent>
@@ -787,6 +801,12 @@ function LeadProfilePage() {
             currentStatus={leadStatus}
             currentOwnerId={ownerUserId || null}
             currentPpvId={ppvUserId || null}
+          />
+
+          <ManualActivityDialog
+            open={manualActivityOpen}
+            onOpenChange={setManualActivityOpen}
+            leadId={leadId}
           />
 
           {/* Two-column workspace */}
