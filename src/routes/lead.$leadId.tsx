@@ -943,14 +943,6 @@ function LeadProfilePage() {
                   scheduledLabel: string;
                   status: string;
                 };
-                const QUEUE_STATUS_LV: Record<string, string> = {
-                  queued: "Plānots",
-                  sending: "Sūta",
-                  sent: "Nosūtīts",
-                  failed: "Kļūda",
-                  blocked: "Bloķēts",
-                  cancelled: "Atcelts",
-                };
                 const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
                 const queueById = new Map<string, Row>();
                 for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
