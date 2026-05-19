@@ -170,20 +170,19 @@ export function TaskFormDialog({
   const [durationMinutes, setDurationMinutes] = useState<string>("30");
   const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
 
-  // workflow plan (Phase 2b.2c — parent_with_steps on prepare_offer)
+  // workflow plan (Phase 2b.2d — real per-step crm.tasks under shared workflow_group_id)
   const [serverFolderUrl, setServerFolderUrl] = useState("");
   type PlanStep = {
     step: number;
     task_type: "draw_sketches" | "estimate" | "prepare_offer";
     label: string;
-    enabled: boolean;
     owner_id: OwnerCode;
-    due_at: string; // datetime-local
+    due_at: string; // YYYY-MM-DD (date-only)
   };
   const defaultPlan = (): PlanStep[] => [
-    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", enabled: true, owner_id: "UC", due_at: "" },
-    { step: 2, task_type: "estimate", label: "Tāmēšana", enabled: true, owner_id: "UC", due_at: "" },
-    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", owner_id: "UC", due_at: "" },
+    { step: 2, task_type: "estimate", label: "Tāmēšana", owner_id: "UC", due_at: "" },
+    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", owner_id: "UC", due_at: "" },
   ];
   const [planSteps, setPlanSteps] = useState<PlanStep[]>(defaultPlan);
 
