@@ -44,6 +44,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useUserMap } from "@/hooks/useUsers";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
@@ -656,6 +657,7 @@ function CommStats({
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { resolve: resolveUserName } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
