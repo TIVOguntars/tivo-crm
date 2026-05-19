@@ -1281,22 +1281,10 @@ function LeadProfilePage() {
                             pick(r, "template_key"),
                           )
                         : "";
-                      // bg by kind/channel
-                      let bg = "bg-muted/30";
-                      let accent = "border-l-muted-foreground/40";
-                      if (isNote) {
-                        bg = "bg-amber-50 dark:bg-amber-950/20";
-                        accent = "border-l-amber-400";
-                      } else if (ch.includes("mail")) {
-                        bg = "bg-blue-50 dark:bg-blue-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      } else if (ch.includes("phone") || ch.includes("call")) {
-                        bg = "bg-emerald-50 dark:bg-emerald-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      } else if (ch.includes("whats") || ch.includes("sms") || ch.includes("chat")) {
-                        bg = "bg-violet-50 dark:bg-violet-950/20";
-                        accent = inbound ? "border-l-emerald-500" : "border-l-blue-500";
-                      }
+                      // bg by kind/channel — centralized in activityStyles
+                      const _style = getActivityStyle(classifyLocal(it));
+                      const bg = _style.bg;
+                      const accent = _style.accent;
                       return (
                         <li key={it.key}>
                           <button
