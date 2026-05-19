@@ -746,7 +746,7 @@ function QueuePage() {
                     <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
                   </div>
                 </HeadCell>
-                <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
+                <HeadCell className="w-[80px] text-right" />
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
