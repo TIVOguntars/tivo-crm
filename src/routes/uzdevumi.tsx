@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -164,6 +164,27 @@ function PriorityBadge({ label }: { label: string }) {
   );
 }
 
+function PriorityStars({ label }: { label: string }) {
+  const count = label === "Augsta" ? 3 : label === "Normāla" ? 2 : label === "Zema" ? 1 : 0;
+  if (count === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center gap-0.5" title={label}>
+      {[1, 2, 3].map((i) => (
+        <Star
+          key={i}
+          className={cn(
+            "h-3.5 w-3.5",
+            i <= count
+              ? "fill-amber-500 text-amber-500"
+              : "fill-transparent text-muted-foreground/40",
+          )}
+          strokeWidth={2}
+        />
+      ))}
+    </div>
+  );
+}
+
 function taskPriorityLabel(raw: unknown): string {
   const v = s(raw).toLowerCase();
   if (!v) return "";
@@ -321,21 +342,30 @@ function QueuePage() {
 
   // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
   // each carry their own priority; never inherit from sibling tasks or lead.
-  const tasksView = useCrmView("tasks", "select=id,priority", { all: true });
-  const taskPriorityById = useMemo(() => {
-    const map = new Map<string, string>();
+  const tasksView = useCrmView("tasks", "select=id,priority,assigned_user_id,metadata", { all: true });
+  const taskById = useMemo(() => {
+    const map = new Map<string, Row>();
     const r = (tasksView.data?.rows ?? []) as Row[];
     for (const row of r) {
       const id = s(row.id);
-      if (id) map.set(id, s(row.priority));
+      if (id) map.set(id, row);
     }
     return map;
   }, [tasksView.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
-      const taskRaw = taskPriorityById.get(s(r.id)) ?? "";
+      const tk = taskById.get(s(r.id));
+      const taskRaw = s(tk?.priority);
       const taskLabel = taskPriorityLabel(taskRaw);
+      const meta =
+        tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
+          ? (tk.metadata as Record<string, unknown>)
+          : null;
+      const ownerFromTask =
+        s(r.action_owner_label) ||
+        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
+        s(tk?.assigned_user_id);
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {
@@ -351,9 +381,10 @@ function QueuePage() {
         : { ...r };
       base.task_priority_raw = taskRaw;
       base.task_priority_label = taskLabel;
+      base.action_owner_label = ownerFromTask;
       return base;
     });
-  }, [humanRows, scoringByLead, taskPriorityById]);
+  }, [humanRows, scoringByLead, taskById]);
 
 
   const statusOptionsView = useCrmView(
@@ -671,7 +702,7 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[110px]">
+                <HeadCell className="w-[88px]">
                   <div className="flex items-center justify-between gap-1">
                     <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
                   </div>
@@ -685,7 +716,7 @@ function QueuePage() {
                 <HeadCell>
                   <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="min-w-[220px]">
+                <HeadCell className="w-[180px]">
                   <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
@@ -700,10 +731,9 @@ function QueuePage() {
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="Lead statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[120px]">
+                <HeadCell className="w-[100px]">
                   <div className="flex items-center justify-between gap-1">
                     <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
-                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
                   </div>
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
@@ -814,7 +844,7 @@ function QueuePage() {
                         <Link
                           to="/lead/$leadId"
                           params={{ leadId }}
-                          className="block max-w-[280px] text-left text-primary/90 hover:underline"
+                          className="block max-w-[180px] text-left text-primary/90 hover:underline"
                         >
                           <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
                           {leadSecondary(r) && (
@@ -824,7 +854,7 @@ function QueuePage() {
                           )}
                         </Link>
                       ) : (
-                        <span className="line-clamp-2 max-w-[280px]">{leadLabel(r)}</span>
+                        <span className="line-clamp-2 max-w-[180px]">{leadLabel(r)}</span>
                       )}
                     </TableCell>
                     <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
@@ -836,27 +866,10 @@ function QueuePage() {
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <PriorityBadge label={pLabel} />
-                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-                          {score > 0 ? score : ""}
-                        </span>
-                      </div>
+                      <PriorityStars label={pLabel} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {leadId ? (
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-[11px]"
-                          >
-                            <Link to="/lead/$leadId" params={{ leadId }}>
-                              Atvērt
-                            </Link>
-                          </Button>
-                        ) : null}
                         {(() => {
                           const taskId = s(r.id);
                           const isTask =
