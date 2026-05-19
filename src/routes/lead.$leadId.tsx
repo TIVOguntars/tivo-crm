@@ -26,6 +26,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
+import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
@@ -540,6 +541,10 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  // Unified timeline is the preferred source, but Lead 360 must keep
+  // working if crm.v_unified_timeline is unavailable — we fall back to the
+  // existing local timeline when the child reports it cannot load.
+  const [unifiedAvailable, setUnifiedAvailable] = useState(true);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
@@ -1062,6 +1067,7 @@ function LeadProfilePage() {
                                    <TaskActionsMenu
                                     taskId={it.taskId}
                                     currentDueIso={it.scheduledIso}
+                                    leadId={leadId}
                                     onChanged={() => {
                                       plannedActionsQ.refetch();
                                       q.refetch();
@@ -1101,7 +1107,12 @@ function LeadProfilePage() {
 
               {/* Aktivitātes */}
               <Panel title="Aktivitātes" count={timeline.length}>
-                {timeline.length === 0 ? (
+                {unifiedAvailable ? (
+                  <UnifiedTimeline
+                    leadId={leadId}
+                    onUnavailable={() => setUnifiedAvailable(false)}
+                  />
+                ) : timeline.length === 0 ? (
                   <Empty />
                 ) : (
                   <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">

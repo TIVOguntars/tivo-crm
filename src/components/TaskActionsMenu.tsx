@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { callCrmRpc } from "@/server/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
+import { CompleteTaskModal } from "@/components/CompleteTaskModal";
 
 function toLocalInputValue(iso: string | null | undefined): string {
   if (!iso) {
@@ -38,10 +39,14 @@ function toLocalInputValue(iso: string | null | undefined): string {
 export function TaskActionsMenu({
   taskId,
   currentDueIso,
+  leadId,
+  taskType,
   onChanged,
 }: {
   taskId: string;
   currentDueIso?: string | null;
+  leadId?: string | null;
+  taskType?: string | null;
   onChanged?: () => void;
 }) {
   const qc = useQueryClient();
@@ -52,9 +57,9 @@ export function TaskActionsMenu({
   const [skipReason, setSkipReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [completeOpen, setCompleteOpen] = useState(false);
 
   type RpcFn =
-    | "rpc_complete_task"
     | "rpc_reschedule_task"
     | "rpc_cancel_task"
     | "rpc_skip_task";
@@ -78,8 +83,6 @@ export function TaskActionsMenu({
     }
   };
 
-  const handleComplete = () =>
-    run("rpc_complete_task", { p_task_id: taskId }, "Uzdevums pabeigts");
   const handleCancel = async () => {
     const reason = cancelReason.trim();
     if (!reason) {
@@ -161,7 +164,7 @@ export function TaskActionsMenu({
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
-              void handleComplete();
+              setCompleteOpen(true);
             }}
           >
             Pabeigt
@@ -319,6 +322,15 @@ export function TaskActionsMenu({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CompleteTaskModal
+        open={completeOpen}
+        onOpenChange={setCompleteOpen}
+        taskId={taskId}
+        leadId={leadId ?? null}
+        taskType={taskType ?? null}
+        onCompleted={() => onChanged?.()}
+      />
     </>
   );
 }
