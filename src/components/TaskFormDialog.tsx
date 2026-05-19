@@ -800,6 +800,7 @@ export function TaskFormDialog({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   maxLength={250}
+                  placeholder="[Ievadi tēmu] [{{Reference_code}}]"
                 />
               </div>
             )}
@@ -1095,7 +1096,19 @@ export function TaskFormDialog({
                           })
                         }
                       />
-                      <span className="truncate">E-pasts: {s(c.subject) || "(bez tēmas)"}</span>
+                      <span className="truncate flex-1">E-pasts: {s(c.subject) || "(bez tēmas)"}</span>
+                      {effectiveLeadId && (
+                        <a
+                          href={`/lead/${effectiveLeadId}#comm-${id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Atvērt"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </label>
                   );
                 })}
@@ -1116,7 +1129,19 @@ export function TaskFormDialog({
                           })
                         }
                       />
-                      <span className="truncate">Uzd.: {s(t.title) || "(bez nosaukuma)"}</span>
+                      <span className="truncate flex-1">Uzd.: {s(t.title) || "(bez nosaukuma)"}</span>
+                      {effectiveLeadId && (
+                        <a
+                          href={`/lead/${effectiveLeadId}#task-${id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Atvērt"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </label>
                   );
                 })}
