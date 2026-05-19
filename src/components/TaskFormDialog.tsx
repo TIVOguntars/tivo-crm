@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Star,
   ExternalLink,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,22 +49,16 @@ import {
 
 type Priority = "low" | "normal" | "high";
 
-const PRIORITIES: { value: Priority; label: string }[] = [
-  { value: "low", label: "Zema" },
-  { value: "normal", label: "Normāla" },
-  { value: "high", label: "Augsta" },
-];
-
 // TODO: source from crm.profiles.user_code (active users) instead of hardcoding.
 const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
 type OwnerCode = (typeof OWNER_OPTIONS)[number];
 const AUTO_OWNER: OwnerCode = "SIS";
 
 function priorityToStars(p: Priority): number {
-  return p === "high" ? 3 : p === "normal" ? 2 : 1;
+  return p === "high" ? 5 : p === "normal" ? 3 : 1;
 }
 function starsToPriority(n: number): Priority {
-  return n >= 3 ? "high" : n === 2 ? "normal" : "low";
+  return n >= 4 ? "high" : n >= 2 ? "normal" : "low";
 }
 function country3(raw: string): string {
   const t = raw.trim();
@@ -163,6 +158,7 @@ export function TaskFormDialog({
   // type-specific metadata fields (kept loose; serialized per type)
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
+  const [subjectRef, setSubjectRef] = useState("[{{Reference_code}}]");
   const [body, setBody] = useState("");
   const [templateKey, setTemplateKey] = useState("");
   const [signatureKey, setSignatureKey] = useState("");
@@ -245,6 +241,7 @@ export function TaskFormDialog({
     setOwnerCode("UC");
     setRecipient("");
     setSubject("");
+    setSubjectRef("[{{Reference_code}}]");
     setBody("");
     setTemplateKey("");
     setSignatureKey("");
@@ -278,11 +275,16 @@ export function TaskFormDialog({
     if (!open || !currentTypeRow) return;
     const ch = currentTypeRow.channel;
     if (ch === "email") {
-      if (!recipient && leadContext?.primaryEmail) setRecipient(leadContext.primaryEmail);
+      // Reset to email default when switching into an email-channel type
+      setRecipient(leadContext?.primaryEmail ?? "");
     } else if (ch === "sms" || ch === "whatsapp") {
-      if (!recipient && leadContext?.primaryPhone) setRecipient(leadContext.primaryPhone);
+      // Reset to phone default — previous email value must not leak in
+      setRecipient(leadContext?.primaryPhone ?? "");
     } else if (ch === "call") {
       if (!phoneE164 && leadContext?.primaryPhone) setPhoneE164(leadContext.primaryPhone);
+      setRecipient("");
+    } else {
+      setRecipient("");
     }
     // SIS for automatic, otherwise leave current pick (default UC on reset).
     if (currentTypeRow.mode === "automatic") {
@@ -357,7 +359,7 @@ export function TaskFormDialog({
           channel: "email",
           mode: "automatic",
           recipient: recipient.trim(),
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
           body: body.trim(),
           template_key: templateKey.trim() || null,
           signature_key: signatureKey.trim() || null,
@@ -368,7 +370,8 @@ export function TaskFormDialog({
           channel: "email",
           mode: "automatic",
           in_reply_to_communication_id: replyToCommunicationId,
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
+          recipient: recipient.trim() || undefined,
           body: body.trim(),
           signature_key: signatureKey.trim() || null,
           reply_match: {
@@ -382,7 +385,7 @@ export function TaskFormDialog({
           channel: "email",
           mode: "manual",
           recipient: recipient.trim(),
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
           body: body.trim(),
           proof: { required: true, accept: ["crm_send", "imap_reconcile", "manual_link"] },
         };
@@ -558,15 +561,18 @@ export function TaskFormDialog({
     currentTypeRow?.channel === "email" ||
     currentTypeRow?.channel === "sms" ||
     currentTypeRow?.channel === "whatsapp";
-  const showRecipientForCurrent =
-    showRecipient && taskType !== "automatic_reply_email";
+  // Email channel renders recipient+reply-to in a combined row below.
+  // Non-email channels keep the standalone recipient block.
+  const showRecipientStandalone =
+    showRecipient && currentTypeRow?.channel !== "email";
+  const showEmailRecipientRow = currentTypeRow?.channel === "email";
   const showSubject = !!currentTypeRow?.requires_subject;
   const showBody = !!currentTypeRow?.requires_body;
   const isAutomatic = currentTypeRow?.mode === "automatic";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 overflow-hidden flex flex-col [&>button.absolute]:hidden">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background/95 backdrop-blur px-5 py-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -602,6 +608,17 @@ export function TaskFormDialog({
               title="Drīzumā"
             >
               <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => !busy && onOpenChange(false)}
+              title="Aizvērt"
+              aria-label="Aizvērt"
+            >
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -671,15 +688,15 @@ export function TaskFormDialog({
           )}
 
           {/* Top row: Type · Owner · Priority */}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
+          <div className="flex items-end gap-3">
+            <div className="space-y-1.5 flex-1 min-w-0">
               <Label htmlFor="task-type">Tips *</Label>
               <Select
                 value={taskType}
                 onValueChange={(v) => setTaskType(v as TaskTypeKey)}
                 disabled={tt.isLoading || tt.rows.length === 0}
               >
-                <SelectTrigger id="task-type" className="w-auto min-w-fit gap-2">
+                <SelectTrigger id="task-type" className="w-full gap-2">
                   <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -694,9 +711,13 @@ export function TaskFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 shrink-0">
               <Label htmlFor="task-owner">Atbildīgais</Label>
-              <Select value={ownerCode} onValueChange={(v) => setOwnerCode(v as OwnerCode)}>
+              <Select
+                value={ownerCode}
+                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
+                disabled={isAutomatic}
+              >
                 <SelectTrigger id="task-owner" className="w-[5.5rem]">
                   <SelectValue />
                 </SelectTrigger>
@@ -707,19 +728,19 @@ export function TaskFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 shrink-0 ml-auto">
               <Label>Prioritāte</Label>
-              <div className="flex items-center h-9 gap-0.5">
-                {[1, 2, 3].map((n) => {
+              <div className="flex items-center h-9 gap-0.5 whitespace-nowrap">
+                {[1, 2, 3, 4, 5].map((n) => {
                   const active = priorityToStars(priority) >= n;
                   return (
                     <button
                       key={n}
                       type="button"
                       onClick={() => setPriority(starsToPriority(n))}
-                      className="p-1 text-amber-500 hover:scale-110 transition"
-                      title={PRIORITIES[n - 1].label}
-                      aria-label={`Prioritāte ${PRIORITIES[n - 1].label}`}
+                      className="p-0.5 text-amber-500 hover:scale-110 transition shrink-0"
+                      title={`${n} / 5`}
+                      aria-label={`Prioritāte ${n} no 5`}
                     >
                       <Star
                         className="h-4 w-4"
@@ -747,17 +768,40 @@ export function TaskFormDialog({
 
           {/* Type-specific fields */}
           <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
-            {showRecipientForCurrent && (
+            {showRecipientStandalone && (
               <div className="space-y-1.5">
                 <Label htmlFor="task-recipient">
-                  {currentTypeRow?.channel === "email" ? "Saņēmēja e-pasts *" : "Saņēmēja tālrunis *"}
+                  Saņēmēja tālrunis *
                 </Label>
                 <Input
                   id="task-recipient"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
-                  placeholder={currentTypeRow?.channel === "email" ? "klients@piemers.lv" : "+371…"}
+                  placeholder="+371…"
                 />
+              </div>
+            )}
+
+            {showEmailRecipientRow && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-recipient">Sūtīt uz *</Label>
+                  <Input
+                    id="task-recipient"
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    placeholder="klients@piemers.lv"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="task-reply-to">Atbildēt uz</Label>
+                  <Input
+                    id="task-reply-to"
+                    value={replyToEmail}
+                    onChange={(e) => setReplyToEmail(e.target.value)}
+                    placeholder={leadContext?.ppvEmail || "ppv@piemers.lv"}
+                  />
+                </div>
               </div>
             )}
 
@@ -795,13 +839,21 @@ export function TaskFormDialog({
             {showSubject && (
               <div className="space-y-1.5">
                 <Label htmlFor="task-subject">Tēma *</Label>
-                <Input
-                  id="task-subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  maxLength={250}
-                  placeholder="[Ievadi tēmu] [{{Reference_code}}]"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    id="task-subject"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    maxLength={250}
+                    placeholder="[Ievadi tēmu]"
+                  />
+                  <Input
+                    aria-label="Reference"
+                    value={subjectRef}
+                    onChange={(e) => setSubjectRef(e.target.value)}
+                    maxLength={120}
+                  />
+                </div>
               </div>
             )}
 
@@ -849,18 +901,6 @@ export function TaskFormDialog({
                   value={signatureKey}
                   onChange={(e) => setSignatureKey(e.target.value)}
                   placeholder="Neobligāts"
-                />
-              </div>
-            )}
-
-            {(currentTypeRow?.channel === "email") && (
-              <div className="space-y-1.5">
-                <Label htmlFor="task-reply-to">Atbildēt uz (reply-to)</Label>
-                <Input
-                  id="task-reply-to"
-                  value={replyToEmail}
-                  onChange={(e) => setReplyToEmail(e.target.value)}
-                  placeholder={leadContext?.ppvEmail || "ppv@piemers.lv"}
                 />
               </div>
             )}
