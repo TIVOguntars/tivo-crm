@@ -498,12 +498,27 @@ export function TaskFormDialog({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    const due = resolveDueIso();
-    if (due.error) {
-      toast.error(due.error);
-      return;
-    }
     const isPrepareOffer = (taskType as string) === "prepare_offer";
+    let due: { iso: string; error?: string };
+    if (isPrepareOffer) {
+      const step3 = planSteps[2];
+      if (!step3?.due_at) {
+        toast.error("Norādi 'Piedāvājuma sagatavošana' termiņu");
+        return;
+      }
+      const d = new Date(step3.due_at);
+      if (Number.isNaN(d.getTime())) {
+        toast.error("Nederīgs 'Piedāvājuma sagatavošana' termiņš");
+        return;
+      }
+      due = { iso: d.toISOString() };
+    } else {
+      due = resolveDueIso();
+      if (due.error) {
+        toast.error(due.error);
+        return;
+      }
+    }
     if (isPrepareOffer) {
       if (!serverFolderUrl.trim()) {
         toast.error("Servera mapes saite ir obligāta");
