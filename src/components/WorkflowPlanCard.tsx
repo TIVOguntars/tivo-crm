@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, CircleDot, Copy, ExternalLink } from "lucide-reac
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import type { WorkflowTaskRow } from "@/lib/workflow";
+import { useUserMap } from "@/hooks/useUsers";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -38,6 +39,11 @@ function metaRecord(t: WorkflowTaskRow): Record<string, unknown> | null {
  */
 export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
   if (!tasks.length) return null;
+  return <WorkflowPlanCardInner tasks={tasks} />;
+}
+
+function WorkflowPlanCardInner({ tasks }: { tasks: WorkflowTaskRow[] }) {
+  const { resolve } = useUserMap();
   const sorted = [...tasks].sort((a, b) => {
     const am = metaRecord(a);
     const bm = metaRecord(b);
