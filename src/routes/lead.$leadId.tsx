@@ -587,9 +587,9 @@ function LeadProfilePage() {
       "draw_sketches",
       "prepare_offer",
       "task_completed",
+      "task_created",
+      "status_change",
     ]);
-    // Always-skip system noise (never manual): task_created / status_change
-    // are represented elsewhere in the UI.
     activityRows.forEach((a, i) => {
       const at = str(pick(a, "activity_type")).toLowerCase();
       const aMeta =
@@ -602,7 +602,6 @@ function LeadProfilePage() {
       if (!isManual) {
         // Skip activities linked to a communication — the comm is shown.
         if (str(pick(a, "communication_id"))) return;
-        if (ALWAYS_SKIP_SYSTEM.has(at)) return;
         // Any non-manual crm.activities row linked to a task is a mirror
         // of that task's lifecycle (created/completed). The task row is
         // the canonical operator-visible item — hide the mirror.
