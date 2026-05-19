@@ -170,7 +170,7 @@ export function TopNav() {
               </Link>
             ))}
 
-          <div className="ml-2 border-l border-border pl-2">
+          <div className="ml-2 flex items-center gap-1 border-l border-border pl-2">
             <ChangeOperatorButton />
             <LogoutButton />
           </div>
