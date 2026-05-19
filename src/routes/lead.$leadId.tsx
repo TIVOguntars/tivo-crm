@@ -21,6 +21,7 @@ import {
   Star,
   X,
   Pencil,
+  MoreVertical,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -31,6 +32,13 @@ import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
+import type { ManualActivityPrefill } from "@/components/lead/ManualActivityDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { RequirePermission } from "@/components/auth/RequirePermission";
 import DOMPurify from "isomorphic-dompurify";
 import {
@@ -627,6 +635,58 @@ function LeadProfilePage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editPanelOpen, setEditPanelOpen] = useState(false);
   const [manualActivityOpen, setManualActivityOpen] = useState(false);
+  const [manualActivityPrefill, setManualActivityPrefill] =
+    useState<ManualActivityPrefill | undefined>(undefined);
+
+  function openFollowUpDialog(prefill: ManualActivityPrefill) {
+    setManualActivityPrefill(prefill);
+    setManualActivityOpen(true);
+  }
+
+  type QuickAction = {
+    label: string;
+    onSelect: () => void;
+    disabled?: boolean;
+  };
+
+  function QuickActionsMenu({ actions }: { actions: QuickAction[] }) {
+    if (actions.length === 0) return null;
+    return (
+      <div
+        className="ml-1 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              aria-label="Darbības"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {actions.map((a, i) => (
+              <DropdownMenuItem
+                key={i}
+                disabled={a.disabled}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  if (!a.disabled) a.onSelect();
+                }}
+              >
+                {a.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
@@ -852,8 +912,12 @@ function LeadProfilePage() {
 
           <ManualActivityDialog
             open={manualActivityOpen}
-            onOpenChange={setManualActivityOpen}
+            onOpenChange={(o) => {
+              setManualActivityOpen(o);
+              if (!o) setManualActivityPrefill(undefined);
+            }}
             leadId={leadId}
+            prefill={manualActivityPrefill}
           />
 
           {/* Two-column workspace */}
@@ -1340,10 +1404,17 @@ function LeadProfilePage() {
                             : <CheckSquare className="h-3.5 w-3.5" />;
                         return (
                           <li key={it.key}>
-                            <button
-                              type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setOpenItem(it)}
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setOpenItem(it);
+                                }
+                              }}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110 cursor-pointer`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {taskIcon}
@@ -1377,7 +1448,30 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </button>
+                              <QuickActionsMenu
+                                actions={(() => {
+                                  const taskId = str(pick(r, "id", "task_id"));
+                                  const isCompleted =
+                                    taskStatus.toLowerCase() === "completed";
+                                  const list: QuickAction[] = [];
+                                  if (taskId && !isCompleted) {
+                                    list.push({
+                                      label: "Pabeigt",
+                                      onSelect: () => setCompleteTaskId(taskId),
+                                    });
+                                  }
+                                  list.push({
+                                    label: "Atvērt",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                  list.push({
+                                    label: "Rediģēt lead",
+                                    onSelect: () => setEditPanelOpen(true),
+                                  });
+                                  return list;
+                                })()}
+                              />
+                            </div>
                           </li>
                         );
                       }
@@ -1432,10 +1526,17 @@ function LeadProfilePage() {
                           : typeLabel;
                         return (
                           <li key={it.key}>
-                            <button
-                              type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setOpenItem(it)}
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${styleA.accent} ${styleA.bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setOpenItem(it);
+                                }
+                              }}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${styleA.accent} ${styleA.bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110 cursor-pointer`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {actIcon}
@@ -1473,7 +1574,43 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </button>
+                              <QuickActionsMenu
+                                actions={(() => {
+                                  const list: QuickAction[] = [];
+                                  if (isManual && at === "call") {
+                                    list.push({
+                                      label: primaryPhone
+                                        ? "Atzvanīt"
+                                        : "Atzvanīt (nav tālruņa)",
+                                      disabled: !primaryPhone,
+                                      onSelect: () => {
+                                        if (primaryPhone) {
+                                          window.location.href = `tel:${primaryPhone}`;
+                                        }
+                                      },
+                                    });
+                                    list.push({
+                                      label: "Izveidot follow-up",
+                                      onSelect: () =>
+                                        openFollowUpDialog({
+                                          openFollowUp: true,
+                                          followUpType: "call_follow_up",
+                                          followUpAssigneeFromCurrent: true,
+                                        }),
+                                    });
+                                  }
+                                  list.push({
+                                    label: "Atvērt",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                  list.push({
+                                    label: "Rediģēt lead",
+                                    onSelect: () => setEditPanelOpen(true),
+                                  });
+                                  return list;
+                                })()}
+                              />
+                            </div>
                           </li>
                         );
                       }
@@ -1538,10 +1675,17 @@ function LeadProfilePage() {
                       const accent = _style.accent;
                       return (
                         <li key={it.key}>
-                          <button
-                            type="button"
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setOpenItem(it)}
-                            className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accent} ${bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setOpenItem(it);
+                              }
+                            }}
+                            className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accent} ${bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110 cursor-pointer`}
                           >
                             <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                               {isNote ? <StickyNote className="h-3.5 w-3.5" /> : channelIcon(ch)}
@@ -1593,7 +1737,37 @@ function LeadProfilePage() {
                                 {cleanPreview(preview) || "Nav teksta priekšskatījuma"}
                               </div>
                             </div>
-                          </button>
+                            <QuickActionsMenu
+                              actions={(() => {
+                                const list: QuickAction[] = [];
+                                if (isEmail) {
+                                  list.push({
+                                    label: "Atvērt e-pastu",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                  list.push({
+                                    label: "Izveidot follow-up",
+                                    onSelect: () =>
+                                      openFollowUpDialog({
+                                        openFollowUp: true,
+                                        followUpType: "info_follow_up",
+                                        followUpAssigneeFromCurrent: true,
+                                      }),
+                                  });
+                                } else {
+                                  list.push({
+                                    label: "Atvērt",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                }
+                                list.push({
+                                  label: "Rediģēt lead",
+                                  onSelect: () => setEditPanelOpen(true),
+                                });
+                                return list;
+                              })()}
+                            />
+                          </div>
                         </li>
                       );
                     })}

@@ -36,12 +36,6 @@ import {
   type ManualKind,
 } from "@/lib/manualActivity";
 
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  leadId: string;
-}
-
 // Operator-visible follow-up options. `taskType` maps each option to an
 // existing crm.task_types row accepted by rpc_create_task — the RPC
 // rejects any key not present in that table.
@@ -53,13 +47,28 @@ const FOLLOW_UP_TYPES = [
 ] as const;
 type FollowUpType = (typeof FOLLOW_UP_TYPES)[number]["value"];
 
+export type ManualActivityPrefill = {
+  openFollowUp?: boolean;
+  followUpType?: FollowUpType;
+  followUpAssigneeFromCurrent?: boolean;
+  followUpAssigneeUserId?: string | null;
+  followUpDueAt?: Date;
+};
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  leadId: string;
+  prefill?: ManualActivityPrefill;
+}
+
 /** Format a Date to <input type="datetime-local"> value in local time. */
 function toLocalInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
+export function ManualActivityDialog({ open, onOpenChange, leadId, prefill }: Props) {
   const qc = useQueryClient();
   const { operatorId } = useCurrentUser();
   const call = useServerFn(callCrmRpc);
@@ -83,17 +92,26 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       setActivityAt(toLocalInputValue(new Date()));
       setSummary("");
       setOutcome("");
-      setCreateFollowUp(false);
-      setFuType("call_follow_up");
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      setFuDueAt(toLocalInputValue(tomorrow));
-      setFuAssignee(null);
+      setCreateFollowUp(!!prefill?.openFollowUp);
+      setFuType(prefill?.followUpType ?? "call_follow_up");
+      const dueDefault =
+        prefill?.followUpDueAt ??
+        (() => {
+          const t = new Date();
+          t.setDate(t.getDate() + 1);
+          t.setHours(9, 0, 0, 0);
+          return t;
+        })();
+      setFuDueAt(toLocalInputValue(dueDefault));
+      setFuAssignee(
+        prefill?.followUpAssigneeFromCurrent
+          ? operatorId ?? null
+          : prefill?.followUpAssigneeUserId ?? null,
+      );
       setFuNote("");
       setBusyFollowUp(false);
     }
-  }, [open]);
+  }, [open, prefill, operatorId]);
 
   const mut = useMutation({
     mutationFn: async (params: Record<string, unknown>) => {
