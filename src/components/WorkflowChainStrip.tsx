@@ -3,6 +3,7 @@ import {
   buildWorkflowChain,
   type WorkflowTaskRow,
 } from "@/lib/workflow";
+import { TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -63,7 +64,7 @@ export function WorkflowChainStrip({
           const statusLabel =
             entry.status === "pending"
               ? "Vēl nav izveidots"
-              : (entry.task?.status ?? "").toLowerCase() || "—";
+              : lv(TASK_STATUS_LV, entry.task?.status ?? null, "—");
           return (
             <li key={entry.task?.id ?? `pending-${entry.step}`} className="relative flex gap-3">
               <div className="flex flex-col items-center">

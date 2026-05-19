@@ -11,6 +11,8 @@ import {
 
 import { useCrmView } from "@/hooks/useCrmView";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { labelEventType, labelRecordSource } from "@/lib/timelineLabels";
+import { COMM_STATUS_LV, lv } from "@/lib/i18nLabels";
 
 type Row = Record<string, unknown>;
 
@@ -112,9 +114,17 @@ export function UnifiedTimeline({ leadId, onUnavailable }: UnifiedTimelineProps)
   return (
     <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
       {items.map((it) => {
-        const outcome = it.metadata
+        const outcomeRaw = it.metadata
           ? s((it.metadata as Row).outcome_code)
           : "";
+        const outcome = outcomeRaw
+          ? lv(COMM_STATUS_LV, outcomeRaw, outcomeRaw)
+          : "";
+        const eventLabel =
+          labelEventType(it.eventType) ||
+          labelRecordSource(it.recordSource) ||
+          "Notikums";
+        const sourceLabel = labelRecordSource(it.recordSource);
         return (
           <li key={it.key}>
             <div className="group w-full text-left flex gap-3 rounded-md border border-l-4 border-l-muted-foreground/40 bg-muted/40 px-3 py-2">
@@ -124,12 +134,10 @@ export function UnifiedTimeline({ leadId, onUnavailable }: UnifiedTimelineProps)
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-medium capitalize">
-                      {it.eventType || it.recordSource || "Notikums"}
-                    </span>
-                    {it.recordSource && (
-                      <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">
-                        {it.recordSource}
+                    <span className="font-medium">{eventLabel}</span>
+                    {sourceLabel && (
+                      <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {sourceLabel}
                       </span>
                     )}
                   </div>
