@@ -1,128 +1,81 @@
+# Lead360 Timeline — Restore Existing Timeline as Primary, Make UnifiedTimeline Additive
 
-## Schema introspection (real, verified)
+## Problem
 
-`crm.tasks` columns used by this guard exist and have correct types:
-- `id uuid`
-- `status text` (observed values include `planned`, `in_progress`, `completed`, `cancelled`, `skipped`)
-- `metadata jsonb` (NOT NULL, default `{}`)
+In `src/routes/lead.$leadId.tsx` the "Aktivitātes" panel currently renders `<UnifiedTimeline>` **as a replacement** when `unifiedAvailable === true`:
 
-Confirmed live data uses the exact keys from the spec:
-- `metadata->>'workflow_group_id'` (uuid as text)
-- `metadata->>'workflow_step'` (integer as text)
-
-Example rows (one workflow group):
-
-```text
-draw_sketches  step=1  status=planned
-estimate       step=2  status=planned
-prepare_offer  step=3  status=planned
+```tsx
+{unifiedAvailable ? (
+  <UnifiedTimeline leadId={leadId} onUnavailable={() => setUnifiedAvailable(false)} />
+) : timeline.length === 0 ? (
+  <Empty />
+) : (
+  <ol> {timeline.map(...)} </ol>   // existing rich renderer (comms, notes, tasks, workflow, automation)
+)}
 ```
 
-`crm.rpc_complete_task` sets `status = 'completed'` in a single `UPDATE crm.tasks ... WHERE id = p_task_id` block, after the `TASK_ALREADY_FINALIZED` check and before the activity insert. The guard must run BEFORE that `UPDATE`.
+The existing `timeline` already aggregates communications, notes, completed tasks, workflow items, automation/audit info — so swapping it for `UnifiedTimeline` makes older activity sources disappear from the UI.
 
-## What the guard does
+## Fix (frontend only)
 
-Before completion, if the task being completed has:
-- `metadata->>'workflow_group_id' IS NOT NULL`, AND
-- `(metadata->>'workflow_step')::int > 1`
+Restore the existing timeline as the **primary, always-rendered** source. Render `UnifiedTimeline` as an **additive supplemental section below it**, never as a replacement.
 
-…look up the sibling task in the same `workflow_group_id` whose `workflow_step = current - 1`. If that previous step's `status <> 'completed'`, raise `WORKFLOW_PREVIOUS_STEP_NOT_COMPLETED`.
+### Exact rendering change
 
-Rules respected:
-- Step 1 is never blocked.
-- Tasks without `workflow_group_id` are untouched.
-- Legacy `workflow_instance_id` chains are untouched (different key, not read).
-- RPC signature unchanged. No new columns. No new tables. No spawn/lifecycle rewrite. `crm.tasks` remains canonical.
+Replace the conditional block inside the `Aktivitātes` `<Panel>` with:
 
-## SQL preview (NOT applied)
+```tsx
+<Panel title="Aktivitātes" count={timeline.length}>
+  {/* PRIMARY: existing local timeline — full historical sources
+      (communications, notes, completed tasks, workflow completion items,
+      automation items, audit events). Always rendered. */}
+  {timeline.length === 0 ? (
+    <Empty />
+  ) : (
+    <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
+      {timeline.map((it) => { /* unchanged existing renderer */ })}
+    </ol>
+  )}
 
-This is an additive `CREATE OR REPLACE` that preserves the existing body byte-for-byte and inserts only the guard block right after the `TASK_ALREADY_FINALIZED` check. Final apply will reuse the current function body verbatim — shown here in abbreviated form for review:
-
-```sql
-CREATE OR REPLACE FUNCTION crm.rpc_complete_task(
-  p_task_id uuid,
-  p_completed_at timestamptz DEFAULT now(),
-  p_completed_by_user_id uuid DEFAULT auth.uid(),
-  p_outcome_code text DEFAULT NULL,
-  p_summary text DEFAULT NULL,
-  p_notes text DEFAULT NULL,
-  p_create_activity boolean DEFAULT true,
-  p_activity_type text DEFAULT NULL,
-  p_communication_basis text DEFAULT NULL,
-  p_metadata jsonb DEFAULT '{}'::jsonb
-) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'crm','public'
-AS $function$
-DECLARE
-  v_task crm.tasks%ROWTYPE;
-  v_activity_id uuid;
-  v_activity_type text;
-  v_valid_outcomes jsonb;
-  v_outcome_result jsonb;
-  v_status_applied text;
-  v_wf_group_id text;            -- NEW
-  v_wf_step int;                 -- NEW
-  v_prev_status text;            -- NEW
-BEGIN
-  SELECT * INTO v_task FROM crm.tasks WHERE id = p_task_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'TASK_NOT_FOUND'; END IF;
-  IF v_task.status IN ('completed','cancelled','skipped') THEN
-    RAISE EXCEPTION 'TASK_ALREADY_FINALIZED';
-  END IF;
-
-  ---------------------------------------------------------------
-  -- NEW: workflow_group_id step-order guard (additive, minimal)
-  ---------------------------------------------------------------
-  v_wf_group_id := v_task.metadata->>'workflow_group_id';
-  BEGIN
-    v_wf_step := NULLIF(v_task.metadata->>'workflow_step','')::int;
-  EXCEPTION WHEN invalid_text_representation THEN
-    v_wf_step := NULL;
-  END;
-
-  IF v_wf_group_id IS NOT NULL AND v_wf_step IS NOT NULL AND v_wf_step > 1 THEN
-    SELECT t.status
-      INTO v_prev_status
-    FROM crm.tasks t
-    WHERE t.metadata->>'workflow_group_id' = v_wf_group_id
-      AND NULLIF(t.metadata->>'workflow_step','')::int = v_wf_step - 1
-    ORDER BY t.created_at ASC
-    LIMIT 1;
-
-    IF v_prev_status IS NULL OR v_prev_status <> 'completed' THEN
-      RAISE EXCEPTION 'WORKFLOW_PREVIOUS_STEP_NOT_COMPLETED';
-    END IF;
-  END IF;
-  ---------------------------------------------------------------
-
-  -- (rest of the existing function body is preserved verbatim:
-  --   outcome validation, activity_type validation against
-  --   crm.settings 'activity.types', UPDATE crm.tasks SET status='completed',
-  --   activity insert, task_relations insert, outcome action, audit_events insert)
-END;
-$function$;
+  {/* ADDITIVE: unified timeline (crm.v_unified_timeline).
+      Supplemental only — never hides or replaces the primary timeline.
+      Hidden silently when the view is unavailable or empty. */}
+  {unifiedAvailable && (
+    <div className="mt-6 pt-4 border-t">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+        Vienotā laika līnija (papildus)
+      </div>
+      <UnifiedTimeline
+        leadId={leadId}
+        onUnavailable={() => setUnifiedAvailable(false)}
+      />
+    </div>
+  )}
+</Panel>
 ```
 
-## Self-check vs real schema
+Key points:
+- Existing `timeline` renderer is kept **byte-identical** — no logic removed, no branches changed.
+- `UnifiedTimeline` is rendered **after** the primary list, under a divider with a clear "papildus" label so users understand it is supplemental.
+- If `v_unified_timeline` is unavailable, `onUnavailable` flips `unifiedAvailable` to `false` and the supplemental block disappears; the primary timeline is unaffected.
+- If `v_unified_timeline` is empty, `UnifiedTimeline` already renders its own empty state inside the supplemental block — primary timeline still fully visible above.
 
-```text
-invalid_columns_present:        no
-invalid_fk_targets_present:     no  (guard does not write any FK)
-uses_nonexistent_fields:        no  (only crm.tasks.metadata / status / created_at)
-preview_matches_real_schema:    yes
-```
+### Files changed
+- `src/routes/lead.$leadId.tsx` — only the JSX inside the `Aktivitātes` `<Panel>` (around lines 1108–1117). No other edits.
 
-Notes:
-- `metadata` is `jsonb NOT NULL`, so `->>` is safe.
-- `workflow_step` is read as text and cast via `NULLIF(...,'')::int` inside a `BEGIN/EXCEPTION` block so a malformed value never aborts completion of unrelated tasks.
-- Tie-break on `created_at ASC` covers the (unexpected) case of duplicate step rows; behavior is conservative — the earliest sibling must be completed.
-- Legacy `workflow_instance_id` paths are not read by this guard.
+### Not touched
+- `src/components/UnifiedTimeline.tsx`
+- `src/server/analytics.ts` (whitelist for `v_unified_timeline` stays)
+- `timeline` `useMemo` and all kind-specific renderers (`comm`, `note`, `task`, workflow/automation branches)
+- DB, views, RPCs, workflow engine, backend
 
-## Out of scope (explicit)
+### Verification checklist
+- Old timeline renders fully on a lead with historical communications + notes + completed tasks, even when `v_unified_timeline` returns rows.
+- Workflow completion items, automation items, and audit events still appear (they come through `timeline`, untouched).
+- When `v_unified_timeline` is missing/errors, supplemental section disappears; primary timeline unchanged.
+- When both are empty, panel shows the existing `<Empty />` state.
 
-- No changes to `rpc_create_task`, `rpc_reschedule_task`, `rpc_skip_task`, `rpc_cancel_task`.
-- No spawn-engine changes.
-- No new tables, columns, indexes, triggers, or settings.
-- No frontend changes in this step (the existing `TaskActionsMenu` will surface `WORKFLOW_PREVIOUS_STEP_NOT_COMPLETED` via the standard error toast). A small LV-translation of that error message can be added in a follow-up if desired.
-
-Awaiting approval before applying.
+### Returned answers (per request)
+- **Exact rendering logic used:** primary `<ol>{timeline.map(...)}</ol>` always rendered; `<UnifiedTimeline>` rendered below in an additive `<div className="mt-6 pt-4 border-t">` block, gated only by `unifiedAvailable`.
+- **Old timeline restored:** yes, as primary and always-on.
+- **UnifiedTimeline additive only:** yes, supplemental section below the primary list, never replaces it.

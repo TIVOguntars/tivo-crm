@@ -1107,12 +1107,10 @@ function LeadProfilePage() {
 
               {/* Aktivitātes */}
               <Panel title="Aktivitātes" count={timeline.length}>
-                {unifiedAvailable ? (
-                  <UnifiedTimeline
-                    leadId={leadId}
-                    onUnavailable={() => setUnifiedAvailable(false)}
-                  />
-                ) : timeline.length === 0 ? (
+                {/* PRIMARY: existing local timeline — communications, notes,
+                    completed tasks, workflow completion items, automation,
+                    audit events. Always rendered. */}
+                {timeline.length === 0 ? (
                   <Empty />
                 ) : (
                   <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
@@ -1332,6 +1330,20 @@ function LeadProfilePage() {
                       );
                     })}
                   </ol>
+                )}
+                {/* ADDITIVE: unified timeline (crm.v_unified_timeline).
+                    Supplemental only — never hides or replaces the primary
+                    timeline above. Hidden silently if the view is unavailable. */}
+                {unifiedAvailable && (
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+                      Vienotā laika līnija (papildus)
+                    </div>
+                    <UnifiedTimeline
+                      leadId={leadId}
+                      onUnavailable={() => setUnifiedAvailable(false)}
+                    />
+                  </div>
                 )}
               </Panel>
             </div>
