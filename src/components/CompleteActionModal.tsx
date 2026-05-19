@@ -236,7 +236,7 @@ export function CompleteActionModal({
             },
           });
       if (res.error) {
-        setError(res.error);
+        setError(formatCrmError(res.error));
         setSubmitting(false);
         return;
       }
