@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Star,
   ExternalLink,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -60,10 +61,10 @@ type OwnerCode = (typeof OWNER_OPTIONS)[number];
 const AUTO_OWNER: OwnerCode = "SIS";
 
 function priorityToStars(p: Priority): number {
-  return p === "high" ? 3 : p === "normal" ? 2 : 1;
+  return p === "high" ? 5 : p === "normal" ? 3 : 1;
 }
 function starsToPriority(n: number): Priority {
-  return n >= 3 ? "high" : n === 2 ? "normal" : "low";
+  return n >= 4 ? "high" : n >= 2 ? "normal" : "low";
 }
 function country3(raw: string): string {
   const t = raw.trim();
@@ -163,6 +164,7 @@ export function TaskFormDialog({
   // type-specific metadata fields (kept loose; serialized per type)
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
+  const [subjectRef, setSubjectRef] = useState("[{{Reference_code}}]");
   const [body, setBody] = useState("");
   const [templateKey, setTemplateKey] = useState("");
   const [signatureKey, setSignatureKey] = useState("");
@@ -245,6 +247,7 @@ export function TaskFormDialog({
     setOwnerCode("UC");
     setRecipient("");
     setSubject("");
+    setSubjectRef("[{{Reference_code}}]");
     setBody("");
     setTemplateKey("");
     setSignatureKey("");
@@ -278,11 +281,16 @@ export function TaskFormDialog({
     if (!open || !currentTypeRow) return;
     const ch = currentTypeRow.channel;
     if (ch === "email") {
-      if (!recipient && leadContext?.primaryEmail) setRecipient(leadContext.primaryEmail);
+      // Reset to email default when switching into an email-channel type
+      setRecipient(leadContext?.primaryEmail ?? "");
     } else if (ch === "sms" || ch === "whatsapp") {
-      if (!recipient && leadContext?.primaryPhone) setRecipient(leadContext.primaryPhone);
+      // Reset to phone default — previous email value must not leak in
+      setRecipient(leadContext?.primaryPhone ?? "");
     } else if (ch === "call") {
       if (!phoneE164 && leadContext?.primaryPhone) setPhoneE164(leadContext.primaryPhone);
+      setRecipient("");
+    } else {
+      setRecipient("");
     }
     // SIS for automatic, otherwise leave current pick (default UC on reset).
     if (currentTypeRow.mode === "automatic") {
