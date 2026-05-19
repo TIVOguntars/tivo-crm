@@ -1057,40 +1057,79 @@ export function TaskFormDialog({
             />
           </div>
 
-          {(taskType as string) === "draw_sketches" && (
+          {(taskType as string) === "prepare_offer" && (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-4 space-y-3">
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  Sākt objekta sagatavošanas procesu
+                  Sagatavošanas soļi
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Pēc katra soļa pabeigšanas sistēma automātiski izveidos nākamo uzdevumu.
+                  Iestati katra soļa atbildīgo un termiņu. Soļi tiek glabāti šī uzdevuma plānā.
                 </p>
               </div>
-              <ol className="space-y-1 text-xs text-foreground/90">
-                <li className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">1</span>
-                  Zīmēt skices
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">2</span>
-                  Tāmēšana
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">3</span>
-                  Piedāvājuma sagatavošana
-                </li>
-              </ol>
-              <label className="flex items-center gap-2 pt-1 text-sm">
-                <Checkbox
-                  checked={startWorkflow}
-                  onCheckedChange={(v) => setStartWorkflow(!!v)}
-                />
-                Sākt workflow
-              </label>
+              <div className="space-y-2">
+                {planSteps.map((p, idx) => (
+                  <div
+                    key={p.step}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_5.5rem_minmax(0,12rem)] items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-2"
+                  >
+                    <Checkbox
+                      checked={p.enabled}
+                      onCheckedChange={(v) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], enabled: !!v };
+                          return next;
+                        })
+                      }
+                    />
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {p.step}. {p.label}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {p.task_type}
+                      </div>
+                    </div>
+                    <Select
+                      value={p.owner_id}
+                      onValueChange={(v) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], owner_id: v as OwnerCode };
+                          return next;
+                        })
+                      }
+                      disabled={!p.enabled}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OWNER_OPTIONS.map((o) => (
+                          <SelectItem key={o} value={o}>{o}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="datetime-local"
+                      value={p.due_at}
+                      onChange={(e) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], due_at: e.target.value };
+                          return next;
+                        })
+                      }
+                      disabled={!p.enabled}
+                      className="h-8"
+                    />
+                  </div>
+                ))}
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="task-server-folder">
-                  Servera mapes saite / ceļš{startWorkflow ? " *" : ""}
+                  Servera mapes saite / ceļš *
                 </Label>
                 <Input
                   id="task-server-folder"
@@ -1098,9 +1137,9 @@ export function TaskFormDialog({
                   onChange={(e) => setServerFolderUrl(e.target.value)}
                   placeholder="\\\\server\\projekti\\..."
                 />
-                {startWorkflow && !serverFolderUrl.trim() && (
+                {!serverFolderUrl.trim() && (
                   <p className="text-[10px] text-destructive font-medium">
-                    Obligāts, kad workflow ir aktīvs.
+                    Obligāts.
                   </p>
                 )}
               </div>
