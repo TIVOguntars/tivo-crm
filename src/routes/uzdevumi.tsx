@@ -876,7 +876,7 @@ function QueuePage() {
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3">
-                      <PriorityStars label={pLabel} />
+                      <PriorityStars label={pLabel} score={score} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
