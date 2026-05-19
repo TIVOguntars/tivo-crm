@@ -142,14 +142,15 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       if (createFollowUp) {
         setBusyFollowUp(true);
         try {
-          const fuLabel =
-            FOLLOW_UP_TYPES.find((t) => t.value === fuType)?.label || "Follow-up";
+          const fuDef = FOLLOW_UP_TYPES.find((t) => t.value === fuType);
+          const fuLabel = fuDef?.label || "Follow-up";
+          const fuTaskType = fuDef?.taskType || "call";
           const res = await call({
             data: {
               fn: "rpc_create_task",
               params: {
                 p_lead_id: leadId,
-                p_task_type: fuType,
+                p_task_type: fuTaskType,
                 p_due_at: isoFuDueAt,
                 p_title: fuLabel,
                 p_description: fuNote.trim() || null,
@@ -160,6 +161,8 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
                 p_metadata: {
                   source: "manual",
                   follow_up_of_kind: kind,
+                  follow_up_kind: fuType,
+                  follow_up_label_lv: fuLabel,
                 },
                 p_is_auto_created: false,
                 p_priority: "normal",
