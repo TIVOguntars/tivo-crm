@@ -64,6 +64,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { callCrmRpc } from "@/server/analytics";
+import { QUEUE_STATUS_LV, lv } from "@/lib/i18nLabels";
 
 export const Route = createFileRoute("/lead/$leadId")({
   component: LeadProfilePage,
@@ -943,14 +944,6 @@ function LeadProfilePage() {
                   scheduledLabel: string;
                   status: string;
                 };
-                const QUEUE_STATUS_LV: Record<string, string> = {
-                  queued: "Plānots",
-                  sending: "Sūta",
-                  sent: "Nosūtīts",
-                  failed: "Kļūda",
-                  blocked: "Bloķēts",
-                  cancelled: "Atcelts",
-                };
                 const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
                 const queueById = new Map<string, Row>();
                 for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
@@ -977,8 +970,11 @@ function LeadProfilePage() {
                     // Dedupe: skip queued automation emails already sent
                     if (tkNorm && sentTemplateKeys.has(tkNorm)) return;
                     const subject = str(r.title) || str(qRow?.subject);
-                    const statusLabel =
-                      QUEUE_STATUS_LV[rawStatus.toLowerCase()] || rawStatus;
+                    const statusLabel = lv(
+                      QUEUE_STATUS_LV,
+                      rawStatus,
+                      rawStatus,
+                    );
                     const tplLabel = tkNorm ? templateLabelFor(tkNorm) : "";
                     const scheduledIso = str(r.scheduled_for ?? qRow?.scheduled_for);
                     items.push({

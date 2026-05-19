@@ -37,17 +37,24 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useTaskTypes } from "@/hooks/useTaskTypes";
 
-const NEXT_ACTIONS = [
-  "Zvanīt",
-  "SMS",
-  "WhatsApp",
-  "E-pasts",
-  "Pārdošana",
-  "Piedāvājums",
-  "Tāmēšana",
-  "Skice apjomi",
-  "Gaidu projektu",
+// Free-text pseudo-statuses written to crm.leads.nakama_darbiba. These are
+// NOT task_types and have special server-side semantics (e.g. "Gaidu
+// projektu" triggers a +7d reminder via existing backend logic).
+const TRANSITION_ACTIONS = ["Pārdošana", "Piedāvājums", "Gaidu projektu"];
+
+// User-facing canonical task type keys whose label_lv populates the
+// "Darbības" group of the next-action picker.
+const USER_FACING_TYPE_KEYS = [
+  "call",
+  "manual_email",
+  "manual_sms",
+  "manual_whatsapp",
+  "zoom",
+  "draw_sketches",
+  "estimate",
+  "prepare_offer",
 ];
 
 const NONE = "__none__";
@@ -157,12 +164,27 @@ export function CompleteActionModal({
   onCompleted: () => void;
 }) {
   const qc = useQueryClient();
+  const tt = useTaskTypes();
   const [note, setNote] = useState("");
   const [nextAction, setNextAction] = useState<string>(NONE);
   const [owner, setOwner] = useState<string>("");
   const [due, setDue] = useState<Date | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const actionLabels = useMemo(() => {
+    const fromTypes = USER_FACING_TYPE_KEYS
+      .map((k) => tt.labelOf(k))
+      .filter((l) => !!l && l.trim().length > 0);
+    // dedupe while preserving order
+    const seen = new Set<string>();
+    const dedupe = (arr: string[]) =>
+      arr.filter((v) => (seen.has(v) ? false : (seen.add(v), true)));
+    return {
+      tasks: dedupe(fromTypes),
+      transitions: dedupe(TRANSITION_ACTIONS),
+    };
+  }, [tt]);
 
   useEffect(() => {
     if (open) {
@@ -280,8 +302,25 @@ export function CompleteActionModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>— Nav —</SelectItem>
-                {NEXT_ACTIONS.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {actionLabels.tasks.length > 0 && (
+                  <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Darbības
+                  </div>
+                )}
+                {actionLabels.tasks.map((a) => (
+                  <SelectItem key={`t:${a}`} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+                {actionLabels.transitions.length > 0 && (
+                  <div className="mt-1 px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Pārejas
+                  </div>
+                )}
+                {actionLabels.transitions.map((a) => (
+                  <SelectItem key={`x:${a}`} value={a}>
+                    {a}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
