@@ -66,7 +66,7 @@ function StatusBadge({ status }: { status: string }) {
 function UsersPage() {
   const view = useCrmView(
     "profiles",
-    "select=id,full_name,email,phone,status_key,created_at&order=full_name.asc&limit=1000",
+    "select=id,full_name,email,status_key,created_at&order=full_name.asc&limit=1000",
     { all: true }
   );
 
@@ -106,7 +106,6 @@ function UsersPage() {
                 <TableRow>
                   <TableHead>Vārds</TableHead>
                   <TableHead>E-pasts</TableHead>
-                  <TableHead>Telefons</TableHead>
                   <TableHead>Statuss</TableHead>
                   <TableHead>Izveidots</TableHead>
                 </TableRow>
@@ -115,7 +114,6 @@ function UsersPage() {
                 {rows.map((r) => {
                   const name = s(r.full_name) || "—";
                   const email = s(r.email) || "—";
-                  const phone = s(r.phone) || "—";
                   const status = s(r.status_key);
                   const created = fmtDate(r.created_at);
 
@@ -123,7 +121,6 @@ function UsersPage() {
                     <TableRow key={s(r.id) || Math.random()}>
                       <TableCell className="font-medium">{name}</TableCell>
                       <TableCell className="text-muted-foreground">{email}</TableCell>
-                      <TableCell className="text-muted-foreground">{phone}</TableCell>
                       <TableCell>
                         {status ? <StatusBadge status={status} /> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
