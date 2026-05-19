@@ -1106,13 +1106,15 @@ export function TaskFormDialog({
                     </div>
                     <Select
                       value={p.owner_id}
-                      onValueChange={(v) =>
+                      onValueChange={(v) => {
+                        const oc = v as OwnerCode;
                         setPlanSteps((prev) => {
                           const next = [...prev];
-                          next[idx] = { ...next[idx], owner_id: v as OwnerCode };
+                          next[idx] = { ...next[idx], owner_id: oc };
                           return next;
-                        })
-                      }
+                        });
+                        if (idx === 2) setOwnerCode(oc);
+                      }}
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue />
