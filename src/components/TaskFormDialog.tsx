@@ -856,17 +856,7 @@ export function TaskFormDialog({
               <Label htmlFor="task-owner">Atbildīgais</Label>
               <Select
                 value={ownerCode}
-                onValueChange={(v) => {
-                  const oc = v as OwnerCode;
-                  setOwnerCode(oc);
-                  if ((taskType as string) === "prepare_offer") {
-                    setPlanSteps((prev) => {
-                      const next = [...prev];
-                      if (next[2]) next[2] = { ...next[2], owner_id: oc };
-                      return next;
-                    });
-                  }
-                }}
+                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
                 disabled={isAutomatic}
               >
                 <SelectTrigger id="task-owner" className="w-[5.5rem]">
