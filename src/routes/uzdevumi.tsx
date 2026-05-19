@@ -674,7 +674,6 @@ function QueuePage() {
                 <HeadCell className="w-[110px]">
                   <div className="flex items-center justify-between gap-1">
                     <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
                   </div>
                 </HeadCell>
                 <HeadCell className="w-[100px]">
@@ -701,11 +700,17 @@ function QueuePage() {
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="Lead statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
                 </HeadCell>
+                <HeadCell className="w-[120px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
+                    <SortButton k="score" sort={sort} onClick={toggleSort} ariaLabel="Score" />
+                  </div>
+                </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
-                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
+                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
@@ -750,6 +755,9 @@ function QueuePage() {
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell>
                   {hasActiveFilters ? (
