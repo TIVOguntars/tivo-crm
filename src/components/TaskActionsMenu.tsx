@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { callCrmRpc } from "@/server/analytics";
 
 function toLocalInputValue(iso: string | null | undefined): string {
@@ -46,6 +47,10 @@ export function TaskActionsMenu({
   const [busy, setBusy] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDue, setNewDue] = useState<string>(toLocalInputValue(currentDueIso));
+  const [skipOpen, setSkipOpen] = useState(false);
+  const [skipReason, setSkipReason] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   type RpcFn =
     | "rpc_complete_task"
@@ -74,10 +79,46 @@ export function TaskActionsMenu({
 
   const handleComplete = () =>
     run("rpc_complete_task", { p_task_id: taskId }, "Uzdevums pabeigts");
-  const handleCancel = () =>
-    run("rpc_cancel_task", { p_task_id: taskId }, "Uzdevums atcelts");
-  const handleSkip = () =>
-    run("rpc_skip_task", { p_task_id: taskId }, "Uzdevums izlaists");
+  const handleCancel = async () => {
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Norādi atcelšanas iemeslu");
+      return;
+    }
+    const ok = await run(
+      "rpc_cancel_task",
+      {
+        p_task_id: taskId,
+        p_cancelled_reason: reason,
+        p_cancelled_by_user_id: null,
+      },
+      "Uzdevums atcelts",
+    );
+    if (ok) {
+      setCancelOpen(false);
+      setCancelReason("");
+    }
+  };
+  const handleSkip = async () => {
+    const reason = skipReason.trim();
+    if (!reason) {
+      toast.error("Norādi izlaišanas iemeslu");
+      return;
+    }
+    const ok = await run(
+      "rpc_skip_task",
+      {
+        p_task_id: taskId,
+        p_skipped_reason: reason,
+        p_skipped_by_user_id: null,
+      },
+      "Uzdevums izlaists",
+    );
+    if (ok) {
+      setSkipOpen(false);
+      setSkipReason("");
+    }
+  };
 
   const handleReschedule = async () => {
     if (!newDue) {
@@ -87,7 +128,11 @@ export function TaskActionsMenu({
     const iso = new Date(newDue).toISOString();
     const ok = await run(
       "rpc_reschedule_task",
-      { p_task_id: taskId, p_new_due_at: iso },
+      {
+        p_task_id: taskId,
+        p_new_due_at: iso,
+        p_rescheduled_by_user_id: null,
+      },
       "Uzdevums pārplānots",
     );
     if (ok) setRescheduleOpen(false);
@@ -132,7 +177,8 @@ export function TaskActionsMenu({
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
-              void handleSkip();
+              setSkipReason("");
+              setSkipOpen(true);
             }}
           >
             Izlaist
@@ -141,7 +187,8 @@ export function TaskActionsMenu({
             className="text-destructive focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault();
-              void handleCancel();
+              setCancelReason("");
+              setCancelOpen(true);
             }}
           >
             Atcelt
@@ -184,6 +231,89 @@ export function TaskActionsMenu({
               disabled={busy || !newDue}
             >
               {busy ? "Saglabā…" : "Pārplānot"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={skipOpen}
+        onOpenChange={(o) => !busy && setSkipOpen(o)}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Izlaist uzdevumu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="task-skip-reason">Iemesls</Label>
+            <Textarea
+              id="task-skip-reason"
+              value={skipReason}
+              onChange={(e) => setSkipReason(e.target.value)}
+              placeholder="Kāpēc šis uzdevums tiek izlaists?"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSkipOpen(false)}
+              disabled={busy}
+            >
+              Atcelt
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSkip()}
+              disabled={busy || !skipReason.trim()}
+            >
+              {busy ? "Saglabā…" : "Izlaist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={(o) => !busy && setCancelOpen(o)}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Atcelt uzdevumu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="task-cancel-reason">Iemesls</Label>
+            <Textarea
+              id="task-cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Kāpēc šis uzdevums tiek atcelts?"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelOpen(false)}
+              disabled={busy}
+            >
+              Aizvērt
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleCancel()}
+              disabled={busy || !cancelReason.trim()}
+            >
+              {busy ? "Saglabā…" : "Atcelt uzdevumu"}
             </Button>
           </DialogFooter>
         </DialogContent>
