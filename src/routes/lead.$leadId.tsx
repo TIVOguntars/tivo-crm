@@ -590,10 +590,6 @@ function LeadProfilePage() {
     ]);
     // Always-skip system noise (never manual): task_created / status_change
     // are represented elsewhere in the UI.
-    const ALWAYS_SKIP_SYSTEM = new Set(["task_created", "status_change"]);
-    const completedTaskIds = new Set(
-      completedTasks.map((t) => str(pick(t, "id", "task_id"))).filter(Boolean),
-    );
     activityRows.forEach((a, i) => {
       const at = str(pick(a, "activity_type")).toLowerCase();
       const aMeta =
@@ -607,15 +603,12 @@ function LeadProfilePage() {
         // Skip activities linked to a communication — the comm is shown.
         if (str(pick(a, "communication_id"))) return;
         if (ALWAYS_SKIP_SYSTEM.has(at)) return;
-        // Hide task-mirror activities when the canonical task row exists.
-        const aTaskId = str(pick(a, "task_id"));
-        if (
-          TASK_MIRROR_TYPES.has(at) &&
-          aTaskId &&
-          completedTaskIds.has(aTaskId)
-        ) {
-          return;
-        }
+        // Any non-manual crm.activities row linked to a task is a mirror
+        // of that task's lifecycle (created/completed). The task row is
+        // the canonical operator-visible item — hide the mirror.
+        if (str(pick(a, "task_id"))) return;
+        // Fallback for task-mirror activity_types without task_id.
+        if (TASK_MIRROR_TYPES.has(at)) return;
       }
       const ts =
         new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
