@@ -10,6 +10,8 @@ export const TASK_STATUS_LV: Record<string, string> = {
   blocked: "Bloķēts",
   failed: "Kļūda",
   scheduled: "Plānots",
+  planned: "Plānots",
+  open: "Atvērts",
 };
 
 export const QUEUE_STATUS_LV: Record<string, string> = {
