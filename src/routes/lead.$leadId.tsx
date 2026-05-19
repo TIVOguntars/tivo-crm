@@ -28,6 +28,9 @@ import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import { useUserMap } from "@/hooks/useUsers";
+import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
+import { RequirePermission } from "@/components/auth/RequirePermission";
+import { Pencil } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
