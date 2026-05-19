@@ -20,7 +20,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createCrmProfile, updateCrmProfile } from "@/server/analytics";
+import { callCrmRpc } from "@/server/analytics";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/users")({
@@ -216,12 +216,11 @@ function UserFormDialog({
   });
 
   const queryClient = useQueryClient();
-  const createFn = useServerFn(createCrmProfile);
-  const updateFn = useServerFn(updateCrmProfile);
+  const rpcFn = useServerFn(callCrmRpc);
 
   const createMut = useMutation({
-    mutationFn: (data: { full_name: string; email: string; user_code: string }) =>
-      createFn({ data }),
+    mutationFn: (params: { p_full_name: string; p_email: string; p_user_code: string }) =>
+      rpcFn({ data: { fn: "admin_create_profile", params } }),
     onSuccess: (res) => {
       if (res?.error) {
         setError(res.error);
@@ -237,13 +236,13 @@ function UserFormDialog({
   });
 
   const updateMut = useMutation({
-    mutationFn: (data: {
-      id: string;
-      full_name: string;
-      email: string;
-      user_code: string;
-      is_active: boolean;
-    }) => updateFn({ data }),
+    mutationFn: (params: {
+      p_id: string;
+      p_full_name: string;
+      p_email: string;
+      p_user_code: string;
+      p_is_active: boolean;
+    }) => rpcFn({ data: { fn: "admin_update_profile", params } }),
     onSuccess: (res) => {
       if (res?.error) {
         setError(res.error);
@@ -293,14 +292,14 @@ function UserFormDialog({
     const name = fullName.trim();
     if (isEdit) {
       updateMut.mutate({
-        id: editingId,
-        full_name: name,
-        email: mail,
-        user_code: code,
-        is_active: isActive,
+        p_id: editingId,
+        p_full_name: name,
+        p_email: mail,
+        p_user_code: code,
+        p_is_active: isActive,
       });
     } else {
-      createMut.mutate({ full_name: name, email: mail, user_code: code });
+      createMut.mutate({ p_full_name: name, p_email: mail, p_user_code: code });
     }
   };
 
