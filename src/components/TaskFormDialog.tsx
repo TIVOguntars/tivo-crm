@@ -12,7 +12,6 @@ import {
   Info,
   LayoutGrid,
   FolderOpen,
-  Star,
   ExternalLink,
   X,
 } from "lucide-react";
@@ -54,11 +53,13 @@ const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
 type OwnerCode = (typeof OWNER_OPTIONS)[number];
 const AUTO_OWNER: OwnerCode = "SIS";
 
-function priorityToStars(p: Priority): number {
-  return p === "high" ? 5 : p === "normal" ? 3 : 1;
-}
-function starsToPriority(n: number): Priority {
-  return n >= 4 ? "high" : n >= 2 ? "normal" : "low";
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: "high", label: "Augsts" },
+  { value: "normal", label: "Vidējs" },
+  { value: "low", label: "Zems" },
+];
+function normalizePriority(v: string | null | undefined): Priority | null {
+  return v === "high" || v === "normal" || v === "low" ? v : null;
 }
 function country3(raw: string): string {
   const t = raw.trim();
@@ -291,6 +292,15 @@ export function TaskFormDialog({
       setOwnerCode(AUTO_OWNER);
     } else if (ownerCode === AUTO_OWNER) {
       setOwnerCode("UC");
+    }
+    // Default priority: prefer task type default, else high for call/zoom, else normal.
+    const fromType = normalizePriority(currentTypeRow.default_priority);
+    if (fromType) {
+      setPriority(fromType);
+    } else if (ch === "call" || currentTypeRow.channel === "zoom") {
+      setPriority("high");
+    } else {
+      setPriority("normal");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, taskType, currentTypeRow?.channel, currentTypeRow?.mode, leadContext?.primaryEmail, leadContext?.primaryPhone]);
@@ -730,23 +740,28 @@ export function TaskFormDialog({
             </div>
             <div className="space-y-1.5 shrink-0 ml-auto">
               <Label>Prioritāte</Label>
-              <div className="flex items-center h-9 gap-0.5 whitespace-nowrap">
-                {[1, 2, 3, 4, 5].map((n) => {
-                  const active = priorityToStars(priority) >= n;
+              <div
+                role="radiogroup"
+                aria-label="Prioritāte"
+                className="inline-flex h-9 items-center rounded-md border border-input bg-background p-0.5 whitespace-nowrap"
+              >
+                {PRIORITY_OPTIONS.map((opt) => {
+                  const active = priority === opt.value;
                   return (
                     <button
-                      key={n}
+                      key={opt.value}
                       type="button"
-                      onClick={() => setPriority(starsToPriority(n))}
-                      className="p-0.5 text-amber-500 hover:scale-110 transition shrink-0"
-                      title={`${n} / 5`}
-                      aria-label={`Prioritāte ${n} no 5`}
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setPriority(opt.value)}
+                      className={
+                        "h-7 px-2.5 text-xs rounded-sm transition shrink-0 " +
+                        (active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted")
+                      }
                     >
-                      <Star
-                        className="h-4 w-4"
-                        strokeWidth={1.5}
-                        fill={active ? "currentColor" : "transparent"}
-                      />
+                      {opt.label}
                     </button>
                   );
                 })}
