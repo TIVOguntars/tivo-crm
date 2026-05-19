@@ -1596,8 +1596,27 @@ function LeadProfilePage() {
               {openItem && openItem.kind === "task" && (() => {
                 const r = openItem.raw;
                 const taskType = str(pick(r, "task_type")) || "task";
+                const TASK_TYPE_LV: Record<string, string> = {
+                  estimate: "Tāmēšana",
+                  draw_sketches: "Skiču zīmēšana",
+                  prepare_offer: "Piedāvājuma sagatavošana",
+                  call: "Zvans",
+                  zoom: "Zoom",
+                  manual_email: "E-pasts (manuāls)",
+                  automatic_email: "E-pasts (automātisks)",
+                  automatic_reply_email: "Atbildes e-pasts",
+                  manual_sms: "SMS (manuāls)",
+                  automatic_sms: "SMS (automātisks)",
+                  manual_whatsapp: "WhatsApp (manuāls)",
+                  automatic_whatsapp: "WhatsApp (automātisks)",
+                  call_follow_up: "Atzvanīt",
+                  meeting_follow_up: "Tikšanās turpinājums",
+                  info_follow_up: "Nosūtīt informāciju",
+                  general_follow_up: "Cits follow-up",
+                };
+                const taskTypeLabel = TASK_TYPE_LV[taskType.toLowerCase()] || fmt(taskType);
                 const taskStatus = str(pick(r, "status"));
-                const taskTitle = str(pick(r, "title")) || fmt(taskType);
+                const taskTitle = str(pick(r, "title")) || taskTypeLabel;
                 const outcomeCode = str(pick(r, "outcome_code"));
                 const tDate = pick(r, "completed_at", "updated_at", "created_at");
                 const tMeta =
@@ -1648,7 +1667,7 @@ function LeadProfilePage() {
                         </DialogTitle>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
-                        <Field label="Tips" value={fmt(taskType)} />
+                        <Field label="Tips" value={taskTypeLabel} />
                         <Field label="Statuss" value={<StatusBadge status={taskStatus} mapKind="task" />} />
                         <Field label="Datums" value={fmtDate(tDate)} />
                         {outcomeCode && (
@@ -1700,16 +1719,6 @@ function LeadProfilePage() {
                             {summary}
                           </div>
                         </section>
-                      )}
-                      {tMeta && (
-                        <details className="rounded-md border bg-muted/10 p-2">
-                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
-                            Tehniskie dati
-                          </summary>
-                          <pre className="mt-2 max-h-[280px] overflow-auto text-[11px] whitespace-pre-wrap">
-                            {JSON.stringify(tMeta, null, 2)}
-                          </pre>
-                        </details>
                       )}
                     </div>
                   </>
