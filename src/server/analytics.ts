@@ -367,6 +367,8 @@ const CRM_RPCS = [
   "rpc_skip_task",
   "rpc_create_task",
   "rpc_log_activity",
+  "admin_create_profile",
+  "admin_update_profile",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
@@ -417,122 +419,6 @@ export const callCrmRpc = createServerFn({ method: "POST" })
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
       console.error("[crm rpc]", message);
       return { rows: [] as AnalyticsRow[], error: message };
-    }
-  });
-
-const WRITABLE_CRM_TABLES = ["profiles"] as const;
-export type WritableCrmTable = (typeof WRITABLE_CRM_TABLES)[number];
-
-async function writeCrmRow(
-  table: WritableCrmTable,
-  method: "POST" | "PATCH",
-  body: Record<string, unknown>,
-  query: string,
-): Promise<AnalyticsRow> {
-  const { url, key } = getEnv();
-  const endpoint = `${url}/rest/v1/${table}${query ? `?${query}` : ""}`;
-  const res = await fetch(endpoint, {
-    method,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Accept-Profile": "crm",
-      "Content-Profile": "crm",
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Neizdevās ierakstīt crm.${table} (${res.status}): ${text.slice(0, 300)}`,
-    );
-  }
-  const json = (await res.json().catch(() => null)) as AnalyticsRow[] | null;
-  const row = Array.isArray(json) ? json[0] : (json as AnalyticsRow | null);
-  return row ?? {};
-}
-
-export const createCrmProfile = createServerFn({ method: "POST" })
-  .inputValidator((input: {
-    full_name: string;
-    email: string;
-    user_code: string;
-  }) => {
-    const full_name = String(input.full_name ?? "").trim();
-    const email = String(input.email ?? "").trim().toLowerCase();
-    const user_code = String(input.user_code ?? "").trim().toUpperCase();
-    if (!full_name) throw new Error("Vārds ir obligāts");
-    if (!email) throw new Error("E-pasts ir obligāts");
-    if (!user_code) throw new Error("ID ir obligāts");
-    if (user_code.length > 5) throw new Error("ID maksimums 5 simboli");
-    return { full_name, email, user_code };
-  })
-  .handler(async ({ data }) => {
-    try {
-      const row = await writeCrmRow("profiles", "POST", {
-        full_name: data.full_name,
-        email: data.email,
-        user_code: data.user_code,
-        is_active: true,
-        language: "lv",
-        timezone: "Europe/Riga",
-        status_key: "active",
-      }, "");
-      return { row, error: null as string | null };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Nezināma kļūda";
-      console.error("[crm profiles insert]", message);
-      return { row: null as AnalyticsRow | null, error: message };
-    }
-  });
-
-export const updateCrmProfile = createServerFn({ method: "POST" })
-  .inputValidator((input: {
-    id: string;
-    full_name: string;
-    email: string;
-    user_code: string;
-    is_active: boolean;
-  }) => {
-    const id = String(input.id ?? "").trim();
-    const full_name = String(input.full_name ?? "").trim();
-    const email = String(input.email ?? "").trim().toLowerCase();
-    const user_code = String(input.user_code ?? "").trim().toUpperCase();
-    if (!id) throw new Error("Trūkst lietotāja ID");
-    if (!full_name) throw new Error("Vārds ir obligāts");
-    if (!email) throw new Error("E-pasts ir obligāts");
-    if (!user_code) throw new Error("ID ir obligāts");
-    if (user_code.length > 5) throw new Error("ID maksimums 5 simboli");
-    return {
-      id,
-      full_name,
-      email,
-      user_code,
-      is_active: !!input.is_active,
-    };
-  })
-  .handler(async ({ data }) => {
-    try {
-      const row = await writeCrmRow(
-        "profiles",
-        "PATCH",
-        {
-          full_name: data.full_name,
-          email: data.email,
-          user_code: data.user_code,
-          is_active: data.is_active,
-          status_key: data.is_active ? "active" : "inactive",
-        },
-        `id=eq.${encodeURIComponent(data.id)}`,
-      );
-      return { row, error: null as string | null };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Nezināma kļūda";
-      console.error("[crm profiles update]", message);
-      return { row: null as AnalyticsRow | null, error: message };
     }
   });
 
