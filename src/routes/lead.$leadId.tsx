@@ -763,10 +763,31 @@ function LeadProfilePage() {
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
+                  <RequirePermission perm="leads.edit">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => setEditPanelOpen(true)}
+                      title="Rediģēt leadu"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Rediģēt
+                    </Button>
+                  </RequirePermission>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          <LeadEditPanel
+            open={editPanelOpen}
+            onOpenChange={setEditPanelOpen}
+            leadId={leadId}
+            currentStatus={leadStatus}
+            currentOwnerId={ownerUserId || null}
+            currentPpvId={ppvUserId || null}
+          />
 
           {/* Two-column workspace */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
