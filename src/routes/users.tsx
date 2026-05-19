@@ -22,6 +22,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { callCrmRpc } from "@/server/analytics";
 import { toast } from "sonner";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export const Route = createFileRoute("/users")({
   component: UsersPage,
@@ -217,10 +218,18 @@ function UserFormDialog({
 
   const queryClient = useQueryClient();
   const rpcFn = useServerFn(callCrmRpc);
+  // TEMPORARY Track A bridge. Replace with auth.uid() after Real Auth migration.
+  const { operatorId } = useCurrentUser();
 
   const createMut = useMutation({
     mutationFn: (params: { p_full_name: string; p_email: string; p_user_code: string }) =>
-      rpcFn({ data: { fn: "admin_create_profile", params } }),
+      rpcFn({
+        data: {
+          // TEMPORARY Track A bridge. Replace with auth.uid() after Real Auth migration.
+          fn: "admin_create_profile_mvp",
+          params: { p_actor_user_id: operatorId, ...params },
+        },
+      }),
     onSuccess: (res) => {
       if (res?.error) {
         setError(res.error);
@@ -242,7 +251,14 @@ function UserFormDialog({
       p_email: string;
       p_user_code: string;
       p_is_active: boolean;
-    }) => rpcFn({ data: { fn: "admin_update_profile", params } }),
+    }) =>
+      rpcFn({
+        data: {
+          // TEMPORARY Track A bridge. Replace with auth.uid() after Real Auth migration.
+          fn: "admin_update_profile_mvp",
+          params: { p_actor_user_id: operatorId, ...params },
+        },
+      }),
     onSuccess: (res) => {
       if (res?.error) {
         setError(res.error);
