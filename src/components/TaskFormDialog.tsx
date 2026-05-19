@@ -1135,7 +1135,7 @@ export function TaskFormDialog({
                   Sagatavošanas soļi
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Iestati katra soļa atbildīgo un termiņu. Soļi tiek glabāti šī uzdevuma plānā.
+                  Iestati katra soļa atbildīgo un datumu. Katrs solis tiek izveidots kā atsevišķs uzdevums.
                 </p>
               </div>
               <div className="space-y-2">
@@ -1164,7 +1164,6 @@ export function TaskFormDialog({
                           next[idx] = { ...next[idx], owner_id: oc };
                           return next;
                         });
-                        if (idx === 2) setOwnerCode(oc);
                       }}
                     >
                       <SelectTrigger className="h-8">
@@ -1177,7 +1176,7 @@ export function TaskFormDialog({
                       </SelectContent>
                     </Select>
                     <Input
-                      type="datetime-local"
+                      type="date"
                       value={p.due_at}
                       onChange={(e) =>
                         setPlanSteps((prev) => {
