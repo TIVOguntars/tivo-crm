@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UserPicker } from "@/components/users/UserPicker";
 import {
   Select,
   SelectContent,
@@ -40,6 +42,14 @@ interface Props {
   leadId: string;
 }
 
+const FOLLOW_UP_TYPES = [
+  { value: "call_follow_up", label: "Atzvanīt" },
+  { value: "meeting_follow_up", label: "Tikšanās turpinājums" },
+  { value: "info_follow_up", label: "Nosūtīt informāciju" },
+  { value: "general_follow_up", label: "Cits follow-up" },
+] as const;
+type FollowUpType = (typeof FOLLOW_UP_TYPES)[number]["value"];
+
 /** Format a Date to <input type="datetime-local"> value in local time. */
 function toLocalInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -56,12 +66,29 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState("");
 
+  // Optional follow-up task
+  const [createFollowUp, setCreateFollowUp] = useState(false);
+  const [fuType, setFuType] = useState<FollowUpType>("call_follow_up");
+  const [fuDueAt, setFuDueAt] = useState<string>("");
+  const [fuAssignee, setFuAssignee] = useState<string | null>(null);
+  const [fuNote, setFuNote] = useState("");
+  const [busyFollowUp, setBusyFollowUp] = useState(false);
+
   useEffect(() => {
     if (open) {
       setKind("note");
       setActivityAt(toLocalInputValue(new Date()));
       setSummary("");
       setOutcome("");
+      setCreateFollowUp(false);
+      setFuType("call_follow_up");
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      setFuDueAt(toLocalInputValue(tomorrow));
+      setFuAssignee(null);
+      setFuNote("");
+      setBusyFollowUp(false);
     }
   }, [open]);
 
@@ -79,6 +106,12 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
     return Number.isNaN(d.getTime()) ? "" : d.toISOString();
   }, [activityAt]);
 
+  const isoFuDueAt = useMemo(() => {
+    if (!fuDueAt) return "";
+    const d = new Date(fuDueAt);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+  }, [fuDueAt]);
+
   const onSubmit = async () => {
     const v = validateManualActivity({
       kind,
@@ -90,6 +123,10 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
       toast.error(v.error ?? "Neizdevās saglabāt");
       return;
     }
+    if (createFollowUp && !isoFuDueAt) {
+      toast.error("Norādiet nākamā uzdevuma termiņu");
+      return;
+    }
     const params = buildLogActivityParams({
       leadId,
       performedByUserId: operatorId,
@@ -97,10 +134,58 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
     });
     try {
       await mut.mutateAsync(params);
-      toast.success("Darbība pievienota");
+
+      let followUpOk = false;
+      if (createFollowUp) {
+        setBusyFollowUp(true);
+        try {
+          const fuLabel =
+            FOLLOW_UP_TYPES.find((t) => t.value === fuType)?.label || "Follow-up";
+          const res = await call({
+            data: {
+              fn: "rpc_create_task",
+              params: {
+                p_lead_id: leadId,
+                p_task_type: fuType,
+                p_due_at: isoFuDueAt,
+                p_title: fuLabel,
+                p_description: fuNote.trim() || null,
+                p_assigned_user_id: fuAssignee,
+                p_required_role: null,
+                p_workflow_instance_id: null,
+                p_parent_task_id: null,
+                p_metadata: {
+                  source: "manual",
+                  follow_up_of_kind: kind,
+                },
+                p_is_auto_created: false,
+                p_priority: "normal",
+              },
+            },
+          });
+          if (res?.error) throw new Error(res.error);
+          followUpOk = true;
+        } catch (fuErr) {
+          toast.error(
+            `Darbība saglabāta, bet uzdevumu neizdevās izveidot: ${
+              fuErr instanceof Error ? fuErr.message : "kļūda"
+            }`,
+          );
+        } finally {
+          setBusyFollowUp(false);
+        }
+      }
+
+      if (createFollowUp && followUpOk) {
+        toast.success("Darbība saglabāta un nākamais uzdevums izveidots");
+      } else if (!createFollowUp) {
+        toast.success("Darbība saglabāta");
+      }
+
       qc.invalidateQueries({ queryKey: ["crm-rpc", "get_lead_360_profile"] });
       qc.invalidateQueries({ queryKey: ["crm", "v_unified_timeline"] });
       qc.invalidateQueries({ queryKey: ["crm", "activities"] });
+      qc.invalidateQueries({ queryKey: ["crm", "tasks"] });
       onOpenChange(false);
     } catch (err) {
       toast.error(
@@ -109,9 +194,11 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
     }
   };
 
+  const busy = mut.isPending || busyFollowUp;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pievienot darbību</DialogTitle>
           <DialogDescription>
@@ -122,7 +209,7 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
         <div className="space-y-3">
           <div>
             <Label className="text-xs">Veids</Label>
-            <Select value={kind} onValueChange={(v) => setKind(v as ManualKind)} disabled={mut.isPending}>
+            <Select value={kind} onValueChange={(v) => setKind(v as ManualKind)} disabled={busy}>
               <SelectTrigger className="mt-1 h-9">
                 <SelectValue />
               </SelectTrigger>
@@ -142,7 +229,7 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
               type="datetime-local"
               value={activityAt}
               onChange={(e) => setActivityAt(e.target.value)}
-              disabled={mut.isPending}
+              disabled={busy}
               className="mt-1 h-9"
             />
           </div>
@@ -154,7 +241,7 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
               onChange={(e) => setSummary(e.target.value.slice(0, SUMMARY_MAX))}
               placeholder="Īss apraksts par darbību…"
               rows={4}
-              disabled={mut.isPending}
+              disabled={busy}
               className="mt-1 text-sm"
             />
             <div className="mt-0.5 text-right text-[10px] text-muted-foreground">
@@ -168,18 +255,87 @@ export function ManualActivityDialog({ open, onOpenChange, leadId }: Props) {
               value={outcome}
               onChange={(e) => setOutcome(e.target.value.slice(0, 100))}
               placeholder="Piemēram: neatbild, ieplānota tikšanās…"
-              disabled={mut.isPending}
+              disabled={busy}
               className="mt-1 h-9 text-sm"
             />
+          </div>
+
+          <div className="rounded-md border bg-muted/30 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <Checkbox
+                checked={createFollowUp}
+                onCheckedChange={(c) => setCreateFollowUp(c === true)}
+                disabled={busy}
+              />
+              Izveidot nākamo uzdevumu
+            </label>
+
+            {createFollowUp && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <Label className="text-xs">Uzdevuma veids</Label>
+                  <Select
+                    value={fuType}
+                    onValueChange={(v) => setFuType(v as FollowUpType)}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className="mt-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FOLLOW_UP_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Termiņš</Label>
+                  <Input
+                    type="datetime-local"
+                    value={fuDueAt}
+                    onChange={(e) => setFuDueAt(e.target.value)}
+                    disabled={busy}
+                    className="mt-1 h-9"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Atbildīgais operators</Label>
+                  <div className="mt-1">
+                    <UserPicker
+                      value={fuAssignee}
+                      onChange={setFuAssignee}
+                      placeholder="Nav piešķirts"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Piezīme</Label>
+                  <Textarea
+                    value={fuNote}
+                    onChange={(e) => setFuNote(e.target.value.slice(0, 1000))}
+                    placeholder="Piezīme nākamajam uzdevumam…"
+                    rows={3}
+                    disabled={busy}
+                    className="mt-1 text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             Atcelt
           </Button>
-          <Button onClick={onSubmit} disabled={mut.isPending || !summary.trim()}>
-            {mut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+          <Button onClick={onSubmit} disabled={busy || !summary.trim()}>
+            {busy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             Saglabāt
           </Button>
         </DialogFooter>
