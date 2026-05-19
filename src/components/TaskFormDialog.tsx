@@ -1160,6 +1160,7 @@ export function TaskFormDialog({
           )}
 
           {/* Scheduling */}
+          {(taskType as string) !== "prepare_offer" && (
           <div className="space-y-2">
             <Label>Termiņš *</Label>
             <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>
@@ -1285,6 +1286,7 @@ export function TaskFormDialog({
               </TabsContent>
             </Tabs>
           </div>
+          )}
 
           {/* Approval banner */}
           {triggersApproval && (
