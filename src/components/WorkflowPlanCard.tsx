@@ -1,5 +1,6 @@
-import { CheckCircle2, Circle, ExternalLink, FolderOpen } from "lucide-react";
+import { CheckCircle2, Circle, Copy, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import type { WorkflowTaskRow } from "@/lib/workflow";
 
 function fmtDate(iso?: string | null): string {
@@ -74,16 +75,17 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
           </div>
         </div>
         {folder && (
-          <a
-            href={folder}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(folder);
+              toast.success("Adrese nokopēta");
+            }}
             className="inline-flex items-center gap-1 rounded-sm border border-border bg-background/80 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
             title={folder}
           >
-            <FolderOpen className="h-3 w-3" />
-            Servera mape
-          </a>
+            <Copy className="h-3 w-3" />
+            Kopēt adresi
+          </button>
         )}
       </div>
 
