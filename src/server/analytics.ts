@@ -261,6 +261,7 @@ const CRM_VIEWS = [
   "v_tasks_queue_ui",
   "task_types",
   "tasks",
+  "v_unified_timeline",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
