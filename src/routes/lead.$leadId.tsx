@@ -635,6 +635,13 @@ function LeadProfilePage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editPanelOpen, setEditPanelOpen] = useState(false);
   const [manualActivityOpen, setManualActivityOpen] = useState(false);
+  const [manualActivityPrefill, setManualActivityPrefill] =
+    useState<ManualActivityPrefill | undefined>(undefined);
+
+  function openFollowUpDialog(prefill: ManualActivityPrefill) {
+    setManualActivityPrefill(prefill);
+    setManualActivityOpen(true);
+  }
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
