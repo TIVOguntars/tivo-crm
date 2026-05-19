@@ -317,6 +317,7 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
+  const { resolve: resolveUserName } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
