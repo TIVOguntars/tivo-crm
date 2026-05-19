@@ -399,11 +399,30 @@ function LeadProfilePage() {
   const waNumber = primaryPhoneE164.replace(/[^\d]/g, "");
 
   const rawData = asObject(pick(header, "raw_data")) ?? null;
-  const ownerLabel = fmt(
+  const ownerUserId = str(
+    pick(header, "owner_user_id") ?? pick(rawData, "owner_user_id"),
+  );
+  const ppvUserId = str(
+    pick(header, "ppv_user_id") ?? pick(rawData, "ppv_user_id"),
+  );
+  const atbildigaisLabel =
+    str(pick(rawData, "atbildigais")) ||
+    str(pick(legacyContext, "atbildigais")) ||
+    str(pick(header, "atbildigais"));
+  const ppvLabelRaw = fmt(
     pick(rawData, "ppv_vards") ??
       pick(legacyContext, "ppv_vards") ??
-      pick(header, "owner_name", "owner", "assigned_user_name", "assigned_user_id"),
+      pick(header, "owner_name", "owner", "assigned_user_name"),
   );
+  const ownerLabel =
+    (ownerUserId && resolveUserName(ownerUserId)) ||
+    atbildigaisLabel ||
+    ppvLabelRaw ||
+    "Nav piešķirts";
+  const ppvLabel =
+    (ppvUserId && resolveUserName(ppvUserId)) ||
+    ppvLabelRaw ||
+    "Nav piešķirts";
   const leadTitle =
     str(pick(primaryData, "full_name")) ||
     str(pick(legacyContext, "full_name")) ||
