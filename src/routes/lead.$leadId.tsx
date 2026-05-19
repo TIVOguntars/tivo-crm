@@ -596,6 +596,9 @@ function LeadProfilePage() {
       "prepare_offer",
       "task_completed",
       "task_created",
+      "task_cancelled",
+      "task_skipped",
+      "task_rescheduled",
       "status_change",
     ]);
     activityRows.forEach((a, i) => {
