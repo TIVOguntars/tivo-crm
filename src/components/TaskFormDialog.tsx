@@ -269,8 +269,8 @@ export function TaskFormDialog({
     setMeetingUrl("");
     setDurationMinutes("30");
     setReplyToCommunicationId("");
-    setStartWorkflow(false);
     setServerFolderUrl(leadContext?.serverFolderUrl ?? "");
+    setPlanSteps(defaultPlan());
     setScheduleMode("absolute");
     setDueLocal(defaultDueLocal());
     setRelDirection("after");
@@ -503,10 +503,17 @@ export function TaskFormDialog({
       toast.error(due.error);
       return;
     }
-    const isDrawSketches = (taskType as string) === "draw_sketches";
-    if (isDrawSketches && startWorkflow && !serverFolderUrl.trim()) {
-      toast.error("Servera mapes saite ir obligāta, kad workflow ir aktīvs");
-      return;
+    const isPrepareOffer = (taskType as string) === "prepare_offer";
+    const enabledSteps = planSteps.filter((s) => s.enabled);
+    if (isPrepareOffer) {
+      if (enabledSteps.length === 0) {
+        toast.error("Jāatzīmē vismaz viens sagatavošanas solis");
+        return;
+      }
+      if (!serverFolderUrl.trim()) {
+        toast.error("Servera mapes saite ir obligāta");
+        return;
+      }
     }
     const typed = buildTypeMeta();
     if (typed.error) {
@@ -549,8 +556,21 @@ export function TaskFormDialog({
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
-      ...(isDrawSketches && startWorkflow
-        ? { workflow: { template_key: "object_preparation_v1", step: 1 } }
+      ...(isPrepareOffer
+        ? {
+            workflow_plan: {
+              template_key: "object_preparation_v1",
+              mode: "parent_with_steps" as const,
+              steps: planSteps.map((s) => ({
+                step: s.step,
+                task_type: s.task_type,
+                label: s.label,
+                enabled: s.enabled,
+                owner_id: s.owner_id,
+                due_at: s.due_at ? new Date(s.due_at).toISOString() : null,
+              })),
+            },
+          }
         : {}),
       ...(approval
         ? { requires_approval: true, approval }
