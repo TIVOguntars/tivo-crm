@@ -64,6 +64,9 @@ export function CompleteTaskModal({
   const [outcome, setOutcome] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [createFollowup, setCreateFollowup] = useState(false);
+  const [followupMode, setFollowupMode] = useState<
+    "none" | "follow_up" | "wait_for_project"
+  >("none");
   const [nextTaskType, setNextTaskType] = useState<string>("");
   const [nextDue, setNextDue] = useState<Date | undefined>(undefined);
   const [nextOwner, setNextOwner] = useState<string>("");
@@ -81,6 +84,7 @@ export function CompleteTaskModal({
       setOutcome("");
       setNotes("");
       setCreateFollowup(false);
+      setFollowupMode("none");
       setNextTaskType("");
       setNextDue(undefined);
       setNextOwner("");
@@ -89,10 +93,30 @@ export function CompleteTaskModal({
     }
   }, [open]);
 
+  const hasFollowup = followupMode !== "none";
   const canSubmit =
     summary.trim().length > 0 &&
     outcome.trim().length > 0 &&
-    (!createFollowup || (!!nextTaskType && !!nextDue));
+    (!hasFollowup || (!!nextTaskType && !!nextDue));
+
+  // Apply mode defaults whenever the user changes the follow-up mode.
+  useEffect(() => {
+    if (followupMode === "wait_for_project") {
+      // Default: today + 7 days at 09:00 local — matches existing
+      // server-side behavior for "Gaidu projektu" reminders.
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      d.setHours(9, 0, 0, 0);
+      setNextDue(d);
+      if (!nextTaskType) setNextTaskType("call");
+    } else if (followupMode === "none") {
+      setNextDue(undefined);
+      setNextTaskType("");
+      setNextOwner("");
+    }
+    setCreateFollowup(followupMode !== "none");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followupMode]);
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
@@ -126,9 +150,11 @@ export function CompleteTaskModal({
       //    Relation is encoded inside metadata only (no direct write to
       //    crm.task_relations — that requires a backend RPC that does not
       //    currently exist).
-      if (createFollowup && leadId && nextTaskType && nextDue) {
-        const followupTitle =
-          taskTypes.labelOf(nextTaskType) || "Sekošanas uzdevums";
+      if (hasFollowup && leadId && nextTaskType && nextDue) {
+        const isWait = followupMode === "wait_for_project";
+        const followupTitle = isWait
+          ? "Gaidu projektu — atgādinājums"
+          : taskTypes.labelOf(nextTaskType) || "Sekošanas uzdevums";
         const dueIso = nextDue.toISOString();
         const followRes = await callCrmRpc({
           data: {
@@ -142,7 +168,8 @@ export function CompleteTaskModal({
               p_metadata: {
                 source: "complete_task_modal",
                 parent_task_id: taskId,
-                relation_type: "follow_up",
+                relation_type: isWait ? "wait_for_project" : "follow_up",
+                ...(isWait ? { reason: "Gaidu projektu" } : {}),
                 owner_label: nextOwner.trim() || null,
               },
             },
@@ -155,7 +182,11 @@ export function CompleteTaskModal({
             `Uzdevums pabeigts, bet neizdevās izveidot sekošanas uzdevumu: ${formatCrmError(followRes.error)}`,
           );
         } else {
-          toast.success("Uzdevums pabeigts un sekošanas uzdevums izveidots");
+          toast.success(
+            isWait
+              ? "Uzdevums pabeigts un ieplānots atgādinājums (Gaidu projektu)"
+              : "Uzdevums pabeigts un sekošanas uzdevums izveidots",
+          );
         }
       } else {
         toast.success("Uzdevums pabeigts");
@@ -228,26 +259,36 @@ export function CompleteTaskModal({
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="ct-followup" className="cursor-pointer">
-                Izveidot sekošanas uzdevumu
-              </Label>
-              {!leadId && (
-                <p className="text-[11px] text-muted-foreground">
-                  Nav pieejams: trūkst lead konteksta.
-                </p>
-              )}
-            </div>
-            <Switch
-              id="ct-followup"
-              checked={createFollowup}
-              onCheckedChange={(v) => setCreateFollowup(!!v)}
+          <div className="space-y-1.5">
+            <Label>Pēc pabeigšanas</Label>
+            <Select
+              value={followupMode}
+              onValueChange={(v) =>
+                setFollowupMode(v as "none" | "follow_up" | "wait_for_project")
+              }
               disabled={!leadId}
-            />
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nekas</SelectItem>
+                <SelectItem value="follow_up">
+                  Izveidot sekošanas uzdevumu
+                </SelectItem>
+                <SelectItem value="wait_for_project">
+                  Atlikt — gaidu projektu
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {!leadId && (
+              <p className="text-[11px] text-muted-foreground">
+                Nav pieejams: trūkst lead konteksta.
+              </p>
+            )}
           </div>
 
-          {createFollowup && leadId && (
+          {hasFollowup && leadId && (
             <div className="space-y-3 rounded-md border bg-muted/40 p-3">
               <div className="space-y-1.5">
                 <Label>
