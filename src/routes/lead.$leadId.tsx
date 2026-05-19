@@ -1199,6 +1199,16 @@ function LeadProfilePage() {
                   const source = str(r.source);
                   const id = str(r.id) || String(i);
                   const rawStatus = str(r.status);
+                  // Hide cancelled/completed/skipped rows — they belong in
+                  // the Activities/history block, not active planned work.
+                  const statusLower = rawStatus.toLowerCase();
+                  if (
+                    statusLower === "cancelled" ||
+                    statusLower === "completed" ||
+                    statusLower === "skipped"
+                  ) {
+                    return;
+                  }
                   if (source === "queue") {
                     const qRow = queueById.get(str(r.id));
                     const tk = str(qRow?.template_key);
