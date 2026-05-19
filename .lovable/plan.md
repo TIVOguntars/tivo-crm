@@ -1,221 +1,341 @@
-# Phase 2b — Workflow chains, task_relations, dependent tasks, dynamic scheduling
+# Phase 2b.1 — SQL preview (no apply yet)
 
-Additive plan only. No code changes in this step.
+Read-only inspection completed. Below is the exact SQL I will submit via the migration tool once you approve. Nothing has been applied.
 
-## A. Recommended architecture
+## Findings that change the plan slightly
 
-Keep `crm.tasks` as the single canonical entity. Add three thin layers around it:
+1. **`crm.task_relations.relation_type` already has a CHECK constraint** restricting values to: `follows`, `caused`, `triggered`, `replaced_by`. The plan adds new values (`sequence_next`, `schedule_anchor_after`, `schedule_anchor_before`, `related`, `follow_up_of`). Postgres requires DROP CONSTRAINT + ADD CONSTRAINT to widen a CHECK. **This is technically an ALTER but it is value-widening only — no row is invalidated, no column dropped, no FK touched.** I flag it explicitly per your rule. If you prefer to avoid even this widening ALTER, alternative is to skip the CHECK and store relation_type as-is — but then constraint becomes weaker than today. I recommend the widening.
 
-1. **Workflow templates** as data rows in `crm.settings` (`setting_group='workflow'`). No new table.
-2. **task_relations** as the structural link between an anchor task and its dependents. One row per directed edge. Carries scheduling offset + cancel-with-anchor flag in `metadata`.
-3. **A single SQL resolver function** (`crm.rpc_recompute_dependent_tasks(p_anchor_task_id)`) called from the existing lifecycle RPCs (`rpc_complete_task`, `rpc_reschedule_task`, `rpc_cancel_task`) at the END of their existing body. No new triggers. No new cron. No loop risk because resolver only touches tasks where the current task is the `from_id` anchor, and never re-enters anchors.
+2. **`rpc_reschedule_task` does NOT have the `EXISTS (crm.profiles ...)` guard** on its `actor_user_id` insert (the other two do). If we tail-call recompute from inside reschedule, the reschedule itself can still fail at the audit insert for users missing from `crm.profiles`. Per scope ("do not change their existing audit emissions"), I will NOT patch that in 2b.1. Existing behavior preserved.
 
-Approval, fan-out, and dependent creation are all expressed through `task_relations` rows + per-row `metadata`. No new tables for approvals or workflow runtime in 2b.
+3. `crm.create_audit_event` is **not used** by the lifecycle RPCs (they `INSERT` directly). So the `.lovable/plan.md` actor-resolution fix is NOT a precondition for 2b.1 strictly. I will leave `create_audit_event` untouched.
 
-## B. DB / settings model
+4. `crm.task_types` PK is `type_key` — seed via `INSERT ... ON CONFLICT (type_key) DO NOTHING`. Safe re-run.
 
-### `crm.settings` rows (new, additive)
+5. `crm.settings` has `(setting_group, setting_key)` — seed via `ON CONFLICT (setting_key) DO NOTHING` (need to verify unique index — I'll add a defensive WHERE NOT EXISTS instead to avoid assuming an index).
 
-- `workflow.task_type_defaults` →
-  ```
-  { "draw_sketches": { "default_owner_code": "EG", "default_duration_days": 7,
-                       "requires_server_folder": true, "visible_in_form": true },
-    "estimate":      { "default_owner_code": null, "default_duration_days": 3,
-                       "visible_in_form": true },
-    "prepare_offer": { "default_owner_code": null, "default_duration_days": 2,
-                       "visible_in_form": true } }
-  ```
-- `workflow.templates` →
-  ```
-  { "object_preparation_v1": {
-      "label_lv": "Objekta sagatavošana",
-      "requires_server_folder": true,
-      "steps": [
-        { "step": 1, "task_type": "draw_sketches",  "offset_days_from_start": 0,
-          "owner_code": "EG" },
-        { "step": 2, "task_type": "estimate",
-          "anchor_step": 1, "anchor_event": "completed_at", "offset_days": 3 },
-        { "step": 3, "task_type": "prepare_offer",
-          "anchor_step": 2, "anchor_event": "completed_at", "offset_days": 2 }
-      ] } }
-  ```
+## Safety confirmation
 
-No new "workflows" table — instances live as the actual `crm.tasks` rows tied by `task_relations`, sharing one `workflow_instance_id` (column already exists on `crm.tasks`).
-
-## C. Exact relation metadata model
-
-`crm.task_relations` row shape:
-- `from_kind = 'task'`, `from_id = anchor task id`
-- `to_kind   = 'task'`, `to_id   = dependent task id`
-- `relation_type` (additive enum-of-text, no DB enum change):
-  - `sequence_next` — dependent runs after anchor completes
-  - `schedule_anchor_after` — dependent scheduled relative to anchor's `due_at`/`completed_at`, AFTER it
-  - `schedule_anchor_before` — dependent scheduled BEFORE anchor (e.g. confirmation email before zoom)
-  - `related` — informational link only, no scheduling effect
-  - `follow_up_of` — manual follow-up created from another task
-- `metadata`:
-  ```
-  { "anchor_event": "completed_at" | "due_at" | "sent_at",
-    "offset_minutes": 4320,
-    "dynamic_recalc": true,
-    "cancel_with_anchor": true,
-    "requires_approval": true,
-    "approver_source": "anchor_task_owner",
-    "workflow_template_key": "object_preparation_v1",
-    "workflow_step": 2 }
-  ```
-
-This matches the `RelativeTo` shape already in `src/lib/taskTypes.ts`, so the existing dialog metadata maps 1:1.
-
-## D. Recommended first workflow implementation
-
-For "Zīmēt skices → Tāmēšana → Piedāvājuma sagatavošana" use **Option A**: create only the first task immediately, create the next when the previous completes.
-
-Why A over B/C:
-- Owner of step 2/3 is often unknown at creation time → avoids placeholder assignments and avoids cancelling stale future tasks if the deal pivots.
-- Audit stays linear and easy to read.
-- Dynamic recalculation reduces to "compute one due_at from one anchor" instead of cascading recomputes across 3 future tasks.
-- Cancel semantics are trivial: cancelling step 1 simply prevents step 2 from being spawned; no fan-out of cancellations needed for MVP.
-- Still allows full template visibility in UI (show the chain as planned, but only step 1 exists as a real task).
-
-Option C (let the user choose) is deferred — adds UX complexity with no business value yet.
-
-## E. DB migration preview (no execution this step)
-
-Migration 1 — `task_types` seed additions:
-- `draw_sketches` (channel `human`, mode `human`, completion_rule `human_complete`, `requires_body=false`, icon `pencil-ruler`)
-- `estimate` (same shape, icon `calculator`)
-- `prepare_offer` (same shape, icon `file-text`)
-- `is_active=true`, `sort_order` after existing rows.
-- `metadata_schema` for `draw_sketches` requires `server_folder_url` (string, URL).
-
-Migration 2 — `crm.settings` inserts for `workflow.task_type_defaults` and `workflow.templates` (see B).
-
-Migration 3 — new `SECURITY DEFINER` function `crm.rpc_recompute_dependent_tasks(p_anchor_task_id uuid)`:
-- For every `task_relations` row where `from_id = p_anchor_task_id` AND `relation_type IN ('sequence_next','schedule_anchor_after','schedule_anchor_before')` AND `metadata->>'dynamic_recalc' = 'true'`:
-  - If anchor `status='cancelled'` AND `metadata->>'cancel_with_anchor' = 'true'` → set dependent `status='cancelled'`, write audit event.
-  - Else recompute `due_at = anchor.<anchor_event> + (offset_minutes * interval '1 minute')`, update only if changed.
-- Single statement per dependent; no recursion (resolver does NOT re-call itself on dependents — dependents recompute only when THEIR own anchor changes).
-
-Migration 4 — extend existing lifecycle RPCs (`rpc_complete_task`, `rpc_reschedule_task`, `rpc_cancel_task`) with a tail call to `rpc_recompute_dependent_tasks(p_task_id)`. Additive; no signature change.
-
-Migration 5 — new RPC `crm.rpc_spawn_next_workflow_task(p_anchor_task_id uuid)` invoked from `rpc_complete_task` when the completed task carries `metadata->'workflow_template_key'`. Looks up the next step in `workflow.templates`, inserts the dependent task, writes the `task_relations` row, copies `workflow_instance_id`.
-
-No destructive changes. No column drops. No FK changes.
-
-Note on auth FK: this depends on the existing `.lovable/plan.md` fix to `crm.create_audit_event` being applied first; otherwise dependent task creation will hit the same `audit_events_actor_user_id_fkey` issue.
-
-## F. Frontend plan (preview only, no edits this step)
-
-- `src/lib/taskTypes.ts` — add `draw_sketches`, `estimate`, `prepare_offer` to `TASK_TYPE_KEYS`; add Zod schemas (`draw_sketches` requires `server_folder_url` URL).
-- `src/hooks/useTaskTypes.ts` — no change; reads `crm.task_types` already.
-- `src/hooks/useWorkflowSettings.ts` (new) — reads `workflow.task_type_defaults` and `workflow.templates` from `crm.settings` via existing `useCrmView`.
-- `src/components/TaskFormDialog.tsx`:
-  - When task_type is `draw_sketches`, render required `server_folder_url` field and a "Sākt darbplūsmu: Objekta sagatavošana" checkbox (default on). Persist into `metadata.workflow_template_key` + `metadata.server_folder_url`.
-  - Apply `workflow.task_type_defaults` for default owner / default due offset.
-- `src/components/TaskActionsMenu.tsx` — no behavior change in UI; spawning is handled server-side inside `rpc_complete_task` tail. UI just invalidates queries (already does).
-- `src/routes/lead.$leadId.tsx` — render a small "Darbplūsma" strip above the task list showing template steps (planned / in progress / done / cancelled) derived from `task_relations` + `workflow_instance_id`.
-- `src/routes/uzdevumi.tsx` — no change in 2b.1.
-
-## G. Risks
-
-- **Loop risk in recompute**: avoided by recomputing only direct dependents and never recursing.
-- **Stale dependents when anchor reschedules past dependent**: handled by always overwriting `due_at` when `dynamic_recalc=true`; user manual edits should set `dynamic_recalc=false` on that relation row (UI for that is out of scope for 2b.1).
-- **Owner missing for next step**: spawn step with `assigned_user_id=NULL`; lead profile already surfaces unassigned tasks.
-- **Audit FK violation**: requires the pre-existing `create_audit_event` guard from `.lovable/plan.md`. Block 2b.1 on that fix.
-- **Template drift**: storing templates in `crm.settings` rather than a typed table means no FK validation against `task_types`. Mitigation: validation inside `rpc_spawn_next_workflow_task` returns a clear error if a step's `task_type` isn't an active row in `crm.task_types`.
-- **Fan-out timing collisions** (Phase 2b.3): multiple dependents spawned from one anchor — handled by inserting all rows in one transaction inside the spawn RPC.
-- **Approval engine not built**: `requires_approval=true` is stored as metadata only; nothing enforces it yet. Document clearly so reviewers don't assume tasks are gated.
-
-## H. Phased rollout
-
-**Phase 2b.1 — Foundations (smallest safe step)**
-- Seed 3 new task_types.
-- Seed `workflow.task_type_defaults` and `workflow.templates` rows.
-- Add `crm.rpc_recompute_dependent_tasks` + wire tail calls in lifecycle RPCs.
-- No frontend changes yet. No spawn RPC yet.
-- Manual SQL test: insert two tasks, link with `schedule_anchor_after`, reschedule anchor, confirm dependent due_at moves.
-
-**Phase 2b.2 — Spawn + first workflow UI**
-- Add `crm.rpc_spawn_next_workflow_task` and invoke from `rpc_complete_task`.
-- Frontend: `useWorkflowSettings`, TaskFormDialog server_folder_url + workflow toggle, lead profile workflow strip.
-- Manual approval metadata stored but not enforced.
-
-**Phase 2b.3 — Fan-out + approval surfacing**
-- Allow templates to declare multiple dependents per step (array).
-- Surface `requires_approval` as a visible badge + a "Apstiprināt" action on the dependent task (action just flips a metadata flag; no engine).
-- Add UI to toggle `dynamic_recalc` per relation.
+- No `DROP TABLE`, no `DROP COLUMN`, no `DROP FUNCTION`.
+- No `ALTER COLUMN` changing type or nullability.
+- One CHECK constraint widened on `task_relations.relation_type` (drop + recreate with strictly larger value set). All existing rows remain valid.
+- No RPC signature changes. `rpc_complete_task`, `rpc_reschedule_task`, `rpc_cancel_task` keep identical parameters, return type, and pre-existing behavior. Only a tail call to `crm.rpc_recompute_dependent_tasks(p_task_id)` is appended before the final `RETURN`.
+- New function `crm.rpc_recompute_dependent_tasks` is additive.
+- No grants revoked; only new EXECUTE grants on the new function.
+- No frontend code changes.
 
 ---
 
-## Exact next Build prompt (Phase 2b.1 only)
+## SQL to apply (single migration)
 
+```sql
+-- =========================================================================
+-- Phase 2b.1 — Workflow foundations (additive)
+-- =========================================================================
+
+-- 1) Widen relation_type CHECK on crm.task_relations (additive, value-widening)
+ALTER TABLE crm.task_relations
+  DROP CONSTRAINT task_relations_relation_type_check;
+
+ALTER TABLE crm.task_relations
+  ADD CONSTRAINT task_relations_relation_type_check
+  CHECK (relation_type = ANY (ARRAY[
+    'follows',
+    'caused',
+    'triggered',
+    'replaced_by',
+    'sequence_next',
+    'schedule_anchor_after',
+    'schedule_anchor_before',
+    'related',
+    'follow_up_of'
+  ]));
+
+-- 2) Seed 3 new rows into crm.task_types (additive, idempotent)
+INSERT INTO crm.task_types (
+  type_key, label_lv, label_en, channel, mode, completion_rule,
+  requires_communication_proof, requires_body, requires_subject, requires_meeting_url,
+  default_priority, metadata_schema, icon_key, is_active, sort_order
+) VALUES
+  ('draw_sketches', 'Zīmēt skices', 'Draw sketches',
+   'human', 'human', 'human_complete',
+   false, false, false, false,
+   'normal',
+   jsonb_build_object(
+     'type','object',
+     'required', jsonb_build_array('server_folder_url'),
+     'properties', jsonb_build_object(
+       'server_folder_url', jsonb_build_object('type','string','format','uri')
+     )
+   ),
+   'pencil-ruler', true, 100),
+  ('estimate', 'Tāmēšana', 'Estimate',
+   'human', 'human', 'human_complete',
+   false, false, false, false,
+   'normal',
+   '{}'::jsonb,
+   'calculator', true, 110),
+  ('prepare_offer', 'Piedāvājuma sagatavošana', 'Prepare offer',
+   'human', 'human', 'human_complete',
+   false, false, false, false,
+   'normal',
+   '{}'::jsonb,
+   'file-text', true, 120)
+ON CONFLICT (type_key) DO NOTHING;
+
+-- 3) Seed workflow settings rows (additive, idempotent via WHERE NOT EXISTS)
+INSERT INTO crm.settings (setting_group, setting_key, value_json, description, is_active)
+SELECT 'workflow', 'workflow.task_type_defaults',
+  jsonb_build_object(
+    'draw_sketches', jsonb_build_object(
+      'default_owner_code','EG','default_duration_days',7,
+      'requires_server_folder',true,'visible_in_form',true),
+    'estimate', jsonb_build_object(
+      'default_owner_code',null,'default_duration_days',3,
+      'visible_in_form',true),
+    'prepare_offer', jsonb_build_object(
+      'default_owner_code',null,'default_duration_days',2,
+      'visible_in_form',true)
+  ),
+  'Per-task-type workflow defaults (owner, duration, flags). Phase 2b.',
+  true
+WHERE NOT EXISTS (
+  SELECT 1 FROM crm.settings WHERE setting_key = 'workflow.task_type_defaults'
+);
+
+INSERT INTO crm.settings (setting_group, setting_key, value_json, description, is_active)
+SELECT 'workflow', 'workflow.templates',
+  jsonb_build_object(
+    'object_preparation_v1', jsonb_build_object(
+      'label_lv','Objekta sagatavošana',
+      'requires_server_folder', true,
+      'steps', jsonb_build_array(
+        jsonb_build_object('step',1,'task_type','draw_sketches',
+          'offset_days_from_start',0,'owner_code','EG'),
+        jsonb_build_object('step',2,'task_type','estimate',
+          'anchor_step',1,'anchor_event','completed_at','offset_days',3),
+        jsonb_build_object('step',3,'task_type','prepare_offer',
+          'anchor_step',2,'anchor_event','completed_at','offset_days',2)
+      )
+    )
+  ),
+  'Workflow templates (declarative). Phase 2b.',
+  true
+WHERE NOT EXISTS (
+  SELECT 1 FROM crm.settings WHERE setting_key = 'workflow.templates'
+);
+
+-- 4) New resolver: recompute or cancel direct dependents of an anchor task.
+--    SECURITY DEFINER, never recurses. No-op if no dependents.
+CREATE OR REPLACE FUNCTION crm.rpc_recompute_dependent_tasks(p_anchor_task_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'crm'
+AS $fn$
+DECLARE
+  v_anchor          crm.tasks%ROWTYPE;
+  v_rel             RECORD;
+  v_dep             crm.tasks%ROWTYPE;
+  v_anchor_event    text;
+  v_offset_minutes  int;
+  v_cancel_with     boolean;
+  v_anchor_ts       timestamptz;
+  v_new_due         timestamptz;
+  v_updated_count   int := 0;
+  v_cancelled_count int := 0;
+BEGIN
+  IF p_anchor_task_id IS NULL THEN
+    RETURN jsonb_build_object('updated',0,'cancelled',0,'reason','null_anchor');
+  END IF;
+
+  SELECT * INTO v_anchor FROM crm.tasks WHERE id = p_anchor_task_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('updated',0,'cancelled',0,'reason','anchor_not_found');
+  END IF;
+
+  FOR v_rel IN
+    SELECT *
+    FROM crm.task_relations
+    WHERE from_kind = 'task'
+      AND from_id   = p_anchor_task_id
+      AND to_kind   = 'task'
+      AND relation_type IN ('sequence_next','schedule_anchor_after','schedule_anchor_before')
+      AND COALESCE(metadata->>'dynamic_recalc','false') = 'true'
+  LOOP
+    SELECT * INTO v_dep FROM crm.tasks WHERE id = v_rel.to_id;
+    IF NOT FOUND THEN CONTINUE; END IF;
+
+    -- Skip already terminal dependents
+    IF v_dep.status IN ('completed','cancelled','skipped','failed') THEN
+      CONTINUE;
+    END IF;
+
+    v_cancel_with := COALESCE((v_rel.metadata->>'cancel_with_anchor')::boolean, false);
+
+    -- Cancel propagation
+    IF v_anchor.status = 'cancelled' AND v_cancel_with THEN
+      UPDATE crm.tasks
+         SET status = 'cancelled',
+             cancelled_reason = COALESCE(cancelled_reason,'cascade_from_anchor'),
+             updated_at = now(),
+             metadata = COALESCE(metadata,'{}'::jsonb)
+               || jsonb_build_object(
+                    'cascade_cancelled_from_task_id', v_anchor.id,
+                    'cascade_cancelled_at', now())
+       WHERE id = v_dep.id;
+
+      INSERT INTO crm.audit_events (
+        entity_type, entity_id, action_type, source_type,
+        event_key, event_name, before_data, after_data,
+        changed_fields, actor_user_id, reason, metadata
+      ) VALUES (
+        'task', v_dep.id, 'update', 'system',
+        'task_cancelled_cascade', 'Dependent task cancelled with anchor',
+        jsonb_build_object('status', v_dep.status),
+        jsonb_build_object('status', 'cancelled'),
+        jsonb_build_array('status'),
+        NULL, 'cascade_from_anchor',
+        jsonb_build_object('anchor_task_id', v_anchor.id,
+                           'relation_id', v_rel.id)
+      );
+      v_cancelled_count := v_cancelled_count + 1;
+      CONTINUE;
+    END IF;
+
+    -- Recompute due_at
+    v_anchor_event   := COALESCE(v_rel.metadata->>'anchor_event','completed_at');
+    v_offset_minutes := COALESCE((v_rel.metadata->>'offset_minutes')::int, 0);
+
+    v_anchor_ts := CASE v_anchor_event
+      WHEN 'completed_at' THEN v_anchor.completed_at
+      WHEN 'due_at'       THEN v_anchor.due_at
+      WHEN 'started_at'   THEN v_anchor.started_at
+      ELSE NULL
+    END;
+
+    IF v_anchor_ts IS NULL THEN
+      CONTINUE; -- nothing to compute from yet
+    END IF;
+
+    v_new_due := v_anchor_ts + make_interval(mins => v_offset_minutes);
+
+    IF v_dep.due_at IS DISTINCT FROM v_new_due THEN
+      UPDATE crm.tasks
+         SET due_at = v_new_due,
+             updated_at = now(),
+             metadata = COALESCE(metadata,'{}'::jsonb)
+               || jsonb_build_object(
+                    'last_dynamic_recalc_at', now(),
+                    'last_dynamic_recalc_from_task_id', v_anchor.id,
+                    'last_dynamic_recalc_anchor_event', v_anchor_event,
+                    'last_dynamic_recalc_offset_minutes', v_offset_minutes)
+       WHERE id = v_dep.id;
+
+      INSERT INTO crm.audit_events (
+        entity_type, entity_id, action_type, source_type,
+        event_key, event_name, before_data, after_data,
+        changed_fields, actor_user_id, reason, metadata
+      ) VALUES (
+        'task', v_dep.id, 'update', 'system',
+        'task_dynamic_recalc', 'Dependent due_at recomputed from anchor',
+        jsonb_build_object('due_at', v_dep.due_at),
+        jsonb_build_object('due_at', v_new_due),
+        jsonb_build_array('due_at'),
+        NULL, NULL,
+        jsonb_build_object('anchor_task_id', v_anchor.id,
+                           'relation_id', v_rel.id,
+                           'anchor_event', v_anchor_event,
+                           'offset_minutes', v_offset_minutes)
+      );
+      v_updated_count := v_updated_count + 1;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'anchor_task_id', p_anchor_task_id,
+    'updated', v_updated_count,
+    'cancelled', v_cancelled_count
+  );
+END;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION crm.rpc_recompute_dependent_tasks(uuid)
+  TO authenticated, service_role;
+
+-- 5) Tail-call recompute from each lifecycle RPC.
+--    Existing bodies preserved verbatim; one line added before final RETURN.
+--    Below: full CREATE OR REPLACE for each, identical to current except for
+--    the PERFORM crm.rpc_recompute_dependent_tasks(...) before RETURN.
 ```
-Build Phase 2b.1: workflow foundations. DB-only. No frontend changes.
 
-Preconditions:
-- The crm.create_audit_event actor-resolution fix from .lovable/plan.md
-  must already be applied. If not, apply it first in the SAME migration set.
+The CREATE OR REPLACE bodies for `rpc_complete_task`, `rpc_reschedule_task`, `rpc_cancel_task` will be byte-for-byte identical to the current production bodies (which I have already fetched) with a single new statement inserted before the final `RETURN jsonb_build_object(...)`:
 
-Scope:
-
-1. Seed 3 new rows into crm.task_types (additive, is_active=true):
-   - draw_sketches (channel='human', mode='human', completion_rule='human_complete',
-     requires_body=false, requires_subject=false, requires_meeting_url=false,
-     requires_communication_proof=false, default_priority='normal',
-     icon_key='pencil-ruler', sort_order after existing rows,
-     metadata_schema requires server_folder_url:string url)
-   - estimate (same shape, icon_key='calculator', no extra required metadata)
-   - prepare_offer (same shape, icon_key='file-text', no extra required metadata)
-
-2. Insert two crm.settings rows (setting_group='workflow'):
-   - workflow.task_type_defaults  (per-type defaults: owner code, duration days,
-     requires_server_folder, visible_in_form)
-   - workflow.templates           (object_preparation_v1 with the 3 steps,
-     anchor_event='completed_at', offsets in days)
-
-3. Create crm.rpc_recompute_dependent_tasks(p_anchor_task_id uuid)
-   SECURITY DEFINER, search_path=crm.
-   For every task_relations row where from_id=p_anchor_task_id AND
-   relation_type IN ('sequence_next','schedule_anchor_after','schedule_anchor_before')
-   AND metadata->>'dynamic_recalc'='true':
-     - if anchor status='cancelled' AND metadata->>'cancel_with_anchor'='true'
-       → update dependent set status='cancelled' (only if not already terminal),
-         call crm.create_audit_event for the change
-     - else recompute dependent.due_at from
-       anchor.<metadata->>'anchor_event'> + (metadata->>'offset_minutes')::int * interval '1 minute'
-       and update only if changed; emit audit event with before/after due_at
-   No recursion. No call to itself with dependent ids.
-
-4. Add a tail call to crm.rpc_recompute_dependent_tasks(p_task_id)
-   at the END of: rpc_complete_task, rpc_reschedule_task, rpc_cancel_task.
-   Do not change their signatures, their existing audit emissions, or
-   any other behavior.
-
-5. Grants: EXECUTE on the new function to the same role(s) that already
-   have EXECUTE on rpc_complete_task.
-
-Do NOT:
-- add a spawn RPC (next phase)
-- change frontend code
-- create new tables
-- drop or alter any existing column, FK, or RPC signature
-- implement approval enforcement
-
-Verify with SQL:
-- Insert anchor task A (due in 10 days) and dependent task B.
-  Insert task_relations row: from=A, to=B, relation_type='schedule_anchor_after',
-  metadata={"anchor_event":"completed_at","offset_minutes":4320,
-            "dynamic_recalc":true,"cancel_with_anchor":true}.
-- Complete A → B.due_at = A.completed_at + 3 days.
-- Reschedule A → B.due_at recomputes (because anchor_event='completed_at'
-  and A is not completed yet, no change expected; switch metadata to
-  anchor_event='due_at' for a second test and confirm B moves).
-- Cancel A → B.status='cancelled'.
-- Audit rows exist for each change, no FK errors.
-
-Return:
-- list of migrations applied
-- SQL bodies
-- test transcript
+```sql
+PERFORM crm.rpc_recompute_dependent_tasks(v_task.id);
 ```
+
+I will include all three full bodies in the actual migration, not abbreviated, so the user can review the full diff in the migration approval UI.
+
+---
+
+## Verification after apply (manual SQL, no UI)
+
+```sql
+-- Pick a real lead
+WITH l AS (SELECT id FROM crm.leads ORDER BY created_at DESC LIMIT 1)
+INSERT INTO crm.tasks (lead_id, task_type, status, priority, title, due_at, metadata)
+SELECT id, 'call', 'planned', 'normal', '2b.1 anchor test', now() + interval '10 days', '{}'::jsonb
+FROM l RETURNING id;
+-- → A_ID
+
+WITH l AS (SELECT lead_id FROM crm.tasks WHERE id = 'A_ID')
+INSERT INTO crm.tasks (lead_id, task_type, status, priority, title, due_at, metadata)
+SELECT lead_id, 'manual_email', 'planned', 'normal', '2b.1 dependent test', now() + interval '20 days', '{}'::jsonb
+FROM l RETURNING id;
+-- → B_ID
+
+INSERT INTO crm.task_relations (lead_id, from_kind, from_id, to_kind, to_id, relation_type, metadata)
+SELECT lead_id, 'task', 'A_ID', 'task', 'B_ID', 'schedule_anchor_after',
+       jsonb_build_object('anchor_event','completed_at',
+                          'offset_minutes', 3*24*60,
+                          'dynamic_recalc', true,
+                          'cancel_with_anchor', true)
+FROM crm.tasks WHERE id = 'A_ID';
+
+-- Reschedule A — B should NOT move (anchor_event=completed_at, A not completed)
+SELECT crm.rpc_reschedule_task('A_ID', now() + interval '5 days', 'test');
+SELECT due_at FROM crm.tasks WHERE id = 'B_ID';
+
+-- Complete A — B.due_at should = A.completed_at + 3 days
+SELECT crm.rpc_complete_task('A_ID');
+SELECT a.completed_at, b.due_at
+FROM crm.tasks a, crm.tasks b
+WHERE a.id = 'A_ID' AND b.id = 'B_ID';
+
+-- Cancel A (reset first if needed) — B should cascade cancel
+-- (Reset path is out of scope; tested by creating a fresh anchor.)
+
+-- Inspect audit
+SELECT event_key, after_data, metadata
+FROM crm.audit_events
+WHERE entity_id IN ('A_ID'::uuid, 'B_ID'::uuid)
+ORDER BY occurred_at;
+```
+
+---
+
+## Confirmations (against your gates)
+
+- no DROP — **confirmed** (no `DROP TABLE/COLUMN/FUNCTION`)
+- no destructive ALTER — **partially**: one widening CHECK constraint replacement on `task_relations.relation_type` (only enlarges allowed value set; all existing rows remain valid). Flagged explicitly for your call.
+- no RPC signature changes — **confirmed** (parameters and return types of all three lifecycle RPCs unchanged)
+- existing task lifecycle behavior preserved — **confirmed**, only an additional tail `PERFORM` before the final RETURN
+
+## Decision needed from you
+
+Reply with one of:
+
+- **"Apply"** — I submit the migration as-is (with the widening CHECK replacement).
+- **"Apply without CHECK widening"** — I drop the CHECK widening; new `relation_type` values will fail to insert until a follow-up step. (Not recommended — blocks 2b.2.)
+- **"Hold"** — adjust something first.
