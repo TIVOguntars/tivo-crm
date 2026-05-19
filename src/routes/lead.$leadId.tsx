@@ -579,16 +579,44 @@ function LeadProfilePage() {
     // Fold crm.activities rows in. Skip types already represented by other
     // sources (tasks/communications) to avoid duplicate entries.
     const activityRows = (activitiesQ.data?.rows ?? []) as Row[];
-    const SKIP_TYPES = new Set([
+    // System (non-manual) activity types that mirror task rows. When a task
+    // for the same task_id already exists in completedTasks, the activity
+    // is a duplicate and must be hidden in favor of the canonical task row.
+    const TASK_MIRROR_TYPES = new Set([
+      "estimate",
+      "draw_sketches",
+      "prepare_offer",
       "task_completed",
-      "task_created",
-      "status_change",
     ]);
+    // Always-skip system noise (never manual): task_created / status_change
+    // are represented elsewhere in the UI.
+    const ALWAYS_SKIP_SYSTEM = new Set(["task_created", "status_change"]);
+    const completedTaskIds = new Set(
+      completedTasks.map((t) => str(pick(t, "id", "task_id"))).filter(Boolean),
+    );
     activityRows.forEach((a, i) => {
       const at = str(pick(a, "activity_type")).toLowerCase();
-      if (SKIP_TYPES.has(at)) return;
-      // Skip activities linked to a communication — the comm itself is shown.
-      if (str(pick(a, "communication_id"))) return;
+      const aMeta =
+        a && typeof a.metadata === "object" && a.metadata
+          ? (a.metadata as Row)
+          : undefined;
+      const isManual =
+        str(pick(aMeta, "source")).toLowerCase() === "manual";
+      // Manual activities are always visible.
+      if (!isManual) {
+        // Skip activities linked to a communication — the comm is shown.
+        if (str(pick(a, "communication_id"))) return;
+        if (ALWAYS_SKIP_SYSTEM.has(at)) return;
+        // Hide task-mirror activities when the canonical task row exists.
+        const aTaskId = str(pick(a, "task_id"));
+        if (
+          TASK_MIRROR_TYPES.has(at) &&
+          aTaskId &&
+          completedTaskIds.has(aTaskId)
+        ) {
+          return;
+        }
+      }
       const ts =
         new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
       items.push({
@@ -1334,12 +1362,21 @@ function LeadProfilePage() {
                           email: "E-pasts",
                           zoom: "Zoom",
                           other: "Cits",
+                          estimate: "Tāmēšana",
+                          draw_sketches: "Skiču zīmēšana",
+                          prepare_offer: "Piedāvājuma sagatavošana",
+                          task_completed: "Uzdevums pabeigts",
+                          task_created: "Uzdevums izveidots",
+                          status_change: "Statusa maiņa",
+                          manual_update: "Manuāls ieraksts",
                         };
-                        const typeLabel = ACTIVITY_LV[at] || fmt(at);
+                        const typeLabel = ACTIVITY_LV[at] || "Darbība";
                         const aMeta =
                           r && typeof r.metadata === "object" && r.metadata
                             ? (r.metadata as Row)
                             : undefined;
+                        const isManual =
+                          str(pick(aMeta, "source")).toLowerCase() === "manual";
                         const aSummary = str(pick(r, "summary"));
                         const aOutcome = aMeta
                           ? str(pick(aMeta, "manual_outcome_text"))
@@ -1360,6 +1397,9 @@ function LeadProfilePage() {
                           ) : (
                             <Activity className="h-3.5 w-3.5" />
                           );
+                        const emptyFallback = isManual
+                          ? "Nav piezīmes"
+                          : typeLabel;
                         return (
                           <li key={it.key}>
                             <button
@@ -1376,16 +1416,18 @@ function LeadProfilePage() {
                                     <span className="font-medium">
                                       {typeLabel}
                                     </span>
-                                    <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                      Manuāli
-                                    </span>
+                                    {isManual && (
+                                      <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                        Manuāli
+                                      </span>
+                                    )}
                                   </div>
                                   <span className="text-[11px] text-muted-foreground tabular-nums">
                                     {fmtDate(aDate)}
                                   </span>
                                 </div>
                                 <div className="mt-0.5 text-sm font-medium whitespace-pre-wrap break-words">
-                                  {aSummary || "Nav apraksta"}
+                                  {aSummary || emptyFallback}
                                 </div>
                                 {aOutcome && (
                                   <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -1681,7 +1723,90 @@ function LeadProfilePage() {
                   </>
                 );
               })()}
-              {openItem && openItem.kind !== "task" && (() => {
+              {openItem && openItem.kind === "activity" && (() => {
+                const r = openItem.raw;
+                const at = str(pick(r, "activity_type")).toLowerCase();
+                const ACTIVITY_LV: Record<string, string> = {
+                  note: "Piezīme",
+                  call: "Zvans",
+                  meeting: "Tikšanās",
+                  sms: "SMS",
+                  whatsapp: "WhatsApp",
+                  email: "E-pasts",
+                  zoom: "Zoom",
+                  other: "Cits",
+                  estimate: "Tāmēšana",
+                  draw_sketches: "Skiču zīmēšana",
+                  prepare_offer: "Piedāvājuma sagatavošana",
+                  task_completed: "Uzdevums pabeigts",
+                  task_created: "Uzdevums izveidots",
+                  status_change: "Statusa maiņa",
+                  manual_update: "Manuāls ieraksts",
+                };
+                const typeLabel = ACTIVITY_LV[at] || "Darbība";
+                const aMeta =
+                  r && typeof r.metadata === "object" && r.metadata
+                    ? (r.metadata as Row)
+                    : undefined;
+                const isManual =
+                  str(pick(aMeta, "source")).toLowerCase() === "manual";
+                const aSummary = str(pick(r, "summary"));
+                const aOutcome = aMeta
+                  ? str(pick(aMeta, "manual_outcome_text"))
+                  : "";
+                const aDate = pick(r, "activity_at", "created_at");
+                const aUserId = str(pick(r, "performed_by_user_id"));
+                const aActorLabel = aUserId ? resolveUserName(aUserId) || "" : "";
+                const emptyFallback = isManual ? "Nav piezīmes" : typeLabel;
+                return (
+                  <>
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-end w-full gap-4">
+                          <DialogClose asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Aizvērt"
+                              className="h-8 w-8 shrink-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </DialogClose>
+                        </div>
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                          <Activity className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{typeLabel}</span>
+                          {isManual && (
+                            <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              Manuāli
+                            </span>
+                          )}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                        <Field label="Veids" value={typeLabel} />
+                        <Field label="Datums" value={fmtDate(aDate)} />
+                        {aActorLabel && (
+                          <Field label="Izpildīja" value={aActorLabel} />
+                        )}
+                        {aOutcome && (
+                          <Field label="Iznākums" value={aOutcome} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-6 pt-3">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                        Apraksts
+                      </div>
+                      <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
+                        {aSummary || emptyFallback}
+                      </pre>
+                    </div>
+                  </>
+                );
+              })()}
+              {openItem && openItem.kind !== "task" && openItem.kind !== "activity" && (() => {
                 const r = openItem.raw;
                 const isNote = openItem.kind === "note";
                 const ch = str(pick(r, "channel"));
