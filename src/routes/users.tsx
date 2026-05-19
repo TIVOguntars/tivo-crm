@@ -106,7 +106,6 @@ function UsersPage() {
                 <TableRow>
                   <TableHead>Vārds</TableHead>
                   <TableHead>E-pasts</TableHead>
-                  <TableHead>Telefons</TableHead>
                   <TableHead>Statuss</TableHead>
                   <TableHead>Izveidots</TableHead>
                 </TableRow>
