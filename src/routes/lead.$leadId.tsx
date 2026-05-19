@@ -1117,15 +1117,41 @@ function LeadProfilePage() {
               })()}
 
               {/* Aktivitātes */}
-              <Panel title="Aktivitātes" count={timeline.length}>
+              <Panel
+                title="Aktivitātes"
+                count={
+                  isTimelineFiltered ? filteredTimeline.length : timeline.length
+                }
+                action={
+                  <div className="flex items-center gap-2">
+                    {isTimelineFiltered && (
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        no {timeline.length}
+                      </span>
+                    )}
+                    <TimelineFilters
+                      type={tlType}
+                      date={tlDate}
+                      onTypeChange={setTlType}
+                      onDateChange={setTlDate}
+                    />
+                  </div>
+                }
+              >
                 {/* PRIMARY: existing local timeline — communications, notes,
                     completed tasks, workflow completion items, automation,
                     audit events. Always rendered. */}
-                {timeline.length === 0 ? (
-                  <Empty />
+                {filteredTimeline.length === 0 ? (
+                  <Empty
+                    label={
+                      isTimelineFiltered
+                        ? "Nav ierakstu izvēlētajiem filtriem."
+                        : undefined
+                    }
+                  />
                 ) : (
                   <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
-                    {timeline.map((it) => {
+                    {filteredTimeline.map((it) => {
                       const r = it.raw;
                       const isNote = it.kind === "note";
                       const isTask = it.kind === "task";
@@ -1148,19 +1174,9 @@ function LeadProfilePage() {
                           "updated_at",
                           "created_at",
                         );
-                        const statusLc = taskStatus.toLowerCase();
-                        let bgT = "bg-slate-50 dark:bg-slate-950/20";
-                        let accentT = "border-l-slate-400";
-                        if (statusLc === "completed") {
-                          bgT = "bg-emerald-50 dark:bg-emerald-950/20";
-                          accentT = "border-l-emerald-500";
-                        } else if (statusLc === "cancelled") {
-                          bgT = "bg-rose-50 dark:bg-rose-950/20";
-                          accentT = "border-l-rose-500";
-                        } else if (statusLc === "skipped") {
-                          bgT = "bg-amber-50 dark:bg-amber-950/20";
-                          accentT = "border-l-amber-500";
-                        }
+                        const styleT = getActivityStyle(classifyLocal(it));
+                        const bgT = styleT.bg;
+                        const accentT = styleT.accent;
                         const tt = taskType.toLowerCase();
                         const taskIcon = tt.includes("call")
                           ? <PhoneIcon className="h-3.5 w-3.5" />
@@ -1169,8 +1185,10 @@ function LeadProfilePage() {
                             : <CheckSquare className="h-3.5 w-3.5" />;
                         return (
                           <li key={it.key}>
-                            <div
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2`}
+                            <button
+                              type="button"
+                              onClick={() => setOpenItem(it)}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${accentT} ${bgT} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {taskIcon}
@@ -1195,7 +1213,7 @@ function LeadProfilePage() {
                                 </div>
                                 {outcomeCode && (
                                   <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                    Iznākums: <span className="font-medium">{outcomeCode}</span>
+                                    Iznākums: <span className="font-medium">{lv(COMM_STATUS_LV, outcomeCode, outcomeCode)}</span>
                                   </div>
                                 )}
                                 {completionNotes && (
@@ -1204,7 +1222,7 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </div>
+                            </button>
                           </li>
                         );
                       }
