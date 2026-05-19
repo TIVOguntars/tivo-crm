@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -27,17 +27,12 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { callCrmRpc, fetchCrmView } from "@/server/analytics";
+import { callCrmRpc } from "@/server/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { useTaskTypes } from "@/hooks/useTaskTypes";
+import { UserPicker } from "@/components/users/UserPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUserMap } from "@/hooks/useUsers";
 
 // Free-text pseudo-statuses written to crm.leads.nakama_darbiba. These are
 // NOT task_types and have special server-side semantics (e.g. "Gaidu
@@ -58,91 +53,6 @@ const USER_FACING_TYPE_KEYS = [
 ];
 
 const NONE = "__none__";
-
-function OwnerCombobox({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const trimmed = query.trim();
-  const showAdd =
-    trimmed.length > 0 &&
-    !options.some((o) => o.toLowerCase() === trimmed.toLowerCase());
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            "w-full justify-between font-normal",
-            !value && "text-muted-foreground",
-          )}
-        >
-          {value || "Izvēlies vai ieraksti"}
-          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
-      >
-        <Command shouldFilter>
-          <CommandInput
-            placeholder="Meklēt vai ierakstīt…"
-            value={query}
-            onValueChange={setQuery}
-          />
-          <CommandList>
-            <CommandEmpty>Nav atrasts</CommandEmpty>
-            <CommandGroup>
-              {options.map((opt) => (
-                <CommandItem
-                  key={opt}
-                  value={opt}
-                  onSelect={(v) => {
-                    onChange(v);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === opt ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {opt}
-                </CommandItem>
-              ))}
-              {showAdd && (
-                <CommandItem
-                  value={`__add__${trimmed}`}
-                  onSelect={() => {
-                    onChange(trimmed);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                >
-                  <Check className="mr-2 h-4 w-4 opacity-0" />
-                  Izmantot „{trimmed}"
-                </CommandItem>
-              )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export function CompleteActionModal({
   open,
@@ -165,9 +75,11 @@ export function CompleteActionModal({
 }) {
   const qc = useQueryClient();
   const tt = useTaskTypes();
+  const { operatorId } = useCurrentUser();
+  const { resolve: resolveUserName } = useUserMap();
   const [note, setNote] = useState("");
   const [nextAction, setNextAction] = useState<string>(NONE);
-  const [owner, setOwner] = useState<string>("");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
   const [due, setDue] = useState<Date | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,36 +102,15 @@ export function CompleteActionModal({
     if (open) {
       setNote("");
       setNextAction(NONE);
-      setOwner(defaultOwner ?? "");
+      setOwnerId(operatorId ?? null);
       setDue(undefined);
       setError(null);
       setSubmitting(false);
     }
-  }, [open, defaultOwner]);
+  }, [open, defaultOwner, operatorId]);
 
   const hasNext = nextAction !== NONE && nextAction !== "";
   const dueRequiredMissing = hasNext && !due;
-
-  const ownersQuery = useQuery({
-    queryKey: ["crm", "action_owner_options"],
-    queryFn: () =>
-      fetchCrmView({ data: { view: "action_owner_options", query: "limit=500" } }),
-    enabled: open && hasNext,
-    staleTime: 5 * 60_000,
-  });
-
-  const ownerOptions = useMemo(() => {
-    const rows = ownersQuery.data?.rows ?? [];
-    const set = new Set<string>();
-    for (const r of rows) {
-      const v = r?.owner_label;
-      if (v != null) {
-        const s = String(v).trim();
-        if (s) set.add(s);
-      }
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
-  }, [ownersQuery.data]);
 
   const handleSubmit = async () => {
     if (!leadId) return;
@@ -234,6 +125,13 @@ export function CompleteActionModal({
     setSubmitting(true);
     setError(null);
     try {
+      // Resolve UUID → display label for legacy RPC that expects a text label.
+      const ownerLabelForRpc =
+        hasNext && ownerId
+          ? (resolveUserName(ownerId) || defaultOwner || "").trim() || null
+          : hasNext && defaultOwner.trim()
+            ? defaultOwner.trim()
+            : null;
       const res = taskId
         ? await callCrmRpc({
             data: {
@@ -252,7 +150,7 @@ export function CompleteActionModal({
                 p_completed_by: null,
                 p_completion_note: note.trim() ? note.trim() : null,
                 p_next_action: hasNext ? nextAction : null,
-                p_next_owner: hasNext && owner.trim() ? owner.trim() : null,
+                p_next_owner: ownerLabelForRpc,
                 p_next_due_date:
                   hasNext && due ? format(due, "yyyy-MM-dd") : null,
               },
@@ -329,11 +227,7 @@ export function CompleteActionModal({
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="owner">Atbildīgais</Label>
-                <OwnerCombobox
-                  value={owner}
-                  onChange={setOwner}
-                  options={ownerOptions}
-                />
+                <UserPicker value={ownerId} onChange={setOwnerId} />
               </div>
               <div className="space-y-1.5">
                 <Label>
