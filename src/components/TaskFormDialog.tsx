@@ -250,7 +250,10 @@ export function TaskFormDialog({
   // Reset whenever dialog opens, and choose a sensible default type
   useEffect(() => {
     if (!open) return;
-    const first = tt.rows[0]?.type_key as TaskTypeKey | undefined;
+    const visible = tt.rows.filter(
+      (r) => r.type_key !== "draw_sketches" && r.type_key !== "estimate",
+    );
+    const first = visible[0]?.type_key as TaskTypeKey | undefined;
     setTaskType((first ?? "call") as TaskTypeKey);
     setTitle("");
     setDescription("");
