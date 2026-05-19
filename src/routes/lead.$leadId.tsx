@@ -1362,12 +1362,21 @@ function LeadProfilePage() {
                           email: "E-pasts",
                           zoom: "Zoom",
                           other: "Cits",
+                          estimate: "Tāmēšana",
+                          draw_sketches: "Skiču zīmēšana",
+                          prepare_offer: "Piedāvājuma sagatavošana",
+                          task_completed: "Uzdevums pabeigts",
+                          task_created: "Uzdevums izveidots",
+                          status_change: "Statusa maiņa",
+                          manual_update: "Manuāls ieraksts",
                         };
-                        const typeLabel = ACTIVITY_LV[at] || fmt(at);
+                        const typeLabel = ACTIVITY_LV[at] || "Darbība";
                         const aMeta =
                           r && typeof r.metadata === "object" && r.metadata
                             ? (r.metadata as Row)
                             : undefined;
+                        const isManual =
+                          str(pick(aMeta, "source")).toLowerCase() === "manual";
                         const aSummary = str(pick(r, "summary"));
                         const aOutcome = aMeta
                           ? str(pick(aMeta, "manual_outcome_text"))
@@ -1388,6 +1397,9 @@ function LeadProfilePage() {
                           ) : (
                             <Activity className="h-3.5 w-3.5" />
                           );
+                        const emptyFallback = isManual
+                          ? "Nav piezīmes"
+                          : typeLabel;
                         return (
                           <li key={it.key}>
                             <button
@@ -1404,16 +1416,18 @@ function LeadProfilePage() {
                                     <span className="font-medium">
                                       {typeLabel}
                                     </span>
-                                    <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                      Manuāli
-                                    </span>
+                                    {isManual && (
+                                      <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                        Manuāli
+                                      </span>
+                                    )}
                                   </div>
                                   <span className="text-[11px] text-muted-foreground tabular-nums">
                                     {fmtDate(aDate)}
                                   </span>
                                 </div>
                                 <div className="mt-0.5 text-sm font-medium whitespace-pre-wrap break-words">
-                                  {aSummary || "Nav apraksta"}
+                                  {aSummary || emptyFallback}
                                 </div>
                                 {aOutcome && (
                                   <div className="mt-0.5 text-[11px] text-muted-foreground">
