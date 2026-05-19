@@ -4,6 +4,7 @@ import {
   type WorkflowTaskRow,
 } from "@/lib/workflow";
 import { TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { useUserMap } from "@/hooks/useUsers";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -32,6 +33,7 @@ export function WorkflowChainStrip({
   title?: string;
 }) {
   const { template, slots } = buildWorkflowChain(tasks);
+  const { resolve } = useUserMap();
   if (slots.length === 0) return null;
   const headerTitle = title ?? (template ? template.title_lv : "Workflow");
 
@@ -59,7 +61,16 @@ export function WorkflowChainStrip({
                 : entry.status === "pending"
                   ? CircleDashed
                   : Circle;
-          const owner = entry.task?.assigned_user_id ?? "—";
+          const rawOwner = entry.task?.assigned_user_id ?? null;
+          const metaOwner = (() => {
+            const m = entry.task?.metadata;
+            if (m && typeof m === "object" && !Array.isArray(m)) {
+              const v = (m as Record<string, unknown>).owner_label;
+              if (typeof v === "string" && v.trim()) return v.trim();
+            }
+            return null;
+          })();
+          const owner = (rawOwner && resolve(rawOwner)) || metaOwner || "Nav piešķirts";
           const due = fmtDate(entry.task?.due_at ?? null);
           const statusLabel =
             entry.status === "pending"
