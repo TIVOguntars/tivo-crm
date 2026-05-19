@@ -1107,15 +1107,12 @@ function LeadProfilePage() {
 
               {/* Aktivitātes */}
               <Panel title="Aktivitātes" count={timeline.length}>
-                {unifiedAvailable && (
-                  <div className="mb-3">
-                    <UnifiedTimeline
-                      leadId={leadId}
-                      onUnavailable={() => setUnifiedAvailable(false)}
-                    />
-                  </div>
-                )}
-                {timeline.length === 0 ? (
+                {unifiedAvailable ? (
+                  <UnifiedTimeline
+                    leadId={leadId}
+                    onUnavailable={() => setUnifiedAvailable(false)}
+                  />
+                ) : timeline.length === 0 ? (
                   <Empty />
                 ) : (
                   <ol className="relative space-y-2 max-h-[640px] overflow-auto pr-2">
