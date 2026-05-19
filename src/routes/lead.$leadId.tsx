@@ -27,7 +27,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
-import { UnifiedTimeline } from "@/components/UnifiedTimeline";
+
 import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
