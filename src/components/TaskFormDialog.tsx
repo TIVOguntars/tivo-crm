@@ -170,9 +170,22 @@ export function TaskFormDialog({
   const [durationMinutes, setDurationMinutes] = useState<string>("30");
   const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
 
-  // workflow (Phase 2b.2b — draw_sketches only)
-  const [startWorkflow, setStartWorkflow] = useState(false);
+  // workflow plan (Phase 2b.2c — parent_with_steps on prepare_offer)
   const [serverFolderUrl, setServerFolderUrl] = useState("");
+  type PlanStep = {
+    step: number;
+    task_type: "draw_sketches" | "estimate" | "prepare_offer";
+    label: string;
+    enabled: boolean;
+    owner_id: OwnerCode;
+    due_at: string; // datetime-local
+  };
+  const defaultPlan = (): PlanStep[] => [
+    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 2, task_type: "estimate", label: "Tāmēšana", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", enabled: true, owner_id: "UC", due_at: "" },
+  ];
+  const [planSteps, setPlanSteps] = useState<PlanStep[]>(defaultPlan);
 
   // scheduling
   const [scheduleMode, setScheduleMode] = useState<"absolute" | "relative">("absolute");
