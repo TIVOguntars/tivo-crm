@@ -365,7 +365,7 @@ export function TaskFormDialog({
           channel: "email",
           mode: "automatic",
           recipient: recipient.trim(),
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
           body: body.trim(),
           template_key: templateKey.trim() || null,
           signature_key: signatureKey.trim() || null,
@@ -376,7 +376,8 @@ export function TaskFormDialog({
           channel: "email",
           mode: "automatic",
           in_reply_to_communication_id: replyToCommunicationId,
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
+          recipient: recipient.trim() || undefined,
           body: body.trim(),
           signature_key: signatureKey.trim() || null,
           reply_match: {
@@ -390,7 +391,7 @@ export function TaskFormDialog({
           channel: "email",
           mode: "manual",
           recipient: recipient.trim(),
-          subject: subject.trim(),
+          subject: [subject.trim(), subjectRef.trim()].filter(Boolean).join(" "),
           body: body.trim(),
           proof: { required: true, accept: ["crm_send", "imap_reconcile", "manual_link"] },
         };
