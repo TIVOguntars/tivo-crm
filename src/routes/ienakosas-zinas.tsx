@@ -304,7 +304,7 @@ function InboxPage() {
             { value: "all", label: "Visi" },
             ...channelOptions.map((c) => ({
               value: c,
-              label: CHANNEL_LV[c] ?? c,
+              label: lv(CHANNEL_LV, c, c),
             })),
           ]}
           onChange={(v) => setLocal("channel", v)}
