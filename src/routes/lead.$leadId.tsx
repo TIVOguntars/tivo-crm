@@ -574,6 +574,7 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editPanelOpen, setEditPanelOpen] = useState(false);
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
