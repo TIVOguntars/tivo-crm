@@ -498,12 +498,27 @@ export function TaskFormDialog({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    const due = resolveDueIso();
-    if (due.error) {
-      toast.error(due.error);
-      return;
-    }
     const isPrepareOffer = (taskType as string) === "prepare_offer";
+    let due: { iso: string; error?: string };
+    if (isPrepareOffer) {
+      const step3 = planSteps[2];
+      if (!step3?.due_at) {
+        toast.error("Norādi 'Piedāvājuma sagatavošana' termiņu");
+        return;
+      }
+      const d = new Date(step3.due_at);
+      if (Number.isNaN(d.getTime())) {
+        toast.error("Nederīgs 'Piedāvājuma sagatavošana' termiņš");
+        return;
+      }
+      due = { iso: d.toISOString() };
+    } else {
+      due = resolveDueIso();
+      if (due.error) {
+        toast.error(due.error);
+        return;
+      }
+    }
     if (isPrepareOffer) {
       if (!serverFolderUrl.trim()) {
         toast.error("Servera mapes saite ir obligāta");
@@ -780,7 +795,17 @@ export function TaskFormDialog({
               <Label htmlFor="task-owner">Atbildīgais</Label>
               <Select
                 value={ownerCode}
-                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
+                onValueChange={(v) => {
+                  const oc = v as OwnerCode;
+                  setOwnerCode(oc);
+                  if ((taskType as string) === "prepare_offer") {
+                    setPlanSteps((prev) => {
+                      const next = [...prev];
+                      if (next[2]) next[2] = { ...next[2], owner_id: oc };
+                      return next;
+                    });
+                  }
+                }}
                 disabled={isAutomatic}
               >
                 <SelectTrigger id="task-owner" className="w-[5.5rem]">
@@ -1081,13 +1106,15 @@ export function TaskFormDialog({
                     </div>
                     <Select
                       value={p.owner_id}
-                      onValueChange={(v) =>
+                      onValueChange={(v) => {
+                        const oc = v as OwnerCode;
                         setPlanSteps((prev) => {
                           const next = [...prev];
-                          next[idx] = { ...next[idx], owner_id: v as OwnerCode };
+                          next[idx] = { ...next[idx], owner_id: oc };
                           return next;
-                        })
-                      }
+                        });
+                        if (idx === 2) setOwnerCode(oc);
+                      }}
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue />
@@ -1133,6 +1160,7 @@ export function TaskFormDialog({
           )}
 
           {/* Scheduling */}
+          {(taskType as string) !== "prepare_offer" && (
           <div className="space-y-2">
             <Label>Termiņš *</Label>
             <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>
@@ -1258,6 +1286,7 @@ export function TaskFormDialog({
               </TabsContent>
             </Tabs>
           </div>
+          )}
 
           {/* Approval banner */}
           {triggersApproval && (
