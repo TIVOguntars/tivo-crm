@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -161,6 +161,27 @@ function PriorityBadge({ label }: { label: string }) {
     >
       {label}
     </Badge>
+  );
+}
+
+function PriorityStars({ label }: { label: string }) {
+  const count = label === "Augsta" ? 3 : label === "Normāla" ? 2 : label === "Zema" ? 1 : 0;
+  if (count === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center gap-0.5" title={label}>
+      {[1, 2, 3].map((i) => (
+        <Star
+          key={i}
+          className={cn(
+            "h-3.5 w-3.5",
+            i <= count
+              ? "fill-amber-500 text-amber-500"
+              : "fill-transparent text-muted-foreground/40",
+          )}
+          strokeWidth={2}
+        />
+      ))}
+    </div>
   );
 }
 
