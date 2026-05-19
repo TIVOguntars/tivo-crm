@@ -49,7 +49,7 @@ import { WorkflowChainStrip } from "@/components/WorkflowChainStrip";
 import { WorkflowPlanCard } from "@/components/WorkflowPlanCard";
 import {
   groupTasksByWorkflowInstance,
-  parseWorkflowPlan,
+  groupTasksByWorkflowGroup,
   type WorkflowTaskRow,
 } from "@/lib/workflow";
 import { toast } from "sonner";
@@ -337,11 +337,11 @@ function LeadProfilePage() {
     `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&workflow_instance_id=not.is.null&order=due_at.asc.nullslast`,
     { all: true },
   );
-  // Parent tasks that carry an embedded workflow_plan (Phase 2b.2c).
-  // These render as a "process card" with their plan steps inline.
+  // Phase 2b.2d — real per-step crm.tasks linked by metadata.workflow_group_id.
+  // Pull all 3 step types for this lead; group client-side.
   const workflowPlanTasksQ = useCrmView(
     "tasks",
-    `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&task_type=eq.prepare_offer&order=due_at.asc.nullslast`,
+    `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&task_type=in.(draw_sketches,estimate,prepare_offer)&order=due_at.asc.nullslast`,
     { all: true },
   );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
@@ -910,16 +910,16 @@ function LeadProfilePage() {
                   </div>
                 );
               })()}
-              {/* Workflow plan cards (Phase 2b.2c) — parent prepare_offer
-                  tasks with metadata.workflow_plan render as one process. */}
+              {/* Workflow plan cards (Phase 2b.2d) — 3 real tasks grouped by
+                  metadata.workflow_group_id render as one process. */}
               {(() => {
                 const rows = (workflowPlanTasksQ.data?.rows ?? []) as unknown as WorkflowTaskRow[];
-                const withPlan = rows.filter((r) => !!parseWorkflowPlan(r.metadata));
-                if (!withPlan.length) return null;
+                const groups = groupTasksByWorkflowGroup(rows);
+                if (groups.size === 0) return null;
                 return (
                   <div className="space-y-3">
-                    {withPlan.map((t) => (
-                      <WorkflowPlanCard key={t.id} task={t} />
+                    {Array.from(groups.entries()).map(([gid, tasks]) => (
+                      <WorkflowPlanCard key={gid} tasks={tasks} />
                     ))}
                   </div>
                 );

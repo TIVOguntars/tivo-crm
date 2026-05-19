@@ -171,6 +171,26 @@ export function groupTasksByWorkflowInstance(
   return m;
 }
 
+/**
+ * Phase 2b.2d — group tasks by a shared `metadata.workflow_group_id`. Used
+ * for the manual "Piedāvājuma sagatavošana" process where 3 real crm.tasks
+ * (draw_sketches, estimate, prepare_offer) share one client-generated UUID.
+ */
+export function groupTasksByWorkflowGroup(
+  tasks: WorkflowTaskRow[],
+): Map<string, WorkflowTaskRow[]> {
+  const m = new Map<string, WorkflowTaskRow[]>();
+  for (const t of tasks) {
+    const meta = asRecord(t.metadata);
+    const gid = meta && typeof meta.workflow_group_id === "string" ? meta.workflow_group_id : null;
+    if (!gid) continue;
+    const list = m.get(gid);
+    if (list) list.push(t);
+    else m.set(gid, [t]);
+  }
+  return m;
+}
+
 // ---------- Workflow templates (frontend-only display overlay) ----------
 //
 // These mirror the server-side workflow templates stored in crm.settings.

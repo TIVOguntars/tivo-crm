@@ -170,20 +170,19 @@ export function TaskFormDialog({
   const [durationMinutes, setDurationMinutes] = useState<string>("30");
   const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
 
-  // workflow plan (Phase 2b.2c — parent_with_steps on prepare_offer)
+  // workflow plan (Phase 2b.2d — real per-step crm.tasks under shared workflow_group_id)
   const [serverFolderUrl, setServerFolderUrl] = useState("");
   type PlanStep = {
     step: number;
     task_type: "draw_sketches" | "estimate" | "prepare_offer";
     label: string;
-    enabled: boolean;
     owner_id: OwnerCode;
-    due_at: string; // datetime-local
+    due_at: string; // YYYY-MM-DD (date-only)
   };
   const defaultPlan = (): PlanStep[] => [
-    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", enabled: true, owner_id: "UC", due_at: "" },
-    { step: 2, task_type: "estimate", label: "Tāmēšana", enabled: true, owner_id: "UC", due_at: "" },
-    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", owner_id: "UC", due_at: "" },
+    { step: 2, task_type: "estimate", label: "Tāmēšana", owner_id: "UC", due_at: "" },
+    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", owner_id: "UC", due_at: "" },
   ];
   const [planSteps, setPlanSteps] = useState<PlanStep[]>(defaultPlan);
 
@@ -251,7 +250,10 @@ export function TaskFormDialog({
   // Reset whenever dialog opens, and choose a sensible default type
   useEffect(() => {
     if (!open) return;
-    const first = tt.rows[0]?.type_key as TaskTypeKey | undefined;
+    const visible = tt.rows.filter(
+      (r) => r.type_key !== "draw_sketches" && r.type_key !== "estimate",
+    );
+    const first = visible[0]?.type_key as TaskTypeKey | undefined;
     setTaskType((first ?? "call") as TaskTypeKey);
     setTitle("");
     setDescription("");
@@ -499,29 +501,98 @@ export function TaskFormDialog({
   const handleSubmit = async () => {
     if (!canSubmit) return;
     const isPrepareOffer = (taskType as string) === "prepare_offer";
-    let due: { iso: string; error?: string };
-    if (isPrepareOffer) {
-      const step3 = planSteps[2];
-      if (!step3?.due_at) {
-        toast.error("Norādi 'Piedāvājuma sagatavošana' termiņu");
-        return;
-      }
-      const d = new Date(step3.due_at);
-      if (Number.isNaN(d.getTime())) {
-        toast.error("Nederīgs 'Piedāvājuma sagatavošana' termiņš");
-        return;
-      }
-      due = { iso: d.toISOString() };
-    } else {
-      due = resolveDueIso();
-      if (due.error) {
-        toast.error(due.error);
-        return;
-      }
-    }
+
+    // -------- prepare_offer: spawn 3 real crm.tasks under one group --------
     if (isPrepareOffer) {
       if (!serverFolderUrl.trim()) {
         toast.error("Servera mapes saite ir obligāta");
+        return;
+      }
+      for (const p of planSteps) {
+        if (!p.due_at) {
+          toast.error(`Norādi termiņu solim: ${p.label}`);
+          return;
+        }
+      }
+      // YYYY-MM-DD + default 09:00 local → ISO
+      const toIsoAt9 = (ymd: string): string | null => {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+        if (!m) return null;
+        const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 9, 0, 0, 0);
+        return Number.isNaN(d.getTime()) ? null : d.toISOString();
+      };
+      const groupId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const baseTitle = title.trim() || "Piedāvājuma sagatavošana";
+      setBusy(true);
+      try {
+        for (const p of planSteps) {
+          const iso = toIsoAt9(p.due_at);
+          if (!iso) {
+            toast.error(`Nederīgs termiņš solim: ${p.label}`);
+            return;
+          }
+          const stepMeta: Record<string, unknown> = {
+            source: "manual_ui",
+            task_type: p.task_type,
+            channel: "internal",
+            mode: "human",
+            owner_code: p.owner_id,
+            server_folder_url: serverFolderUrl.trim(),
+            workflow_group_id: groupId,
+            workflow_template_key: "object_preparation_v1",
+            workflow_step: p.step,
+            workflow_step_label: p.label,
+            workflow_group_title: baseTitle,
+            ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+            ...(leadContext?.referenceCode
+              ? { reference_code: leadContext.referenceCode }
+              : {}),
+            requires_approval: false,
+          };
+          const res = await callCrmRpc({
+            data: {
+              fn: "rpc_create_task",
+              params: {
+                p_lead_id: effectiveLeadId,
+                p_task_type: p.task_type,
+                p_due_at: iso,
+                p_title: `${baseTitle} — ${p.label}`,
+                p_description: description.trim() || null,
+                p_assigned_user_id: null,
+                p_required_role: null,
+                p_workflow_instance_id: null,
+                p_parent_task_id: null,
+                p_metadata: stepMeta,
+                p_is_auto_created: false,
+                p_priority: priority,
+              },
+            },
+          });
+          if (res?.error) {
+            toast.error(res.error);
+            return;
+          }
+        }
+        toast.success("Sagatavošanas process izveidots");
+        await qc.invalidateQueries({ queryKey: ["crm"] });
+        onCreated?.();
+        onOpenChange(false);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Nezināma kļūda");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    let due: { iso: string; error?: string };
+    {
+      due = resolveDueIso();
+      if (due.error) {
+        toast.error(due.error);
         return;
       }
     }
@@ -566,22 +637,6 @@ export function TaskFormDialog({
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
-      ...(isPrepareOffer
-        ? {
-            workflow_plan: {
-              template_key: "object_preparation_v1",
-              mode: "parent_with_steps" as const,
-              steps: planSteps.map((s) => ({
-                step: s.step,
-                task_type: s.task_type,
-                label: s.label,
-                enabled: s.enabled,
-                owner_id: s.owner_id,
-                due_at: s.due_at ? new Date(s.due_at).toISOString() : null,
-              })),
-            },
-          }
-        : {}),
       ...(approval
         ? { requires_approval: true, approval }
         : { requires_approval: false }),
@@ -779,8 +834,14 @@ export function TaskFormDialog({
                 <SelectTrigger id="task-type" className="w-full gap-2">
                   <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
                 </SelectTrigger>
-                <SelectContent>
-                  {tt.rows.map((t) => (
+              <SelectContent>
+                  {tt.rows
+                    .filter(
+                      (t) =>
+                        t.type_key !== "draw_sketches" &&
+                        t.type_key !== "estimate",
+                    )
+                    .map((t) => (
                     <SelectItem key={t.type_key} value={t.type_key}>
                       <span className="inline-flex items-center gap-2">
                         <TypeIcon keyName={t.icon_key} />
@@ -795,17 +856,7 @@ export function TaskFormDialog({
               <Label htmlFor="task-owner">Atbildīgais</Label>
               <Select
                 value={ownerCode}
-                onValueChange={(v) => {
-                  const oc = v as OwnerCode;
-                  setOwnerCode(oc);
-                  if ((taskType as string) === "prepare_offer") {
-                    setPlanSteps((prev) => {
-                      const next = [...prev];
-                      if (next[2]) next[2] = { ...next[2], owner_id: oc };
-                      return next;
-                    });
-                  }
-                }}
+                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
                 disabled={isAutomatic}
               >
                 <SelectTrigger id="task-owner" className="w-[5.5rem]">
@@ -1084,7 +1135,7 @@ export function TaskFormDialog({
                   Sagatavošanas soļi
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Iestati katra soļa atbildīgo un termiņu. Soļi tiek glabāti šī uzdevuma plānā.
+                  Iestati katra soļa atbildīgo un datumu. Katrs solis tiek izveidots kā atsevišķs uzdevums.
                 </p>
               </div>
               <div className="space-y-2">
@@ -1113,7 +1164,6 @@ export function TaskFormDialog({
                           next[idx] = { ...next[idx], owner_id: oc };
                           return next;
                         });
-                        if (idx === 2) setOwnerCode(oc);
                       }}
                     >
                       <SelectTrigger className="h-8">
@@ -1126,7 +1176,7 @@ export function TaskFormDialog({
                       </SelectContent>
                     </Select>
                     <Input
-                      type="datetime-local"
+                      type="date"
                       value={p.due_at}
                       onChange={(e) =>
                         setPlanSteps((prev) => {

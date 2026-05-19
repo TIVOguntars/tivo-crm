@@ -1,8 +1,6 @@
-import { ArrowRight, CheckCircle2, Circle, FolderOpen } from "lucide-react";
-import {
-  parseWorkflowPlan,
-  type WorkflowTaskRow,
-} from "@/lib/workflow";
+import { CheckCircle2, Circle, ExternalLink, FolderOpen } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import type { WorkflowTaskRow } from "@/lib/workflow";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -12,43 +10,67 @@ function fmtDate(iso?: string | null): string {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
 
+const STEP_ORDER: Record<string, number> = {
+  draw_sketches: 1,
+  estimate: 2,
+  prepare_offer: 3,
+};
+const STEP_LABEL: Record<string, string> = {
+  draw_sketches: "Zīmēt skices",
+  estimate: "Tāmēšana",
+  prepare_offer: "Piedāvājuma sagatavošana",
+};
+
+function metaRecord(t: WorkflowTaskRow): Record<string, unknown> | null {
+  return t.metadata && typeof t.metadata === "object" && !Array.isArray(t.metadata)
+    ? (t.metadata as Record<string, unknown>)
+    : null;
+}
+
 /**
- * Renders a single parent prepare_offer task as a "process card" with its
- * embedded metadata.workflow_plan steps. Read-only for now — children are
- * not spawned from this plan yet. The parent task's own status drives the
- * outer card; each step row reflects its plan entry.
+ * Renders one "Piedāvājuma sagatavošana" group — 3 real crm.tasks linked by
+ * a shared metadata.workflow_group_id. Each row shows status, owner, due
+ * date (date-only) and a link to the task.
  */
-export function WorkflowPlanCard({ task }: { task: WorkflowTaskRow }) {
-  const plan = parseWorkflowPlan(task.metadata);
-  if (!plan) return null;
+export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
+  if (!tasks.length) return null;
+  const sorted = [...tasks].sort((a, b) => {
+    const am = metaRecord(a);
+    const bm = metaRecord(b);
+    const ar =
+      (typeof am?.workflow_step === "number" ? (am.workflow_step as number) : null) ??
+      STEP_ORDER[a.task_type ?? ""] ??
+      99;
+    const br =
+      (typeof bm?.workflow_step === "number" ? (bm.workflow_step as number) : null) ??
+      STEP_ORDER[b.task_type ?? ""] ??
+      99;
+    return ar - br;
+  });
 
-  const meta =
-    task.metadata && typeof task.metadata === "object" && !Array.isArray(task.metadata)
-      ? (task.metadata as Record<string, unknown>)
-      : null;
+  const first = sorted[0];
+  const firstMeta = metaRecord(first);
+  const groupTitle =
+    (firstMeta && typeof firstMeta.workflow_group_title === "string"
+      ? firstMeta.workflow_group_title
+      : null) || "Piedāvājuma sagatavošana";
   const folder =
-    meta && typeof meta.server_folder_url === "string" ? meta.server_folder_url : null;
-
-  const parentStatus = (task.status ?? "").toLowerCase();
-  const isDone = parentStatus === "completed" || parentStatus === "skipped";
-  const currentIdx = isDone ? -1 : 0;
+    firstMeta && typeof firstMeta.server_folder_url === "string"
+      ? firstMeta.server_folder_url
+      : null;
 
   return (
     <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-foreground truncate">
-            {task.title || "Piedāvājuma sagatavošana"}
+            {groupTitle}
           </div>
-          <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-            <span>Termiņš: {fmtDate(task.due_at)}</span>
-            <span>Atb: {task.assigned_user_id ?? "—"}</span>
-            <span>Statuss: {parentStatus || "—"}</span>
+          <div className="text-[11px] text-muted-foreground">
+            Sagatavošanas process — {sorted.length} soļi
           </div>
         </div>
         {folder && (
@@ -65,50 +87,66 @@ export function WorkflowPlanCard({ task }: { task: WorkflowTaskRow }) {
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <div className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">
-          Sagatavošanas soļi
-        </div>
-        <ol className="space-y-1">
-          {plan.steps.map((s, idx) => {
-            const state: "completed" | "current" | "planned" = isDone
-              ? "completed"
-              : idx === currentIdx
-                ? "current"
-                : "planned";
-            const Icon =
-              state === "completed" ? CheckCircle2 : state === "current" ? ArrowRight : Circle;
-            const tone =
-              state === "completed"
-                ? "text-foreground"
-                : state === "current"
-                  ? "text-primary"
-                  : "text-muted-foreground";
-            return (
-              <li
-                key={s.step}
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-sm bg-background/60 px-2 py-1.5"
-              >
-                <Icon className={`h-3.5 w-3.5 ${tone}`} />
-                <div className="min-w-0">
-                  <div className={`text-xs font-medium truncate ${tone}`}>
-                    {s.step}. {s.label || s.task_type}
-                  </div>
+      <ol className="space-y-1">
+        {sorted.map((t) => {
+          const meta = metaRecord(t);
+          const label =
+            (meta && typeof meta.workflow_step_label === "string"
+              ? meta.workflow_step_label
+              : null) ||
+            STEP_LABEL[t.task_type ?? ""] ||
+            t.title ||
+            t.task_type ||
+            "—";
+          const status = (t.status ?? "").toLowerCase();
+          const done = status === "completed" || status === "skipped";
+          const ownerCode =
+            (meta && typeof meta.owner_code === "string" ? meta.owner_code : null) ??
+            t.assigned_user_id ??
+            "—";
+          return (
+            <li
+              key={t.id}
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-2 rounded-sm bg-background/60 px-2 py-1.5"
+            >
+              {done ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-foreground" />
+              ) : (
+                <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <div className="min-w-0">
+                <div
+                  className={
+                    "text-xs font-medium truncate " +
+                    (done ? "text-muted-foreground line-through" : "text-foreground")
+                  }
+                >
+                  {label}
                 </div>
-                <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {s.owner_id ?? "—"}
-                </div>
-                <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {fmtDate(s.due_at)}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="text-[10px] text-muted-foreground">
-          Soļu automātiskā izveide tiks pievienota nākamajā fāzē.
-        </p>
-      </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {ownerCode}
+              </div>
+              <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {fmtDate(t.due_at)}
+              </div>
+              {t.lead_id ? (
+                <Link
+                  to="/lead/$leadId"
+                  params={{ leadId: t.lead_id }}
+                  hash={`task-${t.id}`}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Atvērt uzdevumu"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              ) : (
+                <span />
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
