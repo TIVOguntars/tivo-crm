@@ -360,6 +360,14 @@ function LeadProfilePage() {
     `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&task_type=in.(draw_sketches,estimate,prepare_offer)&order=due_at.asc.nullslast`,
     { all: true },
   );
+  // Manual + system activities (crm.activities). Additive — folded into the
+  // primary Activities list so manual entries (note/call/meeting) are visible
+  // without restoring the supplemental unified timeline block.
+  const activitiesQ = useCrmView(
+    "activities",
+    `select=id,lead_id,activity_type,activity_at,summary,performed_by_user_id,metadata,outcome_code&lead_id=eq.${leadId}&order=activity_at.desc`,
+    { all: true },
+  );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
   const raw = q.data?.rows?.[0] ?? null;
   const profile: Row | null = (() => {
