@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/popover";
 import { callCrmRpc } from "@/server/analytics";
 import { cn } from "@/lib/utils";
+import { statusRank } from "@/lib/statusRank";
 
 /* ----------------------- Types ----------------------- */
 
@@ -50,19 +51,6 @@ export interface BulkActionsBarProps {
   onPatchMany: (ids: string[], patch: BulkPatch) => void;
   /** Roll back optimistic patches for these ids. */
   onRollbackMany: (ids: string[], previous: Record<string, BulkPatch>) => void;
-}
-
-/* Status order used to detect "backwards" transitions. Lower = earlier funnel. */
-const STATUS_ORDER: { match: RegExp; rank: number }[] = [
-  { match: /jauns/i, rank: 1 },
-  { match: /sarun|aktīv|aktiv/i, rank: 2 },
-  { match: /piedāvāj|piedavaj|pieprasīj|pieprasij/i, rank: 3 },
-  { match: /līgum|ligum|won|contract/i, rank: 4 },
-  { match: /zaud|nesasn|bounce|nederīg/i, rank: 5 },
-];
-function statusRank(s: string): number {
-  for (const r of STATUS_ORDER) if (r.match.test(s)) return r.rank;
-  return 0;
 }
 
 /* ----------------------- Bar ----------------------- */

@@ -20,6 +20,7 @@ import {
   Forward,
   Star,
   X,
+  Pencil,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -28,6 +29,8 @@ import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import { useUserMap } from "@/hooks/useUsers";
+import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
+import { RequirePermission } from "@/components/auth/RequirePermission";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
@@ -571,6 +574,7 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editPanelOpen, setEditPanelOpen] = useState(false);
   const [tlType, setTlType] = useState<TypeFilter>("all");
   const [tlDate, setTlDate] = useState<DateFilter>("all");
   const filteredTimeline = useMemo(
@@ -759,10 +763,31 @@ function LeadProfilePage() {
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
+                  <RequirePermission perm="leads.edit">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => setEditPanelOpen(true)}
+                      title="Rediģēt leadu"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Rediģēt
+                    </Button>
+                  </RequirePermission>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          <LeadEditPanel
+            open={editPanelOpen}
+            onOpenChange={setEditPanelOpen}
+            leadId={leadId}
+            currentStatus={leadStatus}
+            currentOwnerId={ownerUserId || null}
+            currentPpvId={ppvUserId || null}
+          />
 
           {/* Two-column workspace */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
