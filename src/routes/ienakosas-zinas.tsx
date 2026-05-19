@@ -334,7 +334,7 @@ function InboxPage() {
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Datums</th>
                     <th className="px-3 py-2 text-left font-medium">Vārds</th>
-                    <th className="px-3 py-2 text-left font-medium">Email</th>
+                    <th className="px-3 py-2 text-left font-medium">E-pasts</th>
                     <th className="px-3 py-2 text-left font-medium">Telefons</th>
                     <th className="px-3 py-2 text-left font-medium">Kanāls</th>
                     <th className="px-3 py-2 text-left font-medium">Notikums</th>
