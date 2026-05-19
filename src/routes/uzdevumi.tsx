@@ -374,10 +374,13 @@ function QueuePage() {
         tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
           ? (tk.metadata as Record<string, unknown>)
           : null;
+      const assignedUid = s(tk?.assigned_user_id);
+      const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
       const ownerFromTask =
+        resolvedAssignee ||
         s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
-        s(tk?.assigned_user_id);
+        assignedUid;
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {
