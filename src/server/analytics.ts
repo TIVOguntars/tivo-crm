@@ -369,6 +369,9 @@ const CRM_RPCS = [
   "rpc_log_activity",
   "admin_create_profile",
   "admin_update_profile",
+  // TEMPORARY Track A bridge. Replace with auth.uid() after Real Auth migration.
+  "admin_create_profile_mvp",
+  "admin_update_profile_mvp",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
