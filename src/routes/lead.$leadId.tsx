@@ -579,16 +579,44 @@ function LeadProfilePage() {
     // Fold crm.activities rows in. Skip types already represented by other
     // sources (tasks/communications) to avoid duplicate entries.
     const activityRows = (activitiesQ.data?.rows ?? []) as Row[];
-    const SKIP_TYPES = new Set([
+    // System (non-manual) activity types that mirror task rows. When a task
+    // for the same task_id already exists in completedTasks, the activity
+    // is a duplicate and must be hidden in favor of the canonical task row.
+    const TASK_MIRROR_TYPES = new Set([
+      "estimate",
+      "draw_sketches",
+      "prepare_offer",
       "task_completed",
-      "task_created",
-      "status_change",
     ]);
+    // Always-skip system noise (never manual): task_created / status_change
+    // are represented elsewhere in the UI.
+    const ALWAYS_SKIP_SYSTEM = new Set(["task_created", "status_change"]);
+    const completedTaskIds = new Set(
+      completedTasks.map((t) => str(pick(t, "id", "task_id"))).filter(Boolean),
+    );
     activityRows.forEach((a, i) => {
       const at = str(pick(a, "activity_type")).toLowerCase();
-      if (SKIP_TYPES.has(at)) return;
-      // Skip activities linked to a communication — the comm itself is shown.
-      if (str(pick(a, "communication_id"))) return;
+      const aMeta =
+        a && typeof a.metadata === "object" && a.metadata
+          ? (a.metadata as Row)
+          : undefined;
+      const isManual =
+        str(pick(aMeta, "source")).toLowerCase() === "manual";
+      // Manual activities are always visible.
+      if (!isManual) {
+        // Skip activities linked to a communication — the comm is shown.
+        if (str(pick(a, "communication_id"))) return;
+        if (ALWAYS_SKIP_SYSTEM.has(at)) return;
+        // Hide task-mirror activities when the canonical task row exists.
+        const aTaskId = str(pick(a, "task_id"));
+        if (
+          TASK_MIRROR_TYPES.has(at) &&
+          aTaskId &&
+          completedTaskIds.has(aTaskId)
+        ) {
+          return;
+        }
+      }
       const ts =
         new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
       items.push({
