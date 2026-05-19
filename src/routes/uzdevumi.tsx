@@ -376,11 +376,12 @@ function QueuePage() {
           : null;
       const assignedUid = s(tk?.assigned_user_id);
       const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
+      const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
       const ownerFromTask =
         resolvedAssignee ||
         s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
-        assignedUid;
+        (looksUuid ? "" : assignedUid);
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {
