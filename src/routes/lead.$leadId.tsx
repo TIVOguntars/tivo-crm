@@ -1069,6 +1069,7 @@ function LeadProfilePage() {
                   source: string;
                   queueId?: string;
                   taskId?: string;
+                  taskType?: string;
                   title: string;
                   subtitle?: string;
                   responsible: string;
