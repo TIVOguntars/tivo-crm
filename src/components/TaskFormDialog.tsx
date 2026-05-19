@@ -781,8 +781,14 @@ export function TaskFormDialog({
                 <SelectTrigger id="task-type" className="w-full gap-2">
                   <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
                 </SelectTrigger>
-                <SelectContent>
-                  {tt.rows.map((t) => (
+              <SelectContent>
+                  {tt.rows
+                    .filter(
+                      (t) =>
+                        t.type_key !== "draw_sketches" &&
+                        t.type_key !== "estimate",
+                    )
+                    .map((t) => (
                     <SelectItem key={t.type_key} value={t.type_key}>
                       <span className="inline-flex items-center gap-2">
                         <TypeIcon keyName={t.icon_key} />
