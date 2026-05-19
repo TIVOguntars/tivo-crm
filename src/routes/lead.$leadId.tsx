@@ -867,8 +867,12 @@ function LeadProfilePage() {
 
           <ManualActivityDialog
             open={manualActivityOpen}
-            onOpenChange={setManualActivityOpen}
+            onOpenChange={(o) => {
+              setManualActivityOpen(o);
+              if (!o) setManualActivityPrefill(undefined);
+            }}
             leadId={leadId}
+            prefill={manualActivityPrefill}
           />
 
           {/* Two-column workspace */}
