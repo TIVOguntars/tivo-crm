@@ -1124,12 +1124,42 @@ function LeadProfilePage() {
                   }
                   const scheduledIso = str(r.scheduled_for);
                   if (source === "task") {
+                    const taskType = str(r.kind).toLowerCase();
+                    const meta =
+                      r.metadata && typeof r.metadata === "object"
+                        ? (r.metadata as Row)
+                        : undefined;
+                    const followUpLabel = meta ? str(meta.follow_up_label_lv) : "";
+                    const TASK_TYPE_LV_SHORT: Record<string, string> = {
+                      call: "Zvanīt",
+                      zoom: "Tikšanās",
+                      manual_email: "E-pasts",
+                      automatic_email: "E-pasts",
+                      automatic_reply_email: "E-pasts",
+                      manual_sms: "SMS",
+                      automatic_sms: "SMS",
+                      manual_whatsapp: "WhatsApp",
+                      automatic_whatsapp: "WhatsApp",
+                      estimate: "Tāmēšana",
+                      draw_sketches: "Skiču zīmēšana",
+                      prepare_offer: "Piedāvājuma sagatavošana",
+                    };
+                    const typeLabel = TASK_TYPE_LV_SHORT[taskType] || "";
+                    const rawTitle = str(r.title);
+                    const title =
+                      followUpLabel ||
+                      (rawTitle && rawTitle !== NA ? rawTitle : "") ||
+                      typeLabel ||
+                      fmt(r.kind);
+                    const subtitle =
+                      typeLabel && title !== typeLabel ? typeLabel : undefined;
                     items.push({
                       key: `t:${id}`,
                       source,
                       taskId: id,
-                      title: fmt(r.title),
-                      subtitle: fmt(r.kind) !== NA ? fmt(r.kind) : undefined,
+                      title,
+                      subtitle,
+                      taskType,
                       responsible: "",
                       scheduledIso,
                       scheduledLabel: fmtDate(scheduledIso),
