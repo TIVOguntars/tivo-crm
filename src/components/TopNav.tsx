@@ -16,6 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
+import { ChangeOperatorButton } from "@/components/operator/OperatorPicker";
 import tivoLogo from "@/assets/tivo-logo.png";
 import { useCurrentRole, hasAccess, type Role } from "@/lib/roles";
 import { HeaderSlotOutlet } from "@/components/HeaderSlot";
@@ -169,7 +170,8 @@ export function TopNav() {
               </Link>
             ))}
 
-          <div className="ml-2 border-l border-border pl-2">
+          <div className="ml-2 flex items-center gap-1 border-l border-border pl-2">
+            <ChangeOperatorButton />
             <LogoutButton />
           </div>
         </nav>

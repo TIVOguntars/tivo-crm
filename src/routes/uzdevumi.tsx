@@ -26,6 +26,7 @@ import {
 import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
@@ -316,6 +317,7 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
+  const { resolve: resolveUserName } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
@@ -372,10 +374,14 @@ function QueuePage() {
         tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
           ? (tk.metadata as Record<string, unknown>)
           : null;
+      const assignedUid = s(tk?.assigned_user_id);
+      const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
+      const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
       const ownerFromTask =
+        resolvedAssignee ||
         s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
-        s(tk?.assigned_user_id);
+        (looksUuid ? "" : assignedUid);
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {

@@ -37,6 +37,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { callCrmRpc } from "@/server/analytics";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useTaskTypes } from "@/hooks/useTaskTypes";
+import { UserPicker } from "@/components/users/UserPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUserMap } from "@/hooks/useUsers";
 import {
   taskMetaSchemas,
   type TaskTypeKey,
@@ -49,6 +52,9 @@ import {
 type Priority = "low" | "normal" | "high";
 
 // TODO: source from crm.profiles.user_code (active users) instead of hardcoding.
+// NOTE: OWNER_OPTIONS is retained ONLY for the workflow plan per-step picker,
+// which writes a 2-letter code into metadata.owner_code consumed elsewhere.
+// The primary task assignee uses UserPicker (UUID → p_assigned_user_id).
 const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
 type OwnerCode = (typeof OWNER_OPTIONS)[number];
 const AUTO_OWNER: OwnerCode = "SIS";
@@ -148,6 +154,8 @@ export function TaskFormDialog({
   const [busy, setBusy] = useState(false);
 
   const tt = useTaskTypes();
+  const { operatorId } = useCurrentUser();
+  const { resolve: resolveUserName } = useUserMap();
 
   // form state
   const [taskType, setTaskType] = useState<TaskTypeKey>("call");
@@ -155,6 +163,9 @@ export function TaskFormDialog({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
   const [ownerCode, setOwnerCode] = useState<OwnerCode>("UC");
+  // Primary assignee (UUID) for crm.tasks.assigned_user_id. Workflow plan
+  // per-step owner codes are still tracked in metadata.owner_code (legacy).
+  const [assignedUserId, setAssignedUserId] = useState<string | null>(null);
 
   // type-specific metadata fields (kept loose; serialized per type)
   const [recipient, setRecipient] = useState("");
@@ -259,6 +270,7 @@ export function TaskFormDialog({
     setDescription("");
     setPriority("normal");
     setOwnerCode("UC");
+    setAssignedUserId(operatorId ?? null);
     setRecipient("");
     setSubject("");
     setSubjectRef("[{{Reference_code}}]");
@@ -311,8 +323,11 @@ export function TaskFormDialog({
     // SIS for automatic, otherwise leave current pick (default UC on reset).
     if (currentTypeRow.mode === "automatic") {
       setOwnerCode(AUTO_OWNER);
+      // Automatic tasks have no human assignee.
+      setAssignedUserId(null);
     } else if (ownerCode === AUTO_OWNER) {
       setOwnerCode("UC");
+      if (!assignedUserId) setAssignedUserId(operatorId ?? null);
     }
     // Default priority: prefer task type default, else high for call/zoom, else normal.
     const fromType = normalizePriority(currentTypeRow.default_priority);
@@ -630,7 +645,11 @@ export function TaskFormDialog({
       source: "manual_ui",
       task_type: taskType,
       ...typed.meta,
-      ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+      ...(assignedUserId
+        ? { owner_label: resolveUserName(assignedUserId) || defaultOwnerLabel || null }
+        : defaultOwnerLabel
+          ? { owner_label: defaultOwnerLabel }
+          : {}),
       owner_code: ownerCode,
       ...(replyToEmail.trim() ? { reply_to: replyToEmail.trim() } : {}),
       ...(leadContext?.referenceCode ? { reference_code: leadContext.referenceCode } : {}),
@@ -653,7 +672,7 @@ export function TaskFormDialog({
             p_due_at: due.iso,
             p_title: title.trim(),
             p_description: description.trim() || null,
-            p_assigned_user_id: null,
+            p_assigned_user_id: assignedUserId,
             p_required_role: null,
             p_workflow_instance_id: null,
             p_parent_task_id: null,
@@ -852,22 +871,14 @@ export function TaskFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5 shrink-0">
+            <div className="space-y-1.5 shrink-0 min-w-[14rem]">
               <Label htmlFor="task-owner">Atbildīgais</Label>
-              <Select
-                value={ownerCode}
-                onValueChange={(v) => setOwnerCode(v as OwnerCode)}
+              <UserPicker
+                value={assignedUserId}
+                onChange={setAssignedUserId}
                 disabled={isAutomatic}
-              >
-                <SelectTrigger id="task-owner" className="w-[5.5rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {OWNER_OPTIONS.map((o) => (
-                    <SelectItem key={o} value={o}>{o}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={isAutomatic ? "Automātisks" : "Nav piešķirts"}
+              />
             </div>
             <div className="space-y-1.5 shrink-0 ml-auto">
               <Label className="block">Prioritāte</Label>

@@ -15,6 +15,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { filtersSearchSchema } from "@/lib/filters";
 import { Toaster } from "@/components/ui/sonner";
 import { HeaderSlotProvider } from "@/components/HeaderSlot";
+import { OperatorPickerGate } from "@/components/operator/OperatorPicker";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -97,6 +98,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate>
+        <OperatorPickerGate>
         <HeaderSlotProvider>
           <div className="min-h-screen bg-background text-foreground">
             <TopNav />
@@ -106,6 +108,7 @@ function RootComponent() {
             <Toaster position="top-right" />
           </div>
         </HeaderSlotProvider>
+        </OperatorPickerGate>
       </AuthGate>
     </QueryClientProvider>
   );

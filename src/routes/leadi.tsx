@@ -44,6 +44,7 @@ import { LoadingState, ErrorState } from "@/components/DataState";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useUserMap } from "@/hooks/useUsers";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
@@ -656,6 +657,7 @@ function CommStats({
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { resolve: resolveUserName } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
@@ -980,9 +982,17 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: s(r.action_owner_label),
+          owner: (() => {
+            const uid = s(facts?.owner_user_id);
+            const resolved = uid ? resolveUserName(uid) : "";
+            return resolved || s(r.action_owner_label) || "";
+          })(),
           owner_user_id: s(facts?.owner_user_id),
-          ppv: s(r.ppv_name || r.ppv_vards),
+          ppv: (() => {
+            const uid = s(facts?.ppv_user_id);
+            const resolved = uid ? resolveUserName(uid) : "";
+            return resolved || s(r.ppv_name || r.ppv_vards) || "";
+          })(),
           ppv_user_id: s(facts?.ppv_user_id),
           next_action,
           next_action_due,
