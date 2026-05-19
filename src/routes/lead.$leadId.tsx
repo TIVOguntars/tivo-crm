@@ -587,13 +587,9 @@ function LeadProfilePage() {
       "draw_sketches",
       "prepare_offer",
       "task_completed",
+      "task_created",
+      "status_change",
     ]);
-    // Always-skip system noise (never manual): task_created / status_change
-    // are represented elsewhere in the UI.
-    const ALWAYS_SKIP_SYSTEM = new Set(["task_created", "status_change"]);
-    const completedTaskIds = new Set(
-      completedTasks.map((t) => str(pick(t, "id", "task_id"))).filter(Boolean),
-    );
     activityRows.forEach((a, i) => {
       const at = str(pick(a, "activity_type")).toLowerCase();
       const aMeta =
@@ -606,16 +602,12 @@ function LeadProfilePage() {
       if (!isManual) {
         // Skip activities linked to a communication — the comm is shown.
         if (str(pick(a, "communication_id"))) return;
-        if (ALWAYS_SKIP_SYSTEM.has(at)) return;
-        // Hide task-mirror activities when the canonical task row exists.
-        const aTaskId = str(pick(a, "task_id"));
-        if (
-          TASK_MIRROR_TYPES.has(at) &&
-          aTaskId &&
-          completedTaskIds.has(aTaskId)
-        ) {
-          return;
-        }
+        // Any non-manual crm.activities row linked to a task is a mirror
+        // of that task's lifecycle (created/completed). The task row is
+        // the canonical operator-visible item — hide the mirror.
+        if (str(pick(a, "task_id"))) return;
+        // Fallback for task-mirror activity_types without task_id.
+        if (TASK_MIRROR_TYPES.has(at)) return;
       }
       const ts =
         new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
@@ -1604,8 +1596,27 @@ function LeadProfilePage() {
               {openItem && openItem.kind === "task" && (() => {
                 const r = openItem.raw;
                 const taskType = str(pick(r, "task_type")) || "task";
+                const TASK_TYPE_LV: Record<string, string> = {
+                  estimate: "Tāmēšana",
+                  draw_sketches: "Skiču zīmēšana",
+                  prepare_offer: "Piedāvājuma sagatavošana",
+                  call: "Zvans",
+                  zoom: "Zoom",
+                  manual_email: "E-pasts (manuāls)",
+                  automatic_email: "E-pasts (automātisks)",
+                  automatic_reply_email: "Atbildes e-pasts",
+                  manual_sms: "SMS (manuāls)",
+                  automatic_sms: "SMS (automātisks)",
+                  manual_whatsapp: "WhatsApp (manuāls)",
+                  automatic_whatsapp: "WhatsApp (automātisks)",
+                  call_follow_up: "Atzvanīt",
+                  meeting_follow_up: "Tikšanās turpinājums",
+                  info_follow_up: "Nosūtīt informāciju",
+                  general_follow_up: "Cits follow-up",
+                };
+                const taskTypeLabel = TASK_TYPE_LV[taskType.toLowerCase()] || fmt(taskType);
                 const taskStatus = str(pick(r, "status"));
-                const taskTitle = str(pick(r, "title")) || fmt(taskType);
+                const taskTitle = str(pick(r, "title")) || taskTypeLabel;
                 const outcomeCode = str(pick(r, "outcome_code"));
                 const tDate = pick(r, "completed_at", "updated_at", "created_at");
                 const tMeta =
@@ -1656,7 +1667,7 @@ function LeadProfilePage() {
                         </DialogTitle>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
-                        <Field label="Tips" value={fmt(taskType)} />
+                        <Field label="Tips" value={taskTypeLabel} />
                         <Field label="Statuss" value={<StatusBadge status={taskStatus} mapKind="task" />} />
                         <Field label="Datums" value={fmtDate(tDate)} />
                         {outcomeCode && (
@@ -1708,16 +1719,6 @@ function LeadProfilePage() {
                             {summary}
                           </div>
                         </section>
-                      )}
-                      {tMeta && (
-                        <details className="rounded-md border bg-muted/10 p-2">
-                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
-                            Tehniskie dati
-                          </summary>
-                          <pre className="mt-2 max-h-[280px] overflow-auto text-[11px] whitespace-pre-wrap">
-                            {JSON.stringify(tMeta, null, 2)}
-                          </pre>
-                        </details>
                       )}
                     </div>
                   </>
