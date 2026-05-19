@@ -10,14 +10,16 @@ import {
   MessageCircle,
   AlertTriangle,
   Info,
+  LayoutGrid,
+  FolderOpen,
+  Star,
+  ExternalLink,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -51,6 +53,34 @@ const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "normal", label: "Normāla" },
   { value: "high", label: "Augsta" },
 ];
+
+// TODO: source from crm.profiles.user_code (active users) instead of hardcoding.
+const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
+type OwnerCode = (typeof OWNER_OPTIONS)[number];
+const AUTO_OWNER: OwnerCode = "SIS";
+
+function priorityToStars(p: Priority): number {
+  return p === "high" ? 3 : p === "normal" ? 2 : 1;
+}
+function starsToPriority(n: number): Priority {
+  return n >= 3 ? "high" : n === 2 ? "normal" : "low";
+}
+function country3(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (/^[A-Za-z]{3}$/.test(t)) return t.toUpperCase();
+  return t.slice(0, 3).toUpperCase();
+}
+
+export interface TaskFormLeadContext {
+  leadName?: string;
+  country?: string;
+  primaryEmail?: string;
+  primaryPhone?: string;
+  ppvEmail?: string;
+  referenceCode?: string;
+  serverFolderUrl?: string;
+}
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   mail: Mail,
@@ -109,12 +139,14 @@ export function TaskFormDialog({
   onOpenChange,
   onCreated,
   defaultOwnerLabel,
+  leadContext,
 }: {
   leadId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
   defaultOwnerLabel?: string;
+  leadContext?: TaskFormLeadContext;
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -126,6 +158,7 @@ export function TaskFormDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
+  const [ownerCode, setOwnerCode] = useState<OwnerCode>("UC");
 
   // type-specific metadata fields (kept loose; serialized per type)
   const [recipient, setRecipient] = useState("");
@@ -133,6 +166,7 @@ export function TaskFormDialog({
   const [body, setBody] = useState("");
   const [templateKey, setTemplateKey] = useState("");
   const [signatureKey, setSignatureKey] = useState("");
+  const [replyToEmail, setReplyToEmail] = useState("");
   const [phoneE164, setPhoneE164] = useState("");
   const [agenda, setAgenda] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
@@ -208,11 +242,13 @@ export function TaskFormDialog({
     setTitle("");
     setDescription("");
     setPriority("normal");
+    setOwnerCode("UC");
     setRecipient("");
     setSubject("");
     setBody("");
     setTemplateKey("");
     setSignatureKey("");
+    setReplyToEmail(leadContext?.ppvEmail ?? "");
     setPhoneE164("");
     setAgenda("");
     setMeetingUrl("");
@@ -236,6 +272,26 @@ export function TaskFormDialog({
   }, [open]);
 
   const currentTypeRow: TaskTypeRow | undefined = tt.get(taskType);
+
+  // Auto-fill recipient + phone + owner when type or lead context changes.
+  useEffect(() => {
+    if (!open || !currentTypeRow) return;
+    const ch = currentTypeRow.channel;
+    if (ch === "email") {
+      if (!recipient && leadContext?.primaryEmail) setRecipient(leadContext.primaryEmail);
+    } else if (ch === "sms" || ch === "whatsapp") {
+      if (!recipient && leadContext?.primaryPhone) setRecipient(leadContext.primaryPhone);
+    } else if (ch === "call") {
+      if (!phoneE164 && leadContext?.primaryPhone) setPhoneE164(leadContext.primaryPhone);
+    }
+    // SIS for automatic, otherwise leave current pick (default UC on reset).
+    if (currentTypeRow.mode === "automatic") {
+      setOwnerCode(AUTO_OWNER);
+    } else if (ownerCode === AUTO_OWNER) {
+      setOwnerCode("UC");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, taskType, currentTypeRow?.channel, currentTypeRow?.mode, leadContext?.primaryEmail, leadContext?.primaryPhone]);
 
   // anchor-event options based on kind
   const anchorEventOptions = useMemo(() => {
@@ -438,6 +494,9 @@ export function TaskFormDialog({
       task_type: taskType,
       ...typed.meta,
       ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+      owner_code: ownerCode,
+      ...(replyToEmail.trim() ? { reply_to: replyToEmail.trim() } : {}),
+      ...(leadContext?.referenceCode ? { reference_code: leadContext.referenceCode } : {}),
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(approval
