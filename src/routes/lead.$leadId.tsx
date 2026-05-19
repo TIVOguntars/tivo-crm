@@ -910,6 +910,20 @@ function LeadProfilePage() {
                   </div>
                 );
               })()}
+              {/* Workflow plan cards (Phase 2b.2c) — parent prepare_offer
+                  tasks with metadata.workflow_plan render as one process. */}
+              {(() => {
+                const rows = (workflowPlanTasksQ.data?.rows ?? []) as unknown as WorkflowTaskRow[];
+                const withPlan = rows.filter((r) => !!parseWorkflowPlan(r.metadata));
+                if (!withPlan.length) return null;
+                return (
+                  <div className="space-y-3">
+                    {withPlan.map((t) => (
+                      <WorkflowPlanCard key={t.id} task={t} />
+                    ))}
+                  </div>
+                );
+              })()}
               {/* Uzdevumi un plānotās darbības (unified future-work block) */}
               {(() => {
                 type PlannedItem = {
