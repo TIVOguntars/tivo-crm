@@ -1761,21 +1761,19 @@ function LeadProfilePage() {
                 const emptyFallback = isManual ? "Nav piezīmes" : typeLabel;
                 return (
                   <>
-                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16 relative">
                       <DialogHeader className="overflow-visible">
-                        <div className="flex items-center justify-end w-full gap-4">
-                          <DialogClose asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              aria-label="Aizvērt"
-                              className="h-8 w-8 shrink-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </DialogClose>
-                        </div>
-                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                        <DialogClose asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Aizvērt"
+                            className="absolute right-4 top-4 h-8 w-8 shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </DialogClose>
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base">
                           <Activity className="h-4 w-4 shrink-0" />
                           <span className="truncate">{typeLabel}</span>
                           {isManual && (
