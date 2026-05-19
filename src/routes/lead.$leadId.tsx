@@ -584,10 +584,7 @@ function LeadProfilePage() {
     [timeline, tlType, tlDate],
   );
   const isTimelineFiltered = tlType !== "all" || tlDate !== "all";
-  // Unified timeline is the preferred source, but Lead 360 must keep
-  // working if crm.v_unified_timeline is unavailable — we fall back to the
-  // existing local timeline when the child reports it cannot load.
-  const [unifiedAvailable, setUnifiedAvailable] = useState(true);
+  const [openItem, setOpenItem] = useState<{
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4 space-y-4">
