@@ -1024,19 +1024,40 @@ export function TaskFormDialog({
             />
           </div>
 
-          {/* Scheduling */}
           {(taskType as string) === "draw_sketches" && (
-            <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
-              <label className="flex items-center gap-2 text-sm">
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">
+                  Sākt objekta sagatavošanas procesu
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Pēc katra soļa pabeigšanas sistēma automātiski izveidos nākamo uzdevumu.
+                </p>
+              </div>
+              <ol className="space-y-1 text-xs text-foreground/90">
+                <li className="flex items-center gap-2">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">1</span>
+                  Zīmēt skices
+                </li>
+                <li className="flex items-center gap-2 text-muted-foreground">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">2</span>
+                  Tāmēšana
+                </li>
+                <li className="flex items-center gap-2 text-muted-foreground">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">3</span>
+                  Piedāvājuma sagatavošana
+                </li>
+              </ol>
+              <label className="flex items-center gap-2 pt-1 text-sm">
                 <Checkbox
                   checked={startWorkflow}
                   onCheckedChange={(v) => setStartWorkflow(!!v)}
                 />
-                Sākt workflow (object_preparation_v1)
+                Sākt workflow
               </label>
               <div className="space-y-1.5">
                 <Label htmlFor="task-server-folder">
-                  Servera mape{startWorkflow ? " *" : ""}
+                  Servera mapes saite / ceļš{startWorkflow ? " *" : ""}
                 </Label>
                 <Input
                   id="task-server-folder"
@@ -1053,6 +1074,7 @@ export function TaskFormDialog({
             </div>
           )}
 
+          {/* Scheduling */}
           <div className="space-y-2">
             <Label>Termiņš *</Label>
             <Tabs value={scheduleMode} onValueChange={(v) => setScheduleMode(v as "absolute" | "relative")}>
