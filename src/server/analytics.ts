@@ -367,6 +367,8 @@ const CRM_RPCS = [
   "rpc_skip_task",
   "rpc_create_task",
   "rpc_log_activity",
+  "admin_create_profile",
+  "admin_update_profile",
 ] as const;
 export type CrmRpc = (typeof CRM_RPCS)[number];
 
