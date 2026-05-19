@@ -740,23 +740,28 @@ export function TaskFormDialog({
             </div>
             <div className="space-y-1.5 shrink-0 ml-auto">
               <Label>Prioritāte</Label>
-              <div className="flex items-center h-9 gap-0.5 whitespace-nowrap">
-                {[1, 2, 3, 4, 5].map((n) => {
-                  const active = priorityToStars(priority) >= n;
+              <div
+                role="radiogroup"
+                aria-label="Prioritāte"
+                className="inline-flex h-9 items-center rounded-md border border-input bg-background p-0.5 whitespace-nowrap"
+              >
+                {PRIORITY_OPTIONS.map((opt) => {
+                  const active = priority === opt.value;
                   return (
                     <button
-                      key={n}
+                      key={opt.value}
                       type="button"
-                      onClick={() => setPriority(starsToPriority(n))}
-                      className="p-0.5 text-amber-500 hover:scale-110 transition shrink-0"
-                      title={`${n} / 5`}
-                      aria-label={`Prioritāte ${n} no 5`}
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setPriority(opt.value)}
+                      className={
+                        "h-7 px-2.5 text-xs rounded-sm transition shrink-0 " +
+                        (active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted")
+                      }
                     >
-                      <Star
-                        className="h-4 w-4"
-                        strokeWidth={1.5}
-                        fill={active ? "currentColor" : "transparent"}
-                      />
+                      {opt.label}
                     </button>
                   );
                 })}
