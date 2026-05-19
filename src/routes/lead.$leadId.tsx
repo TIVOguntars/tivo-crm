@@ -1197,7 +1197,7 @@ function LeadProfilePage() {
                                 {it.source === "queue" ? (
                                   <Mail className="h-3.5 w-3.5" />
                                 ) : it.source === "task" ? (
-                                  <CheckSquare className="h-3.5 w-3.5" />
+                                  channelIcon(it.taskType || "")
                                 ) : (
                                   <Activity className="h-3.5 w-3.5" />
                                 )}
