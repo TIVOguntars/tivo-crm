@@ -26,23 +26,13 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
+import { CHANNEL_LV, lv } from "@/lib/i18nLabels";
+import { labelEventType } from "@/lib/timelineLabels";
 
 export const Route = createFileRoute("/ienakosas-zinas")({
   component: InboxPage,
 });
 
-const EVENT_TYPE_LV: Record<string, string> = {
-  inbound_received: "Saņemts",
-  replied: "Atbilde",
-};
-
-const CHANNEL_LV: Record<string, string> = {
-  email: "E-pasts",
-  sms: "SMS",
-  call: "Zvans",
-  whatsapp: "WhatsApp",
-  messenger: "Messenger",
-};
 
 function fmtDate(value: unknown): string {
   if (value == null || value === "") return "—";

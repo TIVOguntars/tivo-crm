@@ -4,6 +4,7 @@ import { LoadingState, EmptyState } from "@/components/DataState";
 import { useAnalyticsRpc } from "@/hooks/useAnalyticsRpc";
 import { buildAnalyticsFilters, type FiltersSearch } from "@/lib/filters";
 import { isEndpointMissing } from "@/lib/endpointStatus";
+import { CHANNEL_LV, COMM_STATUS_LV, lv } from "@/lib/i18nLabels";
 
 function num(v: unknown): number {
   const n = typeof v === "string" ? parseFloat(v) : Number(v);
@@ -13,14 +14,6 @@ function num(v: unknown): number {
 function fmt(n: number): string {
   return new Intl.NumberFormat("lv-LV").format(n);
 }
-
-const CHANNEL_LABELS: Record<string, string> = {
-  email: "E-pasts",
-  sms: "SMS",
-  whatsapp: "WhatsApp",
-  call: "Zvani",
-  messenger: "Messenger",
-};
 
 type ChannelRow = {
   channel: string;
@@ -38,10 +31,10 @@ type StepDef = {
 };
 
 const STEPS: StepDef[] = [
-  { key: "sent", label: "Sent", base: "sent" },
-  { key: "delivered", label: "Delivered", base: "sent" },
-  { key: "clicked", label: "Clicked", base: "delivered" },
-  { key: "replied", label: "Replied", base: "delivered" },
+  { key: "sent", label: lv(COMM_STATUS_LV, "sent"), base: "sent" },
+  { key: "delivered", label: lv(COMM_STATUS_LV, "delivered"), base: "sent" },
+  { key: "clicked", label: lv(COMM_STATUS_LV, "clicked"), base: "delivered" },
+  { key: "replied", label: lv(COMM_STATUS_LV, "replied"), base: "delivered" },
 ];
 
 export function CommunicationFunnel({ search }: { search: FiltersSearch }) {
@@ -108,7 +101,7 @@ export function CommunicationFunnel({ search }: { search: FiltersSearch }) {
 }
 
 function ChannelCard({ row }: { row: ChannelRow }) {
-  const label = CHANNEL_LABELS[row.channel] ?? row.channel;
+  const label = lv(CHANNEL_LV, row.channel, row.channel);
 
   return (
     <div className="rounded-lg border border-border bg-background p-4">
