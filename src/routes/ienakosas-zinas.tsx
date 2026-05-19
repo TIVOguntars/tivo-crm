@@ -379,12 +379,12 @@ function InboxPage() {
                         </td>
                         <td className="px-3 py-2">
                           <Badge variant="secondary" className="text-[11px]">
-                            {CHANNEL_LV[channel] ?? channel ?? "—"}
+                            {lv(CHANNEL_LV, channel, channel || "—")}
                           </Badge>
                         </td>
                         <td className="px-3 py-2">
                           <Badge className="text-[11px]">
-                            {EVENT_TYPE_LV[eventType] ?? eventType}
+                            {labelEventType(eventType) || eventType}
                           </Badge>
                         </td>
                         <td className="max-w-[220px] truncate px-3 py-2 text-foreground" title={subject}>
