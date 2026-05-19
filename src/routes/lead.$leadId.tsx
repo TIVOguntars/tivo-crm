@@ -1723,7 +1723,90 @@ function LeadProfilePage() {
                   </>
                 );
               })()}
-              {openItem && openItem.kind !== "task" && (() => {
+              {openItem && openItem.kind === "activity" && (() => {
+                const r = openItem.raw;
+                const at = str(pick(r, "activity_type")).toLowerCase();
+                const ACTIVITY_LV: Record<string, string> = {
+                  note: "Piezīme",
+                  call: "Zvans",
+                  meeting: "Tikšanās",
+                  sms: "SMS",
+                  whatsapp: "WhatsApp",
+                  email: "E-pasts",
+                  zoom: "Zoom",
+                  other: "Cits",
+                  estimate: "Tāmēšana",
+                  draw_sketches: "Skiču zīmēšana",
+                  prepare_offer: "Piedāvājuma sagatavošana",
+                  task_completed: "Uzdevums pabeigts",
+                  task_created: "Uzdevums izveidots",
+                  status_change: "Statusa maiņa",
+                  manual_update: "Manuāls ieraksts",
+                };
+                const typeLabel = ACTIVITY_LV[at] || "Darbība";
+                const aMeta =
+                  r && typeof r.metadata === "object" && r.metadata
+                    ? (r.metadata as Row)
+                    : undefined;
+                const isManual =
+                  str(pick(aMeta, "source")).toLowerCase() === "manual";
+                const aSummary = str(pick(r, "summary"));
+                const aOutcome = aMeta
+                  ? str(pick(aMeta, "manual_outcome_text"))
+                  : "";
+                const aDate = pick(r, "activity_at", "created_at");
+                const aUserId = str(pick(r, "performed_by_user_id"));
+                const aActorLabel = aUserId ? resolveUserName(aUserId) || "" : "";
+                const emptyFallback = isManual ? "Nav piezīmes" : typeLabel;
+                return (
+                  <>
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-end w-full gap-4">
+                          <DialogClose asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Aizvērt"
+                              className="h-8 w-8 shrink-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </DialogClose>
+                        </div>
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                          <Activity className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{typeLabel}</span>
+                          {isManual && (
+                            <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              Manuāli
+                            </span>
+                          )}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                        <Field label="Veids" value={typeLabel} />
+                        <Field label="Datums" value={fmtDate(aDate)} />
+                        {aActorLabel && (
+                          <Field label="Izpildīja" value={aActorLabel} />
+                        )}
+                        {aOutcome && (
+                          <Field label="Iznākums" value={aOutcome} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-6 pt-3">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                        Apraksts
+                      </div>
+                      <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
+                        {aSummary || emptyFallback}
+                      </pre>
+                    </div>
+                  </>
+                );
+              })()}
+              {openItem && openItem.kind !== "task" && openItem.kind !== "activity" && (() => {
                 const r = openItem.raw;
                 const isNote = openItem.kind === "note";
                 const ch = str(pick(r, "channel"));
