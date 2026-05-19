@@ -815,7 +815,13 @@ export function TaskFormDialog({
                   maxLength={4000}
                 />
                 {(currentTypeRow?.channel === "sms") && (
-                  <p className="text-[10px] text-muted-foreground">{body.length} / 160 rakstzīmes</p>
+                  <p className={
+                    body.length > 160
+                      ? "text-[10px] text-destructive font-medium"
+                      : "text-[10px] text-muted-foreground"
+                  }>
+                    {body.length} / 160 rakstzīmes
+                  </p>
                 )}
               </div>
             )}
@@ -842,6 +848,18 @@ export function TaskFormDialog({
                   value={signatureKey}
                   onChange={(e) => setSignatureKey(e.target.value)}
                   placeholder="Neobligāts"
+                />
+              </div>
+            )}
+
+            {(currentTypeRow?.channel === "email") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-reply-to">Atbildēt uz (reply-to)</Label>
+                <Input
+                  id="task-reply-to"
+                  value={replyToEmail}
+                  onChange={(e) => setReplyToEmail(e.target.value)}
+                  placeholder={leadContext?.ppvEmail || "ppv@piemers.lv"}
                 />
               </div>
             )}
@@ -1106,23 +1124,9 @@ export function TaskFormDialog({
             </details>
           )}
 
-          {/* Priority */}
-          <div className="space-y-1.5">
-            <Label htmlFor="task-priority">Prioritāte</Label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
-              <SelectTrigger id="task-priority">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border px-5 py-3">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Atcelt
           </Button>
