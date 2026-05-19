@@ -1007,14 +1007,17 @@ type SortKey =
   | "ppv"
   | "country"
   | "tags"
-  | "leadStatus";
+  | "leadStatus"
+  | "leadPriority";
 
 function sortValue(r: Row, key: SortKey): string | number {
   switch (key) {
     case "priority":
-      return n(r.sort_priority);
+      return s(r.task_priority_label).toLowerCase();
     case "score":
       return n(r.priority_score);
+    case "leadPriority":
+      return n(r.sort_priority);
     case "due": {
       const v = r.effective_due_at ?? r.due_at;
       return v ? new Date(String(v)).getTime() : 0;
