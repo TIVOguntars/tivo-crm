@@ -12,7 +12,6 @@ import {
   Info,
   LayoutGrid,
   FolderOpen,
-  Star,
   ExternalLink,
   X,
 } from "lucide-react";
@@ -54,11 +53,13 @@ const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
 type OwnerCode = (typeof OWNER_OPTIONS)[number];
 const AUTO_OWNER: OwnerCode = "SIS";
 
-function priorityToStars(p: Priority): number {
-  return p === "high" ? 5 : p === "normal" ? 3 : 1;
-}
-function starsToPriority(n: number): Priority {
-  return n >= 4 ? "high" : n >= 2 ? "normal" : "low";
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: "high", label: "Augsts" },
+  { value: "normal", label: "Vidējs" },
+  { value: "low", label: "Zems" },
+];
+function normalizePriority(v: string | null | undefined): Priority | null {
+  return v === "high" || v === "normal" || v === "low" ? v : null;
 }
 function country3(raw: string): string {
   const t = raw.trim();
@@ -291,6 +292,15 @@ export function TaskFormDialog({
       setOwnerCode(AUTO_OWNER);
     } else if (ownerCode === AUTO_OWNER) {
       setOwnerCode("UC");
+    }
+    // Default priority: prefer task type default, else high for call/zoom, else normal.
+    const fromType = normalizePriority(currentTypeRow.default_priority);
+    if (fromType) {
+      setPriority(fromType);
+    } else if (ch === "call" || currentTypeRow.channel === "zoom") {
+      setPriority("high");
+    } else {
+      setPriority("normal");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, taskType, currentTypeRow?.channel, currentTypeRow?.mode, leadContext?.primaryEmail, leadContext?.primaryPhone]);
