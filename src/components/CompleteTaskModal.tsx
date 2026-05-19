@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -63,7 +62,6 @@ export function CompleteTaskModal({
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState<string>("");
   const [notes, setNotes] = useState("");
-  const [createFollowup, setCreateFollowup] = useState(false);
   const [followupMode, setFollowupMode] = useState<
     "none" | "follow_up" | "wait_for_project"
   >("none");
@@ -83,7 +81,6 @@ export function CompleteTaskModal({
       setSummary("");
       setOutcome("");
       setNotes("");
-      setCreateFollowup(false);
       setFollowupMode("none");
       setNextTaskType("");
       setNextDue(undefined);
@@ -114,7 +111,6 @@ export function CompleteTaskModal({
       setNextTaskType("");
       setNextOwner("");
     }
-    setCreateFollowup(followupMode !== "none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followupMode]);
 
