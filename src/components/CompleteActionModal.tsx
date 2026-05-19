@@ -28,6 +28,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { callCrmRpc, fetchCrmView } from "@/server/analytics";
+import { formatCrmError } from "@/lib/crmErrors";
 import {
   Command,
   CommandEmpty,
@@ -236,7 +237,7 @@ export function CompleteActionModal({
             },
           });
       if (res.error) {
-        setError(res.error);
+        setError(formatCrmError(res.error));
         setSubmitting(false);
         return;
       }
