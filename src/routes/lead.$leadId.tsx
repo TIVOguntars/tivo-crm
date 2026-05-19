@@ -20,6 +20,7 @@ import {
   Forward,
   Star,
   X,
+  Pencil,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -30,7 +31,6 @@ import { UnifiedTimeline } from "@/components/UnifiedTimeline";
 import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { RequirePermission } from "@/components/auth/RequirePermission";
-import { Pencil } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Card,
