@@ -262,6 +262,9 @@ const CRM_VIEWS = [
   "task_types",
   "tasks",
   "v_unified_timeline",
+  "profiles",
+  "roles",
+  "user_roles",
 ] as const;
 export type CrmView = (typeof CRM_VIEWS)[number];
 
