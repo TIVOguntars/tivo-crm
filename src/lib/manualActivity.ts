@@ -10,6 +10,13 @@ export const MANUAL_KIND_ORDER: ManualKind[] = ["note", "call", "meeting"];
 
 export const SUMMARY_MAX = 1000;
 
+/** Map manual UI kind to an allowed crm.activities.activity_type. */
+export const MANUAL_KIND_TO_ACTIVITY_TYPE: Record<ManualKind, string> = {
+  note: "note",
+  call: "call",
+  meeting: "meeting",
+};
+
 export interface ManualActivityInput {
   kind: ManualKind;
   activityAt: string; // ISO
@@ -45,10 +52,14 @@ export function buildLogActivityParams(args: {
   input: ManualActivityInput;
 }): Record<string, unknown> {
   const summary = args.input.summary.trim().slice(0, SUMMARY_MAX);
-  const outcome = args.input.outcome?.trim() || null;
+  const rawOutcome = args.input.outcome?.trim() || null;
+  // rpc_log_activity only accepts outcome_code for call/sms/whatsapp/email.
+  const activityType = MANUAL_KIND_TO_ACTIVITY_TYPE[args.input.kind];
+  const outcome =
+    rawOutcome && activityType === "call" ? rawOutcome : null;
   return {
     p_lead_id: args.leadId,
-    p_activity_type: "manual_update",
+    p_activity_type: activityType,
     p_activity_at: args.input.activityAt,
     p_summary: summary,
     p_performed_by_user_id: args.performedByUserId,
