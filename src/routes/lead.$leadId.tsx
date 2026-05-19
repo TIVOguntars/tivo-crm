@@ -522,7 +522,7 @@ function LeadProfilePage() {
 
   type TLItem = {
     key: string;
-    kind: "comm" | "note" | "task";
+    kind: "comm" | "note" | "task" | "activity";
     ts: number;
     raw: Row;
   };
@@ -576,8 +576,30 @@ function LeadProfilePage() {
         raw: t,
       });
     });
+    // Fold crm.activities rows in. Skip types already represented by other
+    // sources (tasks/communications) to avoid duplicate entries.
+    const activityRows = (activitiesQ.data?.rows ?? []) as Row[];
+    const SKIP_TYPES = new Set([
+      "task_completed",
+      "task_created",
+      "status_change",
+    ]);
+    activityRows.forEach((a, i) => {
+      const at = str(pick(a, "activity_type")).toLowerCase();
+      if (SKIP_TYPES.has(at)) return;
+      // Skip activities linked to a communication — the comm itself is shown.
+      if (str(pick(a, "communication_id"))) return;
+      const ts =
+        new Date(str(pick(a, "activity_at", "created_at"))).getTime() || 0;
+      items.push({
+        key: `a:${str(pick(a, "id")) || i}`,
+        kind: "activity",
+        ts,
+        raw: a,
+      });
+    });
     return items.sort((a, b) => b.ts - a.ts);
-  }, [communications, notes, rawPayloadById, completedTasks]);
+  }, [communications, notes, rawPayloadById, completedTasks, activitiesQ.data]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
