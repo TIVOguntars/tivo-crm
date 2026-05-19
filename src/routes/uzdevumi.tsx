@@ -866,27 +866,10 @@ function QueuePage() {
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
                     </TableCell>
                     <TableCell className="py-3">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <PriorityBadge label={pLabel} />
-                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-                          {score > 0 ? score : ""}
-                        </span>
-                      </div>
+                      <PriorityStars label={pLabel} />
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {leadId ? (
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-[11px]"
-                          >
-                            <Link to="/lead/$leadId" params={{ leadId }}>
-                              Atvērt
-                            </Link>
-                          </Button>
-                        ) : null}
                         {(() => {
                           const taskId = s(r.id);
                           const isTask =
