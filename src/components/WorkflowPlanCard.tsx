@@ -114,9 +114,21 @@ function WorkflowPlanCardInner({ tasks }: { tasks: WorkflowTaskRow[] }) {
           const status = (t.status ?? "").toLowerCase();
           const done = status === "completed" || status === "skipped";
           const isCurrent = !done && idx === currentIdx;
+          const metaOwnerLabel =
+            meta && typeof meta.owner_label === "string"
+              ? (meta.owner_label as string)
+              : null;
+          const metaOwnerCode =
+            meta && typeof meta.owner_code === "string"
+              ? (meta.owner_code as string)
+              : null;
+          const assignedName = t.assigned_user_id
+            ? resolve(t.assigned_user_id)
+            : "";
           const ownerCode =
-            (meta && typeof meta.owner_code === "string" ? meta.owner_code : null) ??
-            t.assigned_user_id ??
+            assignedName ||
+            metaOwnerLabel ||
+            metaOwnerCode ||
             "—";
           return (
             <li
