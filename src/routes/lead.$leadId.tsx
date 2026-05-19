@@ -1331,6 +1331,20 @@ function LeadProfilePage() {
                     })}
                   </ol>
                 )}
+                {/* ADDITIVE: unified timeline (crm.v_unified_timeline).
+                    Supplemental only — never hides or replaces the primary
+                    timeline above. Hidden silently if the view is unavailable. */}
+                {unifiedAvailable && (
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+                      Vienotā laika līnija (papildus)
+                    </div>
+                    <UnifiedTimeline
+                      leadId={leadId}
+                      onUnavailable={() => setUnifiedAvailable(false)}
+                    />
+                  </div>
+                )}
               </Panel>
             </div>
           </div>
