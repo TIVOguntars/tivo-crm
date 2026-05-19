@@ -1394,7 +1394,129 @@ function LeadProfilePage() {
           {/* Activity detail modal */}
           <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0">
-              {openItem && (() => {
+              {openItem && openItem.kind === "task" && (() => {
+                const r = openItem.raw;
+                const taskType = str(pick(r, "task_type")) || "task";
+                const taskStatus = str(pick(r, "status"));
+                const taskTitle = str(pick(r, "title")) || fmt(taskType);
+                const outcomeCode = str(pick(r, "outcome_code"));
+                const tDate = pick(r, "completed_at", "updated_at", "created_at");
+                const tMeta =
+                  r && typeof r.metadata === "object" && r.metadata
+                    ? (r.metadata as Row)
+                    : undefined;
+                const completionNotes = tMeta
+                  ? str(pick(tMeta, "completion_notes", "notes"))
+                  : "";
+                const summary = tMeta ? str(pick(tMeta, "summary")) : "";
+                const reason = tMeta ? str(pick(tMeta, "reason")) : "";
+                const relationType = tMeta ? str(pick(tMeta, "relation_type")) : "";
+                const taskId = str(pick(r, "id", "task_id"));
+                const completedAtTs = tDate
+                  ? new Date(str(tDate)).getTime() || 0
+                  : 0;
+                const preTaskNotes = taskId
+                  ? notes.filter((n) => {
+                      const nMeta =
+                        n && typeof n.metadata === "object" && n.metadata
+                          ? (n.metadata as Row)
+                          : undefined;
+                      const linkedId = nMeta
+                        ? str(pick(nMeta, "task_id", "related_task_id"))
+                        : "";
+                      if (linkedId !== taskId) return false;
+                      const nTs =
+                        new Date(
+                          str(pick(n, "created_at", "updated_at")),
+                        ).getTime() || 0;
+                      return completedAtTs ? nTs < completedAtTs : true;
+                    })
+                  : [];
+                return (
+                  <>
+                    <div className="sticky top-0 z-20 shrink-0 overflow-visible border-b bg-background p-6 pb-3 pr-16">
+                      <DialogHeader className="overflow-visible">
+                        <div className="flex items-center justify-end w-full gap-4">
+                          <DialogClose asChild>
+                            <Button size="icon" variant="ghost" aria-label="Aizvērt" className="h-8 w-8 shrink-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </DialogClose>
+                        </div>
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-base mt-2">
+                          <CheckSquare className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{taskTitle}</span>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                        <Field label="Tips" value={fmt(taskType)} />
+                        <Field label="Statuss" value={<StatusBadge status={taskStatus} mapKind="task" />} />
+                        <Field label="Datums" value={fmtDate(tDate)} />
+                        {outcomeCode && (
+                          <Field label="Iznākums" value={lv(COMM_STATUS_LV, outcomeCode, outcomeCode)} />
+                        )}
+                        {reason && <Field label="Iemesls" value={reason} />}
+                        {relationType && (
+                          <Field label="Saistība" value={fmt(relationType)} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-6 pt-3 space-y-4">
+                      {preTaskNotes.length > 0 && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Piezīmes pirms uzdevuma
+                          </div>
+                          <ol className="space-y-2">
+                            {preTaskNotes.map((n, i) => (
+                              <li
+                                key={str(pick(n, "id", "note_id")) || `pre:${i}`}
+                                className="rounded-md border bg-muted/20 p-3 text-sm whitespace-pre-wrap"
+                              >
+                                {str(pick(n, "content", "body"))}
+                                <div className="mt-1 text-[11px] text-muted-foreground">
+                                  {fmtDate(pick(n, "created_at", "updated_at"))}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </section>
+                      )}
+                      {completionNotes && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Piezīmes uzdevuma izpildē
+                          </div>
+                          <pre className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm text-foreground">
+                            {completionNotes}
+                          </pre>
+                        </section>
+                      )}
+                      {summary && (
+                        <section>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Kopsavilkums
+                          </div>
+                          <div className="rounded-md border bg-muted/20 p-3 text-sm whitespace-pre-wrap">
+                            {summary}
+                          </div>
+                        </section>
+                      )}
+                      {tMeta && (
+                        <details className="rounded-md border bg-muted/10 p-2">
+                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                            Tehniskie dati
+                          </summary>
+                          <pre className="mt-2 max-h-[280px] overflow-auto text-[11px] whitespace-pre-wrap">
+                            {JSON.stringify(tMeta, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+              {openItem && openItem.kind !== "task" && (() => {
                 const r = openItem.raw;
                 const isNote = openItem.kind === "note";
                 const ch = str(pick(r, "channel"));
