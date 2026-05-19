@@ -839,19 +839,22 @@ export function TaskFormDialog({
             {showSubject && (
               <div className="space-y-1.5">
                 <Label htmlFor="task-subject">Tēma *</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-3">
                   <Input
                     id="task-subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     maxLength={250}
                     placeholder="[Ievadi tēmu]"
+                    className="flex-1 min-w-0"
                   />
                   <Input
                     aria-label="Reference"
                     value={subjectRef}
                     onChange={(e) => setSubjectRef(e.target.value)}
                     maxLength={120}
+                    style={{ width: `${Math.max(subjectRef.length, 4) + 3}ch` }}
+                    className="shrink-0 font-mono"
                   />
                 </div>
               </div>
