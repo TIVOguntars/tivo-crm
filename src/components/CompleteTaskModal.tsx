@@ -27,7 +27,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { callCrmRpc } from "@/server/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
@@ -36,6 +35,9 @@ import {
   outcomesForTaskType,
   activityTypeFor,
 } from "@/lib/taskOutcomes";
+import { UserPicker } from "@/components/users/UserPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUserMap } from "@/hooks/useUsers";
 
 export interface CompleteTaskModalProps {
   open: boolean;
@@ -58,6 +60,8 @@ export function CompleteTaskModal({
 }: CompleteTaskModalProps) {
   const qc = useQueryClient();
   const taskTypes = useTaskTypes();
+  const { operatorId } = useCurrentUser();
+  const { resolve: resolveUserName } = useUserMap();
 
   const [summary, setSummary] = useState("");
   const [outcome, setOutcome] = useState<string>("");
@@ -67,7 +71,7 @@ export function CompleteTaskModal({
   >("none");
   const [nextTaskType, setNextTaskType] = useState<string>("");
   const [nextDue, setNextDue] = useState<Date | undefined>(undefined);
-  const [nextOwner, setNextOwner] = useState<string>("");
+  const [nextOwnerId, setNextOwnerId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,11 +88,11 @@ export function CompleteTaskModal({
       setFollowupMode("none");
       setNextTaskType("");
       setNextDue(undefined);
-      setNextOwner("");
+      setNextOwnerId(operatorId ?? null);
       setError(null);
       setSubmitting(false);
     }
-  }, [open]);
+  }, [open, operatorId]);
 
   const hasFollowup = followupMode !== "none";
   const canSubmit =
@@ -109,7 +113,7 @@ export function CompleteTaskModal({
     } else if (followupMode === "none") {
       setNextDue(undefined);
       setNextTaskType("");
-      setNextOwner("");
+      setNextOwnerId(operatorId ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followupMode]);
@@ -160,13 +164,15 @@ export function CompleteTaskModal({
               p_task_type: nextTaskType,
               p_due_at: dueIso,
               p_title: followupTitle,
-              p_assigned_user_id: null,
+              p_assigned_user_id: nextOwnerId,
               p_metadata: {
                 source: "complete_task_modal",
                 parent_task_id: taskId,
                 relation_type: isWait ? "wait_for_project" : "follow_up",
                 ...(isWait ? { reason: "Gaidu projektu" } : {}),
-                owner_label: nextOwner.trim() || null,
+                owner_label: nextOwnerId
+                  ? resolveUserName(nextOwnerId) || null
+                  : null,
               },
             },
           },
@@ -337,11 +343,10 @@ export function CompleteTaskModal({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ct-owner">Atbildīgais</Label>
-                <Input
-                  id="ct-owner"
-                  value={nextOwner}
-                  onChange={(e) => setNextOwner(e.target.value)}
-                  placeholder="Neobligāti — vārds vai nosaukums"
+                <UserPicker
+                  value={nextOwnerId}
+                  onChange={setNextOwnerId}
+                  placeholder="Nav piešķirts"
                 />
               </div>
             </div>
