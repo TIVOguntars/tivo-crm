@@ -1197,7 +1197,14 @@ function LeadProfilePage() {
                                 {it.source === "queue" ? (
                                   <Mail className="h-3.5 w-3.5" />
                                 ) : it.source === "task" ? (
-                                  channelIcon(it.taskType || "")
+                                  (() => {
+                                    const tt = (it.taskType || "").toLowerCase();
+                                    if (tt === "call") return <PhoneIcon className="h-3.5 w-3.5" />;
+                                    if (tt.includes("mail")) return <Mail className="h-3.5 w-3.5" />;
+                                    if (tt.includes("sms") || tt.includes("whatsapp")) return <MessageSquare className="h-3.5 w-3.5" />;
+                                    if (tt === "zoom") return <Activity className="h-3.5 w-3.5" />;
+                                    return <CheckSquare className="h-3.5 w-3.5" />;
+                                  })()
                                 ) : (
                                   <Activity className="h-3.5 w-3.5" />
                                 )}
