@@ -10,6 +10,13 @@ export const MANUAL_KIND_ORDER: ManualKind[] = ["note", "call", "meeting"];
 
 export const SUMMARY_MAX = 1000;
 
+/** Map manual UI kind to an allowed crm.activities.activity_type. */
+export const MANUAL_KIND_TO_ACTIVITY_TYPE: Record<ManualKind, string> = {
+  note: "note",
+  call: "call",
+  meeting: "meeting",
+};
+
 export interface ManualActivityInput {
   kind: ManualKind;
   activityAt: string; // ISO
@@ -48,7 +55,7 @@ export function buildLogActivityParams(args: {
   const outcome = args.input.outcome?.trim() || null;
   return {
     p_lead_id: args.leadId,
-    p_activity_type: "manual_update",
+    p_activity_type: MANUAL_KIND_TO_ACTIVITY_TYPE[args.input.kind],
     p_activity_at: args.input.activityAt,
     p_summary: summary,
     p_performed_by_user_id: args.performedByUserId,
