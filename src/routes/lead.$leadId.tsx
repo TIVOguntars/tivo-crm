@@ -1427,6 +1427,22 @@ function LeadProfilePage() {
                         const bgT = styleT.bg;
                         const accentT = styleT.accent;
                         const tt = taskType.toLowerCase();
+                        const TASK_TYPE_SHORT_LV: Record<string, string> = {
+                          call: "Zvanīt",
+                          zoom: "Tikšanās",
+                          manual_email: "E-pasts",
+                          automatic_email: "E-pasts",
+                          automatic_reply_email: "E-pasts",
+                          manual_sms: "SMS",
+                          automatic_sms: "SMS",
+                          manual_whatsapp: "WhatsApp",
+                          automatic_whatsapp: "WhatsApp",
+                          estimate: "Tāmēšana",
+                          draw_sketches: "Skiču zīmēšana",
+                          prepare_offer: "Piedāvājuma sagatavošana",
+                        };
+                        const taskTypeLabelShort =
+                          TASK_TYPE_SHORT_LV[tt] || "";
                         const taskIcon = tt.includes("call")
                           ? <PhoneIcon className="h-3.5 w-3.5" />
                           : tt.includes("email") || tt.includes("mail")
@@ -1453,9 +1469,11 @@ function LeadProfilePage() {
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 text-xs">
                                     <span className="font-medium">Uzdevums</span>
-                                    <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground capitalize">
-                                      {fmt(taskType)}
-                                    </span>
+                                    {taskTypeLabelShort && (
+                                      <span className="inline-flex items-center rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                        {taskTypeLabelShort}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <StatusBadge status={taskStatus} mapKind="task" />
