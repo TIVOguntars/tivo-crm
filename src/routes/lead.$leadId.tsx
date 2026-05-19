@@ -21,6 +21,7 @@ import {
   Star,
   X,
   Pencil,
+  MoreVertical,
 } from "lucide-react";
 
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -31,6 +32,13 @@ import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
+import type { ManualActivityPrefill } from "@/components/lead/ManualActivityDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { RequirePermission } from "@/components/auth/RequirePermission";
 import DOMPurify from "isomorphic-dompurify";
 import {
