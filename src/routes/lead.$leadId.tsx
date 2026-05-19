@@ -563,6 +563,33 @@ function LeadProfilePage() {
       });
     });
     notes.forEach((n, i) => {
+      // Hide system-generated task mirror notes (cancellation/completion/
+      // status-change). Operator-written manual notes are always kept.
+      const nMeta =
+        n && typeof (n as Row).metadata === "object" && (n as Row).metadata
+          ? ((n as Row).metadata as Row)
+          : undefined;
+      const nSource = str(pick(n, "source") ?? pick(nMeta, "source")).toLowerCase();
+      const isManualNote = nSource === "manual" || nSource === "operator";
+      if (!isManualNote) {
+        const linkedTaskId = str(pick(n, "task_id") ?? pick(nMeta, "task_id"));
+        const nType = str(pick(n, "note_type", "type")).toLowerCase();
+        const SYSTEM_NOTE_TYPES = new Set([
+          "task_cancelled",
+          "task_completed",
+          "task_skipped",
+          "task_rescheduled",
+          "task_created",
+          "status_change",
+          "system",
+        ]);
+        const body = str(pick(n, "content", "body", "text")).toLowerCase();
+        const looksLikeSystemMirror =
+          /^task\s+(cancelled|completed|skipped|rescheduled|created)\b/.test(body);
+        if (linkedTaskId || SYSTEM_NOTE_TYPES.has(nType) || looksLikeSystemMirror) {
+          return;
+        }
+      }
       const ts =
         new Date(str(pick(n, "created_at", "updated_at"))).getTime() || 0;
       items.push({
