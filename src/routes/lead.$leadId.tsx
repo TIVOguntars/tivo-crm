@@ -550,6 +550,13 @@ function LeadProfilePage() {
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [tlType, setTlType] = useState<TypeFilter>("all");
+  const [tlDate, setTlDate] = useState<DateFilter>("all");
+  const filteredTimeline = useMemo(
+    () => filterLocalTimeline(timeline, { type: tlType, date: tlDate }),
+    [timeline, tlType, tlDate],
+  );
+  const isTimelineFiltered = tlType !== "all" || tlDate !== "all";
   // Unified timeline is the preferred source, but Lead 360 must keep
   // working if crm.v_unified_timeline is unavailable — we fall back to the
   // existing local timeline when the child reports it cannot load.
