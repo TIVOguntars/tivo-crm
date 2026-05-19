@@ -777,7 +777,7 @@ function QueuePage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
                     {hasActiveFilters
                       ? "Nav ierakstu, kas atbilst filtriem."
                       : "Rindā nav ierakstu"}
@@ -786,6 +786,7 @@ function QueuePage() {
               ) : filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
                 const pLabel = s(r.priority_label);
+                const tLabel = s(r.task_priority_label);
                 const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
                 const score = n(r.priority_score);
@@ -799,12 +800,7 @@ function QueuePage() {
                     )}
                   >
                     <TableCell className="py-3">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <PriorityBadge label={pLabel} />
-                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
-                          {score > 0 ? score : ""}
-                        </span>
-                      </div>
+                      <PriorityBadge label={tLabel} />
                     </TableCell>
                     <TableCell className="py-3">
                       <DueCell value={r.effective_due_at ?? r.due_at} />
@@ -838,6 +834,14 @@ function QueuePage() {
                     </TableCell>
                     <TableCell className="py-3">
                       <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <PriorityBadge label={pLabel} />
+                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                          {score > 0 ? score : ""}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
