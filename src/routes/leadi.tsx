@@ -982,9 +982,17 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: s(r.action_owner_label),
+          owner: (() => {
+            const uid = s(facts?.owner_user_id);
+            const resolved = uid ? resolveUserName(uid) : "";
+            return resolved || s(r.action_owner_label) || "";
+          })(),
           owner_user_id: s(facts?.owner_user_id),
-          ppv: s(r.ppv_name || r.ppv_vards),
+          ppv: (() => {
+            const uid = s(facts?.ppv_user_id);
+            const resolved = uid ? resolveUserName(uid) : "";
+            return resolved || s(r.ppv_name || r.ppv_vards) || "";
+          })(),
           ppv_user_id: s(facts?.ppv_user_id),
           next_action,
           next_action_due,
