@@ -170,9 +170,22 @@ export function TaskFormDialog({
   const [durationMinutes, setDurationMinutes] = useState<string>("30");
   const [replyToCommunicationId, setReplyToCommunicationId] = useState("");
 
-  // workflow (Phase 2b.2b — draw_sketches only)
-  const [startWorkflow, setStartWorkflow] = useState(false);
+  // workflow plan (Phase 2b.2c — parent_with_steps on prepare_offer)
   const [serverFolderUrl, setServerFolderUrl] = useState("");
+  type PlanStep = {
+    step: number;
+    task_type: "draw_sketches" | "estimate" | "prepare_offer";
+    label: string;
+    enabled: boolean;
+    owner_id: OwnerCode;
+    due_at: string; // datetime-local
+  };
+  const defaultPlan = (): PlanStep[] => [
+    { step: 1, task_type: "draw_sketches", label: "Zīmēt skices", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 2, task_type: "estimate", label: "Tāmēšana", enabled: true, owner_id: "UC", due_at: "" },
+    { step: 3, task_type: "prepare_offer", label: "Piedāvājuma sagatavošana", enabled: true, owner_id: "UC", due_at: "" },
+  ];
+  const [planSteps, setPlanSteps] = useState<PlanStep[]>(defaultPlan);
 
   // scheduling
   const [scheduleMode, setScheduleMode] = useState<"absolute" | "relative">("absolute");
@@ -256,8 +269,8 @@ export function TaskFormDialog({
     setMeetingUrl("");
     setDurationMinutes("30");
     setReplyToCommunicationId("");
-    setStartWorkflow(false);
     setServerFolderUrl(leadContext?.serverFolderUrl ?? "");
+    setPlanSteps(defaultPlan());
     setScheduleMode("absolute");
     setDueLocal(defaultDueLocal());
     setRelDirection("after");
@@ -490,10 +503,17 @@ export function TaskFormDialog({
       toast.error(due.error);
       return;
     }
-    const isDrawSketches = (taskType as string) === "draw_sketches";
-    if (isDrawSketches && startWorkflow && !serverFolderUrl.trim()) {
-      toast.error("Servera mapes saite ir obligāta, kad workflow ir aktīvs");
-      return;
+    const isPrepareOffer = (taskType as string) === "prepare_offer";
+    const enabledSteps = planSteps.filter((s) => s.enabled);
+    if (isPrepareOffer) {
+      if (enabledSteps.length === 0) {
+        toast.error("Jāatzīmē vismaz viens sagatavošanas solis");
+        return;
+      }
+      if (!serverFolderUrl.trim()) {
+        toast.error("Servera mapes saite ir obligāta");
+        return;
+      }
     }
     const typed = buildTypeMeta();
     if (typed.error) {
@@ -536,8 +556,21 @@ export function TaskFormDialog({
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
-      ...(isDrawSketches && startWorkflow
-        ? { workflow: { template_key: "object_preparation_v1", step: 1 } }
+      ...(isPrepareOffer
+        ? {
+            workflow_plan: {
+              template_key: "object_preparation_v1",
+              mode: "parent_with_steps" as const,
+              steps: planSteps.map((s) => ({
+                step: s.step,
+                task_type: s.task_type,
+                label: s.label,
+                enabled: s.enabled,
+                owner_id: s.owner_id,
+                due_at: s.due_at ? new Date(s.due_at).toISOString() : null,
+              })),
+            },
+          }
         : {}),
       ...(approval
         ? { requires_approval: true, approval }
@@ -1024,40 +1057,79 @@ export function TaskFormDialog({
             />
           </div>
 
-          {(taskType as string) === "draw_sketches" && (
+          {(taskType as string) === "prepare_offer" && (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-4 space-y-3">
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  Sākt objekta sagatavošanas procesu
+                  Sagatavošanas soļi
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Pēc katra soļa pabeigšanas sistēma automātiski izveidos nākamo uzdevumu.
+                  Iestati katra soļa atbildīgo un termiņu. Soļi tiek glabāti šī uzdevuma plānā.
                 </p>
               </div>
-              <ol className="space-y-1 text-xs text-foreground/90">
-                <li className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">1</span>
-                  Zīmēt skices
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">2</span>
-                  Tāmēšana
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">3</span>
-                  Piedāvājuma sagatavošana
-                </li>
-              </ol>
-              <label className="flex items-center gap-2 pt-1 text-sm">
-                <Checkbox
-                  checked={startWorkflow}
-                  onCheckedChange={(v) => setStartWorkflow(!!v)}
-                />
-                Sākt workflow
-              </label>
+              <div className="space-y-2">
+                {planSteps.map((p, idx) => (
+                  <div
+                    key={p.step}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_5.5rem_minmax(0,12rem)] items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-2"
+                  >
+                    <Checkbox
+                      checked={p.enabled}
+                      onCheckedChange={(v) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], enabled: !!v };
+                          return next;
+                        })
+                      }
+                    />
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {p.step}. {p.label}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {p.task_type}
+                      </div>
+                    </div>
+                    <Select
+                      value={p.owner_id}
+                      onValueChange={(v) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], owner_id: v as OwnerCode };
+                          return next;
+                        })
+                      }
+                      disabled={!p.enabled}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OWNER_OPTIONS.map((o) => (
+                          <SelectItem key={o} value={o}>{o}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="datetime-local"
+                      value={p.due_at}
+                      onChange={(e) =>
+                        setPlanSteps((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...next[idx], due_at: e.target.value };
+                          return next;
+                        })
+                      }
+                      disabled={!p.enabled}
+                      className="h-8"
+                    />
+                  </div>
+                ))}
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="task-server-folder">
-                  Servera mapes saite / ceļš{startWorkflow ? " *" : ""}
+                  Servera mapes saite / ceļš *
                 </Label>
                 <Input
                   id="task-server-folder"
@@ -1065,9 +1137,9 @@ export function TaskFormDialog({
                   onChange={(e) => setServerFolderUrl(e.target.value)}
                   placeholder="\\\\server\\projekti\\..."
                 />
-                {startWorkflow && !serverFolderUrl.trim() && (
+                {!serverFolderUrl.trim() && (
                   <p className="text-[10px] text-destructive font-medium">
-                    Obligāts, kad workflow ir aktīvs.
+                    Obligāts.
                   </p>
                 )}
               </div>

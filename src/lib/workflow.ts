@@ -8,6 +8,56 @@ export interface WorkflowMetadata {
   server_folder_url?: string | null;
 }
 
+// Parent-with-steps plan stored on a parent task's metadata.workflow_plan
+// (Phase 2b.2c). Frontend-only for now; no children are created from this
+// plan yet. Spawn engine is unchanged.
+export interface WorkflowPlanStep {
+  step: number;
+  task_type: string;
+  label: string;
+  enabled: boolean;
+  owner_id: string | null;
+  due_at: string | null;
+}
+
+export interface WorkflowPlan {
+  template_key: string;
+  mode: "parent_with_steps";
+  steps: WorkflowPlanStep[];
+}
+
+export function parseWorkflowPlan(metadata: unknown): WorkflowPlan | null {
+  const meta =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : null;
+  if (!meta) return null;
+  const wp = meta.workflow_plan;
+  if (!wp || typeof wp !== "object" || Array.isArray(wp)) return null;
+  const obj = wp as Record<string, unknown>;
+  const template_key = typeof obj.template_key === "string" ? obj.template_key : "";
+  if (!template_key) return null;
+  const stepsRaw = Array.isArray(obj.steps) ? obj.steps : [];
+  const steps: WorkflowPlanStep[] = stepsRaw
+    .map((s) => {
+      if (!s || typeof s !== "object") return null;
+      const o = s as Record<string, unknown>;
+      const stepNum = typeof o.step === "number" ? o.step : Number(o.step);
+      if (!Number.isFinite(stepNum)) return null;
+      return {
+        step: stepNum,
+        task_type: typeof o.task_type === "string" ? o.task_type : "",
+        label: typeof o.label === "string" ? o.label : "",
+        enabled: !!o.enabled,
+        owner_id: typeof o.owner_id === "string" ? o.owner_id : null,
+        due_at: typeof o.due_at === "string" ? o.due_at : null,
+      } satisfies WorkflowPlanStep;
+    })
+    .filter((x): x is WorkflowPlanStep => !!x)
+    .sort((a, b) => a.step - b.step);
+  return { template_key, mode: "parent_with_steps", steps };
+}
+
 export type WorkflowStatus = "completed" | "current" | "future";
 
 export interface WorkflowTaskRow {

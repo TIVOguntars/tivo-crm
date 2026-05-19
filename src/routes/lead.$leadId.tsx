@@ -46,8 +46,10 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { WorkflowChainStrip } from "@/components/WorkflowChainStrip";
+import { WorkflowPlanCard } from "@/components/WorkflowPlanCard";
 import {
   groupTasksByWorkflowInstance,
+  parseWorkflowPlan,
   type WorkflowTaskRow,
 } from "@/lib/workflow";
 import { toast } from "sonner";
@@ -333,6 +335,13 @@ function LeadProfilePage() {
   const workflowTasksQ = useCrmView(
     "tasks",
     `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&workflow_instance_id=not.is.null&order=due_at.asc.nullslast`,
+    { all: true },
+  );
+  // Parent tasks that carry an embedded workflow_plan (Phase 2b.2c).
+  // These render as a "process card" with their plan steps inline.
+  const workflowPlanTasksQ = useCrmView(
+    "tasks",
+    `select=id,lead_id,workflow_instance_id,task_type,title,status,due_at,completed_at,assigned_user_id,metadata&lead_id=eq.${leadId}&task_type=eq.prepare_offer&order=due_at.asc.nullslast`,
     { all: true },
   );
   const rpcError = (q.error as Error | null)?.message || q.data?.error;
@@ -897,6 +906,20 @@ function LeadProfilePage() {
                         tasks={tasks}
                         title="Workflow"
                       />
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* Workflow plan cards (Phase 2b.2c) — parent prepare_offer
+                  tasks with metadata.workflow_plan render as one process. */}
+              {(() => {
+                const rows = (workflowPlanTasksQ.data?.rows ?? []) as unknown as WorkflowTaskRow[];
+                const withPlan = rows.filter((r) => !!parseWorkflowPlan(r.metadata));
+                if (!withPlan.length) return null;
+                return (
+                  <div className="space-y-3">
+                    {withPlan.map((t) => (
+                      <WorkflowPlanCard key={t.id} task={t} />
                     ))}
                   </div>
                 );
