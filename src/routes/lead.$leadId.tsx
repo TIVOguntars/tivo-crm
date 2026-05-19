@@ -1526,10 +1526,17 @@ function LeadProfilePage() {
                           : typeLabel;
                         return (
                           <li key={it.key}>
-                            <button
-                              type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setOpenItem(it)}
-                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${styleA.accent} ${styleA.bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110`}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setOpenItem(it);
+                                }
+                              }}
+                              className={`group w-full text-left flex gap-3 rounded-md border border-l-4 ${styleA.accent} ${styleA.bg} px-3 py-2 transition-colors hover:brightness-95 dark:hover:brightness-110 cursor-pointer`}
                             >
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
                                 {actIcon}
@@ -1567,7 +1574,43 @@ function LeadProfilePage() {
                                   </div>
                                 )}
                               </div>
-                            </button>
+                              <QuickActionsMenu
+                                actions={(() => {
+                                  const list: QuickAction[] = [];
+                                  if (isManual && at === "call") {
+                                    list.push({
+                                      label: primaryPhone
+                                        ? "Atzvanīt"
+                                        : "Atzvanīt (nav tālruņa)",
+                                      disabled: !primaryPhone,
+                                      onSelect: () => {
+                                        if (primaryPhone) {
+                                          window.location.href = `tel:${primaryPhone}`;
+                                        }
+                                      },
+                                    });
+                                    list.push({
+                                      label: "Izveidot follow-up",
+                                      onSelect: () =>
+                                        openFollowUpDialog({
+                                          openFollowUp: true,
+                                          followUpType: "call_follow_up",
+                                          followUpAssigneeFromCurrent: true,
+                                        }),
+                                    });
+                                  }
+                                  list.push({
+                                    label: "Atvērt",
+                                    onSelect: () => setOpenItem(it),
+                                  });
+                                  list.push({
+                                    label: "Rediģēt lead",
+                                    onSelect: () => setEditPanelOpen(true),
+                                  });
+                                  return list;
+                                })()}
+                              />
+                            </div>
                           </li>
                         );
                       }
