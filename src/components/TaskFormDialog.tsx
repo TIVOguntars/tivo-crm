@@ -49,12 +49,6 @@ import {
 
 type Priority = "low" | "normal" | "high";
 
-const PRIORITIES: { value: Priority; label: string }[] = [
-  { value: "low", label: "Zema" },
-  { value: "normal", label: "Normāla" },
-  { value: "high", label: "Augsta" },
-];
-
 // TODO: source from crm.profiles.user_code (active users) instead of hardcoding.
 const OWNER_OPTIONS = ["UC", "MO", "BJ", "EG", "AR", "GT", "SIS"] as const;
 type OwnerCode = (typeof OWNER_OPTIONS)[number];
