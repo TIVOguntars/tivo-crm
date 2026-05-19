@@ -504,12 +504,7 @@ export function TaskFormDialog({
       return;
     }
     const isPrepareOffer = (taskType as string) === "prepare_offer";
-    const enabledSteps = planSteps.filter((s) => s.enabled);
     if (isPrepareOffer) {
-      if (enabledSteps.length === 0) {
-        toast.error("Jāatzīmē vismaz viens sagatavošanas solis");
-        return;
-      }
       if (!serverFolderUrl.trim()) {
         toast.error("Servera mapes saite ir obligāta");
         return;
