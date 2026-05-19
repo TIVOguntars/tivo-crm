@@ -1,5 +1,6 @@
-import { CheckCircle2, Circle, ExternalLink, FolderOpen } from "lucide-react";
+import { CheckCircle2, Circle, Copy, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import type { WorkflowTaskRow } from "@/lib/workflow";
 
 function fmtDate(iso?: string | null): string {
