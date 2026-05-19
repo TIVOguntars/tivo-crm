@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as ManualCorrectionsRouteImport } from './routes/manual-corrections'
 import { Route as LeadiRouteImport } from './routes/leadi'
@@ -25,6 +26,11 @@ import { Route as LeadRouteImport } from './routes/lead.'
 const UzdevumiRoute = UzdevumiRouteImport.update({
   id: '/uzdevumi',
   path: '/uzdevumi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QueueRoute = QueueRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/leadi': typeof LeadiRoute
   '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
+  '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/users'
     | '/uzdevumi'
     | '/lead/'
     | '/lead/$leadId'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/users'
     | '/uzdevumi'
     | '/lead'
     | '/lead/$leadId'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/manual-corrections'
     | '/queue'
+    | '/users'
     | '/uzdevumi'
     | '/lead/'
     | '/lead/$leadId'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   LeadiRoute: typeof LeadiRoute
   ManualCorrectionsRoute: typeof ManualCorrectionsRoute
   QueueRoute: typeof QueueRoute
+  UsersRoute: typeof UsersRoute
   UzdevumiRoute: typeof UzdevumiRoute
   LeadRoute: typeof LeadRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/uzdevumi'
       fullPath: '/uzdevumi'
       preLoaderRoute: typeof UzdevumiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/queue': {
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadiRoute: LeadiRoute,
   ManualCorrectionsRoute: ManualCorrectionsRoute,
   QueueRoute: QueueRoute,
+  UsersRoute: UsersRoute,
   UzdevumiRoute: UzdevumiRoute,
   LeadRoute: LeadRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
