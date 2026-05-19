@@ -566,12 +566,47 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Jauns uzdevums</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-background/95 backdrop-blur px-5 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate text-sm font-semibold text-foreground">
+              {leadContext?.leadName || "Jauns uzdevums"}
+            </span>
+            {leadContext?.country && (
+              <span className="shrink-0 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground">
+                {country3(leadContext.country)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {leadContext?.serverFolderUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => window.open(leadContext.serverFolderUrl!, "_blank", "noopener")}
+                title="Atvērt servera mapi"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Servera mape
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled
+              title="Drīzumā"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto px-5 py-4">
           {needsPicker && (
             <div className="space-y-1.5">
               <Label htmlFor="task-lead-search">Lead</Label>
@@ -635,28 +670,67 @@ export function TaskFormDialog({
             </div>
           )}
 
-          {/* Task type */}
-          <div className="space-y-1.5">
-            <Label htmlFor="task-type">Tips *</Label>
-            <Select
-              value={taskType}
-              onValueChange={(v) => setTaskType(v as TaskTypeKey)}
-              disabled={tt.isLoading || tt.rows.length === 0}
-            >
-              <SelectTrigger id="task-type">
-                <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
-              </SelectTrigger>
-              <SelectContent>
-                {tt.rows.map((t) => (
-                  <SelectItem key={t.type_key} value={t.type_key}>
-                    <span className="inline-flex items-center gap-2">
-                      <TypeIcon keyName={t.icon_key} />
-                      {t.label_lv}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Top row: Type · Owner · Priority */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="task-type">Tips *</Label>
+              <Select
+                value={taskType}
+                onValueChange={(v) => setTaskType(v as TaskTypeKey)}
+                disabled={tt.isLoading || tt.rows.length === 0}
+              >
+                <SelectTrigger id="task-type" className="w-auto min-w-fit gap-2">
+                  <SelectValue placeholder={tt.isLoading ? "Ielādē…" : "Izvēlies tipu"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tt.rows.map((t) => (
+                    <SelectItem key={t.type_key} value={t.type_key}>
+                      <span className="inline-flex items-center gap-2">
+                        <TypeIcon keyName={t.icon_key} />
+                        {t.label_lv}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="task-owner">Atbildīgais</Label>
+              <Select value={ownerCode} onValueChange={(v) => setOwnerCode(v as OwnerCode)}>
+                <SelectTrigger id="task-owner" className="w-[5.5rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {OWNER_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Prioritāte</Label>
+              <div className="flex items-center h-9 gap-0.5">
+                {[1, 2, 3].map((n) => {
+                  const active = priorityToStars(priority) >= n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPriority(starsToPriority(n))}
+                      className="p-1 text-amber-500 hover:scale-110 transition"
+                      title={PRIORITIES[n - 1].label}
+                      aria-label={`Prioritāte ${PRIORITIES[n - 1].label}`}
+                    >
+                      <Star
+                        className="h-4 w-4"
+                        strokeWidth={1.5}
+                        fill={active ? "currentColor" : "transparent"}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Title */}
