@@ -645,7 +645,11 @@ export function TaskFormDialog({
       source: "manual_ui",
       task_type: taskType,
       ...typed.meta,
-      ...(defaultOwnerLabel ? { owner_label: defaultOwnerLabel } : {}),
+      ...(assignedUserId
+        ? { owner_label: resolveUserName(assignedUserId) || defaultOwnerLabel || null }
+        : defaultOwnerLabel
+          ? { owner_label: defaultOwnerLabel }
+          : {}),
       owner_code: ownerCode,
       ...(replyToEmail.trim() ? { reply_to: replyToEmail.trim() } : {}),
       ...(leadContext?.referenceCode ? { reference_code: leadContext.referenceCode } : {}),
@@ -668,7 +672,7 @@ export function TaskFormDialog({
             p_due_at: due.iso,
             p_title: title.trim(),
             p_description: description.trim() || null,
-            p_assigned_user_id: null,
+            p_assigned_user_id: assignedUserId,
             p_required_role: null,
             p_workflow_instance_id: null,
             p_parent_task_id: null,
