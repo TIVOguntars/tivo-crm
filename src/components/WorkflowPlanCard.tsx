@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Copy, ExternalLink } from "lucide-react";
+import { CheckCircle2, Circle, CircleDot, Copy, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import type { WorkflowTaskRow } from "@/lib/workflow";
@@ -90,7 +90,12 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
       </div>
 
       <ol className="space-y-1">
-        {sorted.map((t) => {
+        {(() => {
+          const currentIdx = sorted.findIndex((t) => {
+            const s = (t.status ?? "").toLowerCase();
+            return s !== "completed" && s !== "skipped" && s !== "cancelled";
+          });
+          return sorted.map((t, idx) => {
           const meta = metaRecord(t);
           const label =
             (meta && typeof meta.workflow_step_label === "string"
@@ -102,6 +107,7 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
             "—";
           const status = (t.status ?? "").toLowerCase();
           const done = status === "completed" || status === "skipped";
+          const isCurrent = !done && idx === currentIdx;
           const ownerCode =
             (meta && typeof meta.owner_code === "string" ? meta.owner_code : null) ??
             t.assigned_user_id ??
@@ -109,10 +115,17 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
           return (
             <li
               key={t.id}
-              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-2 rounded-sm bg-background/60 px-2 py-1.5"
+              className={
+                "grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-2 rounded-sm px-2 py-1.5 " +
+                (isCurrent
+                  ? "bg-primary/10 ring-1 ring-primary/40"
+                  : "bg-background/60")
+              }
             >
               {done ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-foreground" />
+              ) : isCurrent ? (
+                <CircleDot className="h-3.5 w-3.5 text-primary" />
               ) : (
                 <Circle className="h-3.5 w-3.5 text-muted-foreground" />
               )}
@@ -120,7 +133,11 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
                 <div
                   className={
                     "text-xs font-medium truncate " +
-                    (done ? "text-muted-foreground line-through" : "text-foreground")
+                    (done
+                      ? "text-muted-foreground line-through"
+                      : isCurrent
+                        ? "text-foreground font-semibold"
+                        : "text-foreground")
                   }
                 >
                   {label}
@@ -147,7 +164,8 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
               )}
             </li>
           );
-        })}
+          });
+        })()}
       </ol>
     </div>
   );
