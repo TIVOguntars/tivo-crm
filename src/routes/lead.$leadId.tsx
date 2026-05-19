@@ -305,6 +305,7 @@ function channelIcon(channel: string) {
 
 function LeadProfilePage() {
   const navigate = useNavigate();
+  const { resolve: resolveUserName } = useUserMap();
   const goBackToList = () => {
     let prev: Record<string, unknown> | null = null;
     try {
