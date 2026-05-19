@@ -26,23 +26,13 @@ import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
+import { CHANNEL_LV, lv } from "@/lib/i18nLabels";
+import { labelEventType } from "@/lib/timelineLabels";
 
 export const Route = createFileRoute("/ienakosas-zinas")({
   component: InboxPage,
 });
 
-const EVENT_TYPE_LV: Record<string, string> = {
-  inbound_received: "Saņemts",
-  replied: "Atbilde",
-};
-
-const CHANNEL_LV: Record<string, string> = {
-  email: "E-pasts",
-  sms: "SMS",
-  call: "Zvans",
-  whatsapp: "WhatsApp",
-  messenger: "Messenger",
-};
 
 function fmtDate(value: unknown): string {
   if (value == null || value === "") return "—";
@@ -314,7 +304,7 @@ function InboxPage() {
             { value: "all", label: "Visi" },
             ...channelOptions.map((c) => ({
               value: c,
-              label: CHANNEL_LV[c] ?? c,
+              label: lv(CHANNEL_LV, c, c),
             })),
           ]}
           onChange={(v) => setLocal("channel", v)}
@@ -344,7 +334,7 @@ function InboxPage() {
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Datums</th>
                     <th className="px-3 py-2 text-left font-medium">Vārds</th>
-                    <th className="px-3 py-2 text-left font-medium">Email</th>
+                    <th className="px-3 py-2 text-left font-medium">E-pasts</th>
                     <th className="px-3 py-2 text-left font-medium">Telefons</th>
                     <th className="px-3 py-2 text-left font-medium">Kanāls</th>
                     <th className="px-3 py-2 text-left font-medium">Notikums</th>
@@ -389,12 +379,12 @@ function InboxPage() {
                         </td>
                         <td className="px-3 py-2">
                           <Badge variant="secondary" className="text-[11px]">
-                            {CHANNEL_LV[channel] ?? channel ?? "—"}
+                            {lv(CHANNEL_LV, channel, channel || "—")}
                           </Badge>
                         </td>
                         <td className="px-3 py-2">
                           <Badge className="text-[11px]">
-                            {EVENT_TYPE_LV[eventType] ?? eventType}
+                            {labelEventType(eventType) || eventType}
                           </Badge>
                         </td>
                         <td className="max-w-[220px] truncate px-3 py-2 text-foreground" title={subject}>
