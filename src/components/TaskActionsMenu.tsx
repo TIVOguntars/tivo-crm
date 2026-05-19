@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { callCrmRpc } from "@/server/analytics";
+import { formatCrmError } from "@/lib/crmErrors";
 
 function toLocalInputValue(iso: string | null | undefined): string {
   if (!iso) {
@@ -62,7 +63,7 @@ export function TaskActionsMenu({
     try {
       const res = await callCrmRpc({ data: { fn, params } });
       if (res?.error) {
-        toast.error(res.error);
+        toast.error(formatCrmError(res.error));
         return false;
       }
       toast.success(successMsg);
@@ -70,7 +71,7 @@ export function TaskActionsMenu({
       onChanged?.();
       return true;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Nezināma kļūda");
+      toast.error(formatCrmError(e));
       return false;
     } finally {
       setBusy(false);
