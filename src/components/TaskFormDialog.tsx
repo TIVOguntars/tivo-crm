@@ -1071,18 +1071,11 @@ export function TaskFormDialog({
                 {planSteps.map((p, idx) => (
                   <div
                     key={p.step}
-                    className="grid grid-cols-[auto_minmax(0,1fr)_5.5rem_minmax(0,12rem)] items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-2"
+                    className="grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem_minmax(0,12rem)] items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-2"
                   >
-                    <Checkbox
-                      checked={p.enabled}
-                      onCheckedChange={(v) =>
-                        setPlanSteps((prev) => {
-                          const next = [...prev];
-                          next[idx] = { ...next[idx], enabled: !!v };
-                          return next;
-                        })
-                      }
-                    />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
+                      {p.step}
+                    </div>
                     <div className="min-w-0">
                       <div className="text-xs font-medium text-foreground truncate">
                         {p.step}. {p.label}
@@ -1100,7 +1093,6 @@ export function TaskFormDialog({
                           return next;
                         })
                       }
-                      disabled={!p.enabled}
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue />
@@ -1121,7 +1113,6 @@ export function TaskFormDialog({
                           return next;
                         })
                       }
-                      disabled={!p.enabled}
                       className="h-8"
                     />
                   </div>
