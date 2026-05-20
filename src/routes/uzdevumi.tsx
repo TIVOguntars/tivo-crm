@@ -439,6 +439,7 @@ function QueuePage() {
   const [ppv, setPpv] = useState<string>("all");
   const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
+  const [source, setSource] = useState<"all" | "auto" | "manual">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const toggleSort = (key: SortKey) => {
@@ -485,12 +486,17 @@ function QueuePage() {
 
   const matchRow = (
     r: Row,
-    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean } = {},
+    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean; source?: boolean } = {},
   ): boolean => {
     const qq = q.trim().toLowerCase();
     if (actionType !== "all" && s(r.action_label) !== actionType) return false;
     if (!skip.due && dueFilter !== "all" && s(r.due_filter_key) !== dueFilter)
       return false;
+    if (!skip.source && source !== "all") {
+      const isAuto = s(r.task_source) === "daily_planned_task_generator";
+      if (source === "auto" && !isAuto) return false;
+      if (source === "manual" && isAuto) return false;
+    }
     if (
       !skip.leadStatus &&
       leadStatus !== "all" &&
@@ -557,7 +563,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, source, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -644,6 +650,7 @@ function QueuePage() {
     ppv !== "all" ||
     tags.length > 0 ||
     q.trim() !== "" ||
+    source !== "all" ||
     sort !== null;
 
   const clearAllFilters = () => {
@@ -657,8 +664,20 @@ function QueuePage() {
     setPpv("all");
     setTags([]);
     setQ("");
+    setSource("all");
     setSort(null);
   };
+
+  const sourceCounts = useMemo(() => {
+    let auto = 0;
+    let manual = 0;
+    for (const r of rows) {
+      if (!matchRow(r, { source: true })) continue;
+      if (s(r.task_source) === "daily_planned_task_generator") auto += 1;
+      else manual += 1;
+    }
+    return { all: auto + manual, auto, manual };
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -706,6 +725,36 @@ function QueuePage() {
             />
           ))}
         </div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {([
+          { key: "all", label: "Visi", count: sourceCounts.all },
+          { key: "auto", label: "Auto", count: sourceCounts.auto },
+          { key: "manual", label: "Manuāli", count: sourceCounts.manual },
+        ] as const).map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setSource(c.key)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors",
+              source === c.key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <span>{c.label}</span>
+            <span
+              className={cn(
+                "tabular-nums",
+                source === c.key ? "opacity-90" : "opacity-70",
+              )}
+            >
+              {c.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {view.isLoading ? (
@@ -854,7 +903,37 @@ function QueuePage() {
                     <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-3 align-top">
+                      {(() => {
+                        const isAuto = s(r.task_source) === "daily_planned_task_generator";
+                        const gen = s(r.generated_for_date);
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold">
+                                {s(r.action_label) || "—"}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "h-4 rounded px-1 text-[9px] font-semibold uppercase leading-none tracking-wide",
+                                  isAuto
+                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                    : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
+                                )}
+                              >
+                                {isAuto ? "Auto" : "Manual"}
+                              </Badge>
+                            </div>
+                            {isAuto && gen ? (
+                              <span className="text-[10px] text-muted-foreground">
+                                Ģenerēts: {fmtDate(gen)}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="py-3 align-top">
                       {leadId ? (
                         <Link
