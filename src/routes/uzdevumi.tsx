@@ -903,7 +903,37 @@ function QueuePage() {
                     <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
-                    <TableCell className="py-3 font-semibold">{s(r.action_label) || "—"}</TableCell>
+                    <TableCell className="py-3 align-top">
+                      {(() => {
+                        const isAuto = s(r.task_source) === "daily_planned_task_generator";
+                        const gen = s(r.generated_for_date);
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold">
+                                {s(r.action_label) || "—"}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "h-4 rounded px-1 text-[9px] font-semibold uppercase leading-none tracking-wide",
+                                  isAuto
+                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                    : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
+                                )}
+                              >
+                                {isAuto ? "Auto" : "Manual"}
+                              </Badge>
+                            </div>
+                            {isAuto && gen ? (
+                              <span className="text-[10px] text-muted-foreground">
+                                Ģenerēts: {fmtDate(gen)}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="py-3 align-top">
                       {leadId ? (
                         <Link
