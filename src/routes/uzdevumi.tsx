@@ -727,6 +727,36 @@ function QueuePage() {
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {([
+          { key: "all", label: "Visi", count: sourceCounts.all },
+          { key: "auto", label: "Auto", count: sourceCounts.auto },
+          { key: "manual", label: "Manuāli", count: sourceCounts.manual },
+        ] as const).map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setSource(c.key)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors",
+              source === c.key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <span>{c.label}</span>
+            <span
+              className={cn(
+                "tabular-nums",
+                source === c.key ? "opacity-90" : "opacity-70",
+              )}
+            >
+              {c.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {view.isLoading ? (
         <LoadingState />
       ) : view.data?.error ? (
