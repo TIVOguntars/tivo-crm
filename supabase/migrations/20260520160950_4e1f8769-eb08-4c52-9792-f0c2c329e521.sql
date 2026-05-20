@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS crm.contacts_phone_e164_unique;
