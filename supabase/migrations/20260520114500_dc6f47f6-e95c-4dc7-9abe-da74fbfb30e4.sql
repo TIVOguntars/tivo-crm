@@ -1,0 +1,1 @@
+SELECT crm.rpc_generate_daily_planned_tasks();
