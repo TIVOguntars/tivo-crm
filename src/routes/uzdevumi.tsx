@@ -439,6 +439,7 @@ function QueuePage() {
   const [ppv, setPpv] = useState<string>("all");
   const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
+  const [source, setSource] = useState<"all" | "auto" | "manual">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const toggleSort = (key: SortKey) => {
@@ -485,12 +486,17 @@ function QueuePage() {
 
   const matchRow = (
     r: Row,
-    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean } = {},
+    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean; source?: boolean } = {},
   ): boolean => {
     const qq = q.trim().toLowerCase();
     if (actionType !== "all" && s(r.action_label) !== actionType) return false;
     if (!skip.due && dueFilter !== "all" && s(r.due_filter_key) !== dueFilter)
       return false;
+    if (!skip.source && source !== "all") {
+      const isAuto = s(r.task_source) === "daily_planned_task_generator";
+      if (source === "auto" && !isAuto) return false;
+      if (source === "manual" && isAuto) return false;
+    }
     if (
       !skip.leadStatus &&
       leadStatus !== "all" &&
@@ -557,7 +563,7 @@ function QueuePage() {
       return n(b.priority_score) - n(a.priority_score);
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, source, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -644,6 +650,7 @@ function QueuePage() {
     ppv !== "all" ||
     tags.length > 0 ||
     q.trim() !== "" ||
+    source !== "all" ||
     sort !== null;
 
   const clearAllFilters = () => {
@@ -657,8 +664,20 @@ function QueuePage() {
     setPpv("all");
     setTags([]);
     setQ("");
+    setSource("all");
     setSort(null);
   };
+
+  const sourceCounts = useMemo(() => {
+    let auto = 0;
+    let manual = 0;
+    for (const r of rows) {
+      if (!matchRow(r, { source: true })) continue;
+      if (s(r.task_source) === "daily_planned_task_generator") auto += 1;
+      else manual += 1;
+    }
+    return { all: auto + manual, auto, manual };
+  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
