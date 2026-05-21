@@ -19,18 +19,37 @@ export function useAssignableUsers() {
 export function useUserMap(): {
   map: Map<string, string>;
   resolve: (id: string | null | undefined) => string;
+  resolveCode: (id: string | null | undefined) => string;
   isLoading: boolean;
 } {
   const q = useAssignableUsers();
   const users: AssignableUser[] = q.data ?? [];
   const map = useMemo(() => buildUserMap(users), [users]);
+  const codeMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const u of users) {
+      const code = (u.user_code ?? "").trim();
+      if (!code) continue;
+      if (u.id) m.set(u.id, code);
+      m.set(code, code);
+      const name = displayName(u);
+      if (name) m.set(name, code);
+    }
+    return m;
+  }, [users]);
   const resolve = (id: string | null | undefined): string => {
     if (!id) return "";
     const trimmed = String(id).trim();
     if (!trimmed) return "";
     return map.get(trimmed) ?? "";
   };
-  return { map, resolve, isLoading: q.isLoading };
+  const resolveCode = (id: string | null | undefined): string => {
+    if (!id) return "";
+    const trimmed = String(id).trim();
+    if (!trimmed) return "";
+    return codeMap.get(trimmed) ?? "";
+  };
+  return { map, resolve, resolveCode, isLoading: q.isLoading };
 }
 
 export { displayName };
