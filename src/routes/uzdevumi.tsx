@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
+import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -374,6 +375,27 @@ function QueuePage() {
     }
     return map;
   }, [tasksView.data]);
+
+  // Per-lead communication counts for the name cell (line 2).
+  const commCountsView = useCrmView(
+    "leads_list_display",
+    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+    { all: true },
+  );
+  const commCounts = useMemo(() => {
+    const map = new Map<string, CommBuckets>();
+    const r = (commCountsView.data?.rows ?? []) as Row[];
+    for (const row of r) {
+      const lid = s(row.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
+        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
+        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
+        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+      });
+    }
+    return map;
+  }, [commCountsView.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
@@ -1004,20 +1026,22 @@ function QueuePage() {
                           className="block max-w-[200px] text-left text-primary/90 hover:underline"
                         >
                           <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
-                          {s(r.country) && (
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {s(r.country)}
-                            </div>
-                          )}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            {s(r.country) && (
+                              <span className="uppercase tracking-wide">{s(r.country)}</span>
+                            )}
+                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                          </div>
                         </Link>
                       ) : (
                         <div className="max-w-[200px]">
                           <div className="line-clamp-1">{leadLabel(r)}</div>
-                          {s(r.country) && (
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {s(r.country)}
-                            </div>
-                          )}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            {s(r.country) && (
+                              <span className="uppercase tracking-wide">{s(r.country)}</span>
+                            )}
+                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                          </div>
                         </div>
                       )}
                     </TableCell>
