@@ -470,6 +470,64 @@ function QueuePage() {
   const [source, setSource] = useState<"all" | "auto" | "manual">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
+  // Persist filters/sort to sessionStorage so returning from /lead/$id restores state.
+  const filtersHydratedRef = useRef(false);
+  useEffect(() => {
+    if (filtersHydratedRef.current) return;
+    filtersHydratedRef.current = true;
+    try {
+      const raw = sessionStorage.getItem("uzdevumi:lastSearch");
+      if (!raw) return;
+      const p = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof p.actionType === "string") setActionType(p.actionType);
+      if (typeof p.dueFilter === "string") setDueFilter(p.dueFilter);
+      if (typeof p.leadStatus === "string") setLeadStatus(p.leadStatus);
+      if (typeof p.priority === "string") setPriority(p.priority);
+      if (typeof p.taskPriority === "string") setTaskPriority(p.taskPriority);
+      if (typeof p.owner === "string") setOwner(p.owner);
+      if (typeof p.country === "string") setCountry(p.country);
+      if (typeof p.ppv === "string") setPpv(p.ppv);
+      if (Array.isArray(p.tags)) setTags(p.tags.map(String));
+      if (typeof p.q === "string") setQ(p.q);
+      if (p.source === "all" || p.source === "auto" || p.source === "manual")
+        setSource(p.source);
+      if (
+        p.sort &&
+        typeof p.sort === "object" &&
+        (p.sort as { key?: unknown }).key &&
+        ((p.sort as { dir?: unknown }).dir === "asc" || (p.sort as { dir?: unknown }).dir === "desc")
+      ) {
+        setSort(p.sort as { key: SortKey; dir: "asc" | "desc" });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    if (!filtersHydratedRef.current) return;
+    try {
+      sessionStorage.setItem(
+        "uzdevumi:lastSearch",
+        JSON.stringify({
+          actionType,
+          dueFilter,
+          leadStatus,
+          priority,
+          taskPriority,
+          owner,
+          country,
+          ppv,
+          tags,
+          q,
+          source,
+          sort,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [actionType, dueFilter, leadStatus, priority, taskPriority, owner, country, ppv, tags, q, source, sort]);
+
   const toggleSort = (key: SortKey) => {
     setSort((cur) => {
       if (!cur || cur.key !== key) return { key, dir: "desc" };
