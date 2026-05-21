@@ -31,7 +31,6 @@ import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
-import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -361,7 +360,11 @@ function QueuePage() {
 
   // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
   // each carry their own priority; never inherit from sibling tasks or lead.
-  const tasksView = useCrmView("tasks", "select=id,priority,assigned_user_id,metadata", { all: true });
+  const tasksView = useCrmView(
+    "tasks",
+    "select=id,priority,assigned_user_id,created_by_user_id,metadata",
+    { all: true },
+  );
   const taskById = useMemo(() => {
     const map = new Map<string, Row>();
     const r = (tasksView.data?.rows ?? []) as Row[];
@@ -372,44 +375,27 @@ function QueuePage() {
     return map;
   }, [tasksView.data]);
 
-  // Communication counts per lead — same source as /leadi.
-  const commCountsView = useCrmView(
-    "lead_row_communication_counts",
-    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
-    { all: true },
-  );
-  const commCounts = useMemo(() => {
-    const map = new Map<string, CommBuckets>();
-    const r = (commCountsView.data?.rows ?? []) as Row[];
-    for (const row of r) {
-      const lid = s(row.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
-        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
-        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
-      });
-    }
-    return map;
-  }, [commCountsView.data]);
-
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
       const tk = taskById.get(s(r.id));
       const taskRaw = s(tk?.priority);
-      const taskLabel = taskPriorityLabel(taskRaw);
       const meta =
         tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
           ? (tk.metadata as Record<string, unknown>)
           : null;
       const assignedUid = s(tk?.assigned_user_id);
       const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
+      const rawOwner =
+        s(r.action_owner_label) ||
+        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
       const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
       const ownerFromTask =
         resolvedAssignee ||
-        s(r.action_owner_label) ||
-        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
+        resolveUserName(rawOwner) ||
+        rawOwner ||
         (looksUuid ? "" : assignedUid);
+      const createdByUid = s(tk?.created_by_user_id);
+      const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {
@@ -423,12 +409,22 @@ function QueuePage() {
             replied_count: sc.replied_count ?? null,
           }
         : { ...r };
+      // Per request: task priority is derived from lead priority_score.
+      //  >=70 → Augsta, 30..<70 → Vidēja, <30 → Zema.
+      const leadScore = n(base.priority_score);
+      const derivedTaskLabel =
+        leadScore >= 70 ? "Augsta" : leadScore >= 30 ? "Vidēja" : "Zema";
       base.task_priority_raw = taskRaw;
-      base.task_priority_label = taskLabel;
+      base.task_priority_label = derivedTaskLabel;
       base.action_owner_label = ownerFromTask;
+      base.created_by_user_id = createdByUid || null;
+      base.created_by_name = createdByName || (createdByUid || "");
+      // Resolve PPV code (e.g. "MO"/"UC") to a real user name when possible.
+      const ppvRaw = s(r.ppv_name);
+      base.ppv_name = resolveUserName(ppvRaw) || ppvRaw;
       return base;
     });
-  }, [humanRows, scoringByLead, taskById]);
+  }, [humanRows, scoringByLead, taskById, resolveUserName]);
 
 
   const statusOptionsView = useCrmView(
@@ -862,9 +858,6 @@ function QueuePage() {
                 <HeadCell className="w-[200px]">
                   <SortButton label="Vārds Uzvārds / VAL" k="lead" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[130px] text-muted-foreground/70">
-                  Zvani–e-pasti–ziņas
-                </HeadCell>
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
@@ -903,7 +896,6 @@ function QueuePage() {
                     />
                   </div>
                 </FilterCell>
-                <FilterCell />
                 <FilterCell>
                   <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
                 </FilterCell>
@@ -952,7 +944,7 @@ function QueuePage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                     {hasActiveFilters
                       ? "Nav ierakstu, kas atbilst filtriem."
                       : "Rindā nav ierakstu"}
@@ -1029,11 +1021,7 @@ function QueuePage() {
                         </div>
                       )}
                     </TableCell>
-                    {/* 4. Zvani–e-pasti–ziņas */}
-                    <TableCell className="py-3">
-                      <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
-                    </TableCell>
-                    {/* 5. Tagi */}
+                    {/* 4. Tagi */}
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
@@ -1058,6 +1046,7 @@ function QueuePage() {
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
                         const gen = s(r.generated_for_date);
+                        const createdBy = s(r.created_by_name);
                         return (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5">
@@ -1073,7 +1062,7 @@ function QueuePage() {
                                     : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
                                 )}
                               >
-                                {isAuto ? "Auto" : "Manual"}
+                                {isAuto ? "Auto" : createdBy || "Manual"}
                               </Badge>
                             </div>
                             {isAuto && gen ? (
