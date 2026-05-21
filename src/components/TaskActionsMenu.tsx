@@ -53,16 +53,13 @@ export function TaskActionsMenu({
   const [busy, setBusy] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDue, setNewDue] = useState<string>(toLocalInputValue(currentDueIso));
-  const [skipOpen, setSkipOpen] = useState(false);
-  const [skipReason, setSkipReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [completeOpen, setCompleteOpen] = useState(false);
 
   type RpcFn =
     | "rpc_reschedule_task"
-    | "rpc_cancel_task"
-    | "rpc_skip_task";
+    | "rpc_cancel_task";
   const run = async (fn: RpcFn, params: Record<string, unknown>, successMsg: string) => {
     setBusy(true);
     try {
@@ -101,26 +98,6 @@ export function TaskActionsMenu({
     if (ok) {
       setCancelOpen(false);
       setCancelReason("");
-    }
-  };
-  const handleSkip = async () => {
-    const reason = skipReason.trim();
-    if (!reason) {
-      toast.error("Norādi izlaišanas iemeslu");
-      return;
-    }
-    const ok = await run(
-      "rpc_skip_task",
-      {
-        p_task_id: taskId,
-        p_skipped_reason: reason,
-        p_skipped_by_user_id: null,
-      },
-      "Uzdevums izlaists",
-    );
-    if (ok) {
-      setSkipOpen(false);
-      setSkipReason("");
     }
   };
 
