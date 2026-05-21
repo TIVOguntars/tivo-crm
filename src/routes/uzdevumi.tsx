@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -30,6 +30,8 @@ import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
+import { CompleteTaskModal } from "@/components/CompleteTaskModal";
+import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
