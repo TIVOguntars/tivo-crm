@@ -1068,6 +1068,7 @@ function QueuePage() {
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
                         const gen = s(r.generated_for_date);
+                        const createdBy = s(r.created_by_name);
                         return (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5">
@@ -1083,7 +1084,7 @@ function QueuePage() {
                                     : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
                                 )}
                               >
-                                {isAuto ? "Auto" : "Manual"}
+                                {isAuto ? "Auto" : createdBy || "Manual"}
                               </Badge>
                             </div>
                             {isAuto && gen ? (
