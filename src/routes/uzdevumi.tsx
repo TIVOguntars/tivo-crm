@@ -965,24 +965,95 @@ function QueuePage() {
                 const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
                 const score = n(r.priority_score);
+                const taskId = s(r.id);
+                const isTask =
+                  s(r.action_source).toLowerCase() === "task" &&
+                  UUID_RE.test(taskId);
                 return (
                   <TableRow
                     key={s(r.id) || s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
                       "text-xs",
+                      isTask && "cursor-pointer",
                       isHigh &&
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
+                    onClick={
+                      isTask
+                        ? () =>
+                            setCompleteTask({
+                              taskId,
+                              leadId: leadId || null,
+                              taskType: s(r.task_type) || null,
+                            })
+                        : undefined
+                    }
                   >
+                    {/* 1. Lead prioritāte */}
                     <TableCell className="py-3">
-                      <PriorityBadge label={tLabel} />
+                      <PriorityStars label={pLabel} score={score} />
                     </TableCell>
+                    {/* 2. PPV */}
+                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    {/* 3. Vārds Uzvārds / VAL */}
+                    <TableCell className="py-3 align-top">
+                      {leadId ? (
+                        <Link
+                          to="/lead/$leadId"
+                          params={{ leadId }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            try {
+                              sessionStorage.setItem("lead360:returnTo", "/uzdevumi");
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          className="block max-w-[200px] text-left text-primary/90 hover:underline"
+                        >
+                          <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
+                          {s(r.country) && (
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {s(r.country)}
+                            </div>
+                          )}
+                        </Link>
+                      ) : (
+                        <div className="max-w-[200px]">
+                          <div className="line-clamp-1">{leadLabel(r)}</div>
+                          {s(r.country) && (
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {s(r.country)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    {/* 4. Zvani–e-pasti–ziņas */}
                     <TableCell className="py-3">
-                      <DueCell value={r.effective_due_at ?? r.due_at} />
+                      <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
                     </TableCell>
+                    {/* 5. Tagi */}
+                    <TableCell className="py-3">
+                      <TagsCell tags={tags} />
+                    </TableCell>
+                    {/* 6. Statuss */}
+                    <TableCell className="py-3">
+                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
+                    </TableCell>
+                    {/* 7. Atbildīgais */}
                     <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
+                    {/* 8. Termiņš */}
+                    <TableCell className="py-3">
+                      <DueCell value={r.effective_due_at ?? r.due_at} />
+                    </TableCell>
+                    {/* 9. Prioritāte (uzdevuma) */}
+                    <TableCell className="py-3">
+                      <PriorityBadge label={tLabel} />
+                    </TableCell>
+                    {/* 10. Darbība */}
                     <TableCell className="py-3 align-top">
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
@@ -1014,54 +1085,20 @@ function QueuePage() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="py-3 align-top">
-                      {leadId ? (
-                        <Link
-                          to="/lead/$leadId"
-                          params={{ leadId }}
-                          className="block max-w-[180px] text-left text-primary/90 hover:underline"
-                        >
-                          <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
-                          {leadSecondary(r) && (
-                            <div className="line-clamp-1 text-[10px] text-muted-foreground">
-                              {leadSecondary(r)}
-                            </div>
-                          )}
-                        </Link>
-                      ) : (
-                        <span className="line-clamp-2 max-w-[180px]">{leadLabel(r)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-3">
-                      <TagsCell tags={tags} />
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <PriorityStars label={pLabel} score={score} />
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
+                    {/* 11. Darbības */}
+                    <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        {(() => {
-                          const taskId = s(r.id);
-                          const isTask =
-                            s(r.action_source).toLowerCase() === "task" &&
-                            UUID_RE.test(taskId);
-                          if (!isTask) return null;
-                          return (
-                            <TaskActionsMenu
-                              taskId={taskId}
-                              currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
-                              leadId={leadId || null}
-                              onChanged={() => {
-                                view.refetch();
-                              }}
-                            />
-                          );
-                        })()}
+                        {isTask ? (
+                          <TaskActionsMenu
+                            taskId={taskId}
+                            currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
+                            leadId={leadId || null}
+                            taskType={s(r.task_type) || null}
+                            onChanged={() => {
+                              view.refetch();
+                            }}
+                          />
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
