@@ -1026,20 +1026,22 @@ function QueuePage() {
                           className="block max-w-[200px] text-left text-primary/90 hover:underline"
                         >
                           <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
-                          {s(r.country) && (
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {s(r.country)}
-                            </div>
-                          )}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            {s(r.country) && (
+                              <span className="uppercase tracking-wide">{s(r.country)}</span>
+                            )}
+                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                          </div>
                         </Link>
                       ) : (
                         <div className="max-w-[200px]">
                           <div className="line-clamp-1">{leadLabel(r)}</div>
-                          {s(r.country) && (
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {s(r.country)}
-                            </div>
-                          )}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            {s(r.country) && (
+                              <span className="uppercase tracking-wide">{s(r.country)}</span>
+                            )}
+                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                          </div>
                         </div>
                       )}
                     </TableCell>
