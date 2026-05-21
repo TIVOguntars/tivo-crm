@@ -1,201 +1,175 @@
-## Phase 2.2 (revised) — Settings-driven task-selection offsets
+## Phase 1 — /uzdevumi tabulas UX refaktors (frontend-safe)
 
-All offsets resolved from `crm.settings`. Zero hardcoded numeric offsets in SQL.
+### Part 5 — DB RPC audit (read-only, jau veikts)
 
-### 1. New setting row
+**Eksistē** crm shēmā: `rpc_complete_task`, `rpc_reschedule_task` (tikai due_at), `rpc_cancel_task`, `rpc_skip_task`, `rpc_create_task`.
 
+**Iztrūkst:** `rpc_update_task`, `rpc_delete_task`.
+
+**Sekas Phase 1:**
+- Pārplānot ar pilnu lauku rediģēšanu (tips, atbildīgais, prioritāte, piezīmes) nav iespējams droši pieslēgt → **Pārplānot paliek esošajā mini-dialoga formā Phase 1**. UI refaktors ar `TaskFormDialog` edit režīmu → Phase 2 pēc migrācijas.
+- Dzēst nav backend RPC → **Dzēst menu vienība šajā fāzē netiek pievienota**. UI tiks pievienots Phase 2.
+
+SQL preview iztrūkstošajiem RPC (gaida apstiprinājumu, Phase 2):
 ```sql
--- INSERT preview (data-tool, not migration)
-INSERT INTO crm.settings (setting_key, setting_group, value_json, description, is_active)
-VALUES (
-  'task_selection.priority_offsets',
-  'task_selection',
-  '{
-    "tag_offsets": {
-      "sketch": -20,
-      "getestimate": 0
-    },
-    "default_offset": 0,
-    "priority_tag_precedence": ["getestimate", "sketch"]
-  }'::jsonb,
-  'Per-tag offsets applied to lead priority_score when ordering Auto-generated call task candidates. First matching tag from priority_tag_precedence wins; falls back to default_offset.',
-  true
+CREATE OR REPLACE FUNCTION crm.rpc_update_task(
+  p_task_id uuid, p_task_type text DEFAULT NULL,
+  p_due_at timestamptz DEFAULT NULL, p_assigned_user_id uuid DEFAULT NULL,
+  p_priority text DEFAULT NULL, p_title text DEFAULT NULL,
+  p_description text DEFAULT NULL, p_metadata_patch jsonb DEFAULT NULL,
+  p_updated_by_user_id uuid DEFAULT NULL
+) RETURNS jsonb ...;
+
+CREATE OR REPLACE FUNCTION crm.rpc_delete_task(
+  p_task_id uuid, p_cascade boolean DEFAULT false,
+  p_deleted_by_user_id uuid DEFAULT NULL
+) RETURNS jsonb ...;
+-- cascade: WITH RECURSIVE pa metadata->>'parent_task_id'
+-- audit: entity_type='task', action_type='update'|'delete', source_type='manual_ui'
+```
+
+---
+
+### Part 3 — `CommStats` izvilkšana (jauns fails)
+
+**Jauns:** `src/components/CommStats.tsx` — eksportē `CommStats` komponentu + `CommBuckets` tipu (identiska implementācija kā pašlaik iekš `leadi.tsx` rindas 603–653).
+
+**Mainās:** `src/routes/leadi.tsx`
+- Noņem lokālo `CommBuckets` tipu + `CommStats` funkciju (rindas 603–653)
+- Pievieno `import { CommStats, type CommBuckets } from "@/components/CommStats";`
+- Bez vizuālām izmaiņām
+
+---
+
+### Part 1 — Kolonnu pārkārtošana iekš `src/routes/uzdevumi.tsx`
+
+**Jaunā kolonnu secība** (`<thead>` + filtra rinda + `<tbody>` šūnas):
+
+| # | Header | Šūnas saturs | Filtrs header rindā |
+|---|---|---|---|
+| 1 | Lead prioritāte | `<PriorityStars label={pLabel} score={score} />` | `HeaderOptionsSelect` (priority) |
+| 2 | PPV | `s(r.ppv_name) \|\| "—"` | `HeaderOptionsSelect` (ppv) |
+| 3 | Vārds Uzvārds / VAL | `<Link to="/lead/$leadId">` ar `leadLabel(r)` + zem tā `s(r.country)` | meklētājs (q) |
+| 4 | Zvani–e-pasti–ziņas | `<CommStats counts={commCounts.get(s(r.lead_id))} />` | — (tukša šūna) |
+| 5 | Tagi | `<TagsCell tags={tags} />` | `TagsMultiSelect` |
+| 6 | Statuss | `<StatusBadge status={mapStatus(...)} />` | `HeaderOptionsSelect` (leadStatus) |
+| 7 | Atbildīgais | `<OwnerBadge value={s(r.action_owner_label)} />` | `HeaderOptionsSelect` (owner) |
+| 8 | Termiņš | `<DueCell value={r.effective_due_at ?? r.due_at} />` | `Select` (dueFilter) |
+| 9 | Prioritāte (uzdevuma) | `<PriorityBadge label={tLabel} />` | `HeaderOptionsSelect` (taskPriority) |
+| 10 | Darbība | esošs action label + Auto/Manual badge | `HeaderOptionsSelect` (actionType) |
+| 11 | Darbības | `<TaskActionsMenu .../>` | clear-all poga |
+
+**Noņem** atsevišķo Valsts kolonnu (gan headeris, gan filtrs, gan šūna). Valsts kods parādās zem lead nosaukuma kā `<div className="text-[10px] text-muted-foreground">{s(r.country)}</div>`.
+
+`leadSecondary` šajā tabulā netiek izmantots (paliek funkcijā citur lietošanai).
+
+`SortKey` tips paliek tas pats; `sortValue`, `colSpan={11}` saglabājas.
+
+### Part 1 — Rindas un menu klikšķu uzvedība
+
+- `<TableRow>` saņem `onClick={() => openCompleteForTask(r)}` + `className="cursor-pointer"`.
+- `openCompleteForTask` saglabā `{ taskId, leadId, taskType }` state un atver vienu kopēju `<CompleteTaskModal>` instanci page līmenī.
+- Lead `<Link>` šūnā saņem `onClick={(e) => e.stopPropagation()}` + arī `setLead360ReturnTo` zvanu (skat. Part 2).
+- `TaskActionsMenu` ārējais `<div>` saņem `onClick={(e) => e.stopPropagation()}`. Iekšējais `DropdownMenuTrigger` jau pārtrauc.
+
+### Part 1 — Komunikāciju datu plūsma
+
+Pievieno iekš `QueuePage`:
+```ts
+const commCountsView = useCrmView(
+  "lead_row_communication_counts",
+  "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+  { all: true },
 );
+const commCounts = useMemo(() => {
+  const map = new Map<string, CommBuckets>();
+  for (const r of (commCountsView.data?.rows ?? []) as Row[]) {
+    const lid = s(r.lead_id);
+    if (!lid) continue;
+    map.set(lid, {
+      email: [Number(r.email_outbound_count) || 0, Number(r.email_inbound_count) || 0],
+      call:  [Number(r.call_outbound_count)  || 0, Number(r.call_inbound_count)  || 0],
+      chat:  [Number(r.chat_outbound_count)  || 0, Number(r.chat_inbound_count)  || 0],
+    });
+  }
+  return map;
+}, [commCountsView.data]);
 ```
 
-Ops can later edit `value_json` to add/remove tags or change weights — no code deploy required.
+---
 
-### 2. Tag resolution logic (deterministic)
+### Part 2 — Filtra persistence + return navigation
 
-Given lead `tags` (comma/space separated text in `crm.leads.tags`) and the setting:
+**Iekš `src/routes/uzdevumi.tsx`:**
 
-```
-normalized_tags := lower trim split of l.tags
+1. Pievieno `useEffect` mount fāzē, kas mēģina nolasīt `sessionStorage["uzdevumi:lastSearch"]` un atjauno state (actionType, dueFilter, leadStatus, priority, taskPriority, owner, country, ppv, tags, q, source, sort). Try/catch ap JSON.parse.
+2. Pievieno `useEffect`, kas pie katras filtra/sort izmaiņas raksta state JSON uz to pašu atslēgu.
+3. Pirms lead navigācijas (lead Link `onClick`):
+   ```ts
+   try { sessionStorage.setItem("lead360:returnTo", "/uzdevumi"); } catch {}
+   ```
 
-resolved_tag :=
-  first element t of priority_tag_precedence
-  such that t ∈ normalized_tags
-  AND t ∈ keys(tag_offsets)
+**Iekš `src/routes/lead.$leadId.tsx` — `goBackToList` paplašināšana (rindas 321–330):**
 
-IF resolved_tag IS NULL:
-  offset := default_offset
-  reason := NULL
-ELSE:
-  offset := tag_offsets[resolved_tag]
-  reason := resolved_tag || '_offset'    -- e.g. 'sketch_offset', 'getestimate_offset'
-
-task_selection_score := COALESCE(priority_score,0) + offset
-```
-
-Examples:
-- `tags = 'sketch, getestimate'`  → resolved = `getestimate`, offset = 0
-- `tags = 'sketch'`               → resolved = `sketch`,      offset = −20
-- `tags = 'hot'`                  → resolved = NULL,          offset = 0 (default)
-- `tags = NULL`                   → resolved = NULL,          offset = 0
-
-### 3. SQL preview — `crm.rpc_generate_daily_planned_tasks()`
-
-Two surgical changes. No literal `-20`, `sketch`, `getestimate`, or `sketch_penalty` anywhere.
-
-**3a. New DECLARE + load block (top of function, after existing settings reads)**
-
-```sql
--- DECLARE additions
-v_offsets_cfg      jsonb;
-v_tag_offsets      jsonb;
-v_tag_precedence   jsonb;
-v_default_offset   numeric;
-
--- after the other SELECT value_json INTO ... lines
-SELECT value_json INTO v_offsets_cfg
-  FROM crm.settings
- WHERE setting_key='task_selection.priority_offsets' AND is_active;
-
-v_tag_offsets    := COALESCE(v_offsets_cfg->'tag_offsets',    '{}'::jsonb);
-v_tag_precedence := COALESCE(v_offsets_cfg->'priority_tag_precedence', '[]'::jsonb);
-v_default_offset := COALESCE((v_offsets_cfg->>'default_offset')::numeric, 0);
+```ts
+const goBackToList = () => {
+  let returnTo: string | null = null;
+  try {
+    returnTo = sessionStorage.getItem("lead360:returnTo");
+    if (returnTo) sessionStorage.removeItem("lead360:returnTo");
+  } catch { /* ignore */ }
+  if (returnTo === "/uzdevumi") {
+    navigate({ to: "/uzdevumi" });
+    return;
+  }
+  let prev: Record<string, unknown> | null = null;
+  try {
+    const raw = sessionStorage.getItem("leadi:lastSearch");
+    if (raw) prev = JSON.parse(raw);
+  } catch { /* ignore */ }
+  navigate({ to: "/leadi", search: (prev ?? {}) as never });
+};
 ```
 
-**3b. Replace the candidate loop SELECT**
+Esošā uzvedība uz `/leadi` paliek default.
 
-```sql
-FOR v_lead IN
-  WITH lead_tags AS (
-    SELECT l.id AS lead_id,
-           COALESCE(
-             ARRAY(
-               SELECT lower(btrim(t))
-                 FROM regexp_split_to_table(COALESCE(s.tags,''), '[,\s]+') AS t
-                WHERE btrim(t) <> ''
-             ),
-             ARRAY[]::text[]
-           ) AS tag_list
-      FROM crm.leads l
-      LEFT JOIN crm.lead_priority_scoring_v2 s ON s.lead_id = l.id
-     WHERE l.status = v_status
-  ),
-  resolved AS (
-    SELECT lt.lead_id,
-           (
-             SELECT prec.tag
-               FROM jsonb_array_elements_text(v_tag_precedence) AS prec(tag)
-              WHERE prec.tag = ANY(lt.tag_list)
-                AND v_tag_offsets ? prec.tag
-              LIMIT 1
-           ) AS resolved_tag
-      FROM lead_tags lt
-  )
-  SELECT l.id,
-         l.status,
-         p.user_code AS ppv_code,
-         l.ppv_user_id,
-         c.full_name,
-         c.phone_e164,
-         COALESCE(c.phone_validated,false) AS phone_validated,
-         s.priority_score                  AS lead_priority_score,
-         s.tags                            AS lead_tags,
-         r.resolved_tag                    AS resolved_offset_tag,
-         COALESCE(
-           (v_tag_offsets ->> r.resolved_tag)::numeric,
-           v_default_offset
-         ) AS tag_priority_offset,
-         COALESCE(s.priority_score, 0) + COALESCE(
-           (v_tag_offsets ->> r.resolved_tag)::numeric,
-           v_default_offset
-         ) AS task_selection_score,
-         CASE WHEN r.resolved_tag IS NULL
-              THEN NULL
-              ELSE r.resolved_tag || '_offset'
-         END AS task_priority_adjustment_reason
-    FROM crm.leads l
-    LEFT JOIN crm.contacts c ON c.id = l.contact_id
-    LEFT JOIN crm.profiles p ON p.id = l.ppv_user_id
-    LEFT JOIN crm.lead_priority_scoring_v2 s ON s.lead_id = l.id
-    LEFT JOIN resolved r ON r.lead_id = l.id
-   WHERE l.status = v_status
-   ORDER BY
-     (COALESCE(s.priority_score,0) + COALESCE(
-        (v_tag_offsets ->> r.resolved_tag)::numeric,
-        v_default_offset
-      )) DESC,
-     (l.status = 'Jauns') DESC,
-     l.created_at DESC
-LOOP
-```
+---
 
-**3c. Extended metadata in the `rpc_create_task` call** (no new literals; values come from `v_lead.*` which were resolved from settings)
+### Part 4 — TaskActionsMenu (frontend-safe izmaiņas tikai)
 
-```sql
-p_metadata => jsonb_build_object(
-  'source','daily_planned_task_generator',
-  'rule_key', v_rule_key,
-  'definition', v_rule,
-  'generated_for_date', v_generated_date,
-  'ppv_code', v_lead.ppv_code,
-  'priority_bucket', v_priority_bucket,
-  'daily_quota_source', 'outreach.daily_quota',
-  'quota_limit', v_ppv_cap,
-  'quota_dimension', 'ppv_user',
-  'phone_gate_passed', (v_task_type = 'call'),
-  'lead_priority_score',             v_lead.lead_priority_score,
-  'task_selection_score',            v_lead.task_selection_score,
-  'tag_priority_offset',             v_lead.tag_priority_offset,
-  'task_priority_adjustment_reason', v_lead.task_priority_adjustment_reason,
-  'offset_source_setting',           'task_selection.priority_offsets'
-)
-```
+**Mainās:** `src/components/TaskActionsMenu.tsx`
 
-### 4. Expected ordering effect (UC + MO, today's queues)
+- **Pabeigt** — bez izmaiņām (esošā `CompleteTaskModal` integrācija).
+- **Izlaist** — pilnībā noņem no UI (gan `DropdownMenuItem`, gan `skipOpen` state, gan `skipReason`, gan `handleSkip`, gan `Dialog` JSX bloks). `rpc_skip_task` paliek DB.
+- **Atcelt** — bez izmaiņām.
+- **Pārplānot** — **paliek mini date-dialog Phase 1** (full edit režīms gaida `rpc_update_task` migrāciju).
+- **Dzēst** — **netiek pievienots Phase 1** (gaida `rpc_delete_task` migrāciju).
 
-Same shift as before (getestimate leads with score ≥ sketch_score−20 surface ahead), but now driven entirely by the setting row. Edit the row → ordering changes on the next generator run, no deploy.
+Phase 1 šajā komponentā = tikai Izlaist noņemšana.
 
-Illustrative MO bucket (unchanged from prior preview; resolution path is identical for this dataset):
+---
 
-```
-                                  lead_score  offset  task_score
-Max mauertmNb       getestimate       65        0        65
-Anton               getestimate       47        0        47
-Thomas Hummels      sketch            65       -20       45
-Marielle Nulkes     getestimate       45        0        45
-Hans Den Otter      sketch            58       -20       38
-AppleJack Ladybug   sketch            55       -20       35
-```
+### Failu izmaiņas (Phase 1)
 
-### 5. Hardcoded-offset audit (post-revision)
+| Fails | Darbība |
+|---|---|
+| `src/components/CommStats.tsx` | **JAUNS** — eksportē `CommStats` + `CommBuckets` |
+| `src/routes/leadi.tsx` | Noņem lokālo `CommStats`/`CommBuckets`, importē no jaunā moduļa |
+| `src/routes/uzdevumi.tsx` | Kolonnu pārkārtošana, jauna comms kolonna ar `lead_row_communication_counts` view, sessionStorage `uzdevumi:lastSearch`, `lead360:returnTo` set pirms nav, row onClick → `CompleteTaskModal`, valsts kolonnas izņemšana, valsts kods zem lead nosaukuma |
+| `src/routes/lead.$leadId.tsx` | `goBackToList` lasa `lead360:returnTo` un atgriežas uz `/uzdevumi` ja nepieciešams |
+| `src/components/TaskActionsMenu.tsx` | Noņemt Izlaist (UI + state + handler + dialog) |
 
-- No numeric offset literals in SQL.
-- No tag name literals (`sketch`, `getestimate`) in SQL.
-- No literal `'sketch_penalty'`. `task_priority_adjustment_reason` is built as `resolved_tag || '_offset'`, so adding a new tag in settings automatically yields a new reason string with no code change.
-- The only literal referencing the rule is the setting key itself (`'task_selection.priority_offsets'`), which is required to load the config.
+### Nemainās
 
-Confirmed: zero remaining hardcoded offsets.
+- `crm.v_tasks_queue_ui` (audit neprasa izmaiņas)
+- Ģenerators, kvotas, audit shēma
+- `TaskFormDialog` (Phase 2 edit režīms gaida migrāciju)
+- `rpc_skip_task` (paliek DB, tikai UI noņemts)
+- `rpc_reschedule_task` (paliek pieslēgts esošajai mini-dialoga formai)
 
-### 6. Out of scope (untouched)
+### Phase 2 (atsevišķi, pēc apstiprinājuma)
 
-`crm.lead_priority_scoring_v2`, lead-priority display, stars, `crm.rpc_create_task`, cron, other settings, SMS/email, workflow engine, frontend.
-
-### Execution
-
-No execution. Awaiting approval. On approval:
-1. Data-tool INSERT of `task_selection.priority_offsets` row.
-2. Single migration replacing `crm.rpc_generate_daily_planned_tasks()` with the revised body above.
+1. Migrācija: `crm.rpc_update_task` + `crm.rpc_delete_task`
+2. `TaskFormDialog` paplašināšana ar `mode` + `initialTask` props
+3. `TaskActionsMenu` Pārplānot → atver `TaskFormDialog` edit režīmā
+4. `TaskActionsMenu` Dzēst → AlertDialog ar cascade detektēšanu (caur metadata.parent_task_id rekursīvu count) un izsauc `rpc_delete_task`
