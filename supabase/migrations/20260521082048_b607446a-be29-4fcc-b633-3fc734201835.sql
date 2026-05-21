@@ -1,0 +1,1 @@
+DELETE FROM crm.tasks WHERE id = '2865e019-a2c5-49f0-be77-d050ade8eabd';
