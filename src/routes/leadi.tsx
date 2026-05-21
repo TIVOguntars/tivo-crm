@@ -43,6 +43,7 @@ import {
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
+import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useUserMap } from "@/hooks/useUsers";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
