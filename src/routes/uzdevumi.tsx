@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
@@ -30,6 +30,8 @@ import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
+import { CompleteTaskModal } from "@/components/CompleteTaskModal";
+import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { Plus } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -319,6 +321,11 @@ function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
   const { resolve: resolveUserName } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [completeTask, setCompleteTask] = useState<{
+    taskId: string;
+    leadId: string | null;
+    taskType: string | null;
+  } | null>(null);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Filter: only show human-action rows. Exclude system/automation rows
@@ -364,6 +371,27 @@ function QueuePage() {
     }
     return map;
   }, [tasksView.data]);
+
+  // Communication counts per lead — same source as /leadi.
+  const commCountsView = useCrmView(
+    "lead_row_communication_counts",
+    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+    { all: true },
+  );
+  const commCounts = useMemo(() => {
+    const map = new Map<string, CommBuckets>();
+    const r = (commCountsView.data?.rows ?? []) as Row[];
+    for (const row of r) {
+      const lid = s(row.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
+        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
+        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
+        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+      });
+    }
+    return map;
+  }, [commCountsView.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
@@ -441,6 +469,64 @@ function QueuePage() {
   const [q, setQ] = useState<string>("");
   const [source, setSource] = useState<"all" | "auto" | "manual">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+
+  // Persist filters/sort to sessionStorage so returning from /lead/$id restores state.
+  const filtersHydratedRef = useRef(false);
+  useEffect(() => {
+    if (filtersHydratedRef.current) return;
+    filtersHydratedRef.current = true;
+    try {
+      const raw = sessionStorage.getItem("uzdevumi:lastSearch");
+      if (!raw) return;
+      const p = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof p.actionType === "string") setActionType(p.actionType);
+      if (typeof p.dueFilter === "string") setDueFilter(p.dueFilter);
+      if (typeof p.leadStatus === "string") setLeadStatus(p.leadStatus);
+      if (typeof p.priority === "string") setPriority(p.priority);
+      if (typeof p.taskPriority === "string") setTaskPriority(p.taskPriority);
+      if (typeof p.owner === "string") setOwner(p.owner);
+      if (typeof p.country === "string") setCountry(p.country);
+      if (typeof p.ppv === "string") setPpv(p.ppv);
+      if (Array.isArray(p.tags)) setTags(p.tags.map(String));
+      if (typeof p.q === "string") setQ(p.q);
+      if (p.source === "all" || p.source === "auto" || p.source === "manual")
+        setSource(p.source);
+      if (
+        p.sort &&
+        typeof p.sort === "object" &&
+        (p.sort as { key?: unknown }).key &&
+        ((p.sort as { dir?: unknown }).dir === "asc" || (p.sort as { dir?: unknown }).dir === "desc")
+      ) {
+        setSort(p.sort as { key: SortKey; dir: "asc" | "desc" });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    if (!filtersHydratedRef.current) return;
+    try {
+      sessionStorage.setItem(
+        "uzdevumi:lastSearch",
+        JSON.stringify({
+          actionType,
+          dueFilter,
+          leadStatus,
+          priority,
+          taskPriority,
+          owner,
+          country,
+          ppv,
+          tags,
+          q,
+          source,
+          sort,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [actionType, dueFilter, leadStatus, priority, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
   const toggleSort = (key: SortKey) => {
     setSort((cur) => {
@@ -767,45 +853,65 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[88px]">
-                  <div className="flex items-center justify-between gap-1">
-                    <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                  </div>
-                </HeadCell>
                 <HeadCell className="w-[100px]">
-                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[64px]">
-                  <SortButton label="Atbild." k="owner" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell>
-                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[180px]">
-                  <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
+                  <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[64px] text-muted-foreground/70">
-                  <SortButton label="Valsts" k="country" sort={sort} onClick={toggleSort} />
+                <HeadCell className="w-[200px]">
+                  <SortButton label="Vārds Uzvārds / VAL" k="lead" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[130px] text-muted-foreground/70">
+                  Zvani–e-pasti–ziņas
                 </HeadCell>
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
-                  <SortButton label="Lead statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
+                  <SortButton label="Statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[64px]">
+                  <SortButton label="Atbildīgais" k="owner" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[100px]">
-                  <div className="flex items-center justify-between gap-1">
-                    <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
-                  </div>
+                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[80px] text-right" />
+                <HeadCell className="w-[88px]">
+                  <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell>
+                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
-                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
+                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
+                </FilterCell>
+                <FilterCell>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Meklēt leadu vai objektu..."
+                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
@@ -823,36 +929,10 @@ function QueuePage() {
                   </Select>
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
+                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
-                </FilterCell>
-                <FilterCell>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Meklēt leadu vai objektu..."
-                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
-                    />
-                  </div>
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
-                </FilterCell>
-                <FilterCell>
-                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell>
                   {hasActiveFilters ? (
@@ -885,24 +965,95 @@ function QueuePage() {
                 const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
                 const score = n(r.priority_score);
+                const taskId = s(r.id);
+                const isTask =
+                  s(r.action_source).toLowerCase() === "task" &&
+                  UUID_RE.test(taskId);
                 return (
                   <TableRow
                     key={s(r.id) || s(r.queue_id) || s(r.next_action_id) || i}
                     className={cn(
                       "text-xs",
+                      isTask && "cursor-pointer",
                       isHigh &&
                         "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
+                    onClick={
+                      isTask
+                        ? () =>
+                            setCompleteTask({
+                              taskId,
+                              leadId: leadId || null,
+                              taskType: s(r.task_type) || null,
+                            })
+                        : undefined
+                    }
                   >
+                    {/* 1. Lead prioritāte */}
                     <TableCell className="py-3">
-                      <PriorityBadge label={tLabel} />
+                      <PriorityStars label={pLabel} score={score} />
                     </TableCell>
+                    {/* 2. PPV */}
+                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    {/* 3. Vārds Uzvārds / VAL */}
+                    <TableCell className="py-3 align-top">
+                      {leadId ? (
+                        <Link
+                          to="/lead/$leadId"
+                          params={{ leadId }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            try {
+                              sessionStorage.setItem("lead360:returnTo", "/uzdevumi");
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          className="block max-w-[200px] text-left text-primary/90 hover:underline"
+                        >
+                          <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
+                          {s(r.country) && (
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {s(r.country)}
+                            </div>
+                          )}
+                        </Link>
+                      ) : (
+                        <div className="max-w-[200px]">
+                          <div className="line-clamp-1">{leadLabel(r)}</div>
+                          {s(r.country) && (
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {s(r.country)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    {/* 4. Zvani–e-pasti–ziņas */}
                     <TableCell className="py-3">
-                      <DueCell value={r.effective_due_at ?? r.due_at} />
+                      <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
                     </TableCell>
+                    {/* 5. Tagi */}
+                    <TableCell className="py-3">
+                      <TagsCell tags={tags} />
+                    </TableCell>
+                    {/* 6. Statuss */}
+                    <TableCell className="py-3">
+                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
+                    </TableCell>
+                    {/* 7. Atbildīgais */}
                     <TableCell className="py-3">
                       <OwnerBadge value={s(r.action_owner_label)} />
                     </TableCell>
+                    {/* 8. Termiņš */}
+                    <TableCell className="py-3">
+                      <DueCell value={r.effective_due_at ?? r.due_at} />
+                    </TableCell>
+                    {/* 9. Prioritāte (uzdevuma) */}
+                    <TableCell className="py-3">
+                      <PriorityBadge label={tLabel} />
+                    </TableCell>
+                    {/* 10. Darbība */}
                     <TableCell className="py-3 align-top">
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
@@ -934,54 +1085,20 @@ function QueuePage() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="py-3 align-top">
-                      {leadId ? (
-                        <Link
-                          to="/lead/$leadId"
-                          params={{ leadId }}
-                          className="block max-w-[180px] text-left text-primary/90 hover:underline"
-                        >
-                          <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
-                          {leadSecondary(r) && (
-                            <div className="line-clamp-1 text-[10px] text-muted-foreground">
-                              {leadSecondary(r)}
-                            </div>
-                          )}
-                        </Link>
-                      ) : (
-                        <span className="line-clamp-2 max-w-[180px]">{leadLabel(r)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
-                    <TableCell className="py-3 text-muted-foreground">{s(r.country) || "—"}</TableCell>
-                    <TableCell className="py-3">
-                      <TagsCell tags={tags} />
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <PriorityStars label={pLabel} score={score} />
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
+                    {/* 11. Darbības */}
+                    <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        {(() => {
-                          const taskId = s(r.id);
-                          const isTask =
-                            s(r.action_source).toLowerCase() === "task" &&
-                            UUID_RE.test(taskId);
-                          if (!isTask) return null;
-                          return (
-                            <TaskActionsMenu
-                              taskId={taskId}
-                              currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
-                              leadId={leadId || null}
-                              onChanged={() => {
-                                view.refetch();
-                              }}
-                            />
-                          );
-                        })()}
+                        {isTask ? (
+                          <TaskActionsMenu
+                            taskId={taskId}
+                            currentDueIso={s(r.effective_due_at ?? r.due_at) || null}
+                            leadId={leadId || null}
+                            taskType={s(r.task_type) || null}
+                            onChanged={() => {
+                              view.refetch();
+                            }}
+                          />
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1000,6 +1117,22 @@ function QueuePage() {
           view.refetch();
         }}
       />
+
+      {completeTask ? (
+        <CompleteTaskModal
+          open={true}
+          onOpenChange={(o) => {
+            if (!o) setCompleteTask(null);
+          }}
+          taskId={completeTask.taskId}
+          leadId={completeTask.leadId}
+          taskType={completeTask.taskType}
+          onCompleted={() => {
+            view.refetch();
+            setCompleteTask(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

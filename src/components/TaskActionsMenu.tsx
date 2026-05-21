@@ -53,16 +53,13 @@ export function TaskActionsMenu({
   const [busy, setBusy] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDue, setNewDue] = useState<string>(toLocalInputValue(currentDueIso));
-  const [skipOpen, setSkipOpen] = useState(false);
-  const [skipReason, setSkipReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [completeOpen, setCompleteOpen] = useState(false);
 
   type RpcFn =
     | "rpc_reschedule_task"
-    | "rpc_cancel_task"
-    | "rpc_skip_task";
+    | "rpc_cancel_task";
   const run = async (fn: RpcFn, params: Record<string, unknown>, successMsg: string) => {
     setBusy(true);
     try {
@@ -101,26 +98,6 @@ export function TaskActionsMenu({
     if (ok) {
       setCancelOpen(false);
       setCancelReason("");
-    }
-  };
-  const handleSkip = async () => {
-    const reason = skipReason.trim();
-    if (!reason) {
-      toast.error("Norādi izlaišanas iemeslu");
-      return;
-    }
-    const ok = await run(
-      "rpc_skip_task",
-      {
-        p_task_id: taskId,
-        p_skipped_reason: reason,
-        p_skipped_by_user_id: null,
-      },
-      "Uzdevums izlaists",
-    );
-    if (ok) {
-      setSkipOpen(false);
-      setSkipReason("");
     }
   };
 
@@ -179,15 +156,6 @@ export function TaskActionsMenu({
             Pārplānot
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setSkipReason("");
-              setSkipOpen(true);
-            }}
-          >
-            Izlaist
-          </DropdownMenuItem>
-          <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault();
@@ -235,47 +203,6 @@ export function TaskActionsMenu({
               disabled={busy || !newDue}
             >
               {busy ? "Saglabā…" : "Pārplānot"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={skipOpen}
-        onOpenChange={(o) => !busy && setSkipOpen(o)}
-      >
-        <DialogContent
-          className="sm:max-w-sm"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle>Izlaist uzdevumu</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="task-skip-reason">Iemesls</Label>
-            <Textarea
-              id="task-skip-reason"
-              value={skipReason}
-              onChange={(e) => setSkipReason(e.target.value)}
-              placeholder="Kāpēc šis uzdevums tiek izlaists?"
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSkipOpen(false)}
-              disabled={busy}
-            >
-              Atcelt
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleSkip()}
-              disabled={busy || !skipReason.trim()}
-            >
-              {busy ? "Saglabā…" : "Izlaist"}
             </Button>
           </DialogFooter>
         </DialogContent>
