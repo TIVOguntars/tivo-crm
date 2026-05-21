@@ -853,45 +853,65 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[88px]">
-                  <div className="flex items-center justify-between gap-1">
-                    <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                  </div>
-                </HeadCell>
                 <HeadCell className="w-[100px]">
-                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[64px]">
-                  <SortButton label="Atbild." k="owner" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell>
-                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[180px]">
-                  <SortButton label="Lead" k="lead" sort={sort} onClick={toggleSort} />
+                  <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[64px] text-muted-foreground/70">
-                  <SortButton label="Valsts" k="country" sort={sort} onClick={toggleSort} />
+                <HeadCell className="w-[200px]">
+                  <SortButton label="Vārds Uzvārds / VAL" k="lead" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[130px] text-muted-foreground/70">
+                  Zvani–e-pasti–ziņas
                 </HeadCell>
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
-                  <SortButton label="Lead statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
+                  <SortButton label="Statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[64px]">
+                  <SortButton label="Atbildīgais" k="owner" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[100px]">
-                  <div className="flex items-center justify-between gap-1">
-                    <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
-                  </div>
+                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[80px] text-right" />
+                <HeadCell className="w-[88px]">
+                  <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell>
+                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
+                </HeadCell>
+                <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <FilterCell>
-                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
+                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
+                </FilterCell>
+                <FilterCell>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Meklēt leadu vai objektu..."
+                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </FilterCell>
+                <FilterCell />
+                <FilterCell>
+                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
+                </FilterCell>
+                <FilterCell>
+                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
@@ -909,36 +929,10 @@ function QueuePage() {
                   </Select>
                 </FilterCell>
                 <FilterCell>
-                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
+                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
                 </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
-                </FilterCell>
-                <FilterCell>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Meklēt leadu vai objektu..."
-                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
-                    />
-                  </div>
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={country} onChange={setCountry} options={countries} />
-                </FilterCell>
-                <FilterCell>
-                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
                 </FilterCell>
                 <FilterCell>
                   {hasActiveFilters ? (
