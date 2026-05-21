@@ -880,9 +880,6 @@ function QueuePage() {
                 <HeadCell className="w-[200px]">
                   <SortButton label="Vārds Uzvārds / VAL" k="lead" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="w-[130px] text-muted-foreground/70">
-                  Zvani–e-pasti–ziņas
-                </HeadCell>
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
@@ -921,7 +918,6 @@ function QueuePage() {
                     />
                   </div>
                 </FilterCell>
-                <FilterCell />
                 <FilterCell>
                   <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
                 </FilterCell>
