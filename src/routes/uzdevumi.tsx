@@ -1117,6 +1117,22 @@ function QueuePage() {
           view.refetch();
         }}
       />
+
+      {completeTask ? (
+        <CompleteTaskModal
+          open={true}
+          onOpenChange={(o) => {
+            if (!o) setCompleteTask(null);
+          }}
+          taskId={completeTask.taskId}
+          leadId={completeTask.leadId}
+          taskType={completeTask.taskType}
+          onCompleted={() => {
+            view.refetch();
+            setCompleteTask(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
