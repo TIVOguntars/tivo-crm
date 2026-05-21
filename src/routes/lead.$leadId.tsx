@@ -319,6 +319,17 @@ function LeadProfilePage() {
   const navigate = useNavigate();
   const { resolve: resolveUserName } = useUserMap();
   const goBackToList = () => {
+    let returnTo: string | null = null;
+    try {
+      returnTo = sessionStorage.getItem("lead360:returnTo");
+      if (returnTo) sessionStorage.removeItem("lead360:returnTo");
+    } catch {
+      /* ignore */
+    }
+    if (returnTo === "/uzdevumi") {
+      navigate({ to: "/uzdevumi" });
+      return;
+    }
     let prev: Record<string, unknown> | null = null;
     try {
       const raw = sessionStorage.getItem("leadi:lastSearch");
