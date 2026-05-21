@@ -156,15 +156,6 @@ export function TaskActionsMenu({
             Pārplānot
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setSkipReason("");
-              setSkipOpen(true);
-            }}
-          >
-            Izlaist
-          </DropdownMenuItem>
-          <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault();
@@ -212,47 +203,6 @@ export function TaskActionsMenu({
               disabled={busy || !newDue}
             >
               {busy ? "Saglabā…" : "Pārplānot"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={skipOpen}
-        onOpenChange={(o) => !busy && setSkipOpen(o)}
-      >
-        <DialogContent
-          className="sm:max-w-sm"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle>Izlaist uzdevumu</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="task-skip-reason">Iemesls</Label>
-            <Textarea
-              id="task-skip-reason"
-              value={skipReason}
-              onChange={(e) => setSkipReason(e.target.value)}
-              placeholder="Kāpēc šis uzdevums tiek izlaists?"
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSkipOpen(false)}
-              disabled={busy}
-            >
-              Atcelt
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleSkip()}
-              disabled={busy || !skipReason.trim()}
-            >
-              {busy ? "Saglabā…" : "Izlaist"}
             </Button>
           </DialogFooter>
         </DialogContent>
