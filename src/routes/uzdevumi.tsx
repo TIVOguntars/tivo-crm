@@ -361,7 +361,11 @@ function QueuePage() {
 
   // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
   // each carry their own priority; never inherit from sibling tasks or lead.
-  const tasksView = useCrmView("tasks", "select=id,priority,assigned_user_id,metadata", { all: true });
+  const tasksView = useCrmView(
+    "tasks",
+    "select=id,priority,assigned_user_id,created_by_user_id,metadata",
+    { all: true },
+  );
   const taskById = useMemo(() => {
     const map = new Map<string, Row>();
     const r = (tasksView.data?.rows ?? []) as Row[];
@@ -397,19 +401,23 @@ function QueuePage() {
     return humanRows.map((r) => {
       const tk = taskById.get(s(r.id));
       const taskRaw = s(tk?.priority);
-      const taskLabel = taskPriorityLabel(taskRaw);
       const meta =
         tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
           ? (tk.metadata as Record<string, unknown>)
           : null;
       const assignedUid = s(tk?.assigned_user_id);
       const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
+      const rawOwner =
+        s(r.action_owner_label) ||
+        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
       const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
       const ownerFromTask =
         resolvedAssignee ||
-        s(r.action_owner_label) ||
-        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "") ||
+        resolveUserName(rawOwner) ||
+        rawOwner ||
         (looksUuid ? "" : assignedUid);
+      const createdByUid = s(tk?.created_by_user_id);
+      const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
       const sc = scoringByLead.get(s(r.lead_id));
       const base: Row = sc
         ? {
@@ -423,12 +431,22 @@ function QueuePage() {
             replied_count: sc.replied_count ?? null,
           }
         : { ...r };
+      // Per request: task priority is derived from lead priority_score.
+      //  >=70 → Augsta, 30..<70 → Vidēja, <30 → Zema.
+      const leadScore = n(base.priority_score);
+      const derivedTaskLabel =
+        leadScore >= 70 ? "Augsta" : leadScore >= 30 ? "Vidēja" : "Zema";
       base.task_priority_raw = taskRaw;
-      base.task_priority_label = taskLabel;
+      base.task_priority_label = derivedTaskLabel;
       base.action_owner_label = ownerFromTask;
+      base.created_by_user_id = createdByUid || null;
+      base.created_by_name = createdByName || (createdByUid || "");
+      // Resolve PPV code (e.g. "MO"/"UC") to a real user name when possible.
+      const ppvRaw = s(r.ppv_name);
+      base.ppv_name = resolveUserName(ppvRaw) || ppvRaw;
       return base;
     });
-  }, [humanRows, scoringByLead, taskById]);
+  }, [humanRows, scoringByLead, taskById, resolveUserName]);
 
 
   const statusOptionsView = useCrmView(
