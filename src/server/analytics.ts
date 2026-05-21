@@ -367,6 +367,9 @@ const CRM_RPCS = [
   "rpc_skip_task",
   "rpc_create_task",
   "rpc_log_activity",
+  "rpc_update_task",
+  "rpc_delete_task",
+  "rpc_task_followup_count",
   "admin_create_profile",
   "admin_update_profile",
   // TEMPORARY Track A bridge. Replace with auth.uid() after Real Auth migration.

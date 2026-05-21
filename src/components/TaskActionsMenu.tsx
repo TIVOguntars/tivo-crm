@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -17,24 +18,22 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { callCrmRpc } from "@/server/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
-
-function toLocalInputValue(iso: string | null | undefined): string {
-  if (!iso) {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-  }
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { TaskEditDialog } from "@/components/TaskEditDialog";
 
 export function TaskActionsMenu({
   taskId,
@@ -51,15 +50,20 @@ export function TaskActionsMenu({
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [newDue, setNewDue] = useState<string>(toLocalInputValue(currentDueIso));
+  const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [followupCount, setFollowupCount] = useState<number>(0);
+
+  // Acknowledge unused-prop warning while keeping API stable for callers.
+  void currentDueIso;
 
   type RpcFn =
     | "rpc_reschedule_task"
-    | "rpc_cancel_task";
+    | "rpc_cancel_task"
+    | "rpc_delete_task";
   const run = async (fn: RpcFn, params: Record<string, unknown>, successMsg: string) => {
     setBusy(true);
     try {
@@ -101,22 +105,47 @@ export function TaskActionsMenu({
     }
   };
 
-  const handleReschedule = async () => {
-    if (!newDue) {
-      toast.error("Norādi jaunu termiņu");
-      return;
+  const openDelete = async () => {
+    setBusy(true);
+    try {
+      const res = await callCrmRpc({
+        data: { fn: "rpc_task_followup_count", params: { p_task_id: taskId } },
+      });
+      if (res?.error) {
+        toast.error(formatCrmError(res.error));
+        return;
+      }
+      const row = res.rows?.[0];
+      // RPC returns a scalar integer; PostgREST wraps it as { rpc_task_followup_count: N }
+      // or a bare number depending on the call shape.
+      let count = 0;
+      if (typeof row === "number") count = row;
+      else if (row && typeof row === "object") {
+        const v = Object.values(row)[0];
+        count = typeof v === "number" ? v : Number(v) || 0;
+      }
+      setFollowupCount(count);
+      setDeleteOpen(true);
+    } catch (e) {
+      toast.error(formatCrmError(e));
+    } finally {
+      setBusy(false);
     }
-    const iso = new Date(newDue).toISOString();
+  };
+
+  const handleDelete = async (cascade: boolean) => {
     const ok = await run(
-      "rpc_reschedule_task",
+      "rpc_delete_task",
       {
         p_task_id: taskId,
-        p_new_due_at: iso,
-        p_rescheduled_by_user_id: null,
+        p_cascade: cascade,
+        p_deleted_by_user_id: null,
       },
-      "Uzdevums pārplānots",
+      cascade
+        ? `Dzēsti ${followupCount + 1} uzdevumi`
+        : "Uzdevums dzēsts",
     );
-    if (ok) setRescheduleOpen(false);
+    if (ok) setDeleteOpen(false);
   };
 
   return (
@@ -149,8 +178,7 @@ export function TaskActionsMenu({
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
-              setNewDue(toLocalInputValue(currentDueIso));
-              setRescheduleOpen(true);
+              setEditOpen(true);
             }}
           >
             Pārplānot
@@ -165,48 +193,26 @@ export function TaskActionsMenu({
           >
             Atcelt
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onSelect={(e) => {
+              e.preventDefault();
+              void openDelete();
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-2" />
+            Dzēst
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog
-        open={rescheduleOpen}
-        onOpenChange={(o) => !busy && setRescheduleOpen(o)}
-      >
-        <DialogContent
-          className="sm:max-w-sm"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle>Pārplānot uzdevumu</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="task-new-due">Jaunais termiņš</Label>
-            <Input
-              id="task-new-due"
-              type="datetime-local"
-              value={newDue}
-              onChange={(e) => setNewDue(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRescheduleOpen(false)}
-              disabled={busy}
-            >
-              Atcelt
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleReschedule()}
-              disabled={busy || !newDue}
-            >
-              {busy ? "Saglabā…" : "Pārplānot"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TaskEditDialog
+        taskId={editOpen ? taskId : null}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => onChanged?.()}
+      />
 
       <Dialog
         open={cancelOpen}
@@ -249,6 +255,60 @@ export function TaskActionsMenu({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(o) => !busy && setDeleteOpen(o)}
+      >
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {followupCount > 0 ? "Dzēst uzdevumu un sekojošos?" : "Dzēst šo uzdevumu?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {followupCount > 0
+                ? `Šim uzdevumam ir ${followupCount} sekojoši uzdevumi. Izvēlies, ko dzēst.`
+                : "Šī darbība ir neatgriezeniska."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Atcelt</AlertDialogCancel>
+            {followupCount > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleDelete(false)}
+                  disabled={busy}
+                >
+                  Dzēst tikai šo
+                </Button>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleDelete(true);
+                  }}
+                  disabled={busy}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Dzēst šo un sekojošos
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDelete(false);
+                }}
+                disabled={busy}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Dzēst
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CompleteTaskModal
         open={completeOpen}
