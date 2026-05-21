@@ -966,7 +966,7 @@ function QueuePage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                     {hasActiveFilters
                       ? "Nav ierakstu, kas atbilst filtriem."
                       : "Rindā nav ierakstu"}
@@ -1044,9 +1044,6 @@ function QueuePage() {
                       )}
                     </TableCell>
                     {/* 4. Zvani–e-pasti–ziņas */}
-                    <TableCell className="py-3">
-                      <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
-                    </TableCell>
                     {/* 5. Tagi */}
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
