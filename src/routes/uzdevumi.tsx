@@ -321,6 +321,11 @@ function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
   const { resolve: resolveUserName } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [completeTask, setCompleteTask] = useState<{
+    taskId: string;
+    leadId: string | null;
+    taskType: string | null;
+  } | null>(null);
   const rawRows = (view.data?.rows ?? []) as Row[];
 
   // Filter: only show human-action rows. Exclude system/automation rows
@@ -366,6 +371,27 @@ function QueuePage() {
     }
     return map;
   }, [tasksView.data]);
+
+  // Communication counts per lead — same source as /leadi.
+  const commCountsView = useCrmView(
+    "lead_row_communication_counts",
+    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+    { all: true },
+  );
+  const commCounts = useMemo(() => {
+    const map = new Map<string, CommBuckets>();
+    const r = (commCountsView.data?.rows ?? []) as Row[];
+    for (const row of r) {
+      const lid = s(row.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
+        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
+        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
+        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+      });
+    }
+    return map;
+  }, [commCountsView.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
