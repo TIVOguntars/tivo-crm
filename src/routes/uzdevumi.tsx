@@ -1043,8 +1043,7 @@ function QueuePage() {
                         </div>
                       )}
                     </TableCell>
-                    {/* 4. Zvani–e-pasti–ziņas */}
-                    {/* 5. Tagi */}
+                    {/* 4. Tagi */}
                     <TableCell className="py-3">
                       <TagsCell tags={tags} />
                     </TableCell>
