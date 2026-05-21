@@ -319,7 +319,7 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
-  const { resolve: resolveUserName } = useUserMap();
+  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [completeTask, setCompleteTask] = useState<{
     taskId: string;
@@ -406,14 +406,14 @@ function QueuePage() {
           ? (tk.metadata as Record<string, unknown>)
           : null;
       const assignedUid = s(tk?.assigned_user_id);
-      const resolvedAssignee = assignedUid ? resolveUserName(assignedUid) : "";
       const rawOwner =
         s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
       const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
+      // Display owner as user_code (UC/MO/BJ).
       const ownerFromTask =
-        resolvedAssignee ||
-        resolveUserName(rawOwner) ||
+        (assignedUid && resolveUserCode(assignedUid)) ||
+        resolveUserCode(rawOwner) ||
         rawOwner ||
         (looksUuid ? "" : assignedUid);
       const createdByUid = s(tk?.created_by_user_id);
@@ -441,12 +441,12 @@ function QueuePage() {
       base.action_owner_label = ownerFromTask;
       base.created_by_user_id = createdByUid || null;
       base.created_by_name = createdByName || (createdByUid || "");
-      // Resolve PPV code (e.g. "MO"/"UC") to a real user name when possible.
+      // PPV: display short user_code (UC/MO/BJ).
       const ppvRaw = s(r.ppv_name);
-      base.ppv_name = resolveUserName(ppvRaw) || ppvRaw;
+      base.ppv_name = resolveUserCode(ppvRaw) || ppvRaw;
       return base;
     });
-  }, [humanRows, scoringByLead, taskById, resolveUserName]);
+  }, [humanRows, scoringByLead, taskById, resolveUserName, resolveUserCode]);
 
 
   const statusOptionsView = useCrmView(
