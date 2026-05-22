@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useUserMap } from "@/hooks/useUsers";
 import { resolveDateRange, type FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
@@ -15,13 +16,13 @@ const REACHED = new Set([
 ]);
 const NOT_REACHED = "Nesasniedzams";
 
-type Dim = "action_source" | "country" | "ppv_name";
+type Dim = "source" | "country" | "ppv_user_id";
 type SortKey = "label" | "total" | "reachedPct" | "notReachedPct";
 
 const DIM_LABELS: Record<Dim, { label: string; columnHeader: string }> = {
-  action_source: { label: "Avots", columnHeader: "Avots" },
+  source: { label: "Avots", columnHeader: "Avots" },
   country: { label: "Valsts", columnHeader: "Valsts" },
-  ppv_name: { label: "PPV", columnHeader: "PPV" },
+  ppv_user_id: { label: "PPV", columnHeader: "PPV" },
 };
 
 interface Row {
@@ -38,7 +39,8 @@ function fmt(n: number): string {
 }
 
 export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
-  const [dim, setDim] = useState<Dim>("action_source");
+  const [dim, setDim] = useState<Dim>("source");
+  const { resolve: resolveUserName } = useUserMap();
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total",
     dir: "desc",
@@ -47,7 +49,7 @@ export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
   const query = useMemo(() => {
     const { from, to } = resolveDateRange(search);
     const parts: string[] = [
-      "select=action_source,country,ppv_name,lead_status_label",
+      "select=source,country,ppv_user_id,lead_status",
       "limit=10000",
     ];
     if (from) parts.push(`created_at=gte.${from}`);
@@ -58,21 +60,17 @@ export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
       );
     if (search.sources.length > 0)
       parts.push(
-        `action_source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
-      );
-    if (search.owners.length > 0)
-      parts.push(
-        `action_owner_label=in.(${search.owners.map(encodeURIComponent).join(",")})`,
+        `source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
       );
     if (search.ppvs.length > 0)
       parts.push(
-        `ppv_name=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
+        `ppv_user_id=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
       );
     return parts.join("&");
   }, [search]);
 
   const { data, isLoading, error } = useCrmView(
-    "next_action_queue_display_enriched",
+    "next_action_queue_display_v2",
     query,
   );
 
@@ -85,9 +83,14 @@ export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
 
     for (const r of records) {
       const raw = r[dim];
+      const rawStr = raw == null ? "" : String(raw).trim();
       const key =
-        raw == null || String(raw).trim() === "" ? "—" : String(raw);
-      const status = String(r.lead_status_label ?? "");
+        rawStr === ""
+          ? "—"
+          : dim === "ppv_user_id"
+            ? resolveUserName(rawStr) || rawStr
+            : rawStr;
+      const status = String(r.lead_status ?? "");
       const b = buckets.get(key) ?? { total: 0, reached: 0, notReached: 0 };
       b.total += 1;
       if (REACHED.has(status)) b.reached += 1;
@@ -103,7 +106,7 @@ export function ReachabilityBreakdown({ search }: { search: FiltersSearch }) {
       reachedPct: b.total > 0 ? (b.reached / b.total) * 100 : 0,
       notReachedPct: b.total > 0 ? (b.notReached / b.total) * 100 : 0,
     }));
-  }, [data, dim]);
+  }, [data, dim, resolveUserName]);
 
   const sorted = useMemo(() => {
     const out = [...rows];

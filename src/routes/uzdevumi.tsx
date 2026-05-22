@@ -318,7 +318,7 @@ function MiniKpi({
 }
 
 function QueuePage() {
-  const view = useCrmView("v_tasks_queue_ui", undefined, { all: true });
+  const view = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
   const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [completeTask, setCompleteTask] = useState<{
@@ -378,7 +378,7 @@ function QueuePage() {
 
   // Per-lead communication counts for the name cell (line 2).
   const commCountsView = useCrmView(
-    "leads_list_display",
+    "leads_list_display_v2",
     "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
     { all: true },
   );
@@ -441,9 +441,9 @@ function QueuePage() {
       base.action_owner_label = ownerFromTask;
       base.created_by_user_id = createdByUid || null;
       base.created_by_name = createdByName || (createdByUid || "");
-      // PPV: display short user_code (UC/MO/BJ).
-      const ppvRaw = s(r.ppv_name);
-      base.ppv_name = resolveUserCode(ppvRaw) || ppvRaw;
+      // PPV: display short user_code (UC/MO/BJ); v2 view exposes only ppv_user_id.
+      const ppvUid = s(r.ppv_user_id);
+      base.ppv_name = ppvUid ? resolveUserCode(ppvUid) || "" : "";
       return base;
     });
   }, [humanRows, scoringByLead, taskById, resolveUserName, resolveUserCode]);
