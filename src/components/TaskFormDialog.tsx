@@ -348,15 +348,6 @@ export function TaskFormDialog({
     return [{ value: "occurred_at", label: "Notikuma laiks" }];
   }, [relAnchorKind]);
 
-  // Approval banner detection: anchor is call/zoom task AND new task mode = automatic
-  const triggersApproval = useMemo(() => {
-    if (scheduleMode !== "relative") return false;
-    if (relAnchorKind !== "task" || !anchorTask) return false;
-    const anchorType = s(anchorTask.task_type);
-    if (anchorType !== "call" && anchorType !== "zoom") return false;
-    return currentTypeRow?.mode === "automatic";
-  }, [scheduleMode, relAnchorKind, anchorTask, currentTypeRow]);
-
   // resolve final due_at ISO from scheduling state
   function resolveDueIso(): { iso: string; error?: string } {
     if (scheduleMode === "absolute") {
