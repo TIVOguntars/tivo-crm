@@ -933,7 +933,7 @@ function LeadProfilePage() {
             onOpenChange={setEditPanelOpen}
             leadId={leadId}
             currentStatus={leadStatus}
-            currentOwnerId={ownerUserId || null}
+            currentOwnerId={ppvUserId || null}
             currentPpvId={ppvUserId || null}
           />
 
