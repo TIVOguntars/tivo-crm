@@ -765,48 +765,28 @@ function LeadiPage() {
       ),
     [],
   );
-  const overview = useCrmView("leads_list_display", overviewQuery);
-  const overviewLeadIds = useMemo(() => {
-    const rows = (overview.data?.rows ?? []) as Row[];
-    return Array.from(
-      new Set(rows.map((r) => s(r.lead_id) || s(r.id)).filter(Boolean)),
-    ).slice(0, PAGE_SIZE);
-  }, [overview.data]);
-  const leadIdentityQuery = useMemo(() => {
-    if (overviewLeadIds.length === 0) {
-      return "select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&limit=0";
-    }
-    const ids = overviewLeadIds
-      .map((id) => `"${id.replace(/"/g, "")}"`)
-      .join(",");
-    return `select=id,external_id,status,owner_user_id,ppv_user_id,contact_id,updated_at&id=in.(${ids})&limit=${overviewLeadIds.length}`;
-  }, [overviewLeadIds]);
-  const leadIdentity = useCrmView("leads", leadIdentityQuery);
+  const overview = useCrmView("leads_list_display_v2", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
   type LeadFacts = {
     status: string;
-    owner_user_id: string;
     ppv_user_id: string;
     contact_id: string;
-    updated_at: string;
   };
   const crmLeadFactsById = useMemo(() => {
     const map = new Map<string, LeadFacts>();
-    const rows = (leadIdentity.data?.rows ?? []) as Row[];
+    const rows = (overview.data?.rows ?? []) as Row[];
     for (const r of rows) {
-      const crmLeadId = s(r.id);
-      if (!crmLeadId) continue;
-      map.set(crmLeadId, {
+      const lid = s(r.lead_id);
+      if (!lid) continue;
+      map.set(lid, {
         status: s(r.status),
-        owner_user_id: s(r.owner_user_id),
         ppv_user_id: s(r.ppv_user_id),
         contact_id: s(r.contact_id),
-        updated_at: s(r.updated_at),
       });
     }
     return map;
-  }, [leadIdentity.data]);
+  }, [overview.data]);
 
   const reitingsView = useAnalyticsView(
     "lead_reitings_preview",
