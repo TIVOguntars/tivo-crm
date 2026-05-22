@@ -105,7 +105,6 @@ interface Lead {
   source: string;
   status: string;
   owner: string;
-  owner_user_id: string;
   ppv: string;
   ppv_user_id: string;
   next_action: string;
@@ -916,7 +915,6 @@ function LeadiPage() {
             const uid = s(facts?.ppv_user_id);
             return uid ? resolveUserName(uid) || "" : "";
           })(),
-          owner_user_id: s(facts?.ppv_user_id),
           ppv: (() => {
             const uid = s(facts?.ppv_user_id);
             return uid ? resolveUserName(uid) || "" : "";
