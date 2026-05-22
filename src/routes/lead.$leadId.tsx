@@ -349,7 +349,7 @@ function LeadProfilePage() {
     `select=lead_id,priority_score,priority_label,recommended_status&lead_id=eq.${leadId}&limit=1`,
   );
   const commCountsQ = useCrmView(
-    "leads_list_display",
+    "leads_list_display_v2",
     `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
   const commPayloadsQ = useCrmView(
@@ -429,50 +429,27 @@ function LeadProfilePage() {
   const primaryPhone = primaryPhoneE164 || primaryPhoneRaw;
   const waNumber = primaryPhoneE164.replace(/[^\d]/g, "");
 
-  const rawData = asObject(pick(header, "raw_data")) ?? null;
-  const ownerUserId = str(
-    pick(header, "owner_user_id") ?? pick(rawData, "owner_user_id"),
-  );
-  const ppvUserId = str(
-    pick(header, "ppv_user_id") ?? pick(rawData, "ppv_user_id"),
-  );
-  const atbildigaisLabel =
-    str(pick(rawData, "atbildigais")) ||
-    str(pick(legacyContext, "atbildigais")) ||
-    str(pick(header, "atbildigais"));
-  const ppvLabelRaw = fmt(
-    pick(rawData, "ppv_vards") ??
-      pick(legacyContext, "ppv_vards") ??
-      pick(header, "owner_name", "owner", "assigned_user_name"),
-  );
-  const ownerLabel =
-    (ownerUserId && resolveUserName(ownerUserId)) ||
-    atbildigaisLabel ||
-    ppvLabelRaw ||
-    "Nav piešķirts";
+  // Single owner model (v2): ppv_user_id is the only lead owner.
+  const ppvUserId = str(pick(header, "ppv_user_id"));
   const ppvLabel =
-    (ppvUserId && resolveUserName(ppvUserId)) ||
-    ppvLabelRaw ||
-    "Nav piešķirts";
+    (ppvUserId && resolveUserName(ppvUserId)) || "Nav piešķirts";
+  const ownerLabel = ppvLabel;
   const leadTitle =
     str(pick(primaryData, "full_name")) ||
-    str(pick(legacyContext, "full_name")) ||
-    str(pick(rawData, "full_name")) ||
+    str(pick(header, "full_name")) ||
     str(pick(header, "summary")) ||
     str(pick(header, "id", "lead_id")) ||
     NA;
   const leadSource =
     str(pick(header, "source", "lead_source")) ||
-    str(pick(rawData, "source")) ||
-    str(pick(legacyContext, "source", "avots_detalizets")) ||
+    str(pick(header, "source_detail")) ||
     NA;
   const leadCountry =
     str(pick(primaryData, "country")) ||
-    str(pick(rawData, "valsts")) ||
-    str(pick(legacyContext, "valsts")) ||
+    str(pick(header, "country")) ||
     "";
   const leadRegisteredAt =
-    pick(header, "created_at") ?? pick(rawData, "created_at") ?? null;
+    pick(header, "registered_at", "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
   const scoringRow = ((scoringQ.data?.rows ?? []) as Row[])[0];
   const priorityScore = Number(scoringRow?.priority_score ?? 0) || 0;
@@ -487,7 +464,7 @@ function LeadProfilePage() {
       ? 0
       : Math.max(1, Math.min(5, Math.floor(priorityScore / 20) + 1));
   const leadTags = (() => {
-    const t = pick(rawData, "tags") ?? pick(legacyContext, "tags");
+    const t = pick(header, "tags");
     if (!t) return "";
     if (Array.isArray(t)) return t.map(str).filter(Boolean).join(", ");
     return str(t);
@@ -498,7 +475,7 @@ function LeadProfilePage() {
     const r = rows[0];
     if (!commCountsQ.isLoading && !r && leadId) {
       console.error(
-        `[lead 360] leads_list_display returned no row for lead_id=${leadId}`,
+        `[lead 360] leads_list_display_v2 returned no row for lead_id=${leadId}`,
       );
     }
     const num = (v: unknown) => {
@@ -2316,28 +2293,17 @@ function LeadProfilePage() {
             open={taskDialogOpen}
             onOpenChange={setTaskDialogOpen}
             defaultOwnerLabel={
-              str(pick(rawData, "atbildigais")) ||
-              str(pick(legacyContext, "atbildigais")) ||
-              str(pick(header, "atbildigais")) ||
-              undefined
+              ppvLabel !== "Nav piešķirts" ? ppvLabel : undefined
             }
             leadContext={{
               leadName: leadTitle,
               country: leadCountry,
               primaryEmail,
               primaryPhone,
-              ppvEmail:
-                str(pick(rawData, "ppv_epasts")) ||
-                str(pick(legacyContext, "ppv_epasts")) ||
-                undefined,
+              ppvEmail: undefined,
               referenceCode:
-                str(pick(rawData, "reference_code")) ||
-                str(pick(header, "reference_code")) ||
-                undefined,
-              serverFolderUrl:
-                str(pick(rawData, "server_folder_url")) ||
-                str(pick(legacyContext, "server_folder_url")) ||
-                undefined,
+                str(pick(header, "reference_code")) || undefined,
+              serverFolderUrl: undefined,
             }}
             onCreated={() => {
               q.refetch();
