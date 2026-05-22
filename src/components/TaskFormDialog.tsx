@@ -252,12 +252,6 @@ export function TaskFormDialog({
   const recentTasks = useCrmView("tasks", recentTasksQuery);
   const recentTaskRows = (recentTasks.data?.rows ?? []) as TaskRow[];
 
-  // anchor task lookup for approval detection
-  const anchorTask: TaskRow | undefined = useMemo(() => {
-    if (relAnchorKind !== "task" || !relAnchorId) return undefined;
-    return recentTaskRows.find((r) => s(r.id) === relAnchorId);
-  }, [relAnchorKind, relAnchorId, recentTaskRows]);
-
   // Reset whenever dialog opens, and choose a sensible default type
   useEffect(() => {
     if (!open) return;
