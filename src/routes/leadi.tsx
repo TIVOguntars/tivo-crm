@@ -915,7 +915,6 @@ function LeadiPage() {
             const uid = s(facts?.ppv_user_id);
             return uid ? resolveUserName(uid) || "" : "";
           })(),
-          owner_user_id: s(facts?.ppv_user_id),
           ppv: (() => {
             const uid = s(facts?.ppv_user_id);
             return uid ? resolveUserName(uid) || "" : "";
