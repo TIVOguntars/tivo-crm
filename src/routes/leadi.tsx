@@ -912,15 +912,14 @@ function LeadiPage() {
           source: s(r.source),
           status: statusStr,
           owner: (() => {
-            const uid = s(facts?.owner_user_id);
-            const resolved = uid ? resolveUserName(uid) : "";
-            return resolved || s(r.action_owner_label) || "";
+            // Single owner = PPV (per v2 model).
+            const uid = s(facts?.ppv_user_id);
+            return uid ? resolveUserName(uid) || "" : "";
           })(),
-          owner_user_id: s(facts?.owner_user_id),
+          owner_user_id: s(facts?.ppv_user_id),
           ppv: (() => {
             const uid = s(facts?.ppv_user_id);
-            const resolved = uid ? resolveUserName(uid) : "";
-            return resolved || s(r.ppv_name || r.ppv_vards) || "";
+            return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
           next_action,
