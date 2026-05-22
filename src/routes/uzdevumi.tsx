@@ -564,7 +564,7 @@ function QueuePage() {
     [leadStatusOptions],
   );
   const owners = useMemo(
-    () => uniq(rows.map((r) => s(r.action_owner_label))),
+    () => uniq(rows.map((r) => s(r.task_executor_label))),
     [rows],
   );
   const priorities = useMemo(
@@ -580,7 +580,7 @@ function QueuePage() {
     [rows],
   );
   const ppvs = useMemo(
-    () => uniq(rows.map((r) => s(r.ppv_name))),
+    () => uniq(rows.map((r) => s(r.ppv_label))),
     [rows],
   );
   const allTags = useMemo(() => {
@@ -612,9 +612,9 @@ function QueuePage() {
       return false;
     if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
       return false;
-    if (owner !== "all" && s(r.action_owner_label) !== owner) return false;
+    if (owner !== "all" && s(r.task_executor_label) !== owner) return false;
     if (country !== "all" && s(r.country) !== country) return false;
-    if (ppv !== "all" && s(r.ppv_name) !== ppv) return false;
+    if (ppv !== "all" && s(r.ppv_label) !== ppv) return false;
     if (tags.length > 0) {
       const rowTags = parseTags(r.tags);
       if (rowTags.length !== tags.length) return false;
