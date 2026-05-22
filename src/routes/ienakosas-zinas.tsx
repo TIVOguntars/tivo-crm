@@ -24,6 +24,7 @@ import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
+import { useUserMap } from "@/hooks/useUsers";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
 import { CHANNEL_LV, lv } from "@/lib/i18nLabels";
@@ -71,6 +72,7 @@ function InboxPage() {
     status?: string;
   };
   const navigate = useNavigate();
+  const { resolve: resolveUserName } = useUserMap();
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
 
   const channelFilter = search.channel ?? "all";
@@ -156,13 +158,12 @@ function InboxPage() {
     return Array.from(set);
   }, [allEvents]);
 
-  // Batch fetch leads for those IDs from crm.next_action_queue_display_enriched
-  // (analytics.leads_overview schema permission denied).
+  // Batch fetch leads for those IDs from crm.leads_list_display_v2.
   const leadsQuery = leadIds.length
     ? `lead_id=in.(${leadIds.map((id) => `"${id}"`).join(",")})&limit=${leadIds.length}`
     : "";
   const leadsQ = useCrmView(
-    "next_action_queue_display_enriched",
+    "leads_list_display_v2",
     leadsQuery,
   );
 
@@ -170,7 +171,7 @@ function InboxPage() {
     const map = new Map<string, LeadRow>();
     const rows = (leadsQ.data?.rows ?? []) as LeadRow[];
     for (const r of rows) {
-      const id = r.lead_id ?? r.id;
+      const id = r.lead_id;
       if (id != null) map.set(String(id), r);
     }
     return map;
@@ -189,11 +190,6 @@ function InboxPage() {
     () => new Set((search.sources ?? []).map((s) => s.toLowerCase())),
     [search.sources],
   );
-  const ownerSet = useMemo(
-    () => new Set((search.owners ?? []).map((s) => s.toLowerCase())),
-    [search.owners],
-  );
-
   const enriched = useMemo(() => {
     return allEvents
       .map((ev) => {
@@ -226,11 +222,11 @@ function InboxPage() {
           if (String(comm?.channel ?? "").toLowerCase() !== channelFilter) return false;
         }
         if (statusFilter !== "all") {
-          if (String(lead?.current_status ?? lead?.status ?? "") !== statusFilter)
+          if (String(lead?.status ?? "") !== statusFilter)
             return false;
         }
         if (ppvSet.size > 0) {
-          const v = String(lead?.ppv_vards ?? lead?.ppv ?? "").toLowerCase();
+          const v = String(lead?.ppv_user_id ?? "").toLowerCase();
           if (!ppvSet.has(v)) return false;
         }
         if (countrySet.size > 0) {
@@ -240,10 +236,6 @@ function InboxPage() {
         if (sourceSet.size > 0) {
           const v = String(lead?.source ?? "").toLowerCase();
           if (!sourceSet.has(v)) return false;
-        }
-        if (ownerSet.size > 0) {
-          const v = String(lead?.owner ?? "").toLowerCase();
-          if (!ownerSet.has(v)) return false;
         }
         // ev unused in this guard, silence linter:
         void ev;
@@ -257,14 +249,13 @@ function InboxPage() {
     ppvSet,
     countrySet,
     sourceSet,
-    ownerSet,
   ]);
 
   // Build status options from loaded leads
   const statusOptions = useMemo(() => {
     const set = new Set<string>();
     for (const l of leadsById.values()) {
-      const s = l.current_status ?? l.status;
+      const s = l.status;
       if (s != null && String(s).trim() !== "") set.add(String(s));
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
@@ -369,13 +360,17 @@ function InboxPage() {
                           {fmtDate(ev.event_timestamp)}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.name ?? (leadId ? `Lead #${leadId}` : "—"))}
+                          {String(
+                            lead?.full_name ??
+                              lead?.display_name ??
+                              (leadId ? `Lead #${leadId}` : "—"),
+                          )}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.email ?? "—")}
+                          {String(lead?.email_normalized ?? "—")}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.phone_raw ?? lead?.phone ?? "—")}
+                          {String(lead?.phone_e164 ?? "—")}
                         </td>
                         <td className="px-3 py-2">
                           <Badge variant="secondary" className="text-[11px]">
@@ -394,13 +389,19 @@ function InboxPage() {
                           {snippet(body) || "—"}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.current_status ?? lead?.status ?? "—")}
+                          {String(lead?.status ?? "—")}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.ppv_vards ?? lead?.ppv ?? "—")}
+                          {(() => {
+                            const uid = String(lead?.ppv_user_id ?? "");
+                            return uid ? resolveUserName(uid) || uid : "—";
+                          })()}
                         </td>
                         <td className="px-3 py-2 text-foreground">
-                          {String(lead?.owner ?? "—")}
+                          {(() => {
+                            const uid = String(lead?.ppv_user_id ?? "");
+                            return uid ? resolveUserName(uid) || uid : "—";
+                          })()}
                         </td>
                       </tr>
                     );
