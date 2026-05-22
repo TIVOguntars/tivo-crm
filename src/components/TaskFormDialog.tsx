@@ -1323,14 +1323,6 @@ export function TaskFormDialog({
           </div>
           )}
 
-          {/* Approval banner */}
-          {triggersApproval && (
-            <div className="flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>Šim uzdevumam būs nepieciešams apstiprinājums nākamajā fāzē.</span>
-            </div>
-          )}
-
           {/* Related activities */}
           {effectiveLeadId && (outboundEmailRows.length > 0 || recentTaskRows.length > 0) && (
             <details className="rounded-md border border-border p-3">
