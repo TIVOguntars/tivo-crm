@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Users as UsersIcon,
   UserCog,
-  PencilLine,
   Inbox,
   Briefcase,
   ChevronDown,
@@ -51,10 +50,9 @@ const darbsItems: readonly NavItem[] = [
   { to: "/komunikacijas", label: "Komunikācijas", icon: MessageSquare, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/ienakosas-zinas", label: "Ienākošās", icon: Inbox, exact: false, roles: ["admin", "manager", "agent"] },
   { to: "/import-review", label: "Importi", icon: ClipboardCheck, exact: false, roles: ["admin", "manager"] },
-  { to: "/manual-corrections", label: "Korekcijas", icon: PencilLine, exact: false, roles: ["admin", "manager"] },
 ];
 
-const adminDarbsRoutes = new Set(["/import-review", "/manual-corrections"]);
+const adminDarbsRoutes = new Set(["/import-review"]);
 
 export function TopNav() {
   const role = useCurrentRole();
