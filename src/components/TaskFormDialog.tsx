@@ -9,7 +9,6 @@ import {
   MessageSquare,
   MessageCircle,
   AlertTriangle,
-  Info,
   LayoutGrid,
   FolderOpen,
   ExternalLink,
