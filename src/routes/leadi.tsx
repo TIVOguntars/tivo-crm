@@ -105,7 +105,6 @@ interface Lead {
   source: string;
   status: string;
   owner: string;
-  owner_user_id: string;
   ppv: string;
   ppv_user_id: string;
   next_action: string;
