@@ -300,7 +300,6 @@ function PārskatsPage() {
         severity: "warning",
         title: `${pct(noEmail)} leadu bez e-pasta`,
         detail: "Datu kvalitāte ietekmē sasniedzamību",
-        to: "/manual-corrections",
       });
     }
     if (noPhone >= 20) {
@@ -309,7 +308,6 @@ function PārskatsPage() {
         severity: "warning",
         title: `${pct(noPhone)} leadu bez telefona`,
         detail: "Apsveriet datu papildināšanu",
-        to: "/manual-corrections",
       });
     }
     importRows
@@ -1100,11 +1098,10 @@ function DataQualityCard({
           {issues.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {issues.map((i) => (
-                <Link
+                <span
                   key={i.label}
-                  to="/manual-corrections"
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-accent",
+                    "inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs",
                     i.value >= 30
                       ? "border-warning/40 bg-warning/10 text-foreground"
                       : "border-border bg-secondary/50 text-foreground",
@@ -1112,7 +1109,7 @@ function DataQualityCard({
                 >
                   {i.label}
                   <span className="tabular-nums font-medium">{i.value.toFixed(1)}%</span>
-                </Link>
+                </span>
               ))}
             </div>
           ) : (
