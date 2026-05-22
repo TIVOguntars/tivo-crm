@@ -1009,7 +1009,7 @@ function QueuePage() {
                       <PriorityStars label={pLabel} score={score} />
                     </TableCell>
                     {/* 2. PPV */}
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_name) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_label) || "—"}</TableCell>
                     {/* 3. Vārds Uzvārds / VAL */}
                     <TableCell className="py-3 align-top">
                       {leadId ? (
@@ -1056,7 +1056,7 @@ function QueuePage() {
                     </TableCell>
                     {/* 7. Atbildīgais */}
                     <TableCell className="py-3">
-                      <OwnerBadge value={s(r.action_owner_label)} />
+                      <OwnerBadge value={s(r.task_executor_label)} />
                     </TableCell>
                     {/* 8. Termiņš */}
                     <TableCell className="py-3">
