@@ -1279,13 +1279,13 @@ function sortValue(r: Row, key: SortKey): string | number {
       return v ? new Date(String(v)).getTime() : 0;
     }
     case "owner":
-      return s(r.action_owner_label).toLowerCase();
+      return s(r.task_executor_label).toLowerCase();
     case "action":
       return s(r.action_label).toLowerCase();
     case "lead":
       return leadLabel(r).toLowerCase();
     case "ppv":
-      return s(r.ppv_name).toLowerCase();
+      return s(r.ppv_label).toLowerCase();
     case "country":
       return s(r.country).toLowerCase();
     case "tags":
