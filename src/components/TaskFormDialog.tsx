@@ -550,7 +550,6 @@ export function TaskFormDialog({
             ...(leadContext?.referenceCode
               ? { reference_code: leadContext.referenceCode }
               : {}),
-            requires_approval: false,
           };
           const res = await callCrmRpc({
             data: {
@@ -619,13 +618,6 @@ export function TaskFormDialog({
 
     const related = Object.values(relatedIds);
 
-    const approval = triggersApproval
-      ? {
-          actor_source: "anchor_task_owner" as const,
-          anchor_task_id: relAnchorId,
-        }
-      : null;
-
     const metadata: Record<string, unknown> = {
       source: "manual_ui",
       task_type: taskType,
@@ -641,9 +633,6 @@ export function TaskFormDialog({
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
-      ...(approval
-        ? { requires_approval: true, approval }
-        : { requires_approval: false }),
     };
 
     setBusy(true);
