@@ -9,7 +9,6 @@ import {
   MessageSquare,
   MessageCircle,
   AlertTriangle,
-  Info,
   LayoutGrid,
   FolderOpen,
   ExternalLink,
@@ -252,12 +251,6 @@ export function TaskFormDialog({
   const recentTasks = useCrmView("tasks", recentTasksQuery);
   const recentTaskRows = (recentTasks.data?.rows ?? []) as TaskRow[];
 
-  // anchor task lookup for approval detection
-  const anchorTask: TaskRow | undefined = useMemo(() => {
-    if (relAnchorKind !== "task" || !relAnchorId) return undefined;
-    return recentTaskRows.find((r) => s(r.id) === relAnchorId);
-  }, [relAnchorKind, relAnchorId, recentTaskRows]);
-
   // Reset whenever dialog opens, and choose a sensible default type
   useEffect(() => {
     if (!open) return;
@@ -353,15 +346,6 @@ export function TaskFormDialog({
     ];
     return [{ value: "occurred_at", label: "Notikuma laiks" }];
   }, [relAnchorKind]);
-
-  // Approval banner detection: anchor is call/zoom task AND new task mode = automatic
-  const triggersApproval = useMemo(() => {
-    if (scheduleMode !== "relative") return false;
-    if (relAnchorKind !== "task" || !anchorTask) return false;
-    const anchorType = s(anchorTask.task_type);
-    if (anchorType !== "call" && anchorType !== "zoom") return false;
-    return currentTypeRow?.mode === "automatic";
-  }, [scheduleMode, relAnchorKind, anchorTask, currentTypeRow]);
 
   // resolve final due_at ISO from scheduling state
   function resolveDueIso(): { iso: string; error?: string } {
@@ -565,7 +549,6 @@ export function TaskFormDialog({
             ...(leadContext?.referenceCode
               ? { reference_code: leadContext.referenceCode }
               : {}),
-            requires_approval: false,
           };
           const res = await callCrmRpc({
             data: {
@@ -634,13 +617,6 @@ export function TaskFormDialog({
 
     const related = Object.values(relatedIds);
 
-    const approval = triggersApproval
-      ? {
-          actor_source: "anchor_task_owner" as const,
-          anchor_task_id: relAnchorId,
-        }
-      : null;
-
     const metadata: Record<string, unknown> = {
       source: "manual_ui",
       task_type: taskType,
@@ -656,9 +632,6 @@ export function TaskFormDialog({
       ...(relativeTo ? { relative_to: relativeTo } : {}),
       ...(related.length ? { related_activities: related } : {}),
       ...(serverFolderUrl.trim() ? { server_folder_url: serverFolderUrl.trim() } : {}),
-      ...(approval
-        ? { requires_approval: true, approval }
-        : { requires_approval: false }),
     };
 
     setBusy(true);
@@ -1347,14 +1320,6 @@ export function TaskFormDialog({
               </TabsContent>
             </Tabs>
           </div>
-          )}
-
-          {/* Approval banner */}
-          {triggersApproval && (
-            <div className="flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>Šim uzdevumam būs nepieciešams apstiprinājums nākamajā fāzē.</span>
-            </div>
           )}
 
           {/* Related activities */}

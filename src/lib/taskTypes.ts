@@ -70,11 +70,6 @@ export interface RelatedActivityRef {
   label?: string;
 }
 
-export interface ApprovalMetadata {
-  actor_source: "anchor_task_owner";
-  anchor_task_id: string;
-}
-
 // ---------- per-type metadata (discriminated union) ----------
 
 interface BaseMeta {
@@ -83,8 +78,6 @@ interface BaseMeta {
   assigned_user_id?: string | null;
   related_activities?: RelatedActivityRef[];
   relative_to?: RelativeTo | null;
-  requires_approval?: boolean;
-  approval?: ApprovalMetadata | null;
 }
 
 export interface AutomaticEmailMeta extends BaseMeta {

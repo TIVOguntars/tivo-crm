@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as QueueRouteImport } from './routes/queue'
-import { Route as ManualCorrectionsRouteImport } from './routes/manual-corrections'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
 import { Route as ImportReviewRouteImport } from './routes/import-review'
@@ -36,11 +35,6 @@ const UsersRoute = UsersRouteImport.update({
 const QueueRoute = QueueRouteImport.update({
   id: '/queue',
   path: '/queue',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ManualCorrectionsRoute = ManualCorrectionsRouteImport.update({
-  id: '/manual-corrections',
-  path: '/manual-corrections',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadiRoute = LeadiRouteImport.update({
@@ -97,7 +91,6 @@ export interface FileRoutesByFullPath {
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
-  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
@@ -112,7 +105,6 @@ export interface FileRoutesByTo {
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
-  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
@@ -128,7 +120,6 @@ export interface FileRoutesById {
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
-  '/manual-corrections': typeof ManualCorrectionsRoute
   '/queue': typeof QueueRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
@@ -145,7 +136,6 @@ export interface FileRouteTypes {
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
-    | '/manual-corrections'
     | '/queue'
     | '/users'
     | '/uzdevumi'
@@ -160,7 +150,6 @@ export interface FileRouteTypes {
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
-    | '/manual-corrections'
     | '/queue'
     | '/users'
     | '/uzdevumi'
@@ -175,7 +164,6 @@ export interface FileRouteTypes {
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
-    | '/manual-corrections'
     | '/queue'
     | '/users'
     | '/uzdevumi'
@@ -191,7 +179,6 @@ export interface RootRouteChildren {
   ImportReviewRoute: typeof ImportReviewRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
-  ManualCorrectionsRoute: typeof ManualCorrectionsRoute
   QueueRoute: typeof QueueRoute
   UsersRoute: typeof UsersRoute
   UzdevumiRoute: typeof UzdevumiRoute
@@ -220,13 +207,6 @@ declare module '@tanstack/react-router' {
       path: '/queue'
       fullPath: '/queue'
       preLoaderRoute: typeof QueueRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/manual-corrections': {
-      id: '/manual-corrections'
-      path: '/manual-corrections'
-      fullPath: '/manual-corrections'
-      preLoaderRoute: typeof ManualCorrectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leadi': {
@@ -303,7 +283,6 @@ const rootRouteChildren: RootRouteChildren = {
   ImportReviewRoute: ImportReviewRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
-  ManualCorrectionsRoute: ManualCorrectionsRoute,
   QueueRoute: QueueRoute,
   UsersRoute: UsersRoute,
   UzdevumiRoute: UzdevumiRoute,
