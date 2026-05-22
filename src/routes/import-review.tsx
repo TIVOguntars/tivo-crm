@@ -41,8 +41,6 @@ const ALLOWED: readonly Role[] = ["admin", "manager"];
 
 const searchSchema = z.object({
   session: fallback(z.string().optional(), undefined),
-  approval_status: fallback(z.string().optional(), undefined),
-  validation_status: fallback(z.string().optional(), undefined),
   change_type: fallback(z.string().optional(), undefined),
   conflict_type: fallback(z.string().optional(), undefined),
   has_conflict: fallback(z.enum(["true", "false"]).optional(), undefined),
@@ -80,8 +78,6 @@ const CHANGE_FIELDS = [
   "old_value",
   "new_value",
   "change_type",
-  "validation_status",
-  "approval_status",
   "has_conflict",
   "conflict_type",
   "conflict_reason",
@@ -289,10 +285,6 @@ function ChangesCard() {
     const params = new URLSearchParams();
     params.set("select", CHANGE_FIELDS.join(","));
     params.set("import_session_id", `eq.${session}`);
-    if (search.approval_status)
-      params.set("approval_status", `eq.${search.approval_status}`);
-    if (search.validation_status)
-      params.set("validation_status", `eq.${search.validation_status}`);
     if (search.change_type)
       params.set("change_type", `eq.${search.change_type}`);
     if (search.conflict_type)
@@ -304,8 +296,6 @@ function ChangesCard() {
     return params.toString();
   }, [
     session,
-    search.approval_status,
-    search.validation_status,
     search.change_type,
     search.conflict_type,
     search.has_conflict,
@@ -372,18 +362,6 @@ function ChangesCard() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <FilterSelect
-            label="Approval"
-            value={search.approval_status}
-            options={distinct("approval_status")}
-            onChange={(v) => setFilter("approval_status", v)}
-          />
-          <FilterSelect
-            label="Validation"
-            value={search.validation_status}
-            options={distinct("validation_status")}
-            onChange={(v) => setFilter("validation_status", v)}
-          />
-          <FilterSelect
             label="Change type"
             value={search.change_type}
             options={distinct("change_type")}
@@ -427,8 +405,6 @@ function ChangesCard() {
                     <TableHead>Old</TableHead>
                     <TableHead>New</TableHead>
                     <TableHead>Change</TableHead>
-                    <TableHead>Valid.</TableHead>
-                    <TableHead>Approval</TableHead>
                     <TableHead>Konfl.</TableHead>
                     <TableHead>Konfl. tips</TableHead>
                     <TableHead>Iemesls</TableHead>
@@ -461,12 +437,6 @@ function ChangesCard() {
                         <Badge variant="outline" className="text-[10px]">
                           {String(r.change_type ?? "—")}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={r.validation_status as string | null} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={r.approval_status as string | null} />
                       </TableCell>
                       <TableCell>
                         <BoolPill value={r.has_conflict} />
