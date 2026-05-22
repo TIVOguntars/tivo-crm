@@ -408,7 +408,6 @@ function QueuePage() {
       const assignedUid = s(tk?.assigned_user_id);
       const rawOwner =
         s(r.task_executor_label) ||
-        s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
       const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
       // Display owner as user_code (UC/MO/BJ).
