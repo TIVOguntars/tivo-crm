@@ -336,7 +336,7 @@ function QueuePage() {
       rawRows.filter((r) => {
         const ownerType = s(r.action_owner_type).toLowerCase();
         if (ownerType === "system") return false;
-        if (s(r.action_owner_label).toUpperCase() === "SIS") return false;
+        if (s(r.task_executor_label).toUpperCase() === "SIS") return false;
         return true;
       }),
     [rawRows],
@@ -407,6 +407,7 @@ function QueuePage() {
           : null;
       const assignedUid = s(tk?.assigned_user_id);
       const rawOwner =
+        s(r.task_executor_label) ||
         s(r.action_owner_label) ||
         (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
       const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
@@ -438,12 +439,12 @@ function QueuePage() {
         leadScore >= 70 ? "Augsta" : leadScore >= 30 ? "Vidēja" : "Zema";
       base.task_priority_raw = taskRaw;
       base.task_priority_label = derivedTaskLabel;
-      base.action_owner_label = ownerFromTask;
+      base.task_executor_label = ownerFromTask;
       base.created_by_user_id = createdByUid || null;
       base.created_by_name = createdByName || (createdByUid || "");
       // PPV: display short user_code (UC/MO/BJ); v2 view exposes only ppv_user_id.
       const ppvUid = s(r.ppv_user_id);
-      base.ppv_name = ppvUid ? resolveUserCode(ppvUid) || "" : "";
+      base.ppv_label = ppvUid ? resolveUserCode(ppvUid) || "" : "";
       return base;
     });
   }, [humanRows, scoringByLead, taskById, resolveUserName, resolveUserCode]);
