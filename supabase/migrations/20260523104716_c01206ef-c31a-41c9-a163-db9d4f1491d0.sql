@@ -1,0 +1,83 @@
+
+-- =============================================================================
+-- Rollback snapshot: DDL of V1 views being dropped.
+-- To restore, recreate using the SELECT bodies below.
+-- =============================================================================
+--
+-- crm.leads_list_display:
+--   CREATE VIEW crm.leads_list_display AS
+--    SELECT lead_id, lead_number, external_id, status, source, source_detail,
+--           contact_id, display_name, full_name, company_name, contact_full_name,
+--           email_normalized, phone_e164, phone_validated, phone_line_type,
+--           country, tags, ppv_user_id, created_at, registered_at, last_contact_at,
+--           next_action, next_action_due_date, object_summary,
+--           email_outbound_count, email_inbound_count, call_outbound_count,
+--           call_inbound_count, chat_outbound_count, chat_inbound_count,
+--           communication_count, last_communication_at, last_inbound_at,
+--           last_outbound_at, last_reply_at, reply_count, click_count,
+--           has_unread_reply, communication_state, communication_label,
+--           action_label, effective_due_at, queue_bucket, queue_bucket_label,
+--           priority_label, priority_score
+--    FROM crm.leads_list_display_v2;
+--
+-- crm.next_action_queue:
+--   CREATE VIEW crm.next_action_queue AS
+--    SELECT id, created_at, lead_id, full_name,
+--           lead_status AS legacy_lead_status,
+--           NULL::text AS communication_status,
+--           object_status, NULL::uuid AS person_id, NULL::text AS person_name,
+--           object_id, object_name, action_type, next_action_status, due_at,
+--           priority_score, workflow_key, workflow_name, step_key, step_name,
+--           queue_status
+--    FROM crm.next_action_queue_v2;
+--
+-- crm.next_action_queue_ui:
+--   CREATE VIEW crm.next_action_queue_ui AS
+--    SELECT id, created_at, lead_id, full_name,
+--           lead_status AS legacy_lead_status,
+--           NULL::text AS communication_status, object_status,
+--           NULL::uuid AS person_id, NULL::text AS person_name,
+--           object_id, object_name, tags, country,
+--           NULL::text AS ppv_name, NULL::text AS ppv_email, NULL::text AS ppv_phone,
+--           ppv_user_id::text AS lead_owner,
+--           source AS action_source,
+--           ppv_user_id::text AS action_owner_label,
+--           NULL::text AS forma_zeme, NULL::text AS forma_projekts,
+--           NULL::text AS planota_buvnieciba_text,
+--           action_type,
+--           COALESCE(NULLIF(next_action, ''), action_type) AS action_label,
+--           next_action_status, due_at, priority_score, queue_bucket,
+--           CASE
+--             WHEN queue_bucket = 'overdue'   THEN 'Kavēts'
+--             WHEN queue_bucket = 'today'     THEN 'Šodien'
+--             WHEN queue_bucket = 'this_week' THEN 'Šonedēļ'
+--             ELSE 'Plānots'
+--           END AS queue_bucket_label,
+--           0 AS land_score, 0 AS project_score, 0 AS tag_score,
+--           0 AS status_score, 0 AS country_score,
+--           0 AS communication_quality_score, 0 AS build_timing_score,
+--           COALESCE(priority_score, 0)::int AS lead_priority_score,
+--           priority_label,
+--           COALESCE(priority_score, 0)::int AS sort_priority,
+--           workflow_key, workflow_name AS workflow_label, workflow_name,
+--           step_key, step_name, queue_status
+--    FROM crm.next_action_queue_ui_v2;
+--
+-- crm.v_tasks_queue_ui:
+--   CREATE VIEW crm.v_tasks_queue_ui AS
+--    SELECT id, lead_id, action_source, action_label, action_owner_type,
+--           action_owner_label, assigned_user_id, due_at, effective_due_at,
+--           lead_number, full_name, object_name, country, tags, lead_status,
+--           ppv_user_id, task_type, priority, task_status, task_source,
+--           generator_rule_key, generated_for_date, queue_bucket, sort_priority,
+--           due_filter_key, due_filter_label, due_filter_sort, priority_score,
+--           priority_label, priority_filter_sort, show_in_status_quick_filter
+--    FROM crm.v_tasks_queue_ui_v2;
+-- =============================================================================
+
+DROP VIEW IF EXISTS crm.v_tasks_queue_ui     RESTRICT;
+DROP VIEW IF EXISTS crm.next_action_queue_ui RESTRICT;
+DROP VIEW IF EXISTS crm.next_action_queue    RESTRICT;
+DROP VIEW IF EXISTS crm.leads_list_display   RESTRICT;
+
+NOTIFY pgrst, 'reload schema';
