@@ -230,7 +230,7 @@ export function TaskFormDialog({
     ].join(",");
     return `select=lead_id,display_name,contact_full_name,email_normalized&or=(${or})&limit=10`;
   }, [needsPicker, trimmedQuery]);
-  const leadsResult = useCrmView("leads_list_display_v2", leadSearchQuery);
+  const leadsResult = useCrmView("leads_list_display_v3", leadSearchQuery);
   const leadResults: LeadRow[] = needsPicker && leadSearchQuery
     ? ((leadsResult.data?.rows ?? []) as LeadRow[])
     : [];

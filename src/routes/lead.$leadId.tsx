@@ -349,7 +349,7 @@ function LeadProfilePage() {
     `select=lead_id,priority_score,priority_label,recommended_status&lead_id=eq.${leadId}&limit=1`,
   );
   const commCountsQ = useCrmView(
-    "leads_list_display_v2",
+    "leads_list_display_v3",
     `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
   );
   const commPayloadsQ = useCrmView(
@@ -475,7 +475,7 @@ function LeadProfilePage() {
     const r = rows[0];
     if (!commCountsQ.isLoading && !r && leadId) {
       console.error(
-        `[lead 360] leads_list_display_v2 returned no row for lead_id=${leadId}`,
+        `[lead 360] leads_list_display_v3 returned no row for lead_id=${leadId}`,
       );
     }
     const num = (v: unknown) => {

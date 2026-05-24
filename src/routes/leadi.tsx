@@ -764,7 +764,7 @@ function LeadiPage() {
       ),
     [],
   );
-  const overview = useCrmView("leads_list_display_v2", overviewQuery);
+  const overview = useCrmView("leads_list_display_v3", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
   type LeadFacts = {

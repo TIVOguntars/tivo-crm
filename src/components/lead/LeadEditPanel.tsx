@@ -69,7 +69,7 @@ export function LeadEditPanel({
   const invalidateLead = () => {
     // Partial keys: react-query matches by prefix.
     qc.invalidateQueries({ queryKey: ["crm-rpc", "get_lead_360_profile"] });
-    qc.invalidateQueries({ queryKey: ["crm", "leads_list_display_v2"] });
+    qc.invalidateQueries({ queryKey: ["crm", "leads_list_display_v3"] });
     qc.invalidateQueries({ queryKey: ["crm", "v_lead_planned_actions"] });
     qc.invalidateQueries({ queryKey: ["crm", "tasks"] });
     qc.invalidateQueries({ queryKey: ["analytics", "leads_list_v2"] });
