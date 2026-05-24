@@ -158,12 +158,12 @@ function InboxPage() {
     return Array.from(set);
   }, [allEvents]);
 
-  // Batch fetch leads for those IDs from crm.leads_list_display_v2.
+  // Batch fetch leads for those IDs from crm.leads_list_display_v3.
   const leadsQuery = leadIds.length
     ? `lead_id=in.(${leadIds.map((id) => `"${id}"`).join(",")})&limit=${leadIds.length}`
     : "";
   const leadsQ = useCrmView(
-    "leads_list_display_v2",
+    "leads_list_display_v3",
     leadsQuery,
   );
 

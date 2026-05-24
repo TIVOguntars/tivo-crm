@@ -248,7 +248,7 @@ const CRM_VIEWS = [
   "import_sessions",
   "import_changes",
   "lead_row_communication_counts",
-  "leads_list_display_v2",
+  "leads_list_display_v3",
   "lead_priority_scoring_v2",
   "v_lead_planned_actions",
   "communication_queue",

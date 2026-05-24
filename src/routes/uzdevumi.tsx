@@ -378,7 +378,7 @@ function QueuePage() {
 
   // Per-lead communication counts for the name cell (line 2).
   const commCountsView = useCrmView(
-    "leads_list_display_v2",
+    "leads_list_display_v3",
     "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
     { all: true },
   );
