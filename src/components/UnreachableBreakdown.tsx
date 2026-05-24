@@ -66,7 +66,7 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
   }, [search]);
 
   const { data, isLoading, error } = useCrmView(
-    "next_action_queue_display_v2",
+    "v_next_action_queue",
     query,
   );
 
