@@ -693,29 +693,16 @@ function QueuePage() {
           />
         ))}
       </div>
-      <div className="mb-3 grid w-full grid-cols-1 gap-2 lg:grid-cols-7">
-        <div className="grid grid-cols-3 gap-2 lg:col-span-3 lg:border-r lg:border-border lg:pr-2">
-          {priorityChips.map((c) => (
-            <FilterCard
-              key={`p-${c.label}`}
-              label={c.label}
-              count={priorityCounts.get(c.label) ?? 0}
-              active={priority === c.label}
-              onClick={() => setPriority(priority === c.label ? "all" : c.label)}
-            />
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-4">
-          {leadStatusChips.map((c) => (
-            <FilterCard
-              key={`s-${c.label}`}
-              label={c.label}
-              count={leadStatusCounts.get(c.label) ?? 0}
-              active={leadStatus === c.label}
-              onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
-            />
-          ))}
-        </div>
+      <div className="mb-3 grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+        {leadStatusChips.map((c) => (
+          <FilterCard
+            key={`s-${c.label}`}
+            label={c.label}
+            count={leadStatusCounts.get(c.label) ?? 0}
+            active={leadStatus === c.label}
+            onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
+          />
+        ))}
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -758,9 +745,6 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
               <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="w-[100px]">
-                  <SortButton label="Lead prioritāte" k="leadPriority" sort={sort} onClick={toggleSort} />
-                </HeadCell>
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
@@ -788,9 +772,6 @@ function QueuePage() {
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
               <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-                <FilterCell>
-                  <HeaderOptionsSelect value={priority} onChange={setPriority} options={priorities} />
-                </FilterCell>
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
@@ -853,7 +834,7 @@ function QueuePage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                     {hasActiveFilters
                       ? "Nav ierakstu, kas atbilst filtriem."
                       : "Rindā nav ierakstu"}
@@ -861,11 +842,8 @@ function QueuePage() {
                 </TableRow>
               ) : filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
-                const pLabel = s(r.priority_label);
                 const tLabel = s(r.task_priority_label);
-                const isHigh = pLabel === "Augsta";
                 const tags = parseTags(r.tags);
-                const score = n(r.priority_score);
                 const taskId = s(r.id);
                 const isTask =
                   s(r.action_source).toLowerCase() === "task" &&
@@ -876,8 +854,6 @@ function QueuePage() {
                     className={cn(
                       "text-xs",
                       isTask && "cursor-pointer",
-                      isHigh &&
-                        "bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30",
                     )}
                     onClick={
                       isTask
@@ -890,10 +866,6 @@ function QueuePage() {
                         : undefined
                     }
                   >
-                    {/* 1. Lead prioritāte */}
-                    <TableCell className="py-3">
-                      <PriorityStars label={pLabel} score={score} />
-                    </TableCell>
                     {/* 2. PPV */}
                     <TableCell className="py-3 text-muted-foreground">{s(r.ppv_label) || "—"}</TableCell>
                     {/* 3. Vārds Uzvārds / VAL */}
@@ -1141,7 +1113,6 @@ function FilterCard({
 
 type SortKey =
   | "priority"
-  | "score"
   | "due"
   | "owner"
   | "action"
@@ -1149,17 +1120,12 @@ type SortKey =
   | "ppv"
   | "country"
   | "tags"
-  | "leadStatus"
-  | "leadPriority";
+  | "leadStatus";
 
 function sortValue(r: Row, key: SortKey): string | number {
   switch (key) {
     case "priority":
       return s(r.task_priority_label).toLowerCase();
-    case "score":
-      return n(r.priority_score);
-    case "leadPriority":
-      return n(r.sort_priority);
     case "due": {
       const v = r.effective_due_at ?? r.due_at;
       return v ? new Date(String(v)).getTime() : 0;
