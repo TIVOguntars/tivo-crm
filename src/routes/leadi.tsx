@@ -50,7 +50,6 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { PriorityCell } from "@/components/PriorityCell";
 import { resolveResponsible } from "@/lib/responsibleResolver";
 import {
   CHANNEL_DIRECTION_TONE,
