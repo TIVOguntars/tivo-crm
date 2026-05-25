@@ -577,7 +577,6 @@ const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
   Object.fromEntries(SORT_FIELDS.map((f) => [f.key, f]));
 
 const DEFAULT_SORT: SortRule[] = [
-  { f: "priority_score", d: "desc" },
   { f: "last_communication_at", d: "desc" },
   { f: "created_at", d: "desc" },
 ];
