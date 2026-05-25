@@ -981,10 +981,21 @@ function LeadiPage() {
           : scoring
             ? scoring.score
             : fallbackPriority;
+        const queueFacts = queueByLead.get(id);
+        const priorityLabelRaw =
+          s(r.priority_label) || s(queueFacts?.priority_label);
+        const responsible = resolveResponsible(
+          queueFacts?.action_type,
+          queueFacts?.assigned_user_id,
+        );
+        const queueBucketRaw =
+          s(r.queue_bucket) || s(queueFacts?.queue_bucket);
         return {
           lead_id: id,
           display_lead_id: id,
           name: leadDisplayName(r),
+          lead_number: s(r.lead_number),
+          company_name: s(r.company_name),
           phone,
           email,
           country,
@@ -1001,18 +1012,22 @@ function LeadiPage() {
             return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
-          next_action,
+          next_action: s(r.next_action) || next_action,
           next_action_due,
+          next_action_due_date: s(r.next_action_due_date) || null,
           queue_bucket_label,
+          queue_bucket: queueBucketRaw,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
           unread_replies:
             Number(r.unread_replies ?? r.unread_count ?? reply_count) || 0,
           communication_state,
-          communication_label: s(r.communication_label),
+          communication_label:
+            s(r.communication_label) || s(queueFacts?.communication_label),
           has_unread_reply,
           reply_count,
+          click_count: Number(r.click_count ?? 0) || 0,
           last_reply_at: s(r.last_reply_at) || null,
           last_communication_at: s(r.last_communication_at) || null,
           last_outbound_at: s(r.last_outbound_at) || null,
@@ -1021,10 +1036,22 @@ function LeadiPage() {
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
           priority_score: priorityScore,
+          priority_label: priorityLabelRaw,
+          responsible,
+          object_summary: s(r.object_summary),
+          // field missing in current query/type — pending Supabase backfill
+          summary: "",
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead, crmLeadFactsById, scoringByLead]);
+  }, [
+    overview.data,
+    reitingsByLead,
+    crmLeadFactsById,
+    scoringByLead,
+    queueByLead,
+    resolveUserName,
+  ]);
 
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
