@@ -138,6 +138,8 @@ interface Lead {
   priority_label: string;
   responsible: string; // "SIS" | userId | "-"
   object_summary: string;
+  /** True when crm.v_next_action_queue has a row for this lead. */
+  has_task: boolean;
   /**
    * Quick notes column source.
    * field missing in current query/type — pending Supabase backfill of
