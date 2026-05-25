@@ -50,7 +50,13 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { PriorityCell } from "@/components/PriorityCell";
+import { resolveResponsible } from "@/lib/responsibleResolver";
+import {
+  CHANNEL_DIRECTION_TONE,
+  UNREAD_REPLY_TONE,
+  detectChannel,
+  directionFromTimestampSource,
+} from "@/lib/channelTones";
 
 /* ============================ URL search schema ============================ */
 
@@ -98,6 +104,8 @@ interface Lead {
   lead_id: string;
   display_lead_id: string;
   name: string;
+  lead_number: string;
+  company_name: string;
   phone: string;
   email: string;
   country: string;
@@ -109,7 +117,9 @@ interface Lead {
   ppv_user_id: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
+  next_action_due_date: string | null; // raw next_action_due_date (display only)
   queue_bucket_label: string;
+  queue_bucket: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
@@ -118,12 +128,22 @@ interface Lead {
   communication_label: string;
   has_unread_reply: boolean;
   reply_count: number;
+  click_count: number;
   last_reply_at: string | null;
   last_communication_at: string | null;
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
   priority_score: number;
+  priority_label: string;
+  responsible: string; // "SIS" | userId | "-"
+  object_summary: string;
+  /**
+   * Quick notes column source.
+   * field missing in current query/type — pending Supabase backfill of
+   * crm.leads_list_display_v3 with `summary` column.
+   */
+  summary: string;
 }
 
 function s(v: unknown): string {
@@ -167,7 +187,7 @@ const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
 const LEADS_GRID =
-  "grid grid-cols-[32px_92px_64px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_130px_140px_140px_124px]";
+  "grid grid-cols-[32px_104px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
@@ -283,6 +303,12 @@ const FIELDS: FieldDef[] = [
   { key: "status", label: "Statuss", type: "enum", get: (l) => l.status },
   { key: "owner", label: "Atbildīgais", type: "enum", get: (l) => l.owner },
   { key: "ppv", label: "PPV", type: "enum", get: (l) => l.ppv },
+  {
+    key: "ppv_user_id",
+    label: "PPV (ID)",
+    type: "enum",
+    get: (l) => l.ppv_user_id,
+  },
   { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
   { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
   {
@@ -290,6 +316,18 @@ const FIELDS: FieldDef[] = [
     label: "Prioritātes punkti",
     type: "number",
     get: (l) => l.priority_score,
+  },
+  {
+    key: "priority_label",
+    label: "Prioritātes līmenis",
+    type: "enum",
+    get: (l) => l.priority_label,
+  },
+  {
+    key: "queue_bucket",
+    label: "Rindas grupa",
+    type: "enum",
+    get: (l) => l.queue_bucket,
   },
   {
     key: "communication_state",
@@ -569,9 +607,21 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
       label: "Nākamās darbības datums",
       get: (l) => parseDate(l.next_action_due) ?? Number.MAX_SAFE_INTEGER,
     },
+    {
+      key: "next_action_due_date",
+      label: "Nākamās darbības datums (raw)",
+      get: (l) =>
+        parseDate(l.next_action_due_date ?? l.next_action_due) ??
+        Number.MAX_SAFE_INTEGER,
+    },
     { key: "status", label: "Statuss", get: (l) => l.status },
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
+    {
+      key: "ppv_user_id",
+      label: "PPV (ID)",
+      get: (l) => l.ppv_user_id,
+    },
     { key: "country", label: "Valsts", get: (l) => l.country },
   ];
 const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
@@ -767,6 +817,36 @@ function LeadiPage() {
   const overview = useCrmView("leads_list_display_v3", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
+  /* ---- crm.v_next_action_queue: source for "Atbildīgais" column ---- */
+  const queueView = useCrmView(
+    "v_next_action_queue",
+    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state,queue_status,queue_bucket,priority_label&limit=20000",
+    { all: true },
+  );
+  type QueueFacts = {
+    action_type: string;
+    assigned_user_id: string;
+    queue_bucket: string;
+    priority_label: string;
+    communication_label: string;
+  };
+  const queueByLead = useMemo(() => {
+    const map = new Map<string, QueueFacts>();
+    const rows = (queueView.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid || map.has(lid)) continue;
+      map.set(lid, {
+        action_type: s(r.action_type),
+        assigned_user_id: s(r.assigned_user_id),
+        queue_bucket: s(r.queue_bucket),
+        priority_label: s(r.priority_label),
+        communication_label: s(r.communication_label),
+      });
+    }
+    return map;
+  }, [queueView.data]);
+
   type LeadFacts = {
     status: string;
     ppv_user_id: string;
@@ -900,10 +980,21 @@ function LeadiPage() {
           : scoring
             ? scoring.score
             : fallbackPriority;
+        const queueFacts = queueByLead.get(id);
+        const priorityLabelRaw =
+          s(r.priority_label) || s(queueFacts?.priority_label);
+        const responsible = resolveResponsible(
+          queueFacts?.action_type,
+          queueFacts?.assigned_user_id,
+        );
+        const queueBucketRaw =
+          s(r.queue_bucket) || s(queueFacts?.queue_bucket);
         return {
           lead_id: id,
           display_lead_id: id,
           name: leadDisplayName(r),
+          lead_number: s(r.lead_number),
+          company_name: s(r.company_name),
           phone,
           email,
           country,
@@ -920,18 +1011,22 @@ function LeadiPage() {
             return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
-          next_action,
+          next_action: s(r.next_action) || next_action,
           next_action_due,
+          next_action_due_date: s(r.next_action_due_date) || null,
           queue_bucket_label,
+          queue_bucket: queueBucketRaw,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
           unread_replies:
             Number(r.unread_replies ?? r.unread_count ?? reply_count) || 0,
           communication_state,
-          communication_label: s(r.communication_label),
+          communication_label:
+            s(r.communication_label) || s(queueFacts?.communication_label),
           has_unread_reply,
           reply_count,
+          click_count: Number(r.click_count ?? 0) || 0,
           last_reply_at: s(r.last_reply_at) || null,
           last_communication_at: s(r.last_communication_at) || null,
           last_outbound_at: s(r.last_outbound_at) || null,
@@ -940,10 +1035,22 @@ function LeadiPage() {
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
           priority_score: priorityScore,
+          priority_label: priorityLabelRaw,
+          responsible,
+          object_summary: s(r.object_summary),
+          // field missing in current query/type — pending Supabase backfill
+          summary: "",
         } as Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, reitingsByLead, crmLeadFactsById, scoringByLead]);
+  }, [
+    overview.data,
+    reitingsByLead,
+    crmLeadFactsById,
+    scoringByLead,
+    queueByLead,
+    resolveUserName,
+  ]);
 
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
@@ -986,6 +1093,9 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
+      ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
+      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
+      queue_bucket: dedupe(leadsPatched.map((l) => l.queue_bucket)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
@@ -998,7 +1108,7 @@ function LeadiPage() {
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1357,6 +1467,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Nākamais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Ātrās piezīmes</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
                   </div>
                 </div>
@@ -1576,11 +1687,31 @@ function LeadRow({
         />
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <PriorityCell score={l.priority_score} />
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span
+            className={cn(
+              "truncate text-[11.5px] font-medium",
+              l.priority_label
+                ? "text-foreground"
+                : "text-muted-foreground/60",
+            )}
+            title={l.priority_label || "0"}
+          >
+            {l.priority_label || "0"}
+          </span>
+          <span className="truncate text-[10px] tabular-nums text-muted-foreground/70">
+            {l.priority_score || 0}
+          </span>
+        </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
-        <span className="truncate">
-          {l.ppv || <span className="text-muted-foreground/60">—</span>}
+        <span
+          className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+          title={l.ppv_user_id || "-"}
+        >
+          {l.ppv_user_id || (
+            <span className="text-muted-foreground/60">-</span>
+          )}
         </span>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1">
@@ -1625,12 +1756,19 @@ function LeadRow({
         <StatusBadge status={l.status} />
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        {l.owner ? (
-          <span className="truncate text-foreground text-[11.5px] font-medium tabular-nums">
-            {l.owner}
+        {l.responsible === "SIS" ? (
+          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 h-4 text-[10.5px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+            SIS
+          </span>
+        ) : l.responsible && l.responsible !== "-" ? (
+          <span
+            className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+            title={l.responsible}
+          >
+            {l.responsible}
           </span>
         ) : (
-          <span className="text-muted-foreground/50">—</span>
+          <span className="text-muted-foreground/50">-</span>
         )}
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1">
@@ -1658,27 +1796,68 @@ function LeadRow({
         </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1">
-        <div className="flex flex-col leading-tight">
-          <span
-            className={cn(
-              "truncate text-[11.5px]",
-              l.communication_state === "unread"
-                ? "font-medium text-emerald-600 dark:text-emerald-400"
-                : l.communication_state === "waiting"
-                  ? "text-orange-600 dark:text-orange-400"
-                  : l.communication_state === "no_contact"
-                    ? "text-muted-foreground/60"
-                    : "text-foreground",
-            )}
-          >
-            {commLabel || "—"}
-          </span>
-          {commTimeSrc && !isFutureDate(commTimeSrc) && (
-            <span className="truncate text-[10px] text-muted-foreground/60">
-              {fmtRelative(commTimeSrc)}
-            </span>
-          )}
-        </div>
+        {(() => {
+          let bestDate: string | null = null;
+          let src: "reply" | "inbound" | "outbound" | "communication" | null =
+            null;
+          if (l.last_reply_at) {
+            bestDate = l.last_reply_at;
+            src = "reply";
+          } else if (l.last_inbound_at) {
+            bestDate = l.last_inbound_at;
+            src = "inbound";
+          } else if (l.last_outbound_at) {
+            bestDate = l.last_outbound_at;
+            src = "outbound";
+          } else if (l.last_communication_at) {
+            bestDate = l.last_communication_at;
+            src = "communication";
+          }
+          const channel = detectChannel(commLabel);
+          const direction = directionFromTimestampSource(src);
+          const tone = CHANNEL_DIRECTION_TONE[channel][direction];
+          return (
+            <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {commLabel ? (
+                  <span
+                    className={cn(
+                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[10.5px] font-medium",
+                      tone,
+                    )}
+                    title={commLabel}
+                  >
+                    {commLabel}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/60 text-[11px]">—</span>
+                )}
+                {l.has_unread_reply && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold",
+                      UNREAD_REPLY_TONE,
+                    )}
+                  >
+                    Jauna atbilde
+                  </span>
+                )}
+              </div>
+              {bestDate && !isFutureDate(bestDate) && (
+                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                  {fmtRelative(bestDate)}
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+      <div
+        role="cell"
+        className="min-w-0 px-1.5 py-1 flex items-center"
+        title="field missing in current query/type — pending Supabase backfill"
+      >
+        <span className="text-muted-foreground/50 text-[11px]">—</span>
       </div>
       <div
         role="cell"
