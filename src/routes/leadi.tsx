@@ -482,14 +482,6 @@ const SAVED_VIEWS: SavedView[] = [
   { key: "all", label: "Visi leadi" },
   { key: "mani", label: "Mani leadi" }, // no auth ctx — pass-through
   {
-    key: "karstie",
-    label: "Karstie",
-    predicate: (l) =>
-      l.is_hot ||
-      l.priority_score >= 60 ||
-      l.tags.some((t) => /^(hot|karst)/i.test(t)),
-  },
-  {
     key: "gaida_atbildi",
     label: "Gaidu atbildi",
     predicate: (l) =>
