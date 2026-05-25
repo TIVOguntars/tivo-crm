@@ -50,7 +50,7 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { resolveResponsible } from "@/lib/responsibleResolver";
+import { isAutoActionType } from "@/lib/responsibleResolver";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
@@ -115,6 +115,7 @@ interface Lead {
   owner: string;
   ppv: string;
   ppv_user_id: string;
+  ppv_user_code: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
@@ -138,6 +139,8 @@ interface Lead {
   priority_label: string;
   responsible: string; // "SIS" | userId | "-"
   object_summary: string;
+  /** True when crm.v_next_action_queue has a row for this lead. */
+  has_task: boolean;
   /**
    * Quick notes column source.
    * field missing in current query/type — pending Supabase backfill of
@@ -655,7 +658,7 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { resolve: resolveUserName } = useUserMap();
+  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
@@ -829,6 +832,8 @@ function LeadiPage() {
     queue_bucket: string;
     priority_label: string;
     communication_label: string;
+    workflow_name: string;
+    step_name: string;
   };
   const queueByLead = useMemo(() => {
     const map = new Map<string, QueueFacts>();
@@ -842,6 +847,8 @@ function LeadiPage() {
         queue_bucket: s(r.queue_bucket),
         priority_label: s(r.priority_label),
         communication_label: s(r.communication_label),
+        workflow_name: s(r.workflow_name),
+        step_name: s(r.step_name),
       });
     }
     return map;
@@ -983,12 +990,26 @@ function LeadiPage() {
         const queueFacts = queueByLead.get(id);
         const priorityLabelRaw =
           s(r.priority_label) || s(queueFacts?.priority_label);
-        const responsible = resolveResponsible(
-          queueFacts?.action_type,
-          queueFacts?.assigned_user_id,
-        );
+        // Atbildīgais ir tikai tam uzdevumam, kas reāli eksistē.
+        // Nav uzdevuma → "-". SIS uzdevums → "SIS". Citādi → user_code vai "-".
+        let responsible = "-";
+        if (queueFacts) {
+          if (isAutoActionType(queueFacts.action_type)) {
+            responsible = "SIS";
+          } else {
+            const code = resolveUserCode(queueFacts.assigned_user_id);
+            responsible = code || "-";
+          }
+        }
         const queueBucketRaw =
           s(r.queue_bucket) || s(queueFacts?.queue_bucket);
+        const taskName = queueFacts
+          ? s(r.next_action) ||
+            queueFacts.step_name ||
+            queueFacts.workflow_name ||
+            next_action ||
+            ""
+          : "";
         return {
           lead_id: id,
           display_lead_id: id,
@@ -1011,7 +1032,11 @@ function LeadiPage() {
             return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
-          next_action: s(r.next_action) || next_action,
+          ppv_user_code: (() => {
+            const uid = s(facts?.ppv_user_id);
+            return uid ? resolveUserCode(uid) || "" : "";
+          })(),
+          next_action: taskName,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
           queue_bucket_label,
@@ -1038,6 +1063,7 @@ function LeadiPage() {
           priority_label: priorityLabelRaw,
           responsible,
           object_summary: s(r.object_summary),
+          has_task: !!queueFacts,
           // field missing in current query/type — pending Supabase backfill
           summary: "",
         } as Lead;
@@ -1050,6 +1076,7 @@ function LeadiPage() {
     scoringByLead,
     queueByLead,
     resolveUserName,
+    resolveUserCode,
   ]);
 
   const leadsPatched = useMemo(() => {
@@ -1465,7 +1492,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Tagi</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Statuss</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Nākamais</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Uzdevums</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Ātrās piezīmes</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
@@ -1707,9 +1734,9 @@ function LeadRow({
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
         <span
           className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-          title={l.ppv_user_id || "-"}
+          title={l.ppv_user_code || "-"}
         >
-          {l.ppv_user_id || (
+          {l.ppv_user_code || (
             <span className="text-muted-foreground/60">-</span>
           )}
         </span>
@@ -1776,12 +1803,14 @@ function LeadRow({
           <span
             className={cn(
               "truncate text-[11.5px] font-medium",
-              l.next_action ? "text-foreground" : "text-muted-foreground/60",
+              l.has_task && l.next_action
+                ? "text-foreground"
+                : "text-muted-foreground/60",
             )}
           >
-            {l.next_action || "Nav darbības"}
+            {l.has_task ? l.next_action || "-" : "-"}
           </span>
-          {l.next_action_due && (
+          {l.has_task && l.next_action_due && (
             <span
               className={cn(
                 "truncate text-[10px] tabular-nums",
