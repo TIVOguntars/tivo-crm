@@ -1011,8 +1011,6 @@ function LeadiPage() {
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
       ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
-      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
-      queue_bucket: dedupe(leadsPatched.map((l) => l.queue_bucket)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
