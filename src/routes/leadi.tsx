@@ -1688,11 +1688,31 @@ function LeadRow({
         />
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <PriorityCell score={l.priority_score} />
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span
+            className={cn(
+              "truncate text-[11.5px] font-medium",
+              l.priority_label
+                ? "text-foreground"
+                : "text-muted-foreground/60",
+            )}
+            title={l.priority_label || "0"}
+          >
+            {l.priority_label || "0"}
+          </span>
+          <span className="truncate text-[10px] tabular-nums text-muted-foreground/70">
+            {l.priority_score || 0}
+          </span>
+        </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
-        <span className="truncate">
-          {l.ppv || <span className="text-muted-foreground/60">—</span>}
+        <span
+          className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+          title={l.ppv_user_id || "-"}
+        >
+          {l.ppv_user_id || (
+            <span className="text-muted-foreground/60">-</span>
+          )}
         </span>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1">
