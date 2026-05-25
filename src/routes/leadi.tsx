@@ -1803,12 +1803,14 @@ function LeadRow({
           <span
             className={cn(
               "truncate text-[11.5px] font-medium",
-              l.next_action ? "text-foreground" : "text-muted-foreground/60",
+              l.has_task && l.next_action
+                ? "text-foreground"
+                : "text-muted-foreground/60",
             )}
           >
-            {l.next_action || "Nav darbības"}
+            {l.has_task ? l.next_action || "-" : "-"}
           </span>
-          {l.next_action_due && (
+          {l.has_task && l.next_action_due && (
             <span
               className={cn(
                 "truncate text-[10px] tabular-nums",
