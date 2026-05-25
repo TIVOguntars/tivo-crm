@@ -608,9 +608,21 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
       label: "Nākamās darbības datums",
       get: (l) => parseDate(l.next_action_due) ?? Number.MAX_SAFE_INTEGER,
     },
+    {
+      key: "next_action_due_date",
+      label: "Nākamās darbības datums (raw)",
+      get: (l) =>
+        parseDate(l.next_action_due_date ?? l.next_action_due) ??
+        Number.MAX_SAFE_INTEGER,
+    },
     { key: "status", label: "Statuss", get: (l) => l.status },
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
+    {
+      key: "ppv_user_id",
+      label: "PPV (ID)",
+      get: (l) => l.ppv_user_id,
+    },
     { key: "country", label: "Valsts", get: (l) => l.country },
   ];
 const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
