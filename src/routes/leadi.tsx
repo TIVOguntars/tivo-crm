@@ -51,6 +51,13 @@ import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PriorityCell } from "@/components/PriorityCell";
+import { resolveResponsible } from "@/lib/responsibleResolver";
+import {
+  CHANNEL_DIRECTION_TONE,
+  UNREAD_REPLY_TONE,
+  detectChannel,
+  directionFromTimestampSource,
+} from "@/lib/channelTones";
 
 /* ============================ URL search schema ============================ */
 
@@ -98,6 +105,8 @@ interface Lead {
   lead_id: string;
   display_lead_id: string;
   name: string;
+  lead_number: string;
+  company_name: string;
   phone: string;
   email: string;
   country: string;
@@ -109,7 +118,9 @@ interface Lead {
   ppv_user_id: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
+  next_action_due_date: string | null; // raw next_action_due_date (display only)
   queue_bucket_label: string;
+  queue_bucket: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
@@ -118,12 +129,22 @@ interface Lead {
   communication_label: string;
   has_unread_reply: boolean;
   reply_count: number;
+  click_count: number;
   last_reply_at: string | null;
   last_communication_at: string | null;
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
   priority_score: number;
+  priority_label: string;
+  responsible: string; // "SIS" | userId | "-"
+  object_summary: string;
+  /**
+   * Quick notes column source.
+   * field missing in current query/type — pending Supabase backfill of
+   * crm.leads_list_display_v3 with `summary` column.
+   */
+  summary: string;
 }
 
 function s(v: unknown): string {
