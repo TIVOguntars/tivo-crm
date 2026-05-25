@@ -119,8 +119,6 @@ interface Lead {
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
-  queue_bucket_label: string;
-  queue_bucket: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
@@ -135,8 +133,6 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
-  priority_score: number;
-  priority_label: string;
   responsible: string; // "SIS" | userId | "-"
   object_summary: string;
   /** True when crm.v_next_action_queue has a row for this lead. */
@@ -190,7 +186,7 @@ const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
 const LEADS_GRID =
-  "grid grid-cols-[32px_104px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
+  "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
@@ -268,23 +264,6 @@ const NEXT_ACTION_BUCKET_ORDER = [
   "Nav darbības",
 ];
 
-function priorityBucket(score: number): string {
-  if (score >= 80) return "Karsts (80–100)";
-  if (score >= 60) return "Augsta (60–79)";
-  if (score >= 40) return "Vidēja (40–59)";
-  if (score >= 20) return "Zema (20–39)";
-  if (score >= 1) return "Auksts (1–19)";
-  return "Nav (0)";
-}
-const PRIORITY_BUCKET_ORDER = [
-  "Karsts (80–100)",
-  "Augsta (60–79)",
-  "Vidēja (40–59)",
-  "Zema (20–39)",
-  "Auksts (1–19)",
-  "Nav (0)",
-];
-
 /* ============================ Field catalog ============================ */
 
 type FieldType =
@@ -314,24 +293,6 @@ const FIELDS: FieldDef[] = [
   },
   { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
   { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
-  {
-    key: "priority_score",
-    label: "Prioritātes punkti",
-    type: "number",
-    get: (l) => l.priority_score,
-  },
-  {
-    key: "priority_label",
-    label: "Prioritātes līmenis",
-    type: "enum",
-    get: (l) => l.priority_label,
-  },
-  {
-    key: "queue_bucket",
-    label: "Rindas grupa",
-    type: "enum",
-    get: (l) => l.queue_bucket,
-  },
   {
     key: "communication_state",
     label: "Komunikācijas stāvoklis",
