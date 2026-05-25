@@ -1601,24 +1601,6 @@ function LeadRow({
           className="h-3.5 w-3.5"
         />
       </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <div className="flex min-w-0 flex-col leading-tight">
-          <span
-            className={cn(
-              "truncate text-[11.5px] font-medium",
-              l.priority_label
-                ? "text-foreground"
-                : "text-muted-foreground/60",
-            )}
-            title={l.priority_label || "0"}
-          >
-            {l.priority_label || "0"}
-          </span>
-          <span className="truncate text-[10px] tabular-nums text-muted-foreground/70">
-            {l.priority_score || 0}
-          </span>
-        </div>
-      </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
         <span
           className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
