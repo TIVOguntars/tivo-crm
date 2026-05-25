@@ -1,60 +1,51 @@
-## Mērķis
-Pilnībā izņemt legacy frontend Lead Priority loģiku no /leadi, /uzdevumi un Lead 360. Frontend vairs nekur neaprēķina un nerenderē Lead Priority (zvaigznes, bucket, "Karstie", score/label). `crm.tasks.priority` (High/Medium/Low) paliek neskarts kā vienīgais Task Priority avots.
+# Lead Priority cleanup — pabeigšana
 
-## Stingri ārpus scope
-- Bez DB / migrāciju / view / RPC / RLS izmaiņām.
-- Neaiztikt `crm.tasks.priority` un Task Priority UI (High/Medium/Low).
-- Neveidot jaunu scoring, bucket, stars, fallback prioritāti.
-- Nemainīt filtrus/sort, kas balstās uz NE-priority laukiem.
+Mērķis: izņemt atlikušās legacy Lead Priority atsauces no `src/routes/uzdevumi.tsx` un `src/routes/lead.$leadId.tsx`, lai build vairs nekrīt. Bez DB / view / RPC / RLS izmaiņām. `/leadi` netiek aiztikts.
 
-## Izmaiņas pa failiem
+## 1. `src/routes/uzdevumi.tsx`
 
-### 1) `src/components/PriorityCell.tsx` — DZĒST
-Failu izņemt pilnībā (`priorityStarsCount` + `PriorityCell`). Imports nav nekur kodbāzē (`rg` apstiprina 0 lietojumus ārpus paša faila).
+Iepriekšējā iterācijā jau tika dzēsti `priority` state, `priorityChips`, `priorityCounts`, `priorities`, `PriorityStars`, bet vairākas to lietojuma vietas palikušas → build kļūdas.
 
-### 2) `src/lib/priorityColors.ts` — DZĒST
-`priorityTone`, `PRIORITY_ROW_BG`, `PRIORITY_BADGE` šobrīd nav lietoti nekur citur — droši dzēšami.
+Noņemt:
 
-### 3) `src/routes/leadi.tsx`
-Noņemt visu Lead Priority aprēķinu/renderēšanu:
-- Dzēst `priorityBucket(score)` funkciju un visu tās lietojumu.
-- Dzēst saved view chip `"Karstie"` (`priority_score >= 60` predicate).
-- Dzēst FIELDS ierakstus: `priority_score`, `priority_label`, `queue_bucket` (filter/grouping/search galos).
-- Dzēst SORT_FIELDS ierakstus: `priority_score`, `priority_label`.
-- Noņemt default sort `{ f: "priority_score", d: "desc" }` — aizvietot ar esošu non-priority lauku (`created_at desc`, kas jau ir kā nullslast pamatā).
-- Noņemt otro `useCrmView("lead_priority_scoring_v2", …)` ielādi un visu `score/label/raw_priority_score` patch loģiku `leadsPatched` mappingā.
-- Noņemt `v_next_action_queue` selectos `queue_status, queue_bucket, priority_label` (atstāt tikai `lead_id, action_type, assigned_user_id, workflow_name, step_name, communication_label, communication_state` — tie ir vajadzīgi kolonnai "Atbildīgais" un "Uzdevums").
-- `QueueFacts` tipā noņemt `queue_bucket`, `priority_label`.
-- `Lead` tipā noņemt `priority_score`, `priority_label`, `queue_bucket`, `queue_bucket_label`, `raw_priority_score` (un jebkurus citus priority laukus). Atstāt `ppv_user_id`, `next_action`, `next_action_due_date`, `display_name`, contact lauki, communication counters — tos lietotājs prasīja saglabāt.
-- Dzēst kolonnu "Prioritāte" no LEADS_GRID un attiecīgo `<td>` render bloku (rindas 1715–1731).
-- LEADS_GRID columnu skaitu samazināt par 1; pārbaudīt, ka header un row col-spani sakrīt.
-- Noņemt filtru chip UI elementus `priority_label`, `queue_bucket`.
-- Pārliecināties, ka `dedupe(...)` blokā `priority_label` / `queue_bucket` arī izņemts.
+- **Filter chips bloks (rindas ~696–707)** — viss `priorityChips.map(...)` grid. Atstāt tikai lead status chips kolonnā; pielāgot ārējo grid (`lg:grid-cols-7` / `lg:col-span-3` / `lg:col-span-4`) uz vienkāršu pilnā platuma lead status grid.
+- **Tabulas header (rinda ~761–763)** — `<HeadCell>` ar `<SortButton label="Lead prioritāte" k="leadPriority" />`.
+- **Filter row (rinda ~791–793)** — `<FilterCell>` ar `<HeaderOptionsSelect value={priority} ... options={priorities} />`.
+- **Rindas render (rinda ~864, 866, 868, 879–881, 893–896)**:
+  - `const pLabel = s(r.priority_label)` — dzēst.
+  - `const isHigh = pLabel === "Augsta"` un `isHigh && "bg-red-50/70 ..."` row tinting — dzēst.
+  - `const score = n(r.priority_score)` — dzēst.
+  - `{/* 1. Lead prioritāte */} <TableCell><PriorityStars .../></TableCell>` — dzēst visu šūnu.
+- **`SortKey` (rinda ~1142–1153)** — noņemt `"score"` un `"leadPriority"` no union.
+- **`sortValue` (rinda ~1156–1162)** — noņemt `case "score"` (`priority_score`) un `case "leadPriority"` (`sort_priority`). Atstāt `case "priority"` → `task_priority_label` (Task Priority, nevis Lead).
+- **`colSpan={10}` (rinda 856)** — pārrēķināt uz `9` (tika dzēsta Lead prioritāte kolonna; PPV, Vārds, Tagi, Statuss, Atbildīgais, Termiņš, Prioritāte (task), Darbība, Darbības = 9).
 
-### 4) `src/routes/uzdevumi.tsx`
-Noņemt Lead Priority avotu un atvasinājumu, bet **paturēt** `task_priority_label`, kas nāk no `crm.tasks.priority` (NE no lead score).
-- Dzēst otro `useCrmView("lead_priority_scoring_v2", "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,…")` un visu merge bloku, kas pievieno `priority_score`, `priority_label`, `raw_priority_score` task rindām.
-- Dzēst kodu, kas atvasina `task_priority_label` no `leadScore` (`leadScore >= 70 ? "Augsta" : …`). `task_priority_label` jāveido **tikai** no `task.priority` (mapping: `high → "Augsta"`, `normal/medium → "Vidēja"`, `low → "Zema"`). Ja task select šobrīd neielādē `priority`, papildināt tasks `select=` ar `priority` (tas ir esošs `crm.tasks` lauks — nav DB izmaiņa).
-- Noņemt filter `priority` (lead priority_label) un atbilstošo UI chip. Paturēt filter `taskPriority` (task_priority_label).
-- Noņemt komentāru/loģiku "Map lead priority_score (0..90) to 1..5 stars" un jebkādu zvaigžņu render task rindām.
-- Noņemt sort opciju `priority_score` un jebkuru tie-breaker `n(b.priority_score) - n(a.priority_score)` — aizvietot ar `due_at asc nullslast` (jau esošs sort lauks) kā stabilu fallback.
-- Noņemt grupēšanu/sort pēc `queue_bucket` (rindas 659–660).
-- Noņemt `priority_label` lietojumus rindās 570, 610, 688, 728, 977.
-- Render kolonnā paturēt tikai `task_priority_label` (no `task.priority`).
+Saglabāt bez izmaiņām:
+- `taskPriorityLabel()` un `base.task_priority_label = taskPriorityLabel(taskRaw)` — Task Priority no `crm.tasks.priority`.
+- `taskPriority` state + `taskPriorities` options + `HeaderOptionsSelect` (rinda 833) — Task Priority filter.
+- `SortKey "priority"` ar `task_priority_label` — Task Priority sort.
 
-### 5) `src/routes/lead.$leadId.tsx`
-- Dzēst `scoringQ = useCrmView("lead_priority_scoring_v2", …)` un visus atvasinājumus: `scoringRow`, `priorityScore`, `priorityLabel`, `recommendedStatus`, `showRecommendedStatus`, `priorityStars`.
-- Header bloka "Prioritāte" sekciju (rindas 780–799) dzēst pilnībā — zvaigznes, label, score, "Ieteiktais statuss" badge. Saglabāt PPV, Atbildīgais, Pēdējā aktivitāte sekcijas.
-- Noņemt `Star` import, ja pēc tam vairs nav lietots.
+## 2. `src/routes/lead.$leadId.tsx`
 
-## Verifikācija pēc ieviešanas
-- `rg "priorityStarsCount|PriorityCell|priorityBucket|priority_score|priority_label|priority_sort|queue_bucket|queue_status|raw_priority_score|lead_priority_scoring_v2|Karstie" src` → 0 rezultātu.
-- `rg "priorityTone|PRIORITY_ROW_BG|PRIORITY_BADGE" src` → 0 rezultātu.
-- `rg "task.priority|task_priority_label" src` → paliek tikai uzdevumu kontekstā (apliecina, ka Task Priority saglabāts).
-- Vizuāli: /leadi ielādējas (679 leads), bez "Prioritāte" kolonnas, bez "Karstie" chip; /uzdevumi rāda Task Priority no `task.priority`; Lead 360 header bez priority bloka.
+Noņemt:
 
-## Deliverable
-1. Dzēsti: `PriorityCell.tsx`, `priorityColors.ts`.
-2. Atjaunoti: `leadi.tsx`, `uzdevumi.tsx`, `lead.$leadId.tsx`.
-3. Saglabāts: `crm.tasks.priority` kā vienīgais Task Priority avots; `task_priority_label` veidots tikai no tā.
-4. Bez DB / migrāciju / jaunu view izmaiņām.
+- **Imports (rinda 21)** — `Star` no `lucide-react` (vairs nelietots).
+- **`useCrmView("lead_priority_scoring_v2", ...)` blokss (rindas 345–350)** — viss `scoringQ` un komentārs virs tā.
+- **Derived state (rindas 454–465)** — `scoringRow`, `priorityScore`, `priorityLabel`, `recommendedStatus`, `showRecommendedStatus`, `priorityStars`.
+- **Header bloks "Prioritāte" (rindas 780–799)** — viss `<div className="flex flex-col ml-[50px]">...</div>` ar Star zvaigznēm, `priorityLabel · priorityScore` un `Ieteiktais statuss` badge.
+
+Saglabāt bez izmaiņām:
+- PPV bloks (rinda 771–775).
+- Atbildīgais bloks (rinda 776–779).
+- Pēdējā aktivitāte bloks (rinda 800–803).
+- Viss pārējais Lead 360 saturs.
+
+## Verifikācija
+
+```
+rg "priority_score|priority_label|raw_priority_score|priority_sort|queue_bucket|queue_status|lead_priority_scoring_v2|PriorityStars|priorityStars|Lead prioritāte|Karstie" src/routes/uzdevumi.tsx src/routes/lead.\$leadId.tsx
+```
+
+Sagaidāmais rezultāts: 0 rindu. (Visi `task_priority_label` / `taskPriority` lietojumi paliek — tie ir Task Priority no `crm.tasks.priority`, kas pēc instrukcijas jāsaglabā.)
+
+Pēc tam ļaut harness palaist build, lai apstiprinātu, ka nav TS kļūdu un nav unused imports.
