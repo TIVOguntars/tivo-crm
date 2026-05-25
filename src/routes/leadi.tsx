@@ -119,8 +119,6 @@ interface Lead {
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
-  queue_bucket_label: string;
-  queue_bucket: string;
   last_activity: string | null;
   tags: string[];
   created_at: string | null;
@@ -135,8 +133,6 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
-  priority_score: number;
-  priority_label: string;
   responsible: string; // "SIS" | userId | "-"
   object_summary: string;
   /** True when crm.v_next_action_queue has a row for this lead. */
@@ -190,7 +186,7 @@ const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
 const LEADS_GRID =
-  "grid grid-cols-[32px_104px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
+  "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
@@ -268,23 +264,6 @@ const NEXT_ACTION_BUCKET_ORDER = [
   "Nav darbības",
 ];
 
-function priorityBucket(score: number): string {
-  if (score >= 80) return "Karsts (80–100)";
-  if (score >= 60) return "Augsta (60–79)";
-  if (score >= 40) return "Vidēja (40–59)";
-  if (score >= 20) return "Zema (20–39)";
-  if (score >= 1) return "Auksts (1–19)";
-  return "Nav (0)";
-}
-const PRIORITY_BUCKET_ORDER = [
-  "Karsts (80–100)",
-  "Augsta (60–79)",
-  "Vidēja (40–59)",
-  "Zema (20–39)",
-  "Auksts (1–19)",
-  "Nav (0)",
-];
-
 /* ============================ Field catalog ============================ */
 
 type FieldType =
@@ -314,24 +293,6 @@ const FIELDS: FieldDef[] = [
   },
   { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
   { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
-  {
-    key: "priority_score",
-    label: "Prioritātes punkti",
-    type: "number",
-    get: (l) => l.priority_score,
-  },
-  {
-    key: "priority_label",
-    label: "Prioritātes līmenis",
-    type: "enum",
-    get: (l) => l.priority_label,
-  },
-  {
-    key: "queue_bucket",
-    label: "Rindas grupa",
-    type: "enum",
-    get: (l) => l.queue_bucket,
-  },
   {
     key: "communication_state",
     label: "Komunikācijas stāvoklis",
@@ -521,14 +482,6 @@ const SAVED_VIEWS: SavedView[] = [
   { key: "all", label: "Visi leadi" },
   { key: "mani", label: "Mani leadi" }, // no auth ctx — pass-through
   {
-    key: "karstie",
-    label: "Karstie",
-    predicate: (l) =>
-      l.is_hot ||
-      l.priority_score >= 60 ||
-      l.tags.some((t) => /^(hot|karst)/i.test(t)),
-  },
-  {
     key: "gaida_atbildi",
     label: "Gaidu atbildi",
     predicate: (l) =>
@@ -574,12 +527,6 @@ const GROUP_FIELDS: GroupFieldDef[] = [
     get: (l) => l.country || "Nav norādīts",
   },
   {
-    key: "priority_bucket",
-    label: "Prioritātes grupa",
-    get: (l) => priorityBucket(l.priority_score),
-    order: PRIORITY_BUCKET_ORDER,
-  },
-  {
     key: "next_action_bucket",
     label: "Nākamās darbības datums",
     get: (l) => nextActionBucket(l.next_action_due),
@@ -594,7 +541,6 @@ const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
 
 const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
   [
-    { key: "priority_score", label: "Prioritāte", get: (l) => l.priority_score },
     {
       key: "last_communication_at",
       label: "Pēdējā komunikācija",
@@ -631,7 +577,6 @@ const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
   Object.fromEntries(SORT_FIELDS.map((f) => [f.key, f]));
 
 const DEFAULT_SORT: SortRule[] = [
-  { f: "priority_score", d: "desc" },
   { f: "last_communication_at", d: "desc" },
   { f: "created_at", d: "desc" },
 ];
@@ -823,14 +768,12 @@ function LeadiPage() {
   /* ---- crm.v_next_action_queue: source for "Atbildīgais" column ---- */
   const queueView = useCrmView(
     "v_next_action_queue",
-    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state,queue_status,queue_bucket,priority_label&limit=20000",
+    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state&limit=20000",
     { all: true },
   );
   type QueueFacts = {
     action_type: string;
     assigned_user_id: string;
-    queue_bucket: string;
-    priority_label: string;
     communication_label: string;
     workflow_name: string;
     step_name: string;
@@ -844,8 +787,6 @@ function LeadiPage() {
       map.set(lid, {
         action_type: s(r.action_type),
         assigned_user_id: s(r.assigned_user_id),
-        queue_bucket: s(r.queue_bucket),
-        priority_label: s(r.priority_label),
         communication_label: s(r.communication_label),
         workflow_name: s(r.workflow_name),
         step_name: s(r.step_name),
@@ -890,30 +831,6 @@ function LeadiPage() {
     return map;
   }, [reitingsView.data]);
 
-  // Priority is sourced from crm.lead_priority_scoring_v2.
-  const scoringView = useCrmView(
-    "lead_priority_scoring_v2",
-    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count&limit=20000",
-    { all: true },
-  );
-  const scoringByLead = useMemo(() => {
-    const map = new Map<
-      string,
-      { score: number; label: string; recommended: string }
-    >();
-    const rows = (scoringView.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        score: Number(r.priority_score ?? 0) || 0,
-        label: s(r.priority_label) || "Zema",
-        recommended: s(r.recommended_status),
-      });
-    }
-    return map;
-  }, [scoringView.data]);
-
   const commCounts = useMemo(() => {
     const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
@@ -957,7 +874,6 @@ function LeadiPage() {
         const next_action_due =
           s(r.effective_due_at) || s(r.visible_action_due_at) || null;
         const next_action = s(r.action_label);
-        const queue_bucket_label = s(r.queue_bucket_label);
         const last_activity =
           s(r.last_contact_date) ||
           s(r.last_communication_at) ||
@@ -971,25 +887,7 @@ function LeadiPage() {
         const facts = crmLeadFactsById.get(id);
         const statusStr =
           s(facts?.status) || s(r.lead_status_label || r.status);
-        const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const scoring = scoringByLead.get(id);
-        const rowPriority = Number(r.priority_score);
-        const ratingPriority =
-          reitingsByLead.get(id) ??
-          reitingsByLead.get(s(r.external_id)) ??
-          0;
-        const fallbackPriority =
-          Number.isFinite(rowPriority) && rowPriority > 0
-            ? rowPriority
-            : ratingPriority;
-        const priorityScore = isTerminal
-          ? 0
-          : scoring
-            ? scoring.score
-            : fallbackPriority;
         const queueFacts = queueByLead.get(id);
-        const priorityLabelRaw =
-          s(r.priority_label) || s(queueFacts?.priority_label);
         // Atbildīgais ir tikai tam uzdevumam, kas reāli eksistē.
         // Nav uzdevuma → "-". SIS uzdevums → "SIS". Citādi → user_code vai "-".
         let responsible = "-";
@@ -1001,8 +899,6 @@ function LeadiPage() {
             responsible = code || "-";
           }
         }
-        const queueBucketRaw =
-          s(r.queue_bucket) || s(queueFacts?.queue_bucket);
         const taskName = queueFacts
           ? s(r.next_action) ||
             queueFacts.step_name ||
@@ -1039,8 +935,6 @@ function LeadiPage() {
           next_action: taskName,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
-          queue_bucket_label,
-          queue_bucket: queueBucketRaw,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
@@ -1059,8 +953,6 @@ function LeadiPage() {
           is_hot:
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
-          priority_score: priorityScore,
-          priority_label: priorityLabelRaw,
           responsible,
           object_summary: s(r.object_summary),
           has_task: !!queueFacts,
@@ -1071,9 +963,7 @@ function LeadiPage() {
       .filter((x): x is Lead => x !== null);
   }, [
     overview.data,
-    reitingsByLead,
     crmLeadFactsById,
-    scoringByLead,
     queueByLead,
     resolveUserName,
     resolveUserCode,
@@ -1121,8 +1011,6 @@ function LeadiPage() {
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
       ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
-      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
-      queue_bucket: dedupe(leadsPatched.map((l) => l.queue_bucket)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
@@ -1486,7 +1374,6 @@ function LeadiPage() {
                         className="h-3.5 w-3.5"
                       />
                     </div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Prioritāte</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">PPV</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Lead</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Tagi</div>
@@ -1712,24 +1599,6 @@ function LeadRow({
           onCheckedChange={() => toggleOne(l.lead_id)}
           className="h-3.5 w-3.5"
         />
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <div className="flex min-w-0 flex-col leading-tight">
-          <span
-            className={cn(
-              "truncate text-[11.5px] font-medium",
-              l.priority_label
-                ? "text-foreground"
-                : "text-muted-foreground/60",
-            )}
-            title={l.priority_label || "0"}
-          >
-            {l.priority_label || "0"}
-          </span>
-          <span className="truncate text-[10px] tabular-nums text-muted-foreground/70">
-            {l.priority_score || 0}
-          </span>
-        </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
         <span

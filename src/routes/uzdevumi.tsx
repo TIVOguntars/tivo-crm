@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -167,37 +167,6 @@ function PriorityBadge({ label }: { label: string }) {
   );
 }
 
-function PriorityStars({ label, score }: { label: string; score: number }) {
-  // Map lead priority_score (0..90) to 1..5 stars.
-  let count = 0;
-  if (score > 0) {
-    if (score >= 72) count = 5;
-    else if (score >= 54) count = 4;
-    else if (score >= 36) count = 3;
-    else if (score >= 18) count = 2;
-    else count = 1;
-  } else if (label === "Augsta") count = 5;
-  else if (label === "Normāla" || label === "Vidēja") count = 3;
-  else if (label === "Zema") count = 1;
-  if (count === 0) return <span className="text-muted-foreground">—</span>;
-  return (
-    <div className="flex items-center gap-0.5" title={`${label}${score ? ` · ${score}` : ""}`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          className={cn(
-            "h-3 w-3",
-            i <= count
-              ? "fill-amber-500 text-amber-500"
-              : "fill-transparent text-muted-foreground/40",
-          )}
-          strokeWidth={2}
-        />
-      ))}
-    </div>
-  );
-}
-
 function taskPriorityLabel(raw: unknown): string {
   const v = s(raw).toLowerCase();
   if (!v) return "";
@@ -342,23 +311,6 @@ function QueuePage() {
     [rawRows],
   );
 
-  // Priority is sourced from crm.lead_priority_scoring_v2.
-  // Merge by lead_id and override priority_score / priority_label / recommended_status.
-  const scoringView = useCrmView(
-    "lead_priority_scoring_v2",
-    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count",
-    { all: true },
-  );
-  const scoringByLead = useMemo(() => {
-    const map = new Map<string, Row>();
-    const r = (scoringView.data?.rows ?? []) as Row[];
-    for (const row of r) {
-      const lid = s(row.lead_id);
-      if (lid) map.set(lid, row);
-    }
-    return map;
-  }, [scoringView.data]);
-
   // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
   // each carry their own priority; never inherit from sibling tasks or lead.
   const tasksView = useCrmView(
@@ -418,26 +370,10 @@ function QueuePage() {
         (looksUuid ? "" : assignedUid);
       const createdByUid = s(tk?.created_by_user_id);
       const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
-      const sc = scoringByLead.get(s(r.lead_id));
-      const base: Row = sc
-        ? {
-            ...r,
-            priority_score: sc.priority_score ?? 0,
-            priority_label: sc.priority_label ?? "Zema",
-            recommended_status: sc.recommended_status ?? null,
-            raw_priority_score: sc.raw_priority_score ?? null,
-            has_hot_tag: sc.has_hot_tag ?? null,
-            inbound_count: sc.inbound_count ?? null,
-            replied_count: sc.replied_count ?? null,
-          }
-        : { ...r };
-      // Per request: task priority is derived from lead priority_score.
-      //  >=70 → Augsta, 30..<70 → Vidēja, <30 → Zema.
-      const leadScore = n(base.priority_score);
-      const derivedTaskLabel =
-        leadScore >= 70 ? "Augsta" : leadScore >= 30 ? "Vidēja" : "Zema";
+      const base: Row = { ...r };
+      // Task priority comes from crm.tasks.priority only — never from lead score.
       base.task_priority_raw = taskRaw;
-      base.task_priority_label = derivedTaskLabel;
+      base.task_priority_label = taskPriorityLabel(taskRaw);
       base.task_executor_label = ownerFromTask;
       base.created_by_user_id = createdByUid || null;
       base.created_by_name = createdByName || (createdByUid || "");
@@ -446,7 +382,7 @@ function QueuePage() {
       base.ppv_label = ppvUid ? resolveUserCode(ppvUid) || "" : "";
       return base;
     });
-  }, [humanRows, scoringByLead, taskById, resolveUserName, resolveUserCode]);
+  }, [humanRows, taskById, resolveUserName, resolveUserCode]);
 
 
   const statusOptionsView = useCrmView(
@@ -478,7 +414,6 @@ function QueuePage() {
   const [actionType, setActionType] = useState<string>("all");
   const [dueFilter, setDueFilter] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
-  const [priority, setPriority] = useState<string>("all");
   const [taskPriority, setTaskPriority] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
@@ -500,7 +435,6 @@ function QueuePage() {
       if (typeof p.actionType === "string") setActionType(p.actionType);
       if (typeof p.dueFilter === "string") setDueFilter(p.dueFilter);
       if (typeof p.leadStatus === "string") setLeadStatus(p.leadStatus);
-      if (typeof p.priority === "string") setPriority(p.priority);
       if (typeof p.taskPriority === "string") setTaskPriority(p.taskPriority);
       if (typeof p.owner === "string") setOwner(p.owner);
       if (typeof p.country === "string") setCountry(p.country);
@@ -530,7 +464,6 @@ function QueuePage() {
           actionType,
           dueFilter,
           leadStatus,
-          priority,
           taskPriority,
           owner,
           country,
@@ -544,7 +477,7 @@ function QueuePage() {
     } catch {
       /* ignore */
     }
-  }, [actionType, dueFilter, leadStatus, priority, taskPriority, owner, country, ppv, tags, q, source, sort]);
+  }, [actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
   const toggleSort = (key: SortKey) => {
     setSort((cur) => {
@@ -564,10 +497,6 @@ function QueuePage() {
   );
   const owners = useMemo(
     () => uniq(rows.map((r) => s(r.task_executor_label))),
-    [rows],
-  );
-  const priorities = useMemo(
-    () => uniq(rows.map((r) => s(r.priority_label))),
     [rows],
   );
   const taskPriorities = useMemo(
@@ -590,7 +519,7 @@ function QueuePage() {
 
   const matchRow = (
     r: Row,
-    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean; source?: boolean } = {},
+    skip: { due?: boolean; leadStatus?: boolean; source?: boolean } = {},
   ): boolean => {
     const qq = q.trim().toLowerCase();
     if (actionType !== "all" && s(r.action_label) !== actionType) return false;
@@ -606,8 +535,6 @@ function QueuePage() {
       leadStatus !== "all" &&
       mapStatus(s(r.legacy_lead_status)) !== leadStatus
     )
-      return false;
-    if (!skip.priority && priority !== "all" && s(r.priority_label) !== priority)
       return false;
     if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
       return false;
@@ -644,30 +571,15 @@ function QueuePage() {
           if (cmp !== 0) return cmp * dir;
         }
       }
-      const aSp = n(a.sort_priority);
-      const bSp = n(b.sort_priority);
-      if (aSp !== bSp) return bSp - aSp;
-      const order: Record<string, number> = {
-        overdue: 0,
-        today: 1,
-        tomorrow: 2,
-        next_24h: 2,
-        this_week: 3,
-        upcoming: 4,
-        planned: 5,
-      };
-      const aB = order[s(a.queue_bucket)] ?? 99;
-      const bB = order[s(b.queue_bucket)] ?? 99;
-      if (aB !== bB) return aB - bB;
       const aDueRaw = a.effective_due_at ?? a.due_at;
       const bDueRaw = b.effective_due_at ?? b.due_at;
       const aDue = aDueRaw ? new Date(String(aDueRaw)).getTime() : Infinity;
       const bDue = bDueRaw ? new Date(String(bDueRaw)).getTime() : Infinity;
       if (aDue !== bDue) return aDue - bDue;
-      return n(b.priority_score) - n(a.priority_score);
+      return 0;
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, source, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -678,18 +590,6 @@ function QueuePage() {
       if (!map.has(k))
         map.set(k, { key: k, label: s(r.due_filter_label) || k, sort: n(r.due_filter_sort) });
     }
-    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
-  }, [rows]);
-
-  const priorityChips = useMemo(() => {
-    const allow = ["Augsta", "Normāla", "Zema"];
-    const map = new Map<string, { label: string; sort: number }>();
-    for (const r of rows) {
-      const l = s(r.priority_label);
-      if (!allow.includes(l)) continue;
-      if (!map.has(l)) map.set(l, { label: l, sort: n(r.priority_filter_sort) });
-    }
-    for (const l of allow) if (!map.has(l)) map.set(l, { label: l, sort: 99 });
     return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
   }, [rows]);
 
@@ -719,18 +619,7 @@ function QueuePage() {
       c.set(k, (c.get(k) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tags, q]);
-
-  const priorityCounts = useMemo(() => {
-    const c = new Map<string, number>();
-    for (const r of rows) {
-      if (!matchRow(r, { priority: true })) continue;
-      const l = s(r.priority_label);
-      if (!l) continue;
-      c.set(l, (c.get(l) ?? 0) + 1);
-    }
-    return c;
-  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tags, q]);
+  }, [rows, actionType, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   const leadStatusCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -741,13 +630,12 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tags, q]);
+  }, [rows, actionType, dueFilter, taskPriority, owner, country, ppv, tags, q]);
 
   const hasActiveFilters =
     actionType !== "all" ||
     dueFilter !== "all" ||
     leadStatus !== "all" ||
-    priority !== "all" ||
     taskPriority !== "all" ||
     owner !== "all" ||
     country !== "all" ||
@@ -761,7 +649,6 @@ function QueuePage() {
     setActionType("all");
     setDueFilter("all");
     setLeadStatus("all");
-    setPriority("all");
     setTaskPriority("all");
     setOwner("all");
     setCountry("all");
@@ -781,7 +668,7 @@ function QueuePage() {
       else manual += 1;
     }
     return { all: auto + manual, auto, manual };
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q]);
+  }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
