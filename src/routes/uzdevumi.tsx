@@ -311,23 +311,6 @@ function QueuePage() {
     [rawRows],
   );
 
-  // Priority is sourced from crm.lead_priority_scoring_v2.
-  // Merge by lead_id and override priority_score / priority_label / recommended_status.
-  const scoringView = useCrmView(
-    "lead_priority_scoring_v2",
-    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count",
-    { all: true },
-  );
-  const scoringByLead = useMemo(() => {
-    const map = new Map<string, Row>();
-    const r = (scoringView.data?.rows ?? []) as Row[];
-    for (const row of r) {
-      const lid = s(row.lead_id);
-      if (lid) map.set(lid, row);
-    }
-    return map;
-  }, [scoringView.data]);
-
   // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
   // each carry their own priority; never inherit from sibling tasks or lead.
   const tasksView = useCrmView(
@@ -387,26 +370,10 @@ function QueuePage() {
         (looksUuid ? "" : assignedUid);
       const createdByUid = s(tk?.created_by_user_id);
       const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
-      const sc = scoringByLead.get(s(r.lead_id));
-      const base: Row = sc
-        ? {
-            ...r,
-            priority_score: sc.priority_score ?? 0,
-            priority_label: sc.priority_label ?? "Zema",
-            recommended_status: sc.recommended_status ?? null,
-            raw_priority_score: sc.raw_priority_score ?? null,
-            has_hot_tag: sc.has_hot_tag ?? null,
-            inbound_count: sc.inbound_count ?? null,
-            replied_count: sc.replied_count ?? null,
-          }
-        : { ...r };
-      // Per request: task priority is derived from lead priority_score.
-      //  >=70 → Augsta, 30..<70 → Vidēja, <30 → Zema.
-      const leadScore = n(base.priority_score);
-      const derivedTaskLabel =
-        leadScore >= 70 ? "Augsta" : leadScore >= 30 ? "Vidēja" : "Zema";
+      const base: Row = { ...r };
+      // Task priority comes from crm.tasks.priority only — never from lead score.
       base.task_priority_raw = taskRaw;
-      base.task_priority_label = derivedTaskLabel;
+      base.task_priority_label = taskPriorityLabel(taskRaw);
       base.task_executor_label = ownerFromTask;
       base.created_by_user_id = createdByUid || null;
       base.created_by_name = createdByName || (createdByUid || "");
@@ -415,7 +382,7 @@ function QueuePage() {
       base.ppv_label = ppvUid ? resolveUserCode(ppvUid) || "" : "";
       return base;
     });
-  }, [humanRows, scoringByLead, taskById, resolveUserName, resolveUserCode]);
+  }, [humanRows, taskById, resolveUserName, resolveUserCode]);
 
 
   const statusOptionsView = useCrmView(
