@@ -18,7 +18,6 @@ import {
   ArrowUpRight,
   Reply,
   Forward,
-  Star,
   X,
   Pencil,
   MoreVertical,
@@ -342,12 +341,6 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
-  // CANONICAL priority source: crm.lead_priority_scoring_v2.
-  // Display only — never write back to crm.leads.
-  const scoringQ = useCrmView(
-    "lead_priority_scoring_v2",
-    `select=lead_id,priority_score,priority_label,recommended_status&lead_id=eq.${leadId}&limit=1`,
-  );
   const commCountsQ = useCrmView(
     "leads_list_display_v3",
     `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
@@ -451,18 +444,6 @@ function LeadProfilePage() {
   const leadRegisteredAt =
     pick(header, "registered_at", "created_at") ?? null;
   const leadStatus = str(pick(header, "status", "lead_status"));
-  const scoringRow = ((scoringQ.data?.rows ?? []) as Row[])[0];
-  const priorityScore = Number(scoringRow?.priority_score ?? 0) || 0;
-  const priorityLabel = String(scoringRow?.priority_label ?? "") || "Zema";
-  const recommendedStatus = String(scoringRow?.recommended_status ?? "");
-  const showRecommendedStatus =
-    !!recommendedStatus &&
-    recommendedStatus.toLowerCase() !== leadStatus.toLowerCase();
-  // Same formula as /leadi PriorityCell — keep them in sync.
-  const priorityStars =
-    priorityScore <= 0
-      ? 0
-      : Math.max(1, Math.min(5, Math.floor(priorityScore / 20) + 1));
   const leadTags = (() => {
     const t = pick(header, "tags");
     if (!t) return "";
@@ -776,26 +757,6 @@ function LeadProfilePage() {
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Atbildīgais</span>
                     <span className="text-foreground mx-[10px] font-medium">{ownerLabel}</span>
-                  </div>
-                  <div className="flex flex-col ml-[50px]">
-                    <span className="text-foreground mx-[10px]">Prioritāte</span>
-                    <span className="text-foreground mx-[10px] font-medium flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${i < priorityStars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
-                        />
-                      ))}
-                      <span className="ml-1">{priorityLabel} · {priorityScore}</span>
-                      {showRecommendedStatus && (
-                        <span
-                          className="ml-2 inline-flex items-center rounded border border-dashed border-amber-400/60 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
-                          title={`Ieteiktais statuss: ${recommendedStatus}`}
-                        >
-                          → {recommendedStatus}
-                        </span>
-                      )}
-                    </span>
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Pēdējā aktivitāte</span>
