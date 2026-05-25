@@ -115,6 +115,7 @@ interface Lead {
   owner: string;
   ppv: string;
   ppv_user_id: string;
+  ppv_user_code: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
