@@ -874,7 +874,6 @@ function LeadiPage() {
         const next_action_due =
           s(r.effective_due_at) || s(r.visible_action_due_at) || null;
         const next_action = s(r.action_label);
-        const queue_bucket_label = s(r.queue_bucket_label);
         const last_activity =
           s(r.last_contact_date) ||
           s(r.last_communication_at) ||
@@ -888,25 +887,7 @@ function LeadiPage() {
         const facts = crmLeadFactsById.get(id);
         const statusStr =
           s(facts?.status) || s(r.lead_status_label || r.status);
-        const isTerminal = /atcelt|nekvalific|pabeigt/i.test(statusStr);
-        const scoring = scoringByLead.get(id);
-        const rowPriority = Number(r.priority_score);
-        const ratingPriority =
-          reitingsByLead.get(id) ??
-          reitingsByLead.get(s(r.external_id)) ??
-          0;
-        const fallbackPriority =
-          Number.isFinite(rowPriority) && rowPriority > 0
-            ? rowPriority
-            : ratingPriority;
-        const priorityScore = isTerminal
-          ? 0
-          : scoring
-            ? scoring.score
-            : fallbackPriority;
         const queueFacts = queueByLead.get(id);
-        const priorityLabelRaw =
-          s(r.priority_label) || s(queueFacts?.priority_label);
         // Atbildīgais ir tikai tam uzdevumam, kas reāli eksistē.
         // Nav uzdevuma → "-". SIS uzdevums → "SIS". Citādi → user_code vai "-".
         let responsible = "-";
@@ -918,8 +899,6 @@ function LeadiPage() {
             responsible = code || "-";
           }
         }
-        const queueBucketRaw =
-          s(r.queue_bucket) || s(queueFacts?.queue_bucket);
         const taskName = queueFacts
           ? s(r.next_action) ||
             queueFacts.step_name ||
@@ -956,8 +935,6 @@ function LeadiPage() {
           next_action: taskName,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
-          queue_bucket_label,
-          queue_bucket: queueBucketRaw,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
@@ -976,8 +953,6 @@ function LeadiPage() {
           is_hot:
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
-          priority_score: priorityScore,
-          priority_label: priorityLabelRaw,
           responsible,
           object_summary: s(r.object_summary),
           has_task: !!queueFacts,
@@ -988,9 +963,7 @@ function LeadiPage() {
       .filter((x): x is Lead => x !== null);
   }, [
     overview.data,
-    reitingsByLead,
     crmLeadFactsById,
-    scoringByLead,
     queueByLead,
     resolveUserName,
     resolveUserCode,
