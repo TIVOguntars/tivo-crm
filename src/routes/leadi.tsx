@@ -188,7 +188,7 @@ const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
 const LEADS_GRID =
-  "grid grid-cols-[32px_92px_64px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_130px_140px_140px_124px]";
+  "grid grid-cols-[32px_104px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
