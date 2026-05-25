@@ -1094,6 +1094,9 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
+      ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
+      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
+      queue_bucket: dedupe(leadsPatched.map((l) => l.queue_bucket)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
@@ -1106,7 +1109,7 @@ function LeadiPage() {
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
