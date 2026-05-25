@@ -989,12 +989,26 @@ function LeadiPage() {
         const queueFacts = queueByLead.get(id);
         const priorityLabelRaw =
           s(r.priority_label) || s(queueFacts?.priority_label);
-        const responsible = resolveResponsible(
-          queueFacts?.action_type,
-          queueFacts?.assigned_user_id,
-        );
+        // Atbildīgais ir tikai tam uzdevumam, kas reāli eksistē.
+        // Nav uzdevuma → "-". SIS uzdevums → "SIS". Citādi → user_code vai "-".
+        let responsible = "-";
+        if (queueFacts) {
+          if (isAutoActionType(queueFacts.action_type)) {
+            responsible = "SIS";
+          } else {
+            const code = resolveUserCode(queueFacts.assigned_user_id);
+            responsible = code || "-";
+          }
+        }
         const queueBucketRaw =
           s(r.queue_bucket) || s(queueFacts?.queue_bucket);
+        const taskName = queueFacts
+          ? s(r.next_action) ||
+            queueFacts.step_name ||
+            queueFacts.workflow_name ||
+            next_action ||
+            ""
+          : "";
         return {
           lead_id: id,
           display_lead_id: id,
@@ -1017,7 +1031,7 @@ function LeadiPage() {
             return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
-          next_action: s(r.next_action) || next_action,
+          next_action: taskName,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
           queue_bucket_label,
@@ -1044,6 +1058,7 @@ function LeadiPage() {
           priority_label: priorityLabelRaw,
           responsible,
           object_summary: s(r.object_summary),
+          has_task: !!queueFacts,
           // field missing in current query/type — pending Supabase backfill
           summary: "",
         } as Lead;
