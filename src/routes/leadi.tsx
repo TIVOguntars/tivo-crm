@@ -1032,6 +1032,10 @@ function LeadiPage() {
             return uid ? resolveUserName(uid) || "" : "";
           })(),
           ppv_user_id: s(facts?.ppv_user_id),
+          ppv_user_code: (() => {
+            const uid = s(facts?.ppv_user_id);
+            return uid ? resolveUserCode(uid) || "" : "";
+          })(),
           next_action: taskName,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
