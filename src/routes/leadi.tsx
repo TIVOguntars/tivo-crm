@@ -1797,27 +1797,68 @@ function LeadRow({
         </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1">
-        <div className="flex flex-col leading-tight">
-          <span
-            className={cn(
-              "truncate text-[11.5px]",
-              l.communication_state === "unread"
-                ? "font-medium text-emerald-600 dark:text-emerald-400"
-                : l.communication_state === "waiting"
-                  ? "text-orange-600 dark:text-orange-400"
-                  : l.communication_state === "no_contact"
-                    ? "text-muted-foreground/60"
-                    : "text-foreground",
-            )}
-          >
-            {commLabel || "—"}
-          </span>
-          {commTimeSrc && !isFutureDate(commTimeSrc) && (
-            <span className="truncate text-[10px] text-muted-foreground/60">
-              {fmtRelative(commTimeSrc)}
-            </span>
-          )}
-        </div>
+        {(() => {
+          let bestDate: string | null = null;
+          let src: "reply" | "inbound" | "outbound" | "communication" | null =
+            null;
+          if (l.last_reply_at) {
+            bestDate = l.last_reply_at;
+            src = "reply";
+          } else if (l.last_inbound_at) {
+            bestDate = l.last_inbound_at;
+            src = "inbound";
+          } else if (l.last_outbound_at) {
+            bestDate = l.last_outbound_at;
+            src = "outbound";
+          } else if (l.last_communication_at) {
+            bestDate = l.last_communication_at;
+            src = "communication";
+          }
+          const channel = detectChannel(commLabel);
+          const direction = directionFromTimestampSource(src);
+          const tone = CHANNEL_DIRECTION_TONE[channel][direction];
+          return (
+            <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {commLabel ? (
+                  <span
+                    className={cn(
+                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[10.5px] font-medium",
+                      tone,
+                    )}
+                    title={commLabel}
+                  >
+                    {commLabel}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/60 text-[11px]">—</span>
+                )}
+                {l.has_unread_reply && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold",
+                      UNREAD_REPLY_TONE,
+                    )}
+                  >
+                    Jauna atbilde
+                  </span>
+                )}
+              </div>
+              {bestDate && !isFutureDate(bestDate) && (
+                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                  {fmtRelative(bestDate)}
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+      <div
+        role="cell"
+        className="min-w-0 px-1.5 py-1 flex items-center"
+        title="field missing in current query/type — pending Supabase backfill"
+      >
+        <span className="text-muted-foreground/50 text-[11px]">—</span>
       </div>
       <div
         role="cell"
