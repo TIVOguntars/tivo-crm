@@ -527,12 +527,6 @@ const GROUP_FIELDS: GroupFieldDef[] = [
     get: (l) => l.country || "Nav norādīts",
   },
   {
-    key: "priority_bucket",
-    label: "Prioritātes grupa",
-    get: (l) => priorityBucket(l.priority_score),
-    order: PRIORITY_BUCKET_ORDER,
-  },
-  {
     key: "next_action_bucket",
     label: "Nākamās darbības datums",
     get: (l) => nextActionBucket(l.next_action_due),
@@ -547,7 +541,6 @@ const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
 
 const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
   [
-    { key: "priority_score", label: "Prioritāte", get: (l) => l.priority_score },
     {
       key: "last_communication_at",
       label: "Pēdējā komunikācija",
