@@ -414,7 +414,6 @@ function QueuePage() {
   const [actionType, setActionType] = useState<string>("all");
   const [dueFilter, setDueFilter] = useState<string>("all");
   const [leadStatus, setLeadStatus] = useState<string>("all");
-  const [priority, setPriority] = useState<string>("all");
   const [taskPriority, setTaskPriority] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
@@ -436,7 +435,6 @@ function QueuePage() {
       if (typeof p.actionType === "string") setActionType(p.actionType);
       if (typeof p.dueFilter === "string") setDueFilter(p.dueFilter);
       if (typeof p.leadStatus === "string") setLeadStatus(p.leadStatus);
-      if (typeof p.priority === "string") setPriority(p.priority);
       if (typeof p.taskPriority === "string") setTaskPriority(p.taskPriority);
       if (typeof p.owner === "string") setOwner(p.owner);
       if (typeof p.country === "string") setCountry(p.country);
@@ -466,7 +464,6 @@ function QueuePage() {
           actionType,
           dueFilter,
           leadStatus,
-          priority,
           taskPriority,
           owner,
           country,
@@ -480,7 +477,7 @@ function QueuePage() {
     } catch {
       /* ignore */
     }
-  }, [actionType, dueFilter, leadStatus, priority, taskPriority, owner, country, ppv, tags, q, source, sort]);
+  }, [actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
   const toggleSort = (key: SortKey) => {
     setSort((cur) => {
@@ -500,10 +497,6 @@ function QueuePage() {
   );
   const owners = useMemo(
     () => uniq(rows.map((r) => s(r.task_executor_label))),
-    [rows],
-  );
-  const priorities = useMemo(
-    () => uniq(rows.map((r) => s(r.priority_label))),
     [rows],
   );
   const taskPriorities = useMemo(
@@ -526,7 +519,7 @@ function QueuePage() {
 
   const matchRow = (
     r: Row,
-    skip: { due?: boolean; priority?: boolean; leadStatus?: boolean; source?: boolean } = {},
+    skip: { due?: boolean; leadStatus?: boolean; source?: boolean } = {},
   ): boolean => {
     const qq = q.trim().toLowerCase();
     if (actionType !== "all" && s(r.action_label) !== actionType) return false;
@@ -542,8 +535,6 @@ function QueuePage() {
       leadStatus !== "all" &&
       mapStatus(s(r.legacy_lead_status)) !== leadStatus
     )
-      return false;
-    if (!skip.priority && priority !== "all" && s(r.priority_label) !== priority)
       return false;
     if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
       return false;
@@ -580,30 +571,15 @@ function QueuePage() {
           if (cmp !== 0) return cmp * dir;
         }
       }
-      const aSp = n(a.sort_priority);
-      const bSp = n(b.sort_priority);
-      if (aSp !== bSp) return bSp - aSp;
-      const order: Record<string, number> = {
-        overdue: 0,
-        today: 1,
-        tomorrow: 2,
-        next_24h: 2,
-        this_week: 3,
-        upcoming: 4,
-        planned: 5,
-      };
-      const aB = order[s(a.queue_bucket)] ?? 99;
-      const bB = order[s(b.queue_bucket)] ?? 99;
-      if (aB !== bB) return aB - bB;
       const aDueRaw = a.effective_due_at ?? a.due_at;
       const bDueRaw = b.effective_due_at ?? b.due_at;
       const aDue = aDueRaw ? new Date(String(aDueRaw)).getTime() : Infinity;
       const bDue = bDueRaw ? new Date(String(bDueRaw)).getTime() : Infinity;
       if (aDue !== bDue) return aDue - bDue;
-      return n(b.priority_score) - n(a.priority_score);
+      return 0;
     });
     return list;
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q, source, sort]);
+  }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
   // Derive chip definitions from data
   const dueChips = useMemo(() => {
@@ -614,18 +590,6 @@ function QueuePage() {
       if (!map.has(k))
         map.set(k, { key: k, label: s(r.due_filter_label) || k, sort: n(r.due_filter_sort) });
     }
-    return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
-  }, [rows]);
-
-  const priorityChips = useMemo(() => {
-    const allow = ["Augsta", "Normāla", "Zema"];
-    const map = new Map<string, { label: string; sort: number }>();
-    for (const r of rows) {
-      const l = s(r.priority_label);
-      if (!allow.includes(l)) continue;
-      if (!map.has(l)) map.set(l, { label: l, sort: n(r.priority_filter_sort) });
-    }
-    for (const l of allow) if (!map.has(l)) map.set(l, { label: l, sort: 99 });
     return Array.from(map.values()).sort((a, b) => a.sort - b.sort);
   }, [rows]);
 
@@ -655,18 +619,7 @@ function QueuePage() {
       c.set(k, (c.get(k) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, leadStatus, priority, owner, country, ppv, tags, q]);
-
-  const priorityCounts = useMemo(() => {
-    const c = new Map<string, number>();
-    for (const r of rows) {
-      if (!matchRow(r, { priority: true })) continue;
-      const l = s(r.priority_label);
-      if (!l) continue;
-      c.set(l, (c.get(l) ?? 0) + 1);
-    }
-    return c;
-  }, [rows, actionType, dueFilter, leadStatus, owner, country, ppv, tags, q]);
+  }, [rows, actionType, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   const leadStatusCounts = useMemo(() => {
     const c = new Map<string, number>();
@@ -677,13 +630,12 @@ function QueuePage() {
       c.set(l, (c.get(l) ?? 0) + 1);
     }
     return c;
-  }, [rows, actionType, dueFilter, priority, owner, country, ppv, tags, q]);
+  }, [rows, actionType, dueFilter, taskPriority, owner, country, ppv, tags, q]);
 
   const hasActiveFilters =
     actionType !== "all" ||
     dueFilter !== "all" ||
     leadStatus !== "all" ||
-    priority !== "all" ||
     taskPriority !== "all" ||
     owner !== "all" ||
     country !== "all" ||
@@ -697,7 +649,6 @@ function QueuePage() {
     setActionType("all");
     setDueFilter("all");
     setLeadStatus("all");
-    setPriority("all");
     setTaskPriority("all");
     setOwner("all");
     setCountry("all");
@@ -717,7 +668,7 @@ function QueuePage() {
       else manual += 1;
     }
     return { all: auto + manual, auto, manual };
-  }, [rows, actionType, dueFilter, leadStatus, priority, owner, country, ppv, tags, q]);
+  }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
