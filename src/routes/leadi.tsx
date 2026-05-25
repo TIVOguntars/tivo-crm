@@ -818,6 +818,36 @@ function LeadiPage() {
   const overview = useCrmView("leads_list_display_v3", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
+  /* ---- crm.v_next_action_queue: source for "Atbildīgais" column ---- */
+  const queueView = useCrmView(
+    "v_next_action_queue",
+    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state,queue_status,queue_bucket,priority_label&limit=20000",
+    { all: true },
+  );
+  type QueueFacts = {
+    action_type: string;
+    assigned_user_id: string;
+    queue_bucket: string;
+    priority_label: string;
+    communication_label: string;
+  };
+  const queueByLead = useMemo(() => {
+    const map = new Map<string, QueueFacts>();
+    const rows = (queueView.data?.rows ?? []) as Row[];
+    for (const r of rows) {
+      const lid = s(r.lead_id);
+      if (!lid || map.has(lid)) continue;
+      map.set(lid, {
+        action_type: s(r.action_type),
+        assigned_user_id: s(r.assigned_user_id),
+        queue_bucket: s(r.queue_bucket),
+        priority_label: s(r.priority_label),
+        communication_label: s(r.communication_label),
+      });
+    }
+    return map;
+  }, [queueView.data]);
+
   type LeadFacts = {
     status: string;
     ppv_user_id: string;
