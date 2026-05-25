@@ -657,7 +657,7 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { resolve: resolveUserName } = useUserMap();
+  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
@@ -831,6 +831,8 @@ function LeadiPage() {
     queue_bucket: string;
     priority_label: string;
     communication_label: string;
+    workflow_name: string;
+    step_name: string;
   };
   const queueByLead = useMemo(() => {
     const map = new Map<string, QueueFacts>();
@@ -844,6 +846,8 @@ function LeadiPage() {
         queue_bucket: s(r.queue_bucket),
         priority_label: s(r.priority_label),
         communication_label: s(r.communication_label),
+        workflow_name: s(r.workflow_name),
+        step_name: s(r.step_name),
       });
     }
     return map;
