@@ -50,7 +50,7 @@ import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { resolveResponsible } from "@/lib/responsibleResolver";
+import { resolveResponsible, isAutoActionType } from "@/lib/responsibleResolver";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
