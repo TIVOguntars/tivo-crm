@@ -768,14 +768,12 @@ function LeadiPage() {
   /* ---- crm.v_next_action_queue: source for "Atbildīgais" column ---- */
   const queueView = useCrmView(
     "v_next_action_queue",
-    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state,queue_status,queue_bucket,priority_label&limit=20000",
+    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state&limit=20000",
     { all: true },
   );
   type QueueFacts = {
     action_type: string;
     assigned_user_id: string;
-    queue_bucket: string;
-    priority_label: string;
     communication_label: string;
     workflow_name: string;
     step_name: string;
@@ -789,8 +787,6 @@ function LeadiPage() {
       map.set(lid, {
         action_type: s(r.action_type),
         assigned_user_id: s(r.assigned_user_id),
-        queue_bucket: s(r.queue_bucket),
-        priority_label: s(r.priority_label),
         communication_label: s(r.communication_label),
         workflow_name: s(r.workflow_name),
         step_name: s(r.step_name),
@@ -834,30 +830,6 @@ function LeadiPage() {
     }
     return map;
   }, [reitingsView.data]);
-
-  // Priority is sourced from crm.lead_priority_scoring_v2.
-  const scoringView = useCrmView(
-    "lead_priority_scoring_v2",
-    "select=lead_id,priority_score,priority_label,recommended_status,raw_priority_score,has_hot_tag,inbound_count,replied_count&limit=20000",
-    { all: true },
-  );
-  const scoringByLead = useMemo(() => {
-    const map = new Map<
-      string,
-      { score: number; label: string; recommended: string }
-    >();
-    const rows = (scoringView.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        score: Number(r.priority_score ?? 0) || 0,
-        label: s(r.priority_label) || "Zema",
-        recommended: s(r.recommended_status),
-      });
-    }
-    return map;
-  }, [scoringView.data]);
 
   const commCounts = useMemo(() => {
     const map = new Map<string, CommBuckets>();
