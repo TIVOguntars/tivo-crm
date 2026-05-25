@@ -1374,7 +1374,6 @@ function LeadiPage() {
                         className="h-3.5 w-3.5"
                       />
                     </div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Prioritāte</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">PPV</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Lead</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Tagi</div>
