@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -164,37 +164,6 @@ function PriorityBadge({ label }: { label: string }) {
     >
       {label}
     </Badge>
-  );
-}
-
-function PriorityStars({ label, score }: { label: string; score: number }) {
-  // Map lead priority_score (0..90) to 1..5 stars.
-  let count = 0;
-  if (score > 0) {
-    if (score >= 72) count = 5;
-    else if (score >= 54) count = 4;
-    else if (score >= 36) count = 3;
-    else if (score >= 18) count = 2;
-    else count = 1;
-  } else if (label === "Augsta") count = 5;
-  else if (label === "Normāla" || label === "Vidēja") count = 3;
-  else if (label === "Zema") count = 1;
-  if (count === 0) return <span className="text-muted-foreground">—</span>;
-  return (
-    <div className="flex items-center gap-0.5" title={`${label}${score ? ` · ${score}` : ""}`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          className={cn(
-            "h-3 w-3",
-            i <= count
-              ? "fill-amber-500 text-amber-500"
-              : "fill-transparent text-muted-foreground/40",
-          )}
-          strokeWidth={2}
-        />
-      ))}
-    </div>
   );
 }
 
