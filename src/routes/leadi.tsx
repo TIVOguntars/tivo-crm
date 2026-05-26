@@ -103,6 +103,7 @@ interface Lead {
   display_lead_id: string;
   name: string;
   lead_number: string;
+  external_id: string;
   company_name: string;
   phone: string;
   email: string;
@@ -112,8 +113,10 @@ interface Lead {
   status: string;
   owner: string;
   ppv: string;
-  ppv_user_id: string;
   ppv_user_code: string;
+  ppv_name: string;
+  task_assigned_user_code: string;
+  task_assigned_name: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
@@ -131,16 +134,14 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
-  responsible: string; // "SIS" | userId | "-"
   object_summary: string;
-  /** True when crm.v_next_action_queue has a row for this lead. */
+  /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
-  /**
-   * Quick notes column source.
-   * field missing in current query/type — pending Supabase backfill of
-   * crm.leads_list_display_v3 with `summary` column.
-   */
-  summary: string;
+  /** Queue bucket sourced directly from backend (no frontend calc). */
+  queue_bucket: string;
+  queue_bucket_label: string;
+  operational_bucket: string;
+  needs_attention: boolean;
 }
 
 function s(v: unknown): string {
