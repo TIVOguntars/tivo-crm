@@ -45,12 +45,10 @@ import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useUserMap } from "@/hooks/useUsers";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { isAutoActionType } from "@/lib/responsibleResolver";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
