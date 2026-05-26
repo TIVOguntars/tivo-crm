@@ -293,7 +293,6 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
-  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [completeTask, setCompleteTask] = useState<{
     taskId: string;
@@ -310,84 +309,68 @@ function QueuePage() {
       rawRows.filter((r) => {
         const ownerType = s(r.action_owner_type).toLowerCase();
         if (ownerType === "system") return false;
-        if (s(r.task_executor_label).toUpperCase() === "SIS") return false;
+        if (s(r.action_owner_label).toUpperCase() === "SIS") return false;
         return true;
       }),
     [rawRows],
   );
 
-  // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
-  // each carry their own priority; never inherit from sibling tasks or lead.
-  const tasksView = useCrmView(
-    "tasks",
-    "select=id,priority,assigned_user_id,created_by_user_id,metadata",
-    { all: true },
-  );
-  const taskById = useMemo(() => {
-    const map = new Map<string, Row>();
-    const r = (tasksView.data?.rows ?? []) as Row[];
-    for (const row of r) {
-      const id = s(row.id);
-      if (id) map.set(id, row);
-    }
-    return map;
-  }, [tasksView.data]);
-
-  // Per-lead communication counts for the name cell (line 2).
-  const commCountsView = useCrmView(
+  // Per-lead enrichment from the v3 display contract: PPV + responsible user
+  // codes/names and communication counts. Keyed by lead_number (no UUIDs).
+  const v3View = useCrmView(
     "leads_list_display_v3",
-    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+    "select=lead_number,ppv_user_code,ppv_name,task_assigned_user_code,task_assigned_name,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
     { all: true },
   );
-  const commCounts = useMemo(() => {
-    const map = new Map<string, CommBuckets>();
-    const r = (commCountsView.data?.rows ?? []) as Row[];
+  type V3Enrichment = {
+    ppv_code: string;
+    ppv_name: string;
+    task_code: string;
+    task_name: string;
+    counts: CommBuckets;
+  };
+  const v3ByLeadNumber = useMemo(() => {
+    const map = new Map<string, V3Enrichment>();
+    const r = (v3View.data?.rows ?? []) as Row[];
     for (const row of r) {
-      const lid = s(row.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
-        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
-        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+      const ln = s(row.lead_number);
+      if (!ln) continue;
+      map.set(ln, {
+        ppv_code: s(row.ppv_user_code),
+        ppv_name: s(row.ppv_name),
+        task_code: s(row.task_assigned_user_code),
+        task_name: s(row.task_assigned_name),
+        counts: {
+          email: [n(row.email_outbound_count), n(row.email_inbound_count)],
+          call: [n(row.call_outbound_count), n(row.call_inbound_count)],
+          chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+        },
       });
     }
     return map;
-  }, [commCountsView.data]);
+  }, [v3View.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
-      const tk = taskById.get(s(r.id));
-      const taskRaw = s(tk?.priority);
-      const meta =
-        tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
-          ? (tk.metadata as Record<string, unknown>)
-          : null;
-      const assignedUid = s(tk?.assigned_user_id);
-      const rawOwner =
-        s(r.task_executor_label) ||
-        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
-      const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
-      // Display owner as user_code (UC/MO/BJ).
-      const ownerFromTask =
-        (assignedUid && resolveUserCode(assignedUid)) ||
-        resolveUserCode(rawOwner) ||
-        rawOwner ||
-        (looksUuid ? "" : assignedUid);
-      const createdByUid = s(tk?.created_by_user_id);
-      const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
+      const ln = s(r.lead_number);
+      const e = ln ? v3ByLeadNumber.get(ln) : undefined;
       const base: Row = { ...r };
-      // Task priority comes from crm.tasks.priority only — never from lead score.
+      // Task priority comes from crm.tasks.priority (already projected as
+      // `priority` on v_tasks_queue_ui_v2). Never inherited from lead.
+      const taskRaw = s(r.priority);
       base.task_priority_raw = taskRaw;
       base.task_priority_label = taskPriorityLabel(taskRaw);
-      base.task_executor_label = ownerFromTask;
-      base.created_by_user_id = createdByUid || null;
-      base.created_by_name = createdByName || (createdByUid || "");
-      // PPV: display short user_code (UC/MO/BJ); v2 view exposes only ppv_user_id.
-      const ppvUid = s(r.ppv_user_id);
-      base.ppv_label = ppvUid ? resolveUserCode(ppvUid) || "" : "";
+      // Responsible / PPV come from the v3 contract — initials in code,
+      // full name reserved for tooltip.
+      base.task_executor_label = e?.task_code ?? "";
+      base.task_executor_name = e?.task_name ?? "";
+      base.ppv_label = e?.ppv_code ?? "";
+      base.ppv_name_display = e?.ppv_name ?? "";
       return base;
     });
-  }, [humanRows, taskById, resolveUserName, resolveUserCode]);
+  }, [humanRows, v3ByLeadNumber]);
+
+  const commCounts = v3ByLeadNumber;
 
 
   const statusOptionsView = useCrmView(
