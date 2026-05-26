@@ -530,19 +530,18 @@ const GROUP_FIELDS: GroupFieldDef[] = [
   {
     key: "owner",
     label: "Atbildīgais",
-    get: (l) => l.owner || "Nepiešķirts",
+    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
   },
-  { key: "ppv", label: "PPV", get: (l) => l.ppv || "Nav PPV" },
+  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
   {
-    key: "country",
-    label: "Valsts",
-    get: (l) => l.country || "Nav norādīts",
+    key: "priority_label",
+    label: "Prioritāte",
+    get: (l) => l.priority_label || "Bez prioritātes",
   },
   {
-    key: "next_action_bucket",
-    label: "Nākamās darbības datums",
-    get: (l) => nextActionBucket(l.next_action_due),
-    order: NEXT_ACTION_BUCKET_ORDER,
+    key: "queue_bucket_label",
+    label: "Queue",
+    get: (l) => l.queue_bucket_label || "Nav rindas",
   },
 ];
 const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
