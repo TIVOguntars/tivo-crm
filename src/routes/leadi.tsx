@@ -284,12 +284,6 @@ const FIELDS: FieldDef[] = [
   { key: "status", label: "Statuss", type: "enum", get: (l) => l.status },
   { key: "owner", label: "Atbildīgais", type: "enum", get: (l) => l.owner },
   { key: "ppv", label: "PPV", type: "enum", get: (l) => l.ppv },
-  {
-    key: "ppv_user_id",
-    label: "PPV (ID)",
-    type: "enum",
-    get: (l) => l.ppv_user_id,
-  },
   { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
   { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
   {
