@@ -26,8 +26,13 @@ import {
 import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
@@ -288,7 +293,6 @@ function MiniKpi({
 
 function QueuePage() {
   const view = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
-  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [completeTask, setCompleteTask] = useState<{
     taskId: string;
@@ -305,84 +309,72 @@ function QueuePage() {
       rawRows.filter((r) => {
         const ownerType = s(r.action_owner_type).toLowerCase();
         if (ownerType === "system") return false;
-        if (s(r.task_executor_label).toUpperCase() === "SIS") return false;
+        if (s(r.action_owner_label).toUpperCase() === "SIS") return false;
         return true;
       }),
     [rawRows],
   );
 
-  // Per-task priority — sourced from crm.tasks.priority. Workflow tasks
-  // each carry their own priority; never inherit from sibling tasks or lead.
-  const tasksView = useCrmView(
-    "tasks",
-    "select=id,priority,assigned_user_id,created_by_user_id,metadata",
-    { all: true },
-  );
-  const taskById = useMemo(() => {
-    const map = new Map<string, Row>();
-    const r = (tasksView.data?.rows ?? []) as Row[];
-    for (const row of r) {
-      const id = s(row.id);
-      if (id) map.set(id, row);
-    }
-    return map;
-  }, [tasksView.data]);
-
-  // Per-lead communication counts for the name cell (line 2).
-  const commCountsView = useCrmView(
+  // Per-lead enrichment from the v3 display contract: PPV + responsible user
+  // codes/names and communication counts. Keyed by lead_number (no UUIDs).
+  const v3View = useCrmView(
     "leads_list_display_v3",
-    "select=lead_id,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
+    "select=lead_number,ppv_user_code,ppv_name,task_assigned_user_code,task_assigned_name,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count",
     { all: true },
   );
-  const commCounts = useMemo(() => {
-    const map = new Map<string, CommBuckets>();
-    const r = (commCountsView.data?.rows ?? []) as Row[];
+  type V3Enrichment = {
+    ppv_code: string;
+    ppv_name: string;
+    task_code: string;
+    task_name: string;
+    counts: CommBuckets;
+  };
+  const v3ByLeadNumber = useMemo(() => {
+    const map = new Map<string, V3Enrichment>();
+    const r = (v3View.data?.rows ?? []) as Row[];
     for (const row of r) {
-      const lid = s(row.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        email: [n(row.email_outbound_count), n(row.email_inbound_count)],
-        call: [n(row.call_outbound_count), n(row.call_inbound_count)],
-        chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+      const ln = s(row.lead_number);
+      if (!ln) continue;
+      map.set(ln, {
+        ppv_code: s(row.ppv_user_code),
+        ppv_name: s(row.ppv_name),
+        task_code: s(row.task_assigned_user_code),
+        task_name: s(row.task_assigned_name),
+        counts: {
+          email: [n(row.email_outbound_count), n(row.email_inbound_count)],
+          call: [n(row.call_outbound_count), n(row.call_inbound_count)],
+          chat: [n(row.chat_outbound_count), n(row.chat_inbound_count)],
+        },
       });
     }
     return map;
-  }, [commCountsView.data]);
+  }, [v3View.data]);
 
   const rows = useMemo<Row[]>(() => {
     return humanRows.map((r) => {
-      const tk = taskById.get(s(r.id));
-      const taskRaw = s(tk?.priority);
-      const meta =
-        tk?.metadata && typeof tk.metadata === "object" && !Array.isArray(tk.metadata)
-          ? (tk.metadata as Record<string, unknown>)
-          : null;
-      const assignedUid = s(tk?.assigned_user_id);
-      const rawOwner =
-        s(r.task_executor_label) ||
-        (meta && typeof meta.owner_code === "string" ? (meta.owner_code as string) : "");
-      const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(assignedUid);
-      // Display owner as user_code (UC/MO/BJ).
-      const ownerFromTask =
-        (assignedUid && resolveUserCode(assignedUid)) ||
-        resolveUserCode(rawOwner) ||
-        rawOwner ||
-        (looksUuid ? "" : assignedUid);
-      const createdByUid = s(tk?.created_by_user_id);
-      const createdByName = createdByUid ? resolveUserName(createdByUid) : "";
+      const ln = s(r.lead_number);
+      const e = ln ? v3ByLeadNumber.get(ln) : undefined;
       const base: Row = { ...r };
-      // Task priority comes from crm.tasks.priority only — never from lead score.
+      // Task priority comes from crm.tasks.priority (already projected as
+      // `priority` on v_tasks_queue_ui_v2). Never inherited from lead.
+      const taskRaw = s(r.priority);
       base.task_priority_raw = taskRaw;
       base.task_priority_label = taskPriorityLabel(taskRaw);
-      base.task_executor_label = ownerFromTask;
-      base.created_by_user_id = createdByUid || null;
-      base.created_by_name = createdByName || (createdByUid || "");
-      // PPV: display short user_code (UC/MO/BJ); v2 view exposes only ppv_user_id.
-      const ppvUid = s(r.ppv_user_id);
-      base.ppv_label = ppvUid ? resolveUserCode(ppvUid) || "" : "";
+      // Responsible / PPV come from the v3 contract — initials in code,
+      // full name reserved for tooltip.
+      base.task_executor_label = e?.task_code ?? "";
+      base.task_executor_name = e?.task_name ?? "";
+      base.ppv_label = e?.ppv_code ?? "";
+      base.ppv_name_display = e?.ppv_name ?? "";
       return base;
     });
-  }, [humanRows, taskById, resolveUserName, resolveUserCode]);
+  }, [humanRows, v3ByLeadNumber]);
+
+  const commCounts = useMemo(() => {
+    const map = new Map<string, CommBuckets>();
+    for (const [ln, e] of v3ByLeadNumber) map.set(ln, e.counts);
+    return map;
+  }, [v3ByLeadNumber]);
 
 
   const statusOptionsView = useCrmView(
@@ -533,7 +525,7 @@ function QueuePage() {
     if (
       !skip.leadStatus &&
       leadStatus !== "all" &&
-      mapStatus(s(r.legacy_lead_status)) !== leadStatus
+      mapStatus(s(r.lead_status)) !== leadStatus
     )
       return false;
     if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
@@ -598,7 +590,7 @@ function QueuePage() {
     const map = new Map<string, { label: string; sort: number }>();
     for (const r of rows) {
       if (r.show_in_status_quick_filter === false) continue;
-      const l = mapStatus(s(r.legacy_lead_status));
+      const l = mapStatus(s(r.lead_status));
       if (!l || exclude.has(l)) continue;
       if (!map.has(l)) map.set(l, { label: l, sort: statusSort(l) });
     }
@@ -625,7 +617,7 @@ function QueuePage() {
     const c = new Map<string, number>();
     for (const r of rows) {
       if (!matchRow(r, { leadStatus: true })) continue;
-      const l = mapStatus(s(r.legacy_lead_status));
+      const l = mapStatus(s(r.lead_status));
       if (!l) continue;
       c.set(l, (c.get(l) ?? 0) + 1);
     }
@@ -671,6 +663,7 @@ function QueuePage() {
   }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <PageHeader
         title="Uzdevumi"
@@ -867,7 +860,20 @@ function QueuePage() {
                     }
                   >
                     {/* 2. PPV */}
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_label) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground">
+                      {s(r.ppv_label) ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{s(r.ppv_label)}</span>
+                          </TooltipTrigger>
+                          {s(r.ppv_name_display) && (
+                            <TooltipContent>{s(r.ppv_name_display)}</TooltipContent>
+                          )}
+                        </Tooltip>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     {/* 3. Vārds Uzvārds / VAL */}
                     <TableCell className="py-3 align-top">
                       {leadId ? (
@@ -889,7 +895,7 @@ function QueuePage() {
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
-                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                            <CommStats counts={commCounts.get(s(r.lead_number))} />
                           </div>
                         </Link>
                       ) : (
@@ -899,7 +905,7 @@ function QueuePage() {
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
-                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                            <CommStats counts={commCounts.get(s(r.lead_number))} />
                           </div>
                         </div>
                       )}
@@ -910,11 +916,24 @@ function QueuePage() {
                     </TableCell>
                     {/* 6. Statuss */}
                     <TableCell className="py-3">
-                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
+                      <StatusBadge status={mapStatus(s(r.lead_status))} />
                     </TableCell>
                     {/* 7. Atbildīgais */}
                     <TableCell className="py-3">
-                      <OwnerBadge value={s(r.task_executor_label)} />
+                      {s(r.task_executor_label) ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <OwnerBadge value={s(r.task_executor_label)} />
+                            </span>
+                          </TooltipTrigger>
+                          {s(r.task_executor_name) && (
+                            <TooltipContent>{s(r.task_executor_name)}</TooltipContent>
+                          )}
+                        </Tooltip>
+                      ) : (
+                        <OwnerBadge value="" />
+                      )}
                     </TableCell>
                     {/* 8. Termiņš */}
                     <TableCell className="py-3">
@@ -929,7 +948,6 @@ function QueuePage() {
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
                         const gen = s(r.generated_for_date);
-                        const createdBy = s(r.created_by_name);
                         return (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5">
@@ -945,7 +963,7 @@ function QueuePage() {
                                     : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
                                 )}
                               >
-                                {isAuto ? "Auto" : createdBy || "Manual"}
+                                {isAuto ? "Auto" : "Manual"}
                               </Badge>
                             </div>
                             {isAuto && gen ? (
@@ -1006,6 +1024,7 @@ function QueuePage() {
         />
       ) : null}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -1143,7 +1162,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "tags":
       return parseTags(r.tags).join(",");
     case "leadStatus": {
-      return mapStatus(s(r.legacy_lead_status)).toLowerCase();
+      return mapStatus(s(r.lead_status)).toLowerCase();
     }
   }
 }
