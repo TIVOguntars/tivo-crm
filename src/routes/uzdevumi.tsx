@@ -370,7 +370,11 @@ function QueuePage() {
     });
   }, [humanRows, v3ByLeadNumber]);
 
-  const commCounts = v3ByLeadNumber;
+  const commCounts = useMemo(() => {
+    const map = new Map<string, CommBuckets>();
+    for (const [ln, e] of v3ByLeadNumber) map.set(ln, e.counts);
+    return map;
+  }, [v3ByLeadNumber]);
 
 
   const statusOptionsView = useCrmView(
@@ -855,7 +859,20 @@ function QueuePage() {
                     }
                   >
                     {/* 2. PPV */}
-                    <TableCell className="py-3 text-muted-foreground">{s(r.ppv_label) || "—"}</TableCell>
+                    <TableCell className="py-3 text-muted-foreground">
+                      {s(r.ppv_label) ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{s(r.ppv_label)}</span>
+                          </TooltipTrigger>
+                          {s(r.ppv_name_display) && (
+                            <TooltipContent>{s(r.ppv_name_display)}</TooltipContent>
+                          )}
+                        </Tooltip>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     {/* 3. Vārds Uzvārds / VAL */}
                     <TableCell className="py-3 align-top">
                       {leadId ? (
@@ -877,7 +894,7 @@ function QueuePage() {
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
-                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                            <CommStats counts={commCounts.get(s(r.lead_number))} />
                           </div>
                         </Link>
                       ) : (
@@ -887,7 +904,7 @@ function QueuePage() {
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
-                            <CommStats counts={leadId ? commCounts.get(leadId) : undefined} />
+                            <CommStats counts={commCounts.get(s(r.lead_number))} />
                           </div>
                         </div>
                       )}
@@ -898,11 +915,25 @@ function QueuePage() {
                     </TableCell>
                     {/* 6. Statuss */}
                     <TableCell className="py-3">
-                      <StatusBadge status={mapStatus(s(r.legacy_lead_status))} />
+                      <StatusBadge status={mapStatus(s(r.lead_status))} />
                     </TableCell>
                     {/* 7. Atbildīgais */}
                     <TableCell className="py-3">
-                      <OwnerBadge value={s(r.task_executor_label)} />
+                      {s(r.task_executor_label) ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <OwnerBadge value={s(r.task_executor_label)} />
+                            </span>
+                          </TooltipTrigger>
+                          {s(r.task_executor_name) && (
+                            <TooltipContent>{s(r.task_executor_name)}</TooltipContent>
+                          )}
+                        </Tooltip>
+                      ) : (
+                        <OwnerBadge value="" />
+                      )}
+                    </TableCell>
                     </TableCell>
                     {/* 8. Termiņš */}
                     <TableCell className="py-3">
