@@ -782,16 +782,54 @@ function LeadProfilePage() {
                 <div className="hidden md:flex items-center text-xs text-muted-foreground ml-6">
                   <div className="flex flex-col">
                     <span className="text-foreground mx-[10px]">PPV</span>
-                    <span className="text-foreground mx-[10px] font-medium">{ppvLabel}</span>
+                    <span className="text-foreground mx-[10px] font-medium" title={ppvTooltip}>
+                      {ppvLabel}
+                    </span>
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Atbildīgais</span>
-                    <span className="text-foreground mx-[10px] font-medium">{ownerLabel}</span>
+                    <span className="text-foreground mx-[10px] font-medium" title={ownerTooltip}>
+                      {ownerLabel}
+                    </span>
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Pēdējā aktivitāte</span>
                     <span className="text-foreground mx-[10px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
+                  {(priorityLabel || priorityScore != null) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Prioritāte</span>
+                      <span
+                        className="text-foreground mx-[10px] font-medium"
+                        title={
+                          priorityScore != null
+                            ? `Score: ${String(priorityScore)}`
+                            : undefined
+                        }
+                      >
+                        {priorityStars > 0 ? "★".repeat(Math.max(0, Math.min(5, priorityStars))) : ""}
+                        {priorityLabel ? ` ${priorityLabel}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {(queueBucketLabel || needsAttention) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Rinda</span>
+                      <span className="text-foreground mx-[10px] font-medium">
+                        {queueBucketLabel || "—"}
+                        {needsAttention ? " · ⚠" : ""}
+                      </span>
+                    </div>
+                  )}
+                  {(commLabel || hasUnreadReply) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Komunikācija</span>
+                      <span className="text-foreground mx-[10px] font-medium" title={commState || undefined}>
+                        {commLabel || commState || "—"}
+                        {hasUnreadReply ? " · 📩" : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
