@@ -832,6 +832,16 @@ function LeadiPage() {
         const task_assigned_user_code = s(r.task_assigned_user_code);
         const task_assigned_name = s(r.task_assigned_name);
         const has_task = !!next_action;
+        const priority_score_raw = r.priority_score;
+        const priority_stars_raw = r.priority_stars;
+        const priority_score =
+          priority_score_raw == null || priority_score_raw === ""
+            ? null
+            : Number(priority_score_raw);
+        const priority_stars =
+          priority_stars_raw == null || priority_stars_raw === ""
+            ? null
+            : Number(priority_stars_raw);
         return {
           lead_id: id,
           display_lead_id: id,
@@ -845,10 +855,11 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: ppv_name,
+          owner: task_assigned_name,
           ppv: ppv_name,
           ppv_name,
           ppv_user_code,
+          owner_user_code: task_assigned_user_code,
           task_assigned_user_code,
           task_assigned_name,
           next_action,
@@ -877,6 +888,15 @@ function LeadiPage() {
           operational_bucket: s(r.operational_bucket),
           needs_attention:
             r.needs_attention === true || r.needs_attention === "true",
+          priority_score: Number.isFinite(priority_score as number)
+            ? (priority_score as number)
+            : null,
+          priority_stars: Number.isFinite(priority_stars as number)
+            ? (priority_stars as number)
+            : null,
+          priority_label: s(r.priority_label),
+          priority_breakdown: s(r.priority_breakdown),
+          priority_updated_at: s(r.priority_updated_at) || null,
         } satisfies Lead;
       })
       .filter((x): x is Lead => x !== null);
