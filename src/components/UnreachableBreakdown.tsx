@@ -3,13 +3,12 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useUserMap } from "@/hooks/useUsers";
 import { resolveDateRange, type FiltersSearch } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
 const NOT_REACHED = "Nesasniedzams";
 
-type Dim = "country" | "ppv_user_id" | "source";
+type Dim = "country" | "ppv_user_code" | "source";
 type SortKey =
   | "label"
   | "notReached"
@@ -18,7 +17,7 @@ type SortKey =
 
 const DIM_LABELS: Record<Dim, { label: string; columnHeader: string }> = {
   country: { label: "Valsts", columnHeader: "Valsts" },
-  ppv_user_id: { label: "PPV", columnHeader: "PPV" },
+  ppv_user_code: { label: "PPV", columnHeader: "PPV" },
   source: { label: "Kanāls", columnHeader: "Kanāls" },
 };
 
@@ -36,7 +35,6 @@ function fmt(n: number): string {
 
 export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
   const [dim, setDim] = useState<Dim>("country");
-  const { resolve: resolveUserName } = useUserMap();
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "notReached",
     dir: "desc",
@@ -45,7 +43,7 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
   const query = useMemo(() => {
     const { from, to } = resolveDateRange(search);
     const parts: string[] = [
-      "select=country,ppv_user_id,source,lead_status",
+      "select=country,ppv_user_code,source,status",
       "limit=10000",
     ];
     if (from) parts.push(`created_at=gte.${from}`);
@@ -58,15 +56,11 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
       parts.push(
         `source=in.(${search.sources.map(encodeURIComponent).join(",")})`,
       );
-    if (search.ppvs.length > 0)
-      parts.push(
-        `ppv_user_id=in.(${search.ppvs.map(encodeURIComponent).join(",")})`,
-      );
     return parts.join("&");
   }, [search]);
 
   const { data, isLoading, error } = useCrmView(
-    "v_next_action_queue",
+    "leads_list_display_v3",
     query,
   );
 
@@ -80,13 +74,8 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
       totalAllLeads += 1;
       const raw = r[dim];
       const rawStr = raw == null ? "" : String(raw).trim();
-      const key =
-        rawStr === ""
-          ? "—"
-          : dim === "ppv_user_id"
-            ? resolveUserName(rawStr) || rawStr
-            : rawStr;
-      const status = String(r.lead_status ?? "");
+      const key = rawStr === "" ? "—" : rawStr;
+      const status = String(r.status ?? "");
       const b = buckets.get(key) ?? { total: 0, notReached: 0 };
       b.total += 1;
       if (status === NOT_REACHED) {
@@ -112,7 +101,7 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
       totalAll: totalAllLeads,
       totalNotReachedAll: totalNotReached,
     };
-  }, [data, dim, resolveUserName]);
+  }, [data, dim]);
 
   const sorted = useMemo(() => {
     const out = [...rows];

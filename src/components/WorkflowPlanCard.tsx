@@ -2,7 +2,6 @@ import { CheckCircle2, Circle, CircleDot, Copy, ExternalLink } from "lucide-reac
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import type { WorkflowTaskRow } from "@/lib/workflow";
-import { useUserMap } from "@/hooks/useUsers";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -43,7 +42,6 @@ export function WorkflowPlanCard({ tasks }: { tasks: WorkflowTaskRow[] }) {
 }
 
 function WorkflowPlanCardInner({ tasks }: { tasks: WorkflowTaskRow[] }) {
-  const { resolve } = useUserMap();
   const sorted = [...tasks].sort((a, b) => {
     const am = metaRecord(a);
     const bm = metaRecord(b);
@@ -122,14 +120,9 @@ function WorkflowPlanCardInner({ tasks }: { tasks: WorkflowTaskRow[] }) {
             meta && typeof meta.owner_code === "string"
               ? (meta.owner_code as string)
               : null;
-          const assignedName = t.assigned_user_id
-            ? resolve(t.assigned_user_id)
-            : "";
-          const ownerCode =
-            assignedName ||
-            metaOwnerLabel ||
-            metaOwnerCode ||
-            "—";
+          // Display label comes only from task metadata written by the backend.
+          // No frontend UUID→name resolution.
+          const ownerCode = metaOwnerCode || metaOwnerLabel || "—";
           return (
             <li
               key={t.id}

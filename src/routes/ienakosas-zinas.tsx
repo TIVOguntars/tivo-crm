@@ -24,7 +24,6 @@ import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 import { useCrmView } from "@/hooks/useCrmView";
 import { fetchCrmView } from "@/server/analytics";
-import { useUserMap } from "@/hooks/useUsers";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
 import { CHANNEL_LV, lv } from "@/lib/i18nLabels";
@@ -72,7 +71,6 @@ function InboxPage() {
     status?: string;
   };
   const navigate = useNavigate();
-  const { resolve: resolveUserName } = useUserMap();
   const filters = useMemo(() => buildAnalyticsFilters(search), [search]);
 
   const channelFilter = search.channel ?? "all";
@@ -158,9 +156,29 @@ function InboxPage() {
     return Array.from(set);
   }, [allEvents]);
 
-  // Batch fetch leads for those IDs from crm.leads_list_display_v3.
-  const leadsQuery = leadIds.length
-    ? `lead_id=in.(${leadIds.map((id) => `"${id}"`).join(",")})&limit=${leadIds.length}`
+  // Step 1: map UUID lead_ids → lead_number via crm.leads (v3 is keyed by lead_number).
+  const leadNumberMapQuery = leadIds.length
+    ? `select=id,lead_number&id=in.(${leadIds.map((id) => `"${id}"`).join(",")})&limit=${leadIds.length}`
+    : "";
+  const leadNumberMapQ = useCrmView("leads", leadNumberMapQuery);
+  const numberByLeadId = useMemo(() => {
+    const m = new Map<string, string>();
+    const rows = (leadNumberMapQ.data?.rows ?? []) as Array<Record<string, unknown>>;
+    for (const r of rows) {
+      const id = r.id != null ? String(r.id) : "";
+      const num = r.lead_number != null ? String(r.lead_number) : "";
+      if (id && num) m.set(id, num);
+    }
+    return m;
+  }, [leadNumberMapQ.data]);
+
+  // Step 2: fetch v3 display rows by lead_number.
+  const leadNumbers = useMemo(
+    () => Array.from(new Set(numberByLeadId.values())),
+    [numberByLeadId],
+  );
+  const leadsQuery = leadNumbers.length
+    ? `lead_number=in.(${leadNumbers.map((n) => `"${n}"`).join(",")})&limit=${leadNumbers.length}`
     : "";
   const leadsQ = useCrmView(
     "leads_list_display_v3",
@@ -170,12 +188,15 @@ function InboxPage() {
   const leadsById = useMemo(() => {
     const map = new Map<string, LeadRow>();
     const rows = (leadsQ.data?.rows ?? []) as LeadRow[];
+    const numberToId = new Map<string, string>();
+    for (const [id, num] of numberByLeadId.entries()) numberToId.set(num, id);
     for (const r of rows) {
-      const id = r.lead_id;
-      if (id != null) map.set(String(id), r);
+      const num = r.lead_number != null ? String(r.lead_number) : "";
+      const id = numberToId.get(num);
+      if (id) map.set(id, r);
     }
     return map;
-  }, [leadsQ.data]);
+  }, [leadsQ.data, numberByLeadId]);
 
   // Apply filter options
   const ppvSet = useMemo(
@@ -226,7 +247,7 @@ function InboxPage() {
             return false;
         }
         if (ppvSet.size > 0) {
-          const v = String(lead?.ppv_user_id ?? "").toLowerCase();
+          const v = String(lead?.ppv_user_code ?? "").toLowerCase();
           if (!ppvSet.has(v)) return false;
         }
         if (countrySet.size > 0) {
@@ -393,14 +414,24 @@ function InboxPage() {
                         </td>
                         <td className="px-3 py-2 text-foreground">
                           {(() => {
-                            const uid = String(lead?.ppv_user_id ?? "");
-                            return uid ? resolveUserName(uid) || uid : "—";
+                            const code = String(lead?.ppv_user_code ?? "");
+                            const name = String(lead?.ppv_name ?? "");
+                            return code ? (
+                              <span title={name || code}>{code}</span>
+                            ) : (
+                              "—"
+                            );
                           })()}
                         </td>
                         <td className="px-3 py-2 text-foreground">
                           {(() => {
-                            const uid = String(lead?.ppv_user_id ?? "");
-                            return uid ? resolveUserName(uid) || uid : "—";
+                            const code = String(lead?.task_assigned_user_code ?? "");
+                            const name = String(lead?.task_assigned_name ?? "");
+                            return code ? (
+                              <span title={name || code}>{code}</span>
+                            ) : (
+                              "—"
+                            );
                           })()}
                         </td>
                       </tr>

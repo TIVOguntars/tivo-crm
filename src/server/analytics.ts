@@ -234,7 +234,6 @@ export const fetchAnalyticsRpc = createServerFn({ method: "POST" })
   });
 
 const CRM_VIEWS = [
-  "v_next_action_queue",
   "lead_status_options",
   "lead_drawer_summary",
   "lead_communication_timeline",

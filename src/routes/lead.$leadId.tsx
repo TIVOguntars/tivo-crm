@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 
-import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
 import type { ManualActivityPrefill } from "@/components/lead/ManualActivityDialog";
@@ -316,7 +315,6 @@ function channelIcon(channel: string) {
 
 function LeadProfilePage() {
   const navigate = useNavigate();
-  const { resolve: resolveUserName } = useUserMap();
   const goBackToList = () => {
     let returnTo: string | null = null;
     try {
@@ -341,10 +339,32 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
-  const commCountsQ = useCrmView(
+  // Derive lead_number from the RPC profile so we can join the v3 display view.
+  // v3 is keyed by lead_number (no UUID column).
+  const leadNumberForV3 = (() => {
+    const rawProfile = q.data?.rows?.[0] ?? null;
+    const prof =
+      rawProfile && typeof rawProfile === "object" && "profile" in rawProfile
+        ? (rawProfile as { profile: unknown }).profile
+        : rawProfile;
+    const lead =
+      prof && typeof prof === "object"
+        ? (prof as Record<string, unknown>).lead ??
+          (prof as Record<string, unknown>).lead_header ??
+          (prof as Record<string, unknown>).header ??
+          prof
+        : null;
+    const ln =
+      lead && typeof lead === "object"
+        ? (lead as Record<string, unknown>).lead_number
+        : null;
+    return ln != null ? String(ln) : "";
+  })();
+  const v3DisplayQ = useCrmView(
     "leads_list_display_v3",
-    `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
+    `lead_number=eq.${encodeURIComponent(leadNumberForV3 || "__none__")}&limit=1`,
   );
+  const v3Row = ((v3DisplayQ.data?.rows ?? []) as Row[])[0] ?? null;
   const commPayloadsQ = useCrmView(
     "communications",
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
@@ -422,11 +442,27 @@ function LeadProfilePage() {
   const primaryPhone = primaryPhoneE164 || primaryPhoneRaw;
   const waNumber = primaryPhoneE164.replace(/[^\d]/g, "");
 
-  // Single owner model (v2): ppv_user_id is the only lead owner.
+  // PPV/Responsible labels come from the v3 display contract (codes + names).
+  // ppvUserId is kept only as an internal value passed to LeadEditPanel's
+  // assignment editor (RPC payload), never rendered as text.
   const ppvUserId = str(pick(header, "ppv_user_id"));
-  const ppvLabel =
-    (ppvUserId && resolveUserName(ppvUserId)) || "Nav piešķirts";
-  const ownerLabel = ppvLabel;
+  const ppvCode = str(pick(v3Row, "ppv_user_code"));
+  const ppvName = str(pick(v3Row, "ppv_name"));
+  const ppvLabel = ppvCode || "Nav piešķirts";
+  const ppvTooltip = ppvName || ppvCode || "Nav piešķirts";
+  const responsibleCode = str(pick(v3Row, "task_assigned_user_code"));
+  const responsibleName = str(pick(v3Row, "task_assigned_name"));
+  const ownerLabel = responsibleCode || ppvLabel;
+  const ownerTooltip = responsibleName || responsibleCode || ppvTooltip;
+  // v3-sourced operational signals (no frontend calculation).
+  const priorityScore = pick(v3Row, "priority_score");
+  const priorityStars = Number(pick(v3Row, "priority_stars") ?? 0) || 0;
+  const priorityLabel = str(pick(v3Row, "priority_label"));
+  const queueBucketLabel = str(pick(v3Row, "queue_bucket_label"));
+  const needsAttention = pick(v3Row, "needs_attention") === true;
+  const commState = str(pick(v3Row, "communication_state"));
+  const commLabel = str(pick(v3Row, "communication_label"));
+  const hasUnreadReply = pick(v3Row, "has_unread_reply") === true;
   const leadTitle =
     str(pick(primaryData, "full_name")) ||
     str(pick(header, "full_name")) ||
@@ -452,13 +488,7 @@ function LeadProfilePage() {
   })();
 
   const commStats = useMemo(() => {
-    const rows = (commCountsQ.data?.rows ?? []) as Row[];
-    const r = rows[0];
-    if (!commCountsQ.isLoading && !r && leadId) {
-      console.error(
-        `[lead 360] leads_list_display_v3 returned no row for lead_id=${leadId}`,
-      );
-    }
+    const r = v3Row;
     const num = (v: unknown) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
@@ -477,7 +507,7 @@ function LeadProfilePage() {
         inbound: num(r?.chat_inbound_count),
       },
     };
-  }, [commCountsQ.data, commCountsQ.isLoading, leadId]);
+  }, [v3Row]);
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
@@ -752,16 +782,54 @@ function LeadProfilePage() {
                 <div className="hidden md:flex items-center text-xs text-muted-foreground ml-6">
                   <div className="flex flex-col">
                     <span className="text-foreground mx-[10px]">PPV</span>
-                    <span className="text-foreground mx-[10px] font-medium">{ppvLabel}</span>
+                    <span className="text-foreground mx-[10px] font-medium" title={ppvTooltip}>
+                      {ppvLabel}
+                    </span>
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Atbildīgais</span>
-                    <span className="text-foreground mx-[10px] font-medium">{ownerLabel}</span>
+                    <span className="text-foreground mx-[10px] font-medium" title={ownerTooltip}>
+                      {ownerLabel}
+                    </span>
                   </div>
                   <div className="flex flex-col ml-4">
                     <span className="text-foreground mx-[10px]">Pēdējā aktivitāte</span>
                     <span className="text-foreground mx-[10px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
+                  {(priorityLabel || priorityScore != null) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Prioritāte</span>
+                      <span
+                        className="text-foreground mx-[10px] font-medium"
+                        title={
+                          priorityScore != null
+                            ? `Score: ${String(priorityScore)}`
+                            : undefined
+                        }
+                      >
+                        {priorityStars > 0 ? "★".repeat(Math.max(0, Math.min(5, priorityStars))) : ""}
+                        {priorityLabel ? ` ${priorityLabel}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {(queueBucketLabel || needsAttention) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Rinda</span>
+                      <span className="text-foreground mx-[10px] font-medium">
+                        {queueBucketLabel || "—"}
+                        {needsAttention ? " · ⚠" : ""}
+                      </span>
+                    </div>
+                  )}
+                  {(commLabel || hasUnreadReply) && (
+                    <div className="flex flex-col ml-4">
+                      <span className="text-foreground mx-[10px]">Komunikācija</span>
+                      <span className="text-foreground mx-[10px] font-medium" title={commState || undefined}>
+                        {commLabel || commState || "—"}
+                        {hasUnreadReply ? " · 📩" : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1522,10 +1590,7 @@ function LeadProfilePage() {
                           ? str(pick(aMeta, "manual_outcome_text"))
                           : "";
                         const aDate = pick(r, "activity_at", "created_at");
-                        const aUserId = str(pick(r, "performed_by_user_id"));
-                        const aActorLabel = aUserId
-                          ? resolveUserName(aUserId) || ""
-                          : "";
+                        const aActorLabel = str(pick(aMeta, "actor_label", "performed_by_label"));
                         const styleA = getActivityStyle(classifyLocal(it));
                         const actIcon =
                           at === "call" ? (
@@ -1984,8 +2049,7 @@ function LeadProfilePage() {
                   ? str(pick(aMeta, "manual_outcome_text"))
                   : "";
                 const aDate = pick(r, "activity_at", "created_at");
-                const aUserId = str(pick(r, "performed_by_user_id"));
-                const aActorLabel = aUserId ? resolveUserName(aUserId) || "" : "";
+                const aActorLabel = str(pick(aMeta, "actor_label", "performed_by_label"));
                 const emptyFallback = isManual ? "Nav piezīmes" : typeLabel;
                 return (
                   <>
