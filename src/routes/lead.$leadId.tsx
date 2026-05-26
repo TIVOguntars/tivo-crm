@@ -442,11 +442,27 @@ function LeadProfilePage() {
   const primaryPhone = primaryPhoneE164 || primaryPhoneRaw;
   const waNumber = primaryPhoneE164.replace(/[^\d]/g, "");
 
-  // Single owner model (v2): ppv_user_id is the only lead owner.
+  // PPV/Responsible labels come from the v3 display contract (codes + names).
+  // ppvUserId is kept only as an internal value passed to LeadEditPanel's
+  // assignment editor (RPC payload), never rendered as text.
   const ppvUserId = str(pick(header, "ppv_user_id"));
-  const ppvLabel =
-    (ppvUserId && resolveUserName(ppvUserId)) || "Nav piešķirts";
-  const ownerLabel = ppvLabel;
+  const ppvCode = str(pick(v3Row, "ppv_user_code"));
+  const ppvName = str(pick(v3Row, "ppv_name"));
+  const ppvLabel = ppvCode || "Nav piešķirts";
+  const ppvTooltip = ppvName || ppvCode || "Nav piešķirts";
+  const responsibleCode = str(pick(v3Row, "task_assigned_user_code"));
+  const responsibleName = str(pick(v3Row, "task_assigned_name"));
+  const ownerLabel = responsibleCode || ppvLabel;
+  const ownerTooltip = responsibleName || responsibleCode || ppvTooltip;
+  // v3-sourced operational signals (no frontend calculation).
+  const priorityScore = pick(v3Row, "priority_score");
+  const priorityStars = Number(pick(v3Row, "priority_stars") ?? 0) || 0;
+  const priorityLabel = str(pick(v3Row, "priority_label"));
+  const queueBucketLabel = str(pick(v3Row, "queue_bucket_label"));
+  const needsAttention = pick(v3Row, "needs_attention") === true;
+  const commState = str(pick(v3Row, "communication_state"));
+  const commLabel = str(pick(v3Row, "communication_label"));
+  const hasUnreadReply = pick(v3Row, "has_unread_reply") === true;
   const leadTitle =
     str(pick(primaryData, "full_name")) ||
     str(pick(header, "full_name")) ||
@@ -472,13 +488,7 @@ function LeadProfilePage() {
   })();
 
   const commStats = useMemo(() => {
-    const rows = (commCountsQ.data?.rows ?? []) as Row[];
-    const r = rows[0];
-    if (!commCountsQ.isLoading && !r && leadId) {
-      console.error(
-        `[lead 360] leads_list_display_v3 returned no row for lead_id=${leadId}`,
-      );
-    }
+    const r = v3Row;
     const num = (v: unknown) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
@@ -497,7 +507,7 @@ function LeadProfilePage() {
         inbound: num(r?.chat_inbound_count),
       },
     };
-  }, [commCountsQ.data, commCountsQ.isLoading, leadId]);
+  }, [v3Row]);
 
   const lastActivityAt = useMemo(() => {
     const candidates: number[] = [];
