@@ -24,6 +24,7 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
+  Star,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
