@@ -45,12 +45,10 @@ import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useUserMap } from "@/hooks/useUsers";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { isAutoActionType } from "@/lib/responsibleResolver";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
@@ -105,6 +103,7 @@ interface Lead {
   display_lead_id: string;
   name: string;
   lead_number: string;
+  external_id: string;
   company_name: string;
   phone: string;
   email: string;
@@ -114,8 +113,10 @@ interface Lead {
   status: string;
   owner: string;
   ppv: string;
-  ppv_user_id: string;
   ppv_user_code: string;
+  ppv_name: string;
+  task_assigned_user_code: string;
+  task_assigned_name: string;
   next_action: string;
   next_action_due: string | null; // effective_due_at
   next_action_due_date: string | null; // raw next_action_due_date (display only)
@@ -133,16 +134,14 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   is_hot: boolean;
-  responsible: string; // "SIS" | userId | "-"
   object_summary: string;
-  /** True when crm.v_next_action_queue has a row for this lead. */
+  /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
-  /**
-   * Quick notes column source.
-   * field missing in current query/type — pending Supabase backfill of
-   * crm.leads_list_display_v3 with `summary` column.
-   */
-  summary: string;
+  /** Queue bucket sourced directly from backend (no frontend calc). */
+  queue_bucket: string;
+  queue_bucket_label: string;
+  operational_bucket: string;
+  needs_attention: boolean;
 }
 
 function s(v: unknown): string {
@@ -285,12 +284,6 @@ const FIELDS: FieldDef[] = [
   { key: "status", label: "Statuss", type: "enum", get: (l) => l.status },
   { key: "owner", label: "Atbildīgais", type: "enum", get: (l) => l.owner },
   { key: "ppv", label: "PPV", type: "enum", get: (l) => l.ppv },
-  {
-    key: "ppv_user_id",
-    label: "PPV (ID)",
-    type: "enum",
-    get: (l) => l.ppv_user_id,
-  },
   { key: "country", label: "Valsts", type: "enum", get: (l) => l.country },
   { key: "tags", label: "Tagi", type: "tags", get: (l) => l.tags },
   {
@@ -566,11 +559,6 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
     { key: "status", label: "Statuss", get: (l) => l.status },
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
-    {
-      key: "ppv_user_id",
-      label: "PPV (ID)",
-      get: (l) => l.ppv_user_id,
-    },
     { key: "country", label: "Valsts", get: (l) => l.country },
   ];
 const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
@@ -603,7 +591,6 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
@@ -765,79 +752,30 @@ function LeadiPage() {
   const overview = useCrmView("leads_list_display_v3", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
-  /* ---- crm.v_next_action_queue: source for "Atbildīgais" column ---- */
-  const queueView = useCrmView(
-    "v_next_action_queue",
-    "select=lead_id,action_type,assigned_user_id,workflow_name,step_name,communication_label,communication_state&limit=20000",
+  /* ---- crm.leads: lead_number → uuid lookup (internal only, never rendered) ---- */
+  const leadsIdLookup = useCrmView(
+    "leads",
+    "select=id,lead_number&limit=20000",
     { all: true },
   );
-  type QueueFacts = {
-    action_type: string;
-    assigned_user_id: string;
-    communication_label: string;
-    workflow_name: string;
-    step_name: string;
-  };
-  const queueByLead = useMemo(() => {
-    const map = new Map<string, QueueFacts>();
-    const rows = (queueView.data?.rows ?? []) as Row[];
+  const leadIdByNumber = useMemo(() => {
+    const map = new Map<string, string>();
+    const rows = (leadsIdLookup.data?.rows ?? []) as Row[];
     for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid || map.has(lid)) continue;
-      map.set(lid, {
-        action_type: s(r.action_type),
-        assigned_user_id: s(r.assigned_user_id),
-        communication_label: s(r.communication_label),
-        workflow_name: s(r.workflow_name),
-        step_name: s(r.step_name),
-      });
+      const ln = s(r.lead_number);
+      const id = s(r.id);
+      if (ln && id) map.set(ln, id);
     }
     return map;
-  }, [queueView.data]);
-
-  type LeadFacts = {
-    status: string;
-    ppv_user_id: string;
-    contact_id: string;
-  };
-  const crmLeadFactsById = useMemo(() => {
-    const map = new Map<string, LeadFacts>();
-    const rows = (overview.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      map.set(lid, {
-        status: s(r.status),
-        ppv_user_id: s(r.ppv_user_id),
-        contact_id: s(r.contact_id),
-      });
-    }
-    return map;
-  }, [overview.data]);
-
-  const reitingsView = useAnalyticsView(
-    "lead_reitings_preview",
-    "select=lead_id,reitings&limit=20000",
-  );
-  const reitingsByLead = useMemo(() => {
-    const map = new Map<string, number>();
-    const rows = (reitingsView.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const lid = s(r.lead_id);
-      if (!lid) continue;
-      const v = Number(r.reitings);
-      if (Number.isFinite(v)) map.set(lid, v);
-    }
-    return map;
-  }, [reitingsView.data]);
+  }, [leadsIdLookup.data]);
 
   const commCounts = useMemo(() => {
     const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
     for (const r of rows) {
-      const lid = s(r.lead_id) || s(r.id);
-      if (!lid) continue;
-      map.set(lid, {
+      const ln = s(r.lead_number);
+      if (!ln) continue;
+      map.set(ln, {
         email: [
           Number(r.email_outbound_count) || 0,
           Number(r.email_inbound_count) || 0,
@@ -863,54 +801,36 @@ function LeadiPage() {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
       .map((r) => {
-        const id = s(r.lead_id) || s(r.id);
-        if (!id) return null;
+        const lead_number = s(r.lead_number);
+        if (!lead_number) return null;
+        // UUID stays internal (RPC payloads, navigation). Never rendered.
+        const id = leadIdByNumber.get(lead_number) || lead_number;
         const phone = s(
-          r.phone_e164 || r.telefons_e164 || r.telefons_raw || r.phone_raw,
+          r.phone_e164,
         );
-        const email = s(r.email_normalized || r.email);
+        const email = s(r.email_normalized);
         const country = s(r.country);
         const secondary = phone || email || country;
-        const next_action_due =
-          s(r.effective_due_at) || s(r.visible_action_due_at) || null;
+        const next_action_due = s(r.effective_due_at) || null;
         const next_action = s(r.action_label);
-        const last_activity =
-          s(r.last_contact_date) ||
-          s(r.last_communication_at) ||
-          s(r.updated_at) ||
-          null;
+        const last_activity = s(r.last_communication_at) || null;
         const has_unread_reply =
           r.has_unread_reply === true || r.has_unread_reply === "true";
         const reply_count = Number(r.reply_count ?? 0) || 0;
         const communication_state = s(r.communication_state).toLowerCase();
         const tagsArr = asTags(r.tags);
-        const facts = crmLeadFactsById.get(id);
-        const statusStr =
-          s(facts?.status) || s(r.lead_status_label || r.status);
-        const queueFacts = queueByLead.get(id);
-        // Atbildīgais ir tikai tam uzdevumam, kas reāli eksistē.
-        // Nav uzdevuma → "-". SIS uzdevums → "SIS". Citādi → user_code vai "-".
-        let responsible = "-";
-        if (queueFacts) {
-          if (isAutoActionType(queueFacts.action_type)) {
-            responsible = "SIS";
-          } else {
-            const code = resolveUserCode(queueFacts.assigned_user_id);
-            responsible = code || "-";
-          }
-        }
-        const taskName = queueFacts
-          ? s(r.next_action) ||
-            queueFacts.step_name ||
-            queueFacts.workflow_name ||
-            next_action ||
-            ""
-          : "";
+        const statusStr = s(r.status);
+        const ppv_name = s(r.ppv_name);
+        const ppv_user_code = s(r.ppv_user_code);
+        const task_assigned_user_code = s(r.task_assigned_user_code);
+        const task_assigned_name = s(r.task_assigned_name);
+        const has_task = !!next_action;
         return {
           lead_id: id,
           display_lead_id: id,
           name: leadDisplayName(r),
-          lead_number: s(r.lead_number),
+          lead_number,
+          external_id: s(r.external_id),
           company_name: s(r.company_name),
           phone,
           email,
@@ -918,31 +838,21 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: (() => {
-            // Single owner = PPV (per v2 model).
-            const uid = s(facts?.ppv_user_id);
-            return uid ? resolveUserName(uid) || "" : "";
-          })(),
-          ppv: (() => {
-            const uid = s(facts?.ppv_user_id);
-            return uid ? resolveUserName(uid) || "" : "";
-          })(),
-          ppv_user_id: s(facts?.ppv_user_id),
-          ppv_user_code: (() => {
-            const uid = s(facts?.ppv_user_id);
-            return uid ? resolveUserCode(uid) || "" : "";
-          })(),
-          next_action: taskName,
+          owner: ppv_name,
+          ppv: ppv_name,
+          ppv_name,
+          ppv_user_code,
+          task_assigned_user_code,
+          task_assigned_name,
+          next_action,
           next_action_due,
           next_action_due_date: s(r.next_action_due_date) || null,
           last_activity,
           tags: tagsArr,
           created_at: s(r.created_at) || null,
-          unread_replies:
-            Number(r.unread_replies ?? r.unread_count ?? reply_count) || 0,
+          unread_replies: reply_count,
           communication_state,
-          communication_label:
-            s(r.communication_label) || s(queueFacts?.communication_label),
+          communication_label: s(r.communication_label),
           has_unread_reply,
           reply_count,
           click_count: Number(r.click_count ?? 0) || 0,
@@ -953,21 +863,17 @@ function LeadiPage() {
           is_hot:
             tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
             /karst/i.test(statusStr),
-          responsible,
           object_summary: s(r.object_summary),
-          has_task: !!queueFacts,
-          // field missing in current query/type — pending Supabase backfill
-          summary: "",
-        } as Lead;
+          has_task,
+          queue_bucket: s(r.queue_bucket),
+          queue_bucket_label: s(r.queue_bucket_label),
+          operational_bucket: s(r.operational_bucket),
+          needs_attention:
+            r.needs_attention === true || r.needs_attention === "true",
+        } satisfies Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [
-    overview.data,
-    crmLeadFactsById,
-    queueByLead,
-    resolveUserName,
-    resolveUserCode,
-  ]);
+  }, [overview.data, leadIdByNumber]);
 
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
@@ -1010,7 +916,6 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
-      ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
@@ -1603,7 +1508,7 @@ function LeadRow({
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
         <span
           className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-          title={l.ppv_user_code || "-"}
+          title={l.ppv_name || l.ppv_user_code || "-"}
         >
           {l.ppv_user_code || (
             <span className="text-muted-foreground/60">-</span>
@@ -1652,16 +1557,12 @@ function LeadRow({
         <StatusBadge status={l.status} />
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        {l.responsible === "SIS" ? (
-          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 h-4 text-[10.5px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-            SIS
-          </span>
-        ) : l.responsible && l.responsible !== "-" ? (
+        {l.task_assigned_user_code ? (
           <span
             className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-            title={l.responsible}
+            title={l.task_assigned_name || l.task_assigned_user_code}
           >
-            {l.responsible}
+            {l.task_assigned_user_code}
           </span>
         ) : (
           <span className="text-muted-foreground/50">-</span>
