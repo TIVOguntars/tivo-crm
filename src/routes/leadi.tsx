@@ -578,6 +578,16 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
     { key: "country", label: "Valsts", get: (l) => l.country },
+    {
+      key: "priority_score",
+      label: "Prioritāte (score)",
+      get: (l) => (l.priority_score == null ? -1 : l.priority_score),
+    },
+    {
+      key: "queue_bucket_label",
+      label: "Queue",
+      get: (l) => l.queue_bucket_label,
+    },
   ];
 const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
   Object.fromEntries(SORT_FIELDS.map((f) => [f.key, f]));
