@@ -525,7 +525,7 @@ function QueuePage() {
     if (
       !skip.leadStatus &&
       leadStatus !== "all" &&
-      mapStatus(s(r.legacy_lead_status)) !== leadStatus
+      mapStatus(s(r.lead_status)) !== leadStatus
     )
       return false;
     if (taskPriority !== "all" && s(r.task_priority_label) !== taskPriority)
@@ -590,7 +590,7 @@ function QueuePage() {
     const map = new Map<string, { label: string; sort: number }>();
     for (const r of rows) {
       if (r.show_in_status_quick_filter === false) continue;
-      const l = mapStatus(s(r.legacy_lead_status));
+      const l = mapStatus(s(r.lead_status));
       if (!l || exclude.has(l)) continue;
       if (!map.has(l)) map.set(l, { label: l, sort: statusSort(l) });
     }
@@ -617,7 +617,7 @@ function QueuePage() {
     const c = new Map<string, number>();
     for (const r of rows) {
       if (!matchRow(r, { leadStatus: true })) continue;
-      const l = mapStatus(s(r.legacy_lead_status));
+      const l = mapStatus(s(r.lead_status));
       if (!l) continue;
       c.set(l, (c.get(l) ?? 0) + 1);
     }
@@ -1161,7 +1161,7 @@ function sortValue(r: Row, key: SortKey): string | number {
     case "tags":
       return parseTags(r.tags).join(",");
     case "leadStatus": {
-      return mapStatus(s(r.legacy_lead_status)).toLowerCase();
+      return mapStatus(s(r.lead_status)).toLowerCase();
     }
   }
 }
