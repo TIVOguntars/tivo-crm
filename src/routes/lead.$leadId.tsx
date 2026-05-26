@@ -339,6 +339,32 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
+  // Derive lead_number from the RPC profile so we can join the v3 display view.
+  // v3 is keyed by lead_number (no UUID column).
+  const leadNumberForV3 = (() => {
+    const rawProfile = q.data?.rows?.[0] ?? null;
+    const prof =
+      rawProfile && typeof rawProfile === "object" && "profile" in rawProfile
+        ? (rawProfile as { profile: unknown }).profile
+        : rawProfile;
+    const lead =
+      prof && typeof prof === "object"
+        ? (prof as Record<string, unknown>).lead ??
+          (prof as Record<string, unknown>).lead_header ??
+          (prof as Record<string, unknown>).header ??
+          prof
+        : null;
+    const ln =
+      lead && typeof lead === "object"
+        ? (lead as Record<string, unknown>).lead_number
+        : null;
+    return ln != null ? String(ln) : "";
+  })();
+  const v3DisplayQ = useCrmView(
+    "leads_list_display_v3",
+    `lead_number=eq.${encodeURIComponent(leadNumberForV3 || "__none__")}&limit=1`,
+  );
+  const v3Row = ((v3DisplayQ.data?.rows ?? []) as Row[])[0] ?? null;
   const commPayloadsQ = useCrmView(
     "communications",
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
