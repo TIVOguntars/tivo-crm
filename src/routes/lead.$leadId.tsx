@@ -455,9 +455,6 @@ function LeadProfilePage() {
   const ownerLabel = responsibleCode || ppvLabel;
   const ownerTooltip = responsibleName || responsibleCode || ppvTooltip;
   // v3-sourced operational signals (no frontend calculation).
-  const priorityScore = pick(v3Row, "priority_score");
-  const priorityStars = Number(pick(v3Row, "priority_stars") ?? 0) || 0;
-  const priorityLabel = str(pick(v3Row, "priority_label"));
   const queueBucketLabel = str(pick(v3Row, "queue_bucket_label"));
   const needsAttention = pick(v3Row, "needs_attention") === true;
   const commState = str(pick(v3Row, "communication_state"));
@@ -796,22 +793,6 @@ function LeadProfilePage() {
                     <span className="text-foreground mx-[10px]">Pēdējā aktivitāte</span>
                     <span className="text-foreground mx-[10px]">{lastActivityAt ? fmtDate(lastActivityAt) : "Nav aktivitāšu"}</span>
                   </div>
-                  {(priorityLabel || priorityScore != null) && (
-                    <div className="flex flex-col ml-4">
-                      <span className="text-foreground mx-[10px]">Prioritāte</span>
-                      <span
-                        className="text-foreground mx-[10px] font-medium"
-                        title={
-                          priorityScore != null
-                            ? `Score: ${String(priorityScore)}`
-                            : undefined
-                        }
-                      >
-                        {priorityStars > 0 ? "★".repeat(Math.max(0, Math.min(5, priorityStars))) : ""}
-                        {priorityLabel ? ` ${priorityLabel}` : ""}
-                      </span>
-                    </div>
-                  )}
                   {(queueBucketLabel || needsAttention) && (
                     <div className="flex flex-col ml-4">
                       <span className="text-foreground mx-[10px]">Rinda</span>
