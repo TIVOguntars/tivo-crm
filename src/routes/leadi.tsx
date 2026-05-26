@@ -194,6 +194,20 @@ const MS_DAY = 24 * MS_HOUR;
 const LEADS_GRID =
   "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
+/* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
+const QUEUE_BUCKET_TONE: Record<string, string> = {
+  overdue: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  today: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  upcoming: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  backlog: "bg-muted text-muted-foreground",
+  done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+};
+function queueBucketTone(bucket: string): string {
+  const key = (bucket || "").toLowerCase();
+  return QUEUE_BUCKET_TONE[key] ?? "bg-muted text-muted-foreground";
+}
+
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
