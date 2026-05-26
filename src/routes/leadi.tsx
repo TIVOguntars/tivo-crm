@@ -300,6 +300,18 @@ const FIELDS: FieldDef[] = [
     get: (l) => l.communication_state,
   },
   {
+    key: "priority_label",
+    label: "Prioritāte",
+    type: "enum",
+    get: (l) => l.priority_label,
+  },
+  {
+    key: "queue_bucket_label",
+    label: "Queue",
+    type: "enum",
+    get: (l) => l.queue_bucket_label,
+  },
+  {
     key: "action_label",
     label: "Nākamā darbība",
     type: "string",
