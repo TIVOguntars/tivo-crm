@@ -612,8 +612,6 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
   return 0;
 }
 
-/* ============================ Components: Priority/Comm ============================ */
-
 /* ============================ Page ============================ */
 
 function LeadiPage() {
