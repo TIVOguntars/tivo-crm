@@ -24,6 +24,7 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
+  Star,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,7 @@ interface Lead {
   ppv: string;
   ppv_user_code: string;
   ppv_name: string;
+  owner_user_code: string;
   task_assigned_user_code: string;
   task_assigned_name: string;
   next_action: string;
@@ -142,6 +144,11 @@ interface Lead {
   queue_bucket_label: string;
   operational_bucket: string;
   needs_attention: boolean;
+  priority_score: number | null;
+  priority_stars: number | null;
+  priority_label: string;
+  priority_breakdown: string;
+  priority_updated_at: string | null;
 }
 
 function s(v: unknown): string {
@@ -186,6 +193,20 @@ const MS_DAY = 24 * MS_HOUR;
 
 const LEADS_GRID =
   "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
+
+/* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
+const QUEUE_BUCKET_TONE: Record<string, string> = {
+  overdue: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  today: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  upcoming: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  backlog: "bg-muted text-muted-foreground",
+  done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+};
+function queueBucketTone(bucket: string): string {
+  const key = (bucket || "").toLowerCase();
+  return QUEUE_BUCKET_TONE[key] ?? "bg-muted text-muted-foreground";
+}
 
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
@@ -243,26 +264,6 @@ function isRigaSameDay(a: number, b: number): boolean {
   const y = rigaYmd(b);
   return x.y === y.y && x.m === y.m && x.d === y.d;
 }
-/** Bucket for next-action grouping. */
-function nextActionBucket(due: string | null): string {
-  const t = parseDate(due);
-  if (t == null) return "Nav darbības";
-  const now = Date.now();
-  if (t < now && !isRigaSameDay(t, now)) return "Kavēts";
-  if (isRigaSameDay(t, now)) return "Šodien";
-  if (isRigaSameDay(t, now + MS_DAY)) return "Rīt";
-  if (t <= now + 7 * MS_DAY) return "Nākamās 7 dienas";
-  return "Vēlāk";
-}
-const NEXT_ACTION_BUCKET_ORDER = [
-  "Kavēts",
-  "Šodien",
-  "Rīt",
-  "Nākamās 7 dienas",
-  "Vēlāk",
-  "Nav darbības",
-];
-
 /* ============================ Field catalog ============================ */
 
 type FieldType =
@@ -291,6 +292,18 @@ const FIELDS: FieldDef[] = [
     label: "Komunikācijas stāvoklis",
     type: "enum",
     get: (l) => l.communication_state,
+  },
+  {
+    key: "priority_label",
+    label: "Prioritāte",
+    type: "enum",
+    get: (l) => l.priority_label,
+  },
+  {
+    key: "queue_bucket_label",
+    label: "Queue",
+    type: "enum",
+    get: (l) => l.queue_bucket_label,
   },
   {
     key: "action_label",
@@ -511,19 +524,18 @@ const GROUP_FIELDS: GroupFieldDef[] = [
   {
     key: "owner",
     label: "Atbildīgais",
-    get: (l) => l.owner || "Nepiešķirts",
+    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
   },
-  { key: "ppv", label: "PPV", get: (l) => l.ppv || "Nav PPV" },
+  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
   {
-    key: "country",
-    label: "Valsts",
-    get: (l) => l.country || "Nav norādīts",
+    key: "priority_label",
+    label: "Prioritāte",
+    get: (l) => l.priority_label || "Bez prioritātes",
   },
   {
-    key: "next_action_bucket",
-    label: "Nākamās darbības datums",
-    get: (l) => nextActionBucket(l.next_action_due),
-    order: NEXT_ACTION_BUCKET_ORDER,
+    key: "queue_bucket_label",
+    label: "Queue",
+    get: (l) => l.queue_bucket_label || "Nav rindas",
   },
 ];
 const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
@@ -560,6 +572,16 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
     { key: "country", label: "Valsts", get: (l) => l.country },
+    {
+      key: "priority_score",
+      label: "Prioritāte (score)",
+      get: (l) => (l.priority_score == null ? -1 : l.priority_score),
+    },
+    {
+      key: "queue_bucket_label",
+      label: "Queue",
+      get: (l) => l.queue_bucket_label,
+    },
   ];
 const SORT_BY_KEY: Record<string, (typeof SORT_FIELDS)[number]> =
   Object.fromEntries(SORT_FIELDS.map((f) => [f.key, f]));
@@ -583,8 +605,6 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
   }
   return 0;
 }
-
-/* ============================ Components: Priority/Comm ============================ */
 
 /* ============================ Page ============================ */
 
@@ -825,6 +845,16 @@ function LeadiPage() {
         const task_assigned_user_code = s(r.task_assigned_user_code);
         const task_assigned_name = s(r.task_assigned_name);
         const has_task = !!next_action;
+        const priority_score_raw = r.priority_score;
+        const priority_stars_raw = r.priority_stars;
+        const priority_score =
+          priority_score_raw == null || priority_score_raw === ""
+            ? null
+            : Number(priority_score_raw);
+        const priority_stars =
+          priority_stars_raw == null || priority_stars_raw === ""
+            ? null
+            : Number(priority_stars_raw);
         return {
           lead_id: id,
           display_lead_id: id,
@@ -838,10 +868,11 @@ function LeadiPage() {
           secondary,
           source: s(r.source),
           status: statusStr,
-          owner: ppv_name,
+          owner: task_assigned_name,
           ppv: ppv_name,
           ppv_name,
           ppv_user_code,
+          owner_user_code: task_assigned_user_code,
           task_assigned_user_code,
           task_assigned_name,
           next_action,
@@ -870,6 +901,15 @@ function LeadiPage() {
           operational_bucket: s(r.operational_bucket),
           needs_attention:
             r.needs_attention === true || r.needs_attention === "true",
+          priority_score: Number.isFinite(priority_score as number)
+            ? (priority_score as number)
+            : null,
+          priority_stars: Number.isFinite(priority_stars as number)
+            ? (priority_stars as number)
+            : null,
+          priority_label: s(r.priority_label),
+          priority_breakdown: s(r.priority_breakdown),
+          priority_updated_at: s(r.priority_updated_at) || null,
         } satisfies Lead;
       })
       .filter((x): x is Lead => x !== null);
@@ -902,8 +942,8 @@ function LeadiPage() {
           : leadsPatched.map((l) => l.country),
       ),
       owner: dedupe(
-        fromArr(fo?.owners).length
-          ? fromArr(fo?.owners)
+        fromArr(fo?.task_assignees).length
+          ? fromArr(fo?.task_assignees)
           : leadsPatched.map((l) => l.owner),
       ),
       ppv: dedupe(
@@ -916,6 +956,10 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
+      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
+      queue_bucket_label: dedupe(
+        leadsPatched.map((l) => l.queue_bucket_label),
+      ),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
@@ -1286,7 +1330,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Uzdevums</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Ātrās piezīmes</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Prioritāte</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
                   </div>
                 </div>
@@ -1554,15 +1598,34 @@ function LeadRow({
         )}
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <StatusBadge status={l.status} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <StatusBadge status={l.status} />
+          <div className="flex items-center gap-1">
+            <span
+              className={cn(
+                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[10px] font-medium",
+                queueBucketTone(l.queue_bucket),
+              )}
+              title={l.queue_bucket_label || "Nav rindas"}
+            >
+              {l.queue_bucket_label || "Nav rindas"}
+            </span>
+            {l.needs_attention && (
+              <AlertTriangle
+                className="h-3 w-3 shrink-0 text-amber-500"
+                aria-label="Vajadzīga uzmanība"
+              />
+            )}
+          </div>
+        </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        {l.task_assigned_user_code ? (
+        {l.owner_user_code ? (
           <span
             className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-            title={l.task_assigned_name || l.task_assigned_user_code}
+            title={l.owner || l.owner_user_code}
           >
-            {l.task_assigned_user_code}
+            {l.owner_user_code}
           </span>
         ) : (
           <span className="text-muted-foreground/50">-</span>
@@ -1651,12 +1714,49 @@ function LeadRow({
           );
         })()}
       </div>
-      <div
-        role="cell"
-        className="min-w-0 px-1.5 py-1 flex items-center"
-        title="field missing in current query/type — pending Supabase backfill"
-      >
-        <span className="text-muted-foreground/50 text-[11px]">—</span>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        {(() => {
+          const stars =
+            l.priority_stars == null
+              ? 0
+              : Math.max(0, Math.min(5, Math.round(l.priority_stars)));
+          const tooltipLines = [
+            l.priority_label || "Bez prioritātes",
+            l.priority_breakdown,
+            l.priority_updated_at
+              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <div
+              className="flex min-w-0 flex-col leading-tight"
+              title={tooltipLines}
+            >
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      "h-3 w-3",
+                      i < stars
+                        ? "fill-amber-400 text-amber-400"
+                        : "text-muted-foreground/30",
+                    )}
+                  />
+                ))}
+              </div>
+              {(l.priority_label || l.priority_score != null) && (
+                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                  {l.priority_label || ""}
+                  {l.priority_label && l.priority_score != null ? " · " : ""}
+                  {l.priority_score != null ? l.priority_score : ""}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
       <div
         role="cell"
