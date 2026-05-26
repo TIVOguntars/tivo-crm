@@ -934,7 +934,6 @@ function QueuePage() {
                         <OwnerBadge value="" />
                       )}
                     </TableCell>
-                    </TableCell>
                     {/* 8. Termiņš */}
                     <TableCell className="py-3">
                       <DueCell value={r.effective_due_at ?? r.due_at} />
