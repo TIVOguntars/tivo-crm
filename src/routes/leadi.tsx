@@ -1508,7 +1508,7 @@ function LeadRow({
       <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
         <span
           className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-          title={l.ppv_user_code || "-"}
+          title={l.ppv_name || l.ppv_user_code || "-"}
         >
           {l.ppv_user_code || (
             <span className="text-muted-foreground/60">-</span>
