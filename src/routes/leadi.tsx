@@ -1336,7 +1336,7 @@ function LeadiPage() {
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Uzdevums</div>
                     <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Ātrās piezīmes</div>
+                    <div role="columnheader" className="px-1.5 py-2 font-medium">Prioritāte</div>
                     <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
                   </div>
                 </div>
