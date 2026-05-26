@@ -591,7 +591,6 @@ function compareLeads(a: Lead, b: Lead, sort: SortRule[]): number {
 function LeadiPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { resolve: resolveUserName, resolveCode: resolveUserCode } = useUserMap();
 
   const setSearch = useCallback(
     (patch: Record<string, unknown>) => {
