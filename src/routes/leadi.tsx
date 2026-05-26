@@ -916,7 +916,6 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
-      ppv_user_id: dedupe(leadsPatched.map((l) => l.ppv_user_id)),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
