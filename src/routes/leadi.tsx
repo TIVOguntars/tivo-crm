@@ -264,26 +264,6 @@ function isRigaSameDay(a: number, b: number): boolean {
   const y = rigaYmd(b);
   return x.y === y.y && x.m === y.m && x.d === y.d;
 }
-/** Bucket for next-action grouping. */
-function nextActionBucket(due: string | null): string {
-  const t = parseDate(due);
-  if (t == null) return "Nav darbības";
-  const now = Date.now();
-  if (t < now && !isRigaSameDay(t, now)) return "Kavēts";
-  if (isRigaSameDay(t, now)) return "Šodien";
-  if (isRigaSameDay(t, now + MS_DAY)) return "Rīt";
-  if (t <= now + 7 * MS_DAY) return "Nākamās 7 dienas";
-  return "Vēlāk";
-}
-const NEXT_ACTION_BUCKET_ORDER = [
-  "Kavēts",
-  "Šodien",
-  "Rīt",
-  "Nākamās 7 dienas",
-  "Vēlāk",
-  "Nav darbības",
-];
-
 /* ============================ Field catalog ============================ */
 
 type FieldType =
