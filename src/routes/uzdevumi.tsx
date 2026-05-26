@@ -663,6 +663,7 @@ function QueuePage() {
   }, [rows, actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q]);
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <PageHeader
         title="Uzdevumi"
@@ -1023,6 +1024,7 @@ function QueuePage() {
         />
       ) : null}
     </div>
+    </TooltipProvider>
   );
 }
 
