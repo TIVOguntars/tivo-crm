@@ -1520,10 +1520,7 @@ function LeadProfilePage() {
                           ? str(pick(aMeta, "manual_outcome_text"))
                           : "";
                         const aDate = pick(r, "activity_at", "created_at");
-                        const aUserId = str(pick(r, "performed_by_user_id"));
-                        const aActorLabel = aUserId
-                          ? resolveUserName(aUserId) || ""
-                          : "";
+                        const aActorLabel = str(pick(aMeta, "actor_label", "performed_by_label"));
                         const styleA = getActivityStyle(classifyLocal(it));
                         const actIcon =
                           at === "call" ? (
@@ -1982,8 +1979,7 @@ function LeadProfilePage() {
                   ? str(pick(aMeta, "manual_outcome_text"))
                   : "";
                 const aDate = pick(r, "activity_at", "created_at");
-                const aUserId = str(pick(r, "performed_by_user_id"));
-                const aActorLabel = aUserId ? resolveUserName(aUserId) || "" : "";
+                const aActorLabel = str(pick(aMeta, "actor_label", "performed_by_label"));
                 const emptyFallback = isManual ? "Nav piezīmes" : typeLabel;
                 return (
                   <>
