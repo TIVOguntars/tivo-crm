@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import { CompleteActionModal } from "@/components/CompleteActionModal";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 
-import { useUserMap } from "@/hooks/useUsers";
 import { LeadEditPanel } from "@/components/lead/LeadEditPanel";
 import { ManualActivityDialog } from "@/components/lead/ManualActivityDialog";
 import type { ManualActivityPrefill } from "@/components/lead/ManualActivityDialog";
@@ -316,7 +315,6 @@ function channelIcon(channel: string) {
 
 function LeadProfilePage() {
   const navigate = useNavigate();
-  const { resolve: resolveUserName } = useUserMap();
   const goBackToList = () => {
     let returnTo: string | null = null;
     try {
