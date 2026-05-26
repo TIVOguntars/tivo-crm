@@ -1604,15 +1604,34 @@ function LeadRow({
         )}
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        <StatusBadge status={l.status} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <StatusBadge status={l.status} />
+          <div className="flex items-center gap-1">
+            <span
+              className={cn(
+                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[10px] font-medium",
+                queueBucketTone(l.queue_bucket),
+              )}
+              title={l.queue_bucket_label || "Nav rindas"}
+            >
+              {l.queue_bucket_label || "Nav rindas"}
+            </span>
+            {l.needs_attention && (
+              <AlertTriangle
+                className="h-3 w-3 shrink-0 text-amber-500"
+                aria-label="Vajadzīga uzmanība"
+              />
+            )}
+          </div>
+        </div>
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        {l.task_assigned_user_code ? (
+        {l.owner_user_code ? (
           <span
             className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-            title={l.task_assigned_name || l.task_assigned_user_code}
+            title={l.owner || l.owner_user_code}
           >
-            {l.task_assigned_user_code}
+            {l.owner_user_code}
           </span>
         ) : (
           <span className="text-muted-foreground/50">-</span>
