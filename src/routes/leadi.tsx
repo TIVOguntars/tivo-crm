@@ -116,6 +116,7 @@ interface Lead {
   ppv: string;
   ppv_user_code: string;
   ppv_name: string;
+  owner_user_code: string;
   task_assigned_user_code: string;
   task_assigned_name: string;
   next_action: string;
@@ -143,6 +144,11 @@ interface Lead {
   queue_bucket_label: string;
   operational_bucket: string;
   needs_attention: boolean;
+  priority_score: number | null;
+  priority_stars: number | null;
+  priority_label: string;
+  priority_breakdown: string;
+  priority_updated_at: string | null;
 }
 
 function s(v: unknown): string {
