@@ -339,10 +339,6 @@ function LeadProfilePage() {
   const { leadId } = Route.useParams();
   const q = useCrmRpc("get_lead_360_profile", { p_lead_id: leadId }, !!leadId);
   const [showRaw, setShowRaw] = useState(false);
-  const commCountsQ = useCrmView(
-    "leads_list_display_v3",
-    `select=lead_id,status,email_outbound_count,email_inbound_count,call_outbound_count,call_inbound_count,chat_outbound_count,chat_inbound_count&lead_id=eq.${leadId}`,
-  );
   const commPayloadsQ = useCrmView(
     "communications",
     `select=id,raw_payload&lead_id=eq.${leadId}&channel=eq.email`,
