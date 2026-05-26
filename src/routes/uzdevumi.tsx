@@ -26,8 +26,13 @@ import {
 import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
-import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TaskActionsMenu } from "@/components/TaskActionsMenu";
 import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
