@@ -1734,12 +1734,49 @@ function LeadRow({
           );
         })()}
       </div>
-      <div
-        role="cell"
-        className="min-w-0 px-1.5 py-1 flex items-center"
-        title="field missing in current query/type — pending Supabase backfill"
-      >
-        <span className="text-muted-foreground/50 text-[11px]">—</span>
+      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+        {(() => {
+          const stars =
+            l.priority_stars == null
+              ? 0
+              : Math.max(0, Math.min(5, Math.round(l.priority_stars)));
+          const tooltipLines = [
+            l.priority_label || "Bez prioritātes",
+            l.priority_breakdown,
+            l.priority_updated_at
+              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <div
+              className="flex min-w-0 flex-col leading-tight"
+              title={tooltipLines}
+            >
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      "h-3 w-3",
+                      i < stars
+                        ? "fill-amber-400 text-amber-400"
+                        : "text-muted-foreground/30",
+                    )}
+                  />
+                ))}
+              </div>
+              {(l.priority_label || l.priority_score != null) && (
+                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                  {l.priority_label || ""}
+                  {l.priority_label && l.priority_score != null ? " · " : ""}
+                  {l.priority_score != null ? l.priority_score : ""}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
       <div
         role="cell"
