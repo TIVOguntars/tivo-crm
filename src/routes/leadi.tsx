@@ -1557,16 +1557,12 @@ function LeadRow({
         <StatusBadge status={l.status} />
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
-        {l.responsible === "SIS" ? (
-          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 h-4 text-[10.5px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-            SIS
-          </span>
-        ) : l.responsible && l.responsible !== "-" ? (
+        {l.task_assigned_user_code ? (
           <span
             className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
-            title={l.responsible}
+            title={l.task_assigned_name || l.task_assigned_user_code}
           >
-            {l.responsible}
+            {l.task_assigned_user_code}
           </span>
         ) : (
           <span className="text-muted-foreground/50">-</span>
