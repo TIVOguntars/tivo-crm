@@ -101,7 +101,7 @@ export function UnreachableBreakdown({ search }: { search: FiltersSearch }) {
       totalAll: totalAllLeads,
       totalNotReachedAll: totalNotReached,
     };
-  }, [data, dim, resolveUserName]);
+  }, [data, dim]);
 
   const sorted = useMemo(() => {
     const out = [...rows];
