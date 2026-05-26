@@ -948,8 +948,8 @@ function LeadiPage() {
           : leadsPatched.map((l) => l.country),
       ),
       owner: dedupe(
-        fromArr(fo?.owners).length
-          ? fromArr(fo?.owners)
+        fromArr(fo?.task_assignees).length
+          ? fromArr(fo?.task_assignees)
           : leadsPatched.map((l) => l.owner),
       ),
       ppv: dedupe(
@@ -962,6 +962,10 @@ function LeadiPage() {
         leadsPatched.map((l) => l.communication_state),
       ),
       action_label: dedupe(leadsPatched.map((l) => l.next_action)),
+      priority_label: dedupe(leadsPatched.map((l) => l.priority_label)),
+      queue_bucket_label: dedupe(
+        leadsPatched.map((l) => l.queue_bucket_label),
+      ),
     } as Record<string, string[]>;
   }, [filterOptions.data, leadsPatched]);
 
