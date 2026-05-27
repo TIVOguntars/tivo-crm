@@ -753,23 +753,6 @@ function LeadiPage() {
   const overview = useCrmView("leads_list_display_v3", overviewQuery);
   const filterOptions = useAnalyticsView("filter_options", "limit=1");
 
-  /* ---- crm.leads: lead_number → uuid lookup (internal only, never rendered) ---- */
-  const leadsIdLookup = useCrmView(
-    "leads",
-    "select=id,lead_number&limit=20000",
-    { all: true },
-  );
-  const leadIdByNumber = useMemo(() => {
-    const map = new Map<string, string>();
-    const rows = (leadsIdLookup.data?.rows ?? []) as Row[];
-    for (const r of rows) {
-      const ln = s(r.lead_number);
-      const id = s(r.id);
-      if (ln && id) map.set(ln, id);
-    }
-    return map;
-  }, [leadsIdLookup.data]);
-
   const commCounts = useMemo(() => {
     const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
@@ -805,7 +788,8 @@ function LeadiPage() {
         const lead_number = s(r.lead_number);
         if (!lead_number) return null;
         // UUID stays internal (RPC payloads, navigation). Never rendered.
-        const id = leadIdByNumber.get(lead_number) || lead_number;
+        const id = s(r.lead_id);
+        if (!id) return null;
         const phone = s(
           r.phone_e164,
         );
@@ -818,14 +802,15 @@ function LeadiPage() {
         const has_unread_reply =
           r.has_unread_reply === true || r.has_unread_reply === "true";
         const reply_count = Number(r.reply_count ?? 0) || 0;
-        const communication_state = s(r.communication_state).toLowerCase();
+        const communication_state = s(r.communication_state);
         const tagsArr = asTags(r.tags);
         const statusStr = s(r.status);
         const ppv_name = s(r.ppv_name);
         const ppv_user_code = s(r.ppv_user_code);
         const task_assigned_user_code = s(r.task_assigned_user_code);
         const task_assigned_name = s(r.task_assigned_name);
-        const has_task = !!next_action;
+        const has_task =
+          r.has_task === true || r.has_task === "true";
         const priority_score_raw = r.priority_score;
         const priority_stars_raw = r.priority_stars;
         const priority_score =
@@ -838,8 +823,7 @@ function LeadiPage() {
             : Number(priority_stars_raw);
         return {
           lead_id: id,
-          display_lead_id: id,
-          name: leadDisplayName(r),
+          name: s(r.display_name),
           lead_number,
           external_id: s(r.external_id),
           company_name: s(r.company_name),
@@ -872,9 +856,6 @@ function LeadiPage() {
           last_communication_at: s(r.last_communication_at) || null,
           last_outbound_at: s(r.last_outbound_at) || null,
           last_inbound_at: s(r.last_inbound_at) || null,
-          is_hot:
-            tagsArr.some((t) => /^(hot|karst)/i.test(t)) ||
-            /karst/i.test(statusStr),
           object_summary: s(r.object_summary),
           has_task,
           queue_bucket: s(r.queue_bucket),
@@ -894,7 +875,7 @@ function LeadiPage() {
         } satisfies Lead;
       })
       .filter((x): x is Lead => x !== null);
-  }, [overview.data, leadIdByNumber]);
+  }, [overview.data]);
 
   const leadsPatched = useMemo(() => {
     if (Object.keys(patches).length === 0) return leads;
