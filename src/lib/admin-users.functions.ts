@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
 
 /**
  * Admin write helpers for the `crm` schema.
@@ -9,7 +9,7 @@ import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supaba
 
 function getServiceEnv() {
   const url = getSupabaseUrlFromEnv();
-  const key = getSupabaseSecretKeyFromEnv();
+  const key = getSupabaseServiceKey();
   if (!url || !key) {
     throw new Error(
       "Supabase servera slepenā atslēga nav pieejama vai nav derīga.",
