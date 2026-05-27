@@ -17,8 +17,7 @@ export function getRuntimeEnv(name: string): string | undefined {
 }
 
 function getRuntimeEnvValue(name: string): unknown {
-  const fromProcess =
-    typeof process !== "undefined" ? process.env?.[name] : undefined;
+  const fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
   if (fromProcess) return fromProcess;
   return (globalThis as RuntimeEnvGlobal).Deno?.env?.get?.(name);
 }

@@ -11,9 +11,7 @@ function getServiceEnv() {
   const url = getSupabaseUrlFromEnv();
   const key = getSupabaseServiceKey();
   if (!url || !key) {
-    throw new Error(
-      "Supabase servera slepenā atslēga nav pieejama vai nav derīga.",
-    );
+    throw new Error("Supabase servera slepenā atslēga nav pieejama vai nav derīga.");
   }
   return { url, key };
 }
@@ -48,9 +46,7 @@ async function crmRequest(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(
-      `crm.${path} ${init.method} (${res.status}): ${text.slice(0, 400)}`,
-    );
+    throw new Error(`crm.${path} ${init.method} (${res.status}): ${text.slice(0, 400)}`);
   }
   if (res.status === 204) return null;
   const ct = res.headers.get("content-type") || "";
@@ -63,10 +59,7 @@ function requireText(v: unknown, label: string): string {
   return s;
 }
 
-async function callCrmRpc(
-  fn: string,
-  body: Record<string, unknown>,
-): Promise<unknown> {
+async function callCrmRpc(fn: string, body: Record<string, unknown>): Promise<unknown> {
   return crmRequest(`rpc/${fn}`, {
     method: "POST",
     body,
@@ -162,9 +155,7 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
           method: "GET",
           query: `select=id,role_key&role_key=in.(${inList})`,
         })) as Array<{ id: string; role_key: string }>;
-        const missing = data.roleKeys.filter(
-          (k) => !rows.some((r) => r.role_key === k),
-        );
+        const missing = data.roleKeys.filter((k) => !rows.some((r) => r.role_key === k));
         if (missing.length > 0) {
           throw new Error(`Nezināmas lomas: ${missing.join(", ")}`);
         }
