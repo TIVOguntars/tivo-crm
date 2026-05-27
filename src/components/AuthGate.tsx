@@ -180,9 +180,13 @@ export function AuthGate({ children }: AuthGateProps) {
       return;
     }
     setAuthenticated();
+    queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
     await queryClient.invalidateQueries({ queryKey: ["crm"] });
     if (typeof window !== "undefined" && import.meta.env.DEV) {
-      console.log("[auth-debug] auth provider login success", { crmCacheInvalidated: true });
+      console.log("[auth-debug] auth provider login success", {
+        currentRolesCacheRemoved: true,
+        crmCacheInvalidated: true,
+      });
     }
     setAuthed(true);
     setError(null);
