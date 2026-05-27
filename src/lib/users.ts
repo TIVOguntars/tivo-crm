@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import {
+  getSupabaseEnvDiagnostics,
+  getSupabaseServiceKey,
+  getSupabaseUrlFromEnv,
+} from "@/lib/supabase-secret";
 
 export interface AssignableUser {
   id: string;
@@ -22,6 +26,7 @@ const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ rows: AssignableUser[]; error: string | null }> => {
     const url = getSupabaseUrlFromEnv();
     const key = getSupabaseServiceKey();
+    console.log("[auth-debug] fetchAssignableUsers server env", getSupabaseEnvDiagnostics());
     if (!url || !key) {
       return { rows: [], error: "Supabase servera slepenā atslēga nav pieejama vai nav derīga." };
     }
