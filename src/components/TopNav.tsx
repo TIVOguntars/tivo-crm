@@ -197,7 +197,7 @@ export function TopNav() {
           <img src={tivoLogo} alt="TIVO" className="h-7 w-auto" />
           <span className="text-sm font-semibold tracking-tight">CRM</span>
         </Link>
-        <div className="ml-[30px] flex min-w-0 flex-col leading-tight">
+        <div className="ml-[50px] flex min-w-0 flex-col leading-tight">
           <span className="truncate text-sm font-semibold text-foreground">
             {page.title}
           </span>
