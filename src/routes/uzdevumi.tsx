@@ -719,9 +719,9 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
-              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
-                <HeadCell className="text-muted-foreground/70">
+            <thead className="crm-table-header">
+              <tr className="crm-table-header-row sticky top-0 z-20">
+                <HeadCell>
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[200px]">
@@ -730,7 +730,7 @@ function QueuePage() {
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="text-muted-foreground/70">
+                <HeadCell>
                   <SortButton label="Statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[64px]">
@@ -747,7 +747,7 @@ function QueuePage() {
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+              <tr className="crm-table-filter-row sticky top-8 z-20">
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
@@ -1021,7 +1021,7 @@ function HeadCell({
   return (
     <th
       className={cn(
-        "h-8 px-2 text-left align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+        "crm-table-header-cell h-8 px-2 text-left align-middle text-[10px] uppercase tracking-wide",
         className,
       )}
     >

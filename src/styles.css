@@ -206,3 +206,27 @@
     font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
 }
+
+@layer components {
+  /* Unified CRM table header — used in /leadi, /uzdevumi, /iestatijumi/lietotaji
+     and any other table view. Keep all three classes in sync. */
+  .crm-table-header {
+    background-color: var(--tivo-navy-soft);
+    color: var(--tivo-navy);
+    border-bottom: 1px solid var(--tivo-navy-border);
+  }
+  .crm-table-header-row {
+    background-color: var(--tivo-navy-soft);
+    color: var(--tivo-navy);
+    border-bottom: 1px solid var(--tivo-navy-border);
+  }
+  .crm-table-header-cell {
+    color: var(--tivo-navy);
+    font-weight: 600;
+  }
+  /* Toolbar / filter row sitting under (or above) a table — not a header. */
+  .crm-table-filter-row {
+    background-color: var(--crm-surface);
+    border-bottom: 1px solid var(--crm-border);
+  }
+}
