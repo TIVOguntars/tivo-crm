@@ -32,6 +32,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
+import { ChangePasswordButton } from "@/components/auth/ChangePasswordButton";
 import { OperatorPickerModal } from "@/components/operator/OperatorPicker";
 import tivoLogo from "@/assets/tivo-logo.png";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -292,6 +293,9 @@ export function TopNav() {
           <span className="font-mono text-xs text-foreground">{codeLabel}</span>
         </button>
         <div className="ml-[30px]">
+          <ChangePasswordButton />
+        </div>
+        <div className="ml-2">
           <LogoutButton />
         </div>
         {operatorOpen && (
