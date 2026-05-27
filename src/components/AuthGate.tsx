@@ -50,7 +50,11 @@ export function AuthGate({ children }: AuthGateProps) {
         if (typeof window !== "undefined" && import.meta.env.DEV) {
           console.log("[auth-debug] auth provider ensureSupabaseSession:user", {
             authUser: userData.user
-              ? { id: userData.user.id, email: userData.user.email ?? null, isAnonymous: userData.user.is_anonymous ?? null }
+              ? {
+                  id: userData.user.id,
+                  email: userData.user.email ?? null,
+                  isAnonymous: userData.user.is_anonymous ?? null,
+                }
               : null,
             currentUserId: userData.user?.id ?? null,
             error: error?.message ?? null,
@@ -82,7 +86,11 @@ export function AuthGate({ children }: AuthGateProps) {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         console.log("[auth-debug] auth provider anonymous user", {
           authUser: userData.user
-            ? { id: userData.user.id, email: userData.user.email ?? null, isAnonymous: userData.user.is_anonymous ?? null }
+            ? {
+                id: userData.user.id,
+                email: userData.user.email ?? null,
+                isAnonymous: userData.user.is_anonymous ?? null,
+              }
             : null,
           currentUserId: userData.user?.id ?? null,
           error: userError?.message ?? null,
@@ -149,9 +157,7 @@ export function AuthGate({ children }: AuthGateProps) {
       "touchstart",
       "touchmove",
     ];
-    events.forEach((e) =>
-      window.addEventListener(e, onActivity, { passive: true }),
-    );
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
 
     // Periodically check inactivity
     timerRef.current = setInterval(() => {
@@ -197,9 +203,7 @@ export function AuthGate({ children }: AuthGateProps) {
   // Render nothing meaningful until client hydration to keep SSR output
   // free of analytics content.
   if (!hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background" />
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-background" />;
   }
 
   if (!authed) {

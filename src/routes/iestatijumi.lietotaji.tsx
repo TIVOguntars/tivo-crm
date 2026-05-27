@@ -66,18 +66,19 @@ const VISIBLE_ROLE_LABELS: Record<string, string> = {
   designer: "Projektētājs",
   estimator: "Tāmētājs",
 };
-const VISIBLE_ROLE_ORDER = [
-  "admin",
-  "management",
-  "ppv",
-  "marketing",
-  "designer",
-  "estimator",
-];
+const VISIBLE_ROLE_ORDER = ["admin", "management", "ppv", "marketing", "designer", "estimator"];
 
 function AdminUsersAndRolesPage() {
   const currentUser = useCurrentUser();
-  const { isReady, rolesLoading, rolesError, authReady, roleKeys, currentAuthUserId, currentRoles } = currentUser;
+  const {
+    isReady,
+    rolesLoading,
+    rolesError,
+    authReady,
+    roleKeys,
+    currentAuthUserId,
+    currentRoles,
+  } = currentUser;
   const isAdmin = roleKeys.includes("admin");
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
@@ -103,11 +104,11 @@ function AdminUsersAndRolesPage() {
       <RequireRole
         role="admin"
         loadingFallback={<LoadingState label="Pārbauda administratora tiesības..." />}
-        fallback={(
+        fallback={
           <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
             Pieejams tikai administratoram
           </div>
-        )}
+        }
       >
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList>
@@ -136,7 +137,9 @@ function UsersTab() {
     "select=id,full_name,email,user_code,phone,is_active,status_key&order=full_name.asc",
     { all: true },
   );
-  const rolesQ = useCrmView("roles", "select=id,role_key,role_name&order=role_name.asc", { all: true });
+  const rolesQ = useCrmView("roles", "select=id,role_key,role_name&order=role_name.asc", {
+    all: true,
+  });
   const userRolesQ = useCrmView("user_roles", "select=user_id,role_id", { all: true });
 
   const profiles = (profilesQ.data?.rows ?? []) as Row[];
@@ -189,7 +192,12 @@ function UsersTab() {
   return (
     <>
       <div className="flex justify-end">
-        <Button onClick={() => { setEditing(null); setOpen(true); }}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setOpen(true);
+          }}
+        >
           Pievienot lietotāju
         </Button>
       </div>
@@ -216,27 +224,17 @@ function UsersTab() {
                   const keys = rolesByUser.get(uid) ?? [];
                   return (
                     <TableRow key={uid || Math.random()}>
-                      <TableCell className="font-mono text-xs">
-                        {s(p.user_code) || "—"}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {s(p.full_name) || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {s(p.email) || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {s(p.phone) || "—"}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{s(p.user_code) || "—"}</TableCell>
+                      <TableCell className="font-medium">{s(p.full_name) || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{s(p.email) || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{s(p.phone) || "—"}</TableCell>
                       <TableCell>
                         {keys.length === 0 ? (
                           <span className="text-muted-foreground text-xs">—</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
                             {keys.map((k) => {
-                              const r = Array.from(roleById.values()).find(
-                                (x) => x.role_key === k,
-                              );
+                              const r = Array.from(roleById.values()).find((x) => x.role_key === k);
                               return (
                                 <Badge key={k} variant="secondary" className="font-normal">
                                   {r?.role_name || k}
@@ -250,7 +248,10 @@ function UsersTab() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setEditing(p); setOpen(true); }}
+                          onClick={() => {
+                            setEditing(p);
+                            setOpen(true);
+                          }}
                         >
                           Rediģēt
                         </Button>
@@ -309,7 +310,7 @@ function UserFormDialog({
     setPhone(isEdit ? s(editing!.phone) : "");
     setUserCode(isEdit ? s(editing!.user_code).toUpperCase() : "");
     setIsActive(isEdit ? editing!.is_active !== false : true);
-    setSelectedRoleKeys(isEdit ? rolesByUser.get(editingId) ?? [] : []);
+    setSelectedRoleKeys(isEdit ? (rolesByUser.get(editingId) ?? []) : []);
     setError(null);
   });
 
@@ -390,7 +391,10 @@ function UserFormDialog({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const v = validate();
-    if (v) { setError(v); return; }
+    if (v) {
+      setError(v);
+      return;
+    }
     setError(null);
     saveMut.mutate({
       id: isEdit ? editingId : null,
@@ -411,22 +415,43 @@ function UserFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Rediģēt lietotāju" : "Pievienot lietotāju"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Atjaunini lietotāja datus un lomas." : "Izveido jaunu CRM lietotāju un piešķir lomas."}
+            {isEdit
+              ? "Atjaunini lietotāja datus un lomas."
+              : "Izveido jaunu CRM lietotāju un piešķir lomas."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="full_name">Vārds Uzvārds</Label>
-              <Input id="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} required />
+              <Input
+                id="full_name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                maxLength={120}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-pasts</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={255}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefons</Label>
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} placeholder="+371 ..." />
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                maxLength={32}
+                placeholder="+371 ..."
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="user_code">Iniciāļi / ID</Label>
@@ -442,7 +467,9 @@ function UserFormDialog({
             </div>
             {isEdit && (
               <div className="flex items-center justify-between rounded-md border border-border p-3 sm:col-span-1">
-                <Label htmlFor="is_active" className="cursor-pointer">Aktīvs</Label>
+                <Label htmlFor="is_active" className="cursor-pointer">
+                  Aktīvs
+                </Label>
                 <Switch id="is_active" checked={isActive} onCheckedChange={setIsActive} />
               </div>
             )}
@@ -476,11 +503,18 @@ function UserFormDialog({
           </div>
 
           {error && (
-            <p className="text-sm text-destructive" role="alert">{error}</p>
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
               Atcelt
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -521,9 +555,7 @@ function RolesTab() {
     }
     return VISIBLE_ROLE_ORDER.map((k) => {
       const r = byKey.get(k);
-      return r
-        ? { ...r, label: VISIBLE_ROLE_LABELS[k] }
-        : null;
+      return r ? { ...r, label: VISIBLE_ROLE_LABELS[k] } : null;
     }).filter(Boolean) as Array<{
       id: string;
       role_key: string;
@@ -590,8 +622,7 @@ function RolesTab() {
   if (rolesQ.isLoading || permsQ.isLoading || rpQ.isLoading) {
     return <LoadingState label="Ielādē lomas un tiesības..." />;
   }
-  const err =
-    rolesQ.data?.error || permsQ.data?.error || rpQ.data?.error;
+  const err = rolesQ.data?.error || permsQ.data?.error || rpQ.data?.error;
   if (err) return <ErrorState message={err} />;
 
   if (visibleRoles.length === 0) {
@@ -603,8 +634,7 @@ function RolesTab() {
   const draftSet = draft.get(active) ?? new Set<string>();
   const serverSet = serverMap.get(active) ?? new Set<string>();
   const dirty =
-    draftSet.size !== serverSet.size ||
-    Array.from(draftSet).some((k) => !serverSet.has(k));
+    draftSet.size !== serverSet.size || Array.from(draftSet).some((k) => !serverSet.has(k));
 
   const togglePerm = (key: string) => {
     setDraft((prev) => {
@@ -654,16 +684,11 @@ function RolesTab() {
                   onClick={() => setSelectedRoleKey(r.role_key)}
                   className={
                     "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors " +
-                    (isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted")
+                    (isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted")
                   }
                 >
                   <span className="font-medium">{r.label}</span>
-                  <Badge
-                    variant={isActive ? "secondary" : "outline"}
-                    className="font-normal"
-                  >
+                  <Badge variant={isActive ? "secondary" : "outline"} className="font-normal">
                     {count}
                   </Badge>
                 </button>
@@ -688,7 +713,12 @@ function RolesTab() {
             <Button size="sm" variant="outline" onClick={() => toggleAll(false)}>
               Notīrīt
             </Button>
-            <Button size="sm" variant="ghost" onClick={reset} disabled={!dirty || saveMut.isPending}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={reset}
+              disabled={!dirty || saveMut.isPending}
+            >
               Atcelt
             </Button>
             <Button size="sm" onClick={save} disabled={!dirty || saveMut.isPending}>
@@ -715,9 +745,7 @@ function RolesTab() {
                         className="mt-0.5"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="font-mono text-xs text-foreground">
-                          {p.permission_key}
-                        </div>
+                        <div className="font-mono text-xs text-foreground">{p.permission_key}</div>
                         {p.description && (
                           <div className="mt-0.5 text-xs text-muted-foreground">
                             {p.description}

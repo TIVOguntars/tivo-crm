@@ -78,7 +78,11 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         console.log("[auth-debug] auth provider user", {
           authUser: data.user
-            ? { id: data.user.id, email: data.user.email ?? null, isAnonymous: data.user.is_anonymous ?? null }
+            ? {
+                id: data.user.id,
+                email: data.user.email ?? null,
+                isAnonymous: data.user.is_anonymous ?? null,
+              }
             : null,
           currentUserId: data.user?.id ?? null,
           error: error?.message ?? null,
@@ -92,7 +96,9 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
         }));
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         console.log("[auth-debug] auth provider state change", {
           event,
@@ -136,7 +142,13 @@ export function useCurrentUser(): CurrentUserCtx {
 
   const getRoles = useServerFn(getCurrentRoles);
   const rolesQ = useQuery({
-    queryKey: ["crm", "current_roles", auth.userId ?? "no-auth", operatorId ?? "none", auth.version],
+    queryKey: [
+      "crm",
+      "current_roles",
+      auth.userId ?? "no-auth",
+      operatorId ?? "none",
+      auth.version,
+    ],
     queryFn: async () => {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         console.log("[auth-debug] getCurrentRoles browser call", {
@@ -158,8 +170,7 @@ export function useCurrentUser(): CurrentUserCtx {
     refetchOnWindowFocus: true,
   });
 
-  const profile =
-    (usersQ.data ?? []).find((u) => u.id === operatorId) ?? null;
+  const profile = (usersQ.data ?? []).find((u) => u.id === operatorId) ?? null;
 
   // Role keys are ALWAYS resolved server-side; no localStorage fallback.
   // While the server fn is in-flight, roleKeys is [] → all gates fail closed.
@@ -167,7 +178,12 @@ export function useCurrentUser(): CurrentUserCtx {
   const roleKeys = currentRoles?.roleKeys ?? [];
   const permissionKeys = currentRoles?.permissionKeys ?? [];
   const isAdmin = !!rolesQ.data && roleKeys.includes("admin");
-  const rolesError = rolesQ.error instanceof Error ? rolesQ.error.message : rolesQ.error ? String(rolesQ.error) : null;
+  const rolesError =
+    rolesQ.error instanceof Error
+      ? rolesQ.error.message
+      : rolesQ.error
+        ? String(rolesQ.error)
+        : null;
 
   const rolesLoading = auth.ready && !!operatorId && (rolesQ.isLoading || rolesQ.isFetching);
   const isReady = !operatorId || (auth.ready && !rolesQ.isLoading && !rolesQ.isFetching);
@@ -186,7 +202,8 @@ export function useCurrentUser(): CurrentUserCtx {
       isReady,
       rolesLoading,
       rolesError,
-      isRoleKeysMissingBeforeLoadComplete: !isReady && (!Array.isArray(roleKeys) || roleKeys.length === 0),
+      isRoleKeysMissingBeforeLoadComplete:
+        !isReady && (!Array.isArray(roleKeys) || roleKeys.length === 0),
     });
   }
 

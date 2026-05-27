@@ -61,14 +61,28 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: "description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "TIVO CRM analītikas panelis" },
-      { property: "og:description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
+      {
+        property: "og:description",
+        content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "TIVO CRM analītikas panelis" },
-      { name: "twitter:description", content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png" },
+      {
+        name: "twitter:description",
+        content: "Lasāmrežīma analītikaspanelis, viss par TIVO leadiem.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d65e6a12-334a-48a4-b0b9-bd33eb43c65c/id-preview-cdaecc76--5646d708-71c1-4f9c-95d9-1cdd68b7439c.lovable.app-1777277918301.png",
+      },
     ],
     links: [
       {
@@ -103,15 +117,15 @@ function RootComponent() {
       <AuthStateInvalidator queryClient={queryClient} />
       <AuthGate>
         <OperatorPickerGate>
-        <HeaderSlotProvider>
-          <div className="min-h-screen bg-background text-foreground">
-            <TopNav />
-            <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-              <Outlet />
-            </main>
-            <Toaster position="top-right" />
-          </div>
-        </HeaderSlotProvider>
+          <HeaderSlotProvider>
+            <div className="min-h-screen bg-background text-foreground">
+              <TopNav />
+              <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+                <Outlet />
+              </main>
+              <Toaster position="top-right" />
+            </div>
+          </HeaderSlotProvider>
         </OperatorPickerGate>
       </AuthGate>
     </QueryClientProvider>
@@ -122,7 +136,9 @@ function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         console.log("[auth-debug] auth provider root state invalidator", {
           event,

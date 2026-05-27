@@ -78,11 +78,7 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     ]);
 
     if (!urResp.ok || !rolesResp.ok) {
-      console.error(
-        "[roles] crm read failed",
-        urResp.status,
-        rolesResp.status,
-      );
+      console.error("[roles] crm read failed", urResp.status, rolesResp.status);
       return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
     }
 

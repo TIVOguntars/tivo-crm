@@ -13,7 +13,8 @@ export function RequireRole({
   fallback?: ReactNode;
   loadingFallback?: ReactNode;
 }) {
-  const { isReady, rolesLoading, roleKeys, currentAuthUserId, currentRoles, rolesError } = useCurrentUser();
+  const { isReady, rolesLoading, roleKeys, currentAuthUserId, currentRoles, rolesError } =
+    useCurrentUser();
   const stillLoading = !isReady || rolesLoading;
   const ok = roleKeys.includes(role);
 
