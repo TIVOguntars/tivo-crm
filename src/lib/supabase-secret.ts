@@ -31,16 +31,11 @@ function collectSecretCandidates(
     if (!key) return [];
     const lowerHint = hint.toLowerCase();
     const role = decodeJwtRole(key);
-    const score =
-      role === "service_role"
-        ? 100
-        : role === "anon"
-          ? -100
-        : lowerHint.includes("active") ||
-            lowerHint.includes("service") ||
-            lowerHint.includes("secret")
-          ? 50
-          : 0;
+    if (role === "anon") return [{ key, score: -100 }];
+    let score = role === "service_role" ? 100 : 0;
+    if (lowerHint.includes("active") || lowerHint.includes("current")) score += 30;
+    if (lowerHint.includes("primary") || lowerHint.includes("service")) score += 20;
+    if (lowerHint.includes("secret")) score += 10;
     return [{ key, score }];
   }
   if (Array.isArray(value)) {
