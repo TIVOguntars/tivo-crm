@@ -62,9 +62,17 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     ]);
 
     if (urRes.error || rolesRes.error) {
+      const errMsg = (e: unknown): string | null => {
+        if (!e) return null;
+        if (typeof e === "object" && e && "message" in e) {
+          const m = (e as { message?: unknown }).message;
+          return typeof m === "string" ? m : null;
+        }
+        return null;
+      };
       const message =
-        (urRes.error && (urRes.error as { message?: string }).message) ||
-        (rolesRes.error && (rolesRes.error as { message?: string }).message) ||
+        errMsg(urRes.error) ??
+        errMsg(rolesRes.error) ??
         "Neizdevās nolasīt crm.user_roles / crm.roles";
       console.error("[roles] crm read failed", message);
       return { roleKeys: [], permissionKeys: [], lookupUserId: uid, error: message };
