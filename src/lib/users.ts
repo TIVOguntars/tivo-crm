@@ -33,7 +33,9 @@ function parseSecretKey(raw: string | undefined): string {
 
 const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ rows: AssignableUser[]; error: string | null }> => {
-    const url = process.env.SUPABASE_URL?.replace(/\/+$/, "") ?? "";
+    const url = (
+      process.env.SUPABASE_URL || process.env.ANALYTICS_SUPABASE_URL || ""
+    ).replace(/\/+$/, "");
     const key = parseSecretKey(
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEYS,
     );
