@@ -176,12 +176,16 @@ const triggerClass =
 export function TopNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile, stored, roleKeys, isAdmin, isReady } = useCurrentUser();
-  // Fail closed: hide role-gated groups until roles are loaded server-side.
-  const visibleGroups = isReady
-    ? groups.filter(
-        (g) => isAdmin || g.roles.some((r) => roleKeys.includes(r)),
-      )
-    : [];
+  // Base groups (open to ALL_ROLES) always render so the CRM stays usable
+  // while roles load. Role-gated groups fail closed until `isReady`, then
+  // match against server-derived `roleKeys` / `isAdmin`.
+  const visibleGroups = groups.filter((g) => {
+    const isBase = g.roles.length === ALL_ROLES.length;
+    if (isBase) return true;
+    if (!isReady) return false;
+    if (isAdmin) return true;
+    return g.roles.some((r) => roleKeys.includes(r));
+  });
   const [operatorOpen, setOperatorOpen] = useState(false);
   const userCode =
     (profile?.user_code && profile.user_code.trim()) ||
