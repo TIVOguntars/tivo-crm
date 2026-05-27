@@ -1,12 +1,10 @@
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Role } from "@/lib/roles";
-
 interface PagePlaceholderProps {
   title: string;
   description?: string;
-  allowedRoles: readonly Role[];
+  allowedRoles: readonly string[];
   sections?: { title: string; description?: string }[];
 }
 
