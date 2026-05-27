@@ -11,15 +11,35 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
 import { Route as UsersRouteImport } from './routes/users'
+import { Route as SisDarbaRindaRouteImport } from './routes/sis-darba-rinda'
+import { Route as SarakstesRouteImport } from './routes/sarakstes'
 import { Route as QueueRouteImport } from './routes/queue'
+import { Route as PanelisRouteImport } from './routes/panelis'
+import { Route as ObjektiRouteImport } from './routes/objekti'
+import { Route as LietotajiRouteImport } from './routes/lietotaji'
 import { Route as LeadiRouteImport } from './routes/leadi'
 import { Route as KomunikacijasRouteImport } from './routes/komunikacijas'
 import { Route as ImportReviewRouteImport } from './routes/import-review'
 import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
 import { Route as FunnelRouteImport } from './routes/funnel'
+import { Route as EPastiRouteImport } from './routes/e-pasti'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
+import { Route as AuditsRouteImport } from './routes/audits'
+import { Route as AnalitikaRouteImport } from './routes/analitika'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ParskatiVadibaRouteImport } from './routes/parskati.vadiba'
+import { Route as ParskatiPpvRouteImport } from './routes/parskati.ppv'
+import { Route as ParskatiMarketingsRouteImport } from './routes/parskati.marketings'
 import { Route as LeadLeadIdRouteImport } from './routes/lead.$leadId'
+import { Route as IestatijumiWorkflowsRouteImport } from './routes/iestatijumi.workflows'
+import { Route as IestatijumiValidacijasRouteImport } from './routes/iestatijumi.validacijas'
+import { Route as IestatijumiTemplatesRouteImport } from './routes/iestatijumi.templates'
+import { Route as IestatijumiStatusiRouteImport } from './routes/iestatijumi.statusi'
+import { Route as IestatijumiSisRouteImport } from './routes/iestatijumi.sis'
+import { Route as IestatijumiPazinojumiRouteImport } from './routes/iestatijumi.pazinojumi'
+import { Route as IestatijumiKomunikacijasRouteImport } from './routes/iestatijumi.komunikacijas'
+import { Route as IestatijumiIntegracijasRouteImport } from './routes/iestatijumi.integracijas'
+import { Route as IestatijumiAutomatizacijasRouteImport } from './routes/iestatijumi.automatizacijas'
 import { Route as LeadRouteImport } from './routes/lead.'
 
 const UzdevumiRoute = UzdevumiRouteImport.update({
@@ -32,9 +52,34 @@ const UsersRoute = UsersRouteImport.update({
   path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SisDarbaRindaRoute = SisDarbaRindaRouteImport.update({
+  id: '/sis-darba-rinda',
+  path: '/sis-darba-rinda',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SarakstesRoute = SarakstesRouteImport.update({
+  id: '/sarakstes',
+  path: '/sarakstes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QueueRoute = QueueRouteImport.update({
   id: '/queue',
   path: '/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PanelisRoute = PanelisRouteImport.update({
+  id: '/panelis',
+  path: '/panelis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObjektiRoute = ObjektiRouteImport.update({
+  id: '/objekti',
+  path: '/objekti',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LietotajiRoute = LietotajiRouteImport.update({
+  id: '/lietotaji',
+  path: '/lietotaji',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadiRoute = LeadiRouteImport.update({
@@ -62,9 +107,24 @@ const FunnelRoute = FunnelRouteImport.update({
   path: '/funnel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EPastiRoute = EPastiRouteImport.update({
+  id: '/e-pasti',
+  path: '/e-pasti',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DarbaRindaRoute = DarbaRindaRouteImport.update({
   id: '/darba-rinda',
   path: '/darba-rinda',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditsRoute = AuditsRouteImport.update({
+  id: '/audits',
+  path: '/audits',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalitikaRoute = AnalitikaRouteImport.update({
+  id: '/analitika',
+  path: '/analitika',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -72,11 +132,73 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParskatiVadibaRoute = ParskatiVadibaRouteImport.update({
+  id: '/parskati/vadiba',
+  path: '/parskati/vadiba',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParskatiPpvRoute = ParskatiPpvRouteImport.update({
+  id: '/parskati/ppv',
+  path: '/parskati/ppv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParskatiMarketingsRoute = ParskatiMarketingsRouteImport.update({
+  id: '/parskati/marketings',
+  path: '/parskati/marketings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadLeadIdRoute = LeadLeadIdRouteImport.update({
   id: '/lead/$leadId',
   path: '/lead/$leadId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IestatijumiWorkflowsRoute = IestatijumiWorkflowsRouteImport.update({
+  id: '/iestatijumi/workflows',
+  path: '/iestatijumi/workflows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiValidacijasRoute = IestatijumiValidacijasRouteImport.update({
+  id: '/iestatijumi/validacijas',
+  path: '/iestatijumi/validacijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiTemplatesRoute = IestatijumiTemplatesRouteImport.update({
+  id: '/iestatijumi/templates',
+  path: '/iestatijumi/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiStatusiRoute = IestatijumiStatusiRouteImport.update({
+  id: '/iestatijumi/statusi',
+  path: '/iestatijumi/statusi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiSisRoute = IestatijumiSisRouteImport.update({
+  id: '/iestatijumi/sis',
+  path: '/iestatijumi/sis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiPazinojumiRoute = IestatijumiPazinojumiRouteImport.update({
+  id: '/iestatijumi/pazinojumi',
+  path: '/iestatijumi/pazinojumi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiKomunikacijasRoute =
+  IestatijumiKomunikacijasRouteImport.update({
+    id: '/iestatijumi/komunikacijas',
+    path: '/iestatijumi/komunikacijas',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IestatijumiIntegracijasRoute = IestatijumiIntegracijasRouteImport.update({
+  id: '/iestatijumi/integracijas',
+  path: '/iestatijumi/integracijas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IestatijumiAutomatizacijasRoute =
+  IestatijumiAutomatizacijasRouteImport.update({
+    id: '/iestatijumi/automatizacijas',
+    path: '/iestatijumi/automatizacijas',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LeadRoute = LeadRouteImport.update({
   id: '/lead/',
   path: '/lead/',
@@ -85,105 +207,245 @@ const LeadRoute = LeadRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analitika': typeof AnalitikaRoute
+  '/audits': typeof AuditsRoute
   '/darba-rinda': typeof DarbaRindaRoute
+  '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/lietotaji': typeof LietotajiRoute
+  '/objekti': typeof ObjektiRoute
+  '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/sarakstes': typeof SarakstesRoute
+  '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
+  '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
+  '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
+  '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
+  '/iestatijumi/sis': typeof IestatijumiSisRoute
+  '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
+  '/iestatijumi/templates': typeof IestatijumiTemplatesRoute
+  '/iestatijumi/validacijas': typeof IestatijumiValidacijasRoute
+  '/iestatijumi/workflows': typeof IestatijumiWorkflowsRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
+  '/parskati/marketings': typeof ParskatiMarketingsRoute
+  '/parskati/ppv': typeof ParskatiPpvRoute
+  '/parskati/vadiba': typeof ParskatiVadibaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analitika': typeof AnalitikaRoute
+  '/audits': typeof AuditsRoute
   '/darba-rinda': typeof DarbaRindaRoute
+  '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/lietotaji': typeof LietotajiRoute
+  '/objekti': typeof ObjektiRoute
+  '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/sarakstes': typeof SarakstesRoute
+  '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead': typeof LeadRoute
+  '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
+  '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
+  '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
+  '/iestatijumi/sis': typeof IestatijumiSisRoute
+  '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
+  '/iestatijumi/templates': typeof IestatijumiTemplatesRoute
+  '/iestatijumi/validacijas': typeof IestatijumiValidacijasRoute
+  '/iestatijumi/workflows': typeof IestatijumiWorkflowsRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
+  '/parskati/marketings': typeof ParskatiMarketingsRoute
+  '/parskati/ppv': typeof ParskatiPpvRoute
+  '/parskati/vadiba': typeof ParskatiVadibaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analitika': typeof AnalitikaRoute
+  '/audits': typeof AuditsRoute
   '/darba-rinda': typeof DarbaRindaRoute
+  '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
   '/ienakosas-zinas': typeof IenakosasZinasRoute
   '/import-review': typeof ImportReviewRoute
   '/komunikacijas': typeof KomunikacijasRoute
   '/leadi': typeof LeadiRoute
+  '/lietotaji': typeof LietotajiRoute
+  '/objekti': typeof ObjektiRoute
+  '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/sarakstes': typeof SarakstesRoute
+  '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
   '/lead/': typeof LeadRoute
+  '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
+  '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
+  '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
+  '/iestatijumi/sis': typeof IestatijumiSisRoute
+  '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
+  '/iestatijumi/templates': typeof IestatijumiTemplatesRoute
+  '/iestatijumi/validacijas': typeof IestatijumiValidacijasRoute
+  '/iestatijumi/workflows': typeof IestatijumiWorkflowsRoute
   '/lead/$leadId': typeof LeadLeadIdRoute
+  '/parskati/marketings': typeof ParskatiMarketingsRoute
+  '/parskati/ppv': typeof ParskatiPpvRoute
+  '/parskati/vadiba': typeof ParskatiVadibaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analitika'
+    | '/audits'
     | '/darba-rinda'
+    | '/e-pasti'
     | '/funnel'
     | '/ienakosas-zinas'
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/lietotaji'
+    | '/objekti'
+    | '/panelis'
     | '/queue'
+    | '/sarakstes'
+    | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
     | '/lead/'
+    | '/iestatijumi/automatizacijas'
+    | '/iestatijumi/integracijas'
+    | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/pazinojumi'
+    | '/iestatijumi/sis'
+    | '/iestatijumi/statusi'
+    | '/iestatijumi/templates'
+    | '/iestatijumi/validacijas'
+    | '/iestatijumi/workflows'
     | '/lead/$leadId'
+    | '/parskati/marketings'
+    | '/parskati/ppv'
+    | '/parskati/vadiba'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analitika'
+    | '/audits'
     | '/darba-rinda'
+    | '/e-pasti'
     | '/funnel'
     | '/ienakosas-zinas'
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/lietotaji'
+    | '/objekti'
+    | '/panelis'
     | '/queue'
+    | '/sarakstes'
+    | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
     | '/lead'
+    | '/iestatijumi/automatizacijas'
+    | '/iestatijumi/integracijas'
+    | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/pazinojumi'
+    | '/iestatijumi/sis'
+    | '/iestatijumi/statusi'
+    | '/iestatijumi/templates'
+    | '/iestatijumi/validacijas'
+    | '/iestatijumi/workflows'
     | '/lead/$leadId'
+    | '/parskati/marketings'
+    | '/parskati/ppv'
+    | '/parskati/vadiba'
   id:
     | '__root__'
     | '/'
+    | '/analitika'
+    | '/audits'
     | '/darba-rinda'
+    | '/e-pasti'
     | '/funnel'
     | '/ienakosas-zinas'
     | '/import-review'
     | '/komunikacijas'
     | '/leadi'
+    | '/lietotaji'
+    | '/objekti'
+    | '/panelis'
     | '/queue'
+    | '/sarakstes'
+    | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
     | '/lead/'
+    | '/iestatijumi/automatizacijas'
+    | '/iestatijumi/integracijas'
+    | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/pazinojumi'
+    | '/iestatijumi/sis'
+    | '/iestatijumi/statusi'
+    | '/iestatijumi/templates'
+    | '/iestatijumi/validacijas'
+    | '/iestatijumi/workflows'
     | '/lead/$leadId'
+    | '/parskati/marketings'
+    | '/parskati/ppv'
+    | '/parskati/vadiba'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalitikaRoute: typeof AnalitikaRoute
+  AuditsRoute: typeof AuditsRoute
   DarbaRindaRoute: typeof DarbaRindaRoute
+  EPastiRoute: typeof EPastiRoute
   FunnelRoute: typeof FunnelRoute
   IenakosasZinasRoute: typeof IenakosasZinasRoute
   ImportReviewRoute: typeof ImportReviewRoute
   KomunikacijasRoute: typeof KomunikacijasRoute
   LeadiRoute: typeof LeadiRoute
+  LietotajiRoute: typeof LietotajiRoute
+  ObjektiRoute: typeof ObjektiRoute
+  PanelisRoute: typeof PanelisRoute
   QueueRoute: typeof QueueRoute
+  SarakstesRoute: typeof SarakstesRoute
+  SisDarbaRindaRoute: typeof SisDarbaRindaRoute
   UsersRoute: typeof UsersRoute
   UzdevumiRoute: typeof UzdevumiRoute
   LeadRoute: typeof LeadRoute
+  IestatijumiAutomatizacijasRoute: typeof IestatijumiAutomatizacijasRoute
+  IestatijumiIntegracijasRoute: typeof IestatijumiIntegracijasRoute
+  IestatijumiKomunikacijasRoute: typeof IestatijumiKomunikacijasRoute
+  IestatijumiPazinojumiRoute: typeof IestatijumiPazinojumiRoute
+  IestatijumiSisRoute: typeof IestatijumiSisRoute
+  IestatijumiStatusiRoute: typeof IestatijumiStatusiRoute
+  IestatijumiTemplatesRoute: typeof IestatijumiTemplatesRoute
+  IestatijumiValidacijasRoute: typeof IestatijumiValidacijasRoute
+  IestatijumiWorkflowsRoute: typeof IestatijumiWorkflowsRoute
   LeadLeadIdRoute: typeof LeadLeadIdRoute
+  ParskatiMarketingsRoute: typeof ParskatiMarketingsRoute
+  ParskatiPpvRoute: typeof ParskatiPpvRoute
+  ParskatiVadibaRoute: typeof ParskatiVadibaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -202,11 +464,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sis-darba-rinda': {
+      id: '/sis-darba-rinda'
+      path: '/sis-darba-rinda'
+      fullPath: '/sis-darba-rinda'
+      preLoaderRoute: typeof SisDarbaRindaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sarakstes': {
+      id: '/sarakstes'
+      path: '/sarakstes'
+      fullPath: '/sarakstes'
+      preLoaderRoute: typeof SarakstesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/queue': {
       id: '/queue'
       path: '/queue'
       fullPath: '/queue'
       preLoaderRoute: typeof QueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/panelis': {
+      id: '/panelis'
+      path: '/panelis'
+      fullPath: '/panelis'
+      preLoaderRoute: typeof PanelisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/objekti': {
+      id: '/objekti'
+      path: '/objekti'
+      fullPath: '/objekti'
+      preLoaderRoute: typeof ObjektiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lietotaji': {
+      id: '/lietotaji'
+      path: '/lietotaji'
+      fullPath: '/lietotaji'
+      preLoaderRoute: typeof LietotajiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leadi': {
@@ -244,11 +541,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FunnelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/e-pasti': {
+      id: '/e-pasti'
+      path: '/e-pasti'
+      fullPath: '/e-pasti'
+      preLoaderRoute: typeof EPastiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/darba-rinda': {
       id: '/darba-rinda'
       path: '/darba-rinda'
       fullPath: '/darba-rinda'
       preLoaderRoute: typeof DarbaRindaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audits': {
+      id: '/audits'
+      path: '/audits'
+      fullPath: '/audits'
+      preLoaderRoute: typeof AuditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analitika': {
+      id: '/analitika'
+      path: '/analitika'
+      fullPath: '/analitika'
+      preLoaderRoute: typeof AnalitikaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -258,11 +576,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parskati/vadiba': {
+      id: '/parskati/vadiba'
+      path: '/parskati/vadiba'
+      fullPath: '/parskati/vadiba'
+      preLoaderRoute: typeof ParskatiVadibaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parskati/ppv': {
+      id: '/parskati/ppv'
+      path: '/parskati/ppv'
+      fullPath: '/parskati/ppv'
+      preLoaderRoute: typeof ParskatiPpvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parskati/marketings': {
+      id: '/parskati/marketings'
+      path: '/parskati/marketings'
+      fullPath: '/parskati/marketings'
+      preLoaderRoute: typeof ParskatiMarketingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lead/$leadId': {
       id: '/lead/$leadId'
       path: '/lead/$leadId'
       fullPath: '/lead/$leadId'
       preLoaderRoute: typeof LeadLeadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/workflows': {
+      id: '/iestatijumi/workflows'
+      path: '/iestatijumi/workflows'
+      fullPath: '/iestatijumi/workflows'
+      preLoaderRoute: typeof IestatijumiWorkflowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/validacijas': {
+      id: '/iestatijumi/validacijas'
+      path: '/iestatijumi/validacijas'
+      fullPath: '/iestatijumi/validacijas'
+      preLoaderRoute: typeof IestatijumiValidacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/templates': {
+      id: '/iestatijumi/templates'
+      path: '/iestatijumi/templates'
+      fullPath: '/iestatijumi/templates'
+      preLoaderRoute: typeof IestatijumiTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/statusi': {
+      id: '/iestatijumi/statusi'
+      path: '/iestatijumi/statusi'
+      fullPath: '/iestatijumi/statusi'
+      preLoaderRoute: typeof IestatijumiStatusiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/sis': {
+      id: '/iestatijumi/sis'
+      path: '/iestatijumi/sis'
+      fullPath: '/iestatijumi/sis'
+      preLoaderRoute: typeof IestatijumiSisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/pazinojumi': {
+      id: '/iestatijumi/pazinojumi'
+      path: '/iestatijumi/pazinojumi'
+      fullPath: '/iestatijumi/pazinojumi'
+      preLoaderRoute: typeof IestatijumiPazinojumiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/komunikacijas': {
+      id: '/iestatijumi/komunikacijas'
+      path: '/iestatijumi/komunikacijas'
+      fullPath: '/iestatijumi/komunikacijas'
+      preLoaderRoute: typeof IestatijumiKomunikacijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/integracijas': {
+      id: '/iestatijumi/integracijas'
+      path: '/iestatijumi/integracijas'
+      fullPath: '/iestatijumi/integracijas'
+      preLoaderRoute: typeof IestatijumiIntegracijasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iestatijumi/automatizacijas': {
+      id: '/iestatijumi/automatizacijas'
+      path: '/iestatijumi/automatizacijas'
+      fullPath: '/iestatijumi/automatizacijas'
+      preLoaderRoute: typeof IestatijumiAutomatizacijasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lead/': {
@@ -277,18 +679,48 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalitikaRoute: AnalitikaRoute,
+  AuditsRoute: AuditsRoute,
   DarbaRindaRoute: DarbaRindaRoute,
+  EPastiRoute: EPastiRoute,
   FunnelRoute: FunnelRoute,
   IenakosasZinasRoute: IenakosasZinasRoute,
   ImportReviewRoute: ImportReviewRoute,
   KomunikacijasRoute: KomunikacijasRoute,
   LeadiRoute: LeadiRoute,
+  LietotajiRoute: LietotajiRoute,
+  ObjektiRoute: ObjektiRoute,
+  PanelisRoute: PanelisRoute,
   QueueRoute: QueueRoute,
+  SarakstesRoute: SarakstesRoute,
+  SisDarbaRindaRoute: SisDarbaRindaRoute,
   UsersRoute: UsersRoute,
   UzdevumiRoute: UzdevumiRoute,
   LeadRoute: LeadRoute,
+  IestatijumiAutomatizacijasRoute: IestatijumiAutomatizacijasRoute,
+  IestatijumiIntegracijasRoute: IestatijumiIntegracijasRoute,
+  IestatijumiKomunikacijasRoute: IestatijumiKomunikacijasRoute,
+  IestatijumiPazinojumiRoute: IestatijumiPazinojumiRoute,
+  IestatijumiSisRoute: IestatijumiSisRoute,
+  IestatijumiStatusiRoute: IestatijumiStatusiRoute,
+  IestatijumiTemplatesRoute: IestatijumiTemplatesRoute,
+  IestatijumiValidacijasRoute: IestatijumiValidacijasRoute,
+  IestatijumiWorkflowsRoute: IestatijumiWorkflowsRoute,
   LeadLeadIdRoute: LeadLeadIdRoute,
+  ParskatiMarketingsRoute: ParskatiMarketingsRoute,
+  ParskatiPpvRoute: ParskatiPpvRoute,
+  ParskatiVadibaRoute: ParskatiVadibaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
