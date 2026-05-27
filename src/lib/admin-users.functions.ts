@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { parseSupabaseSecretKey } from "@/lib/supabase-secret";
 
 /**
  * Admin write helpers for the `crm` schema.
@@ -11,26 +12,14 @@ function getServiceEnv() {
     process.env.SUPABASE_URL ||
     process.env.ANALYTICS_SUPABASE_URL ||
     "";
-  const rawSecret =
-    process.env.SUPABASE_SECRET_KEYS ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "";
-  if (!url || !rawSecret) {
+  const key = parseSupabaseSecretKey(
+    process.env.SUPABASE_SECRET_KEYS,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  if (!url || !key) {
     throw new Error(
-      "Servera puses atslēga (SUPABASE_SECRET_KEYS) nav konfigurēta.",
+      "Supabase servera slepenā atslēga nav pieejama vai nav derīga.",
     );
-  }
-  let key = rawSecret.trim();
-  // SUPABASE_SECRET_KEYS may be a JSON array of keys.
-  if (key.startsWith("[")) {
-    try {
-      const arr = JSON.parse(key);
-      if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === "string") {
-        key = arr[0];
-      }
-    } catch {
-      // fall through – use raw value
-    }
   }
   return { url: url.replace(/\/+$/, ""), key };
 }
