@@ -115,8 +115,6 @@ export function getSupabaseServiceKey(): string | null {
   return selectedKey;
 }
 
-export const getSupabaseSecretKeyFromEnv = getSupabaseServiceKey;
-
 export function getSupabaseUrlFromEnv(): string {
   return (getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL") || "").replace(
     /\/+$/,
