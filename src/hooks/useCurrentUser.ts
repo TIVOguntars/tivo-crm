@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getStoredOperator,
   listAssignableUsers,
@@ -12,12 +13,15 @@ import { getCurrentRoles } from "@/lib/roles.functions";
 
 export interface CurrentUserCtx {
   isReady: boolean;
+  rolesLoading: boolean;
   operatorId: string | null;
+  currentAuthUserId: string | null;
   profile: AssignableUser | null;
   roleKeys: string[];
   permissionKeys: string[];
   isAdmin: boolean;
   stored: StoredOperator | null;
+  currentRoles: { roleKeys: string[]; permissionKeys: string[] } | null;
 }
 
 /** Track localStorage operator selection across components/tabs. */
@@ -50,9 +54,40 @@ export function notifyOperatorChanged(): void {
   }
 }
 
+function useAuthIdentity(): { userId: string | null; version: number; ready: boolean } {
+  const [state, setState] = useState({ userId: null as string | null, version: 0, ready: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) {
+        setState((prev) => ({
+          userId: data.user?.id ?? null,
+          version: prev.version + 1,
+          ready: true,
+        }));
+      }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState((prev) => ({
+        userId: session?.user?.id ?? null,
+        version: prev.version + 1,
+        ready: true,
+      }));
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return state;
+}
+
 export function useCurrentUser(): CurrentUserCtx {
   const stored = useStoredOperator();
   const operatorId = stored?.operator_id ?? null;
+  const auth = useAuthIdentity();
 
   const usersQ = useQuery({
     queryKey: ["crm", "assignable_users"],
@@ -63,10 +98,12 @@ export function useCurrentUser(): CurrentUserCtx {
 
   const getRoles = useServerFn(getCurrentRoles);
   const rolesQ = useQuery({
-    queryKey: ["crm", "current_roles", operatorId ?? "none"],
+    queryKey: ["crm", "current_roles", auth.userId ?? "no-auth", operatorId ?? "none", auth.version],
     queryFn: () => getRoles({ data: { operatorId } }),
-    enabled: !!operatorId,
-    staleTime: 5 * 60_000,
+    enabled: auth.ready && !!operatorId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const profile =
@@ -74,19 +111,35 @@ export function useCurrentUser(): CurrentUserCtx {
 
   // Role keys are ALWAYS resolved server-side; no localStorage fallback.
   // While the server fn is in-flight, roleKeys is [] → all gates fail closed.
-  const roleKeys = rolesQ.data?.roleKeys ?? [];
-  const permissionKeys = rolesQ.data?.permissionKeys ?? [];
+  const currentRoles = rolesQ.data ?? null;
+  const roleKeys = currentRoles?.roleKeys ?? [];
+  const permissionKeys = currentRoles?.permissionKeys ?? [];
   const isAdmin = !!rolesQ.data && roleKeys.includes("admin");
 
-  const isReady = !operatorId || !rolesQ.isLoading;
+  const rolesLoading = auth.ready && !!operatorId && (rolesQ.isLoading || rolesQ.isFetching);
+  const isReady = !operatorId || (auth.ready && !rolesQ.isLoading && !rolesQ.isFetching);
+
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    console.log("[auth-debug] useCurrentUser", {
+      currentUserId: auth.userId,
+      operatorId,
+      roleKeys,
+      getCurrentRolesResponse: rolesQ.data,
+      rolesLoading,
+      rolesError: rolesQ.error instanceof Error ? rolesQ.error.message : rolesQ.error,
+    });
+  }
 
   return {
     isReady,
+    rolesLoading,
     operatorId,
+    currentAuthUserId: auth.userId,
     profile,
     roleKeys,
     permissionKeys,
     isAdmin,
     stored,
+    currentRoles,
   };
 }
