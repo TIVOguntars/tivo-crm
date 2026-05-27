@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
 
 export interface AssignableUser {
   id: string;
@@ -21,7 +21,7 @@ const STORAGE_KEY = "tivo.operator";
 const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ rows: AssignableUser[]; error: string | null }> => {
     const url = getSupabaseUrlFromEnv();
-    const key = getSupabaseSecretKeyFromEnv();
+    const key = getSupabaseServiceKey();
     if (!url || !key) {
       return { rows: [], error: "Supabase servera slepenā atslēga nav pieejama vai nav derīga." };
     }
@@ -63,10 +63,7 @@ const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
 
 /** Display priority: full_name → email → user_code → id. */
 export function displayName(
-  u:
-    | Pick<AssignableUser, "id" | "full_name" | "email" | "user_code">
-    | null
-    | undefined,
+  u: Pick<AssignableUser, "id" | "full_name" | "email" | "user_code"> | null | undefined,
 ): string {
   if (!u) return "";
   return (
@@ -93,9 +90,7 @@ export function buildUserMap(users: AssignableUser[]): Map<string, string> {
 export async function listAssignableUsers(): Promise<AssignableUser[]> {
   const res = await fetchAssignableUsers();
   if (res.error) throw new Error(res.error);
-  return res.rows.filter(
-    (u) => u.status_key == null || u.status_key === "active",
-  );
+  return res.rows.filter((u) => u.status_key == null || u.status_key === "active");
 }
 
 function isBrowser(): boolean {
@@ -108,21 +103,14 @@ export function getStoredOperator(): StoredOperator | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredOperator> | null;
-    if (
-      !parsed ||
-      typeof parsed.operator_id !== "string" ||
-      !parsed.operator_id
-    ) {
+    if (!parsed || typeof parsed.operator_id !== "string" || !parsed.operator_id) {
       return null;
     }
     return {
       operator_id: parsed.operator_id,
-      full_name:
-        typeof parsed.full_name === "string" ? parsed.full_name : "",
+      full_name: typeof parsed.full_name === "string" ? parsed.full_name : "",
       selected_at:
-        typeof parsed.selected_at === "string"
-          ? parsed.selected_at
-          : new Date().toISOString(),
+        typeof parsed.selected_at === "string" ? parsed.selected_at : new Date().toISOString(),
     };
   } catch {
     return null;

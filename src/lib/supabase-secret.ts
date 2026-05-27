@@ -1,92 +1,125 @@
+import { createServerOnlyFn } from "@tanstack/react-start";
+
 type RuntimeEnvGlobal = typeof globalThis & {
   Deno?: { env?: { get?: (name: string) => string | undefined } };
 };
 
+const PREFERRED_SECRET_KEYS = [
+  "service_role",
+  "serviceRole",
+  "service-role",
+  "current",
+  "primary",
+  "default",
+];
+
 export function getRuntimeEnv(name: string): string | undefined {
-  const fromProcess =
-    typeof process !== "undefined" ? process.env?.[name] : undefined;
+  const value = getRuntimeEnvValue(name);
+  return typeof value === "string" ? value : undefined;
+}
+
+function getRuntimeEnvValue(name: string): unknown {
+  const fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
   if (fromProcess) return fromProcess;
   return (globalThis as RuntimeEnvGlobal).Deno?.env?.get?.(name);
 }
 
-function decodeJwtRole(value: string): string | null {
-  const payload = value.split(".")[1];
-  if (!payload) return null;
-  try {
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const json = JSON.parse(atob(padded)) as { role?: unknown };
-    return typeof json.role === "string" ? json.role : null;
-  } catch {
-    return null;
-  }
+function isJwtLike(value: string): boolean {
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value);
 }
 
-function collectSecretCandidates(
-  value: unknown,
-  hint = "",
-): Array<{ key: string; score: number }> {
-  if (typeof value === "string") {
-    const key = value.trim();
-    if (!key) return [];
-    const lowerHint = hint.toLowerCase();
-    const role = decodeJwtRole(key);
-    if (role === "anon") return [{ key, score: -100 }];
-    let score = role === "service_role" ? 100 : 0;
-    if (lowerHint.includes("active") || lowerHint.includes("current")) score += 30;
-    if (lowerHint.includes("primary") || lowerHint.includes("service")) score += 20;
-    if (lowerHint.includes("secret")) score += 10;
-    return [{ key, score }];
-  }
+function firstStringValue(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
   if (Array.isArray(value)) {
-    return value.flatMap((item, index) =>
-      collectSecretCandidates(item, `${hint}.${index}`),
-    );
-  }
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([k, v]) =>
-      collectSecretCandidates(v, `${hint}.${k}`),
-    );
-  }
-  return [];
-}
-
-export function parseSupabaseSecretKey(
-  rawSecretKeys: string | undefined,
-  fallbackServiceRoleKey?: string,
-): string | null {
-  const candidates: Array<{ key: string; score: number }> = [];
-  const raw = rawSecretKeys?.trim();
-  if (raw) {
-    try {
-      candidates.push(...collectSecretCandidates(JSON.parse(raw), "SUPABASE_SECRET_KEYS"));
-    } catch {
-      candidates.push(...collectSecretCandidates(raw, "SUPABASE_SECRET_KEYS"));
+    for (const item of value) {
+      const found = firstStringValue(item);
+      if (found) return found;
     }
   }
-  if (fallbackServiceRoleKey?.trim()) {
-    candidates.push(
-      ...collectSecretCandidates(
-        fallbackServiceRoleKey,
-        "SUPABASE_SERVICE_ROLE_KEY",
-      ),
-    );
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      const found = firstStringValue(item);
+      if (found) return found;
+    }
   }
-  return candidates
-    .filter((c) => c.score >= 0)
-    .sort((a, b) => b.score - a.score)[0]?.key ?? null;
+  return null;
 }
+
+function pickKeyFromObject(value: Record<string, unknown>): {
+  key: string | null;
+  source: string;
+} {
+  for (const keyName of PREFERRED_SECRET_KEYS) {
+    const selected = firstStringValue(value[keyName]);
+    if (selected) {
+      return {
+        key: selected,
+        source: `SUPABASE_SECRET_KEYS.${keyName}`,
+      };
+    }
+  }
+
+  const fallback = firstStringValue(value);
+  return {
+    key: fallback,
+    source: fallback ? "SUPABASE_SECRET_KEYS first string value" : "not found",
+  };
+}
+
+export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
+  const rawSecretKeys = getRuntimeEnvValue("SUPABASE_SECRET_KEYS");
+  const fallbackServiceRoleKey = getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  console.log("[auth-debug] typeof SUPABASE_SECRET_KEYS", typeof rawSecretKeys);
+
+  let selectedKey: string | null = null;
+  let selectedSource = "not found";
+  let firstLevelKeys: string[] = [];
+
+  if (rawSecretKeys && typeof rawSecretKeys === "object") {
+    firstLevelKeys = Object.keys(rawSecretKeys as Record<string, unknown>);
+    const picked = pickKeyFromObject(rawSecretKeys as Record<string, unknown>);
+    selectedKey = picked.key;
+    selectedSource = picked.source;
+  }
+
+  const raw = typeof rawSecretKeys === "string" ? rawSecretKeys.trim() : "";
+  if (!selectedKey && raw) {
+    if (isJwtLike(raw)) {
+      selectedKey = raw;
+      selectedSource = "SUPABASE_SECRET_KEYS plain JWT string";
+    } else {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === "object") {
+          firstLevelKeys = Object.keys(parsed as Record<string, unknown>);
+          const picked = pickKeyFromObject(parsed as Record<string, unknown>);
+          selectedKey = picked.key;
+          selectedSource = picked.source;
+        } else if (typeof parsed === "string" && parsed.trim()) {
+          selectedKey = parsed.trim();
+          selectedSource = "SUPABASE_SECRET_KEYS JSON string";
+        }
+      } catch {
+        selectedKey = raw;
+        selectedSource = "SUPABASE_SECRET_KEYS plain string";
+      }
+    }
+  }
+
+  if (!selectedKey && fallbackServiceRoleKey?.trim()) {
+    selectedKey = fallbackServiceRoleKey.trim();
+    selectedSource = "SUPABASE_SERVICE_ROLE_KEY fallback";
+  }
+
+  console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", firstLevelKeys);
+  console.log("[auth-debug] selected Supabase service key source", selectedSource);
+  return selectedKey;
+});
 
 export function getSupabaseUrlFromEnv(): string {
   return (getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL") || "").replace(
     /\/+$/,
     "",
-  );
-}
-
-export function getSupabaseSecretKeyFromEnv(): string | null {
-  return parseSupabaseSecretKey(
-    getRuntimeEnv("SUPABASE_SECRET_KEYS"),
-    getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY"),
   );
 }

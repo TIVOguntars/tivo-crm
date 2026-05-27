@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -44,7 +44,7 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
     const SUPABASE_URL = getSupabaseUrlFromEnv();
-    const SUPABASE_SECRET_KEY = getSupabaseSecretKeyFromEnv();
+    const SUPABASE_SECRET_KEY = getSupabaseServiceKey();
     console.log("[auth-debug] getCurrentRoles server env", {
       hasSupabaseUrl: !!SUPABASE_URL,
       hasSupabaseSecretKey: !!SUPABASE_SECRET_KEY,
