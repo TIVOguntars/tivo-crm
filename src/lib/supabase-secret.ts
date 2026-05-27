@@ -1,3 +1,14 @@
+type RuntimeEnvGlobal = typeof globalThis & {
+  Deno?: { env?: { get?: (name: string) => string | undefined } };
+};
+
+export function getRuntimeEnv(name: string): string | undefined {
+  const fromProcess =
+    typeof process !== "undefined" ? process.env?.[name] : undefined;
+  if (fromProcess) return fromProcess;
+  return (globalThis as RuntimeEnvGlobal).Deno?.env?.get?.(name);
+}
+
 function decodeJwtRole(value: string): string | null {
   const payload = value.split(".")[1];
   if (!payload) return null;
@@ -69,4 +80,18 @@ export function parseSupabaseSecretKey(
   return candidates
     .filter((c) => c.score >= 0)
     .sort((a, b) => b.score - a.score)[0]?.key ?? null;
+}
+
+export function getSupabaseUrlFromEnv(): string {
+  return (getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL") || "").replace(
+    /\/+$/,
+    "",
+  );
+}
+
+export function getSupabaseSecretKeyFromEnv(): string | null {
+  return parseSupabaseSecretKey(
+    getRuntimeEnv("SUPABASE_SECRET_KEYS"),
+    getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  );
 }
