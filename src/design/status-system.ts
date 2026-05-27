@@ -1,62 +1,62 @@
 export const STATUS_STYLES = {
   jauns: {
-    bg: "bg-blue-50",
-    text: "text-blue-700",
+    bg: "bg-[var(--tivo-blue-soft)]",
+    text: "text-[var(--tivo-blue)]",
   },
 
   piesaistīšana: {
-    bg: "bg-yellow-50",
-    text: "text-yellow-800",
+    bg: "bg-[var(--tivo-teal-soft)]",
+    text: "text-[var(--tivo-teal)]",
   },
 
   kvalificēts: {
-    bg: "bg-green-50",
-    text: "text-green-700",
+    bg: "bg-[var(--tivo-green-soft)]",
+    text: "text-[var(--tivo-green)]",
   },
 
   pieprasījums: {
-    bg: "bg-cyan-50",
-    text: "text-cyan-700",
+    bg: "bg-[var(--tivo-blue-soft)]",
+    text: "text-[var(--tivo-blue)]",
   },
 
   piedāvājums: {
-    bg: "bg-purple-50",
-    text: "text-purple-700",
+    bg: "bg-[var(--tivo-teal-soft)]",
+    text: "text-[var(--tivo-teal)]",
   },
 
   līgums: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
+    bg: "bg-[var(--tivo-green-soft)]",
+    text: "text-[var(--tivo-green)]",
   },
 
   nesasniedzams: {
-    bg: "bg-gray-50",
-    text: "text-gray-700",
+    bg: "bg-[var(--tivo-orange-soft)]",
+    text: "text-[var(--tivo-orange)]",
   },
 
   atlikts: {
-    bg: "bg-orange-50",
-    text: "text-orange-700",
+    bg: "bg-[var(--tivo-orange-soft)]",
+    text: "text-[var(--tivo-orange)]",
   },
 
   atcelts: {
-    bg: "bg-red-50",
-    text: "text-red-700",
+    bg: "bg-[var(--tivo-red-soft)]",
+    text: "text-[var(--tivo-red)]",
   },
 
   nekvalificējas: {
-    bg: "bg-zinc-50",
-    text: "text-zinc-700",
+    bg: "bg-[var(--tivo-red-soft)]",
+    text: "text-[var(--tivo-red)]",
   },
 
   pabeigts: {
-    bg: "bg-slate-50",
-    text: "text-slate-700",
+    bg: "bg-[var(--tivo-green-soft)]",
+    text: "text-[var(--tivo-green)]",
   },
 
   default: {
-    bg: "bg-gray-50",
-    text: "text-gray-700",
+    bg: "bg-[var(--crm-muted)]",
+    text: "text-[var(--crm-text-muted)]",
   },
 };
 
