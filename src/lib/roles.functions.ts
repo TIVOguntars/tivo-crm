@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import {
+  getSupabaseEnvDiagnostics,
+  getSupabaseServiceKey,
+  getSupabaseUrlFromEnv,
+} from "@/lib/supabase-secret";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -45,9 +49,11 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
 
     const SUPABASE_URL = getSupabaseUrlFromEnv();
     const SUPABASE_SECRET_KEY = getSupabaseServiceKey();
+    const envDiagnostics = getSupabaseEnvDiagnostics();
     console.log("[auth-debug] getCurrentRoles server env", {
       hasSupabaseUrl: !!SUPABASE_URL,
       hasSupabaseSecretKey: !!SUPABASE_SECRET_KEY,
+      diagnostics: envDiagnostics,
     });
     if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
       const error = "Supabase servera slepenā atslēga nav pieejama vai nav derīga.";
