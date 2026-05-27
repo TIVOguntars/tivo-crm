@@ -1451,11 +1451,11 @@ function LeadRow({
   const hasUnread = l.has_unread_reply;
   const noContact = !parseDate(l.last_activity);
   const accentClass = hasUnread
-    ? "before:bg-blue-500/80"
+    ? "before:bg-[var(--tivo-blue)]"
     : isOverdue
-      ? "before:bg-rose-500/70"
+      ? "before:bg-[var(--tivo-red)]"
       : isHot
-        ? "before:bg-orange-500/70"
+        ? "before:bg-[var(--tivo-orange)]"
         : noContact
           ? "before:bg-muted-foreground/30"
           : "before:bg-transparent";
@@ -1517,7 +1517,7 @@ function LeadRow({
           </span>
           {hasUnread && (
             <span
-              className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+              className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--tivo-blue)]"
               aria-label="Ir neatbildēta klienta atbilde"
             />
           )}
@@ -1559,7 +1559,7 @@ function LeadRow({
             </span>
             {l.needs_attention && (
               <AlertTriangle
-                className="h-3 w-3 shrink-0 text-amber-500"
+                className="h-3 w-3 shrink-0 text-[var(--tivo-orange)]"
                 aria-label="Vajadzīga uzmanība"
               />
             )}
@@ -1595,7 +1595,7 @@ function LeadRow({
               className={cn(
                 "truncate text-[10px] tabular-nums",
                 isOverdue
-                  ? "text-rose-600 dark:text-rose-300"
+                  ? "text-[var(--tivo-red)]"
                   : "text-muted-foreground/70",
               )}
             >
@@ -1685,7 +1685,7 @@ function LeadRow({
                     className={cn(
                       "h-3 w-3",
                       i < stars
-                        ? "fill-amber-400 text-amber-400"
+                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
                         : "text-muted-foreground/30",
                     )}
                   />
