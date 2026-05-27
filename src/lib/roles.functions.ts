@@ -92,13 +92,11 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-    const SUPABASE_SERVICE_ROLE_KEY = parseSecretKey(
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEYS,
-    );
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("[roles] Supabase server env missing");
-      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
+    const SUPABASE_SECRET_KEY = parseSupabaseSecretKey();
+    if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+      const error = "Supabase servera slepenā atslēga nav pieejama vai nav derīga.";
+      console.error("[roles]", error);
+      return { roleKeys: [], permissionKeys: [], lookupUserId: uid, error };
     }
     const authHeader = getRequestHeader("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
@@ -106,8 +104,8 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     }
 
     const baseHeaders: Record<string, string> = {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: SUPABASE_SECRET_KEY,
+      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
       "Accept-Profile": "crm",
       Accept: "application/json",
     };
