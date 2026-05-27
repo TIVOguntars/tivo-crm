@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import {
-  checkPassword,
   clearAuth,
   INACTIVITY_LIMIT_MS,
   isSessionValid,
@@ -12,123 +12,66 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { setStoredOperator } from "@/lib/users";
 
 interface AuthGateProps {
   children: React.ReactNode;
 }
 
+const GENERIC_ERROR = "Nepareizi pieslēgšanās dati";
+
+/** Public routes that bypass the auth gate. */
+const PUBLIC_PATHS = new Set<string>(["/reset-password"]);
+
 export function AuthGate({ children }: AuthGateProps) {
   const queryClient = useQueryClient();
-  // Always start unauthenticated on the server / first paint to avoid
-  // hydration mismatches and to ensure no analytics renders before check.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   const [authed, setAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [userCode, setUserCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function ensureSupabaseSession(): Promise<boolean> {
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (typeof window !== "undefined" && import.meta.env.DEV) {
-        console.log("[auth-debug] auth provider ensureSupabaseSession:start", {
-          authSession: {
-            hasSession: !!data.session,
-            userId: data.session?.user?.id ?? null,
-            email: data.session?.user?.email ?? null,
-            isAnonymous: data.session?.user?.is_anonymous ?? null,
-            expiresAt: data.session?.expires_at ?? null,
-            accessTokenPresent: !!data.session?.access_token,
-            refreshTokenPresent: !!data.session?.refresh_token,
-          },
-          currentUserId: data.session?.user?.id ?? null,
-        });
-      }
-      if (data.session) {
-        const { data: userData, error } = await supabase.auth.getUser();
-        if (typeof window !== "undefined" && import.meta.env.DEV) {
-          console.log("[auth-debug] auth provider ensureSupabaseSession:user", {
-            authUser: userData.user
-              ? {
-                  id: userData.user.id,
-                  email: userData.user.email ?? null,
-                  isAnonymous: userData.user.is_anonymous ?? null,
-                }
-              : null,
-            currentUserId: userData.user?.id ?? null,
-            error: error?.message ?? null,
-          });
-        }
-        return !error && !!userData.user;
-      }
-      const { data: signed, error } = await supabase.auth.signInAnonymously();
-      if (typeof window !== "undefined" && import.meta.env.DEV) {
-        console.log("[auth-debug] auth provider anonymous sign-in", {
-          authSession: {
-            hasSession: !!signed.session,
-            userId: signed.session?.user?.id ?? null,
-            email: signed.session?.user?.email ?? null,
-            isAnonymous: signed.session?.user?.is_anonymous ?? null,
-            expiresAt: signed.session?.expires_at ?? null,
-            accessTokenPresent: !!signed.session?.access_token,
-            refreshTokenPresent: !!signed.session?.refresh_token,
-          },
-          currentUserId: signed.session?.user?.id ?? null,
-          error: error?.message ?? null,
-        });
-      }
-      if (error || !signed.session) {
-        console.error("[auth] anonymous sign-in failed", error?.message);
-        return false;
-      }
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (typeof window !== "undefined" && import.meta.env.DEV) {
-        console.log("[auth-debug] auth provider anonymous user", {
-          authUser: userData.user
-            ? {
-                id: userData.user.id,
-                email: userData.user.email ?? null,
-                isAnonymous: userData.user.is_anonymous ?? null,
-              }
-            : null,
-          currentUserId: userData.user?.id ?? null,
-          error: userError?.message ?? null,
-        });
-      }
-      if (userError || !userData.user) return false;
-      return true;
-    } catch (e) {
-      console.error("[auth] ensureSupabaseSession", e);
-      return false;
-    }
-  }
-
-  // Initial session check after mount
+  // Initial session check on mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const valid = isSessionValid();
-      if (typeof window !== "undefined" && import.meta.env.DEV) {
-        console.log("[auth-debug] auth provider gate hydrate", { localSessionValid: valid });
-      }
-      if (!valid) {
-        clearAuth();
-        if (!cancelled) setHydrated(true);
-        return;
-      }
-      const ok = await ensureSupabaseSession();
+      const { data } = await supabase.auth.getUser();
       if (cancelled) return;
-      if (ok) {
+      const user = data.user;
+      const valid = isSessionValid();
+      if (user && !user.is_anonymous && valid) {
         setAuthed(true);
       } else {
+        if (user) {
+          // Stale or anonymous session — clean it out.
+          void supabase.auth.signOut().catch(() => {});
+        }
         clearAuth();
-        setError("Neizdevās atjaunot sesiju. Pieslēdzies vēlreiz.");
+        setAuthed(false);
       }
       setHydrated(true);
     })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user;
+      if (u && !u.is_anonymous && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION")) {
+        setAuthenticated();
+        setAuthed(true);
+      } else if (event === "SIGNED_OUT") {
+        clearAuth();
+        setAuthed(false);
+      }
+    });
+
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -136,6 +79,7 @@ export function AuthGate({ children }: AuthGateProps) {
     clearAuth();
     setAuthed(false);
     setPassword("");
+    setUserCode("");
     setError(null);
     void supabase.auth.signOut().catch(() => {});
   }, []);
@@ -144,10 +88,7 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     if (!authed) return;
 
-    const onActivity = () => {
-      touchActivity();
-    };
-
+    const onActivity = () => touchActivity();
     const events: Array<keyof WindowEventMap> = [
       "mousemove",
       "mousedown",
@@ -159,11 +100,8 @@ export function AuthGate({ children }: AuthGateProps) {
     ];
     events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
 
-    // Periodically check inactivity
     timerRef.current = setInterval(() => {
-      if (!isSessionValid()) {
-        handleLogout();
-      }
+      if (!isSessionValid()) handleLogout();
     }, 30_000);
 
     return () => {
@@ -174,34 +112,89 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkPassword(password)) {
-      setError("Nepareiza parole");
+    const code = userCode.trim();
+    const pwd = password;
+    if (!code || !pwd) {
+      setError(GENERIC_ERROR);
       return;
     }
     setSubmitting(true);
-    const ok = await ensureSupabaseSession();
-    if (!ok) {
-      setSubmitting(false);
-      setError("Neizdevās izveidot sesiju. Mēģini vēlreiz.");
-      return;
-    }
-    setAuthenticated();
-    queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
-    await queryClient.invalidateQueries({ queryKey: ["crm"] });
-    if (typeof window !== "undefined" && import.meta.env.DEV) {
-      console.log("[auth-debug] auth provider login success", {
-        currentRolesCacheRemoved: true,
-        crmCacheInvalidated: true,
-      });
-    }
-    setAuthed(true);
     setError(null);
-    setPassword("");
-    setSubmitting(false);
+    try {
+      // 1. Resolve email by user_code via secure RPC (returns null if not found / inactive).
+      const sb = supabase as unknown as {
+        schema: (s: string) => {
+          rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+        };
+      };
+      const { data: emailData, error: rpcError } = await sb
+        .schema("crm")
+        .rpc("resolve_login_email", { p_user_code: code });
+      if (rpcError || !emailData || typeof emailData !== "string") {
+        setError(GENERIC_ERROR);
+        setSubmitting(false);
+        return;
+      }
+      const email = emailData;
+      // 2. Sign in with the resolved email + given password.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: pwd,
+      });
+      if (signInError) {
+        setError(GENERIC_ERROR);
+        setSubmitting(false);
+        return;
+      }
+      setAuthenticated();
+      // Auto-select operator based on the signed-in email's profile.
+      try {
+        const sbAuthed = supabase as unknown as {
+          schema: (s: string) => {
+            from: (t: string) => {
+              select: (cols: string) => {
+                eq: (
+                  col: string,
+                  val: unknown,
+                ) => { maybeSingle: () => Promise<{ data: unknown }> };
+              };
+            };
+          };
+        };
+        const { data: prof } = await sbAuthed
+          .schema("crm")
+          .from("profiles")
+          .select("id,full_name,email,user_code")
+          .eq("email", email)
+          .maybeSingle();
+        if (prof && typeof prof === "object" && (prof as { id?: string }).id) {
+          const p = prof as {
+            id: string;
+            full_name: string | null;
+            email: string | null;
+            user_code: string | null;
+          };
+          setStoredOperator(p);
+        }
+      } catch {
+        /* ignore — operator picker will prompt */
+      }
+      queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
+      await queryClient.invalidateQueries({ queryKey: ["crm"] });
+      setAuthed(true);
+      setPassword("");
+      setSubmitting(false);
+    } catch {
+      setError(GENERIC_ERROR);
+      setSubmitting(false);
+    }
   };
 
-  // Render nothing meaningful until client hydration to keep SSR output
-  // free of analytics content.
+  // Public routes bypass the gate entirely (e.g. /reset-password).
+  if (PUBLIC_PATHS.has(pathname)) {
+    return <>{children}</>;
+  }
+
   if (!hydrated) {
     return <div className="flex min-h-screen items-center justify-center bg-background" />;
   }
@@ -214,21 +207,34 @@ export function AuthGate({ children }: AuthGateProps) {
           className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm"
         >
           <div className="mb-6 text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              TIVO / Analytics
-            </h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">TIVO CRM</h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              Ievadiet paroli, lai piekļūtu analītikai
+              Pieslēdzies ar saviem iniciāļiem un paroli
             </p>
           </div>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="user_code">Iniciāļi / ID</Label>
+              <Input
+                id="user_code"
+                autoComplete="username"
+                autoFocus
+                value={userCode}
+                maxLength={10}
+                onChange={(e) => {
+                  setUserCode(e.target.value.toUpperCase());
+                  if (error) setError(null);
+                }}
+                className="font-mono uppercase"
+                placeholder="GT"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Parole</Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                autoFocus
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -256,7 +262,7 @@ export function AuthGate({ children }: AuthGateProps) {
 export function LogoutButton() {
   const handleLogout = () => {
     clearAuth();
-    // Hard reload to fully reset auth state and clear any cached queries.
+    void supabase.auth.signOut().catch(() => {});
     if (typeof window !== "undefined") {
       window.location.reload();
     }

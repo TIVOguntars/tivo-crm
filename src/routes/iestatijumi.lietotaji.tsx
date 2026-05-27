@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-tab-data.functions";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
   TableBody,
@@ -225,16 +226,19 @@ function UsersTab() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditing(p);
-                            setOpen(true);
-                          }}
-                        >
-                          Rediģēt
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <ResetPasswordAction email={s(p.email)} />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditing(p);
+                              setOpen(true);
+                            }}
+                          >
+                            Rediģēt
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -754,4 +758,31 @@ function useStateReset(key: string, fn: () => void) {
       fn();
     }
   }, [key, fn]);
+}
+
+function ResetPasswordAction({ email }: { email: string }) {
+  const [sending, setSending] = useState(false);
+  const onClick = async () => {
+    const target = (email || "").trim();
+    if (!target) {
+      toast.error("Lietotājam nav e-pasta");
+      return;
+    }
+    if (!window.confirm(`Nosūtīt paroles atiestatīšanas e-pastu uz ${target}?`)) return;
+    setSending(true);
+    const redirectTo =
+      typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(target, { redirectTo });
+    setSending(false);
+    if (error) {
+      toast.error("Neizdevās nosūtīt e-pastu");
+      return;
+    }
+    toast.success("E-pasts nosūtīts");
+  };
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} disabled={sending}>
+      {sending ? "Sūta…" : "Atiestatīt paroli"}
+    </Button>
+  );
 }
