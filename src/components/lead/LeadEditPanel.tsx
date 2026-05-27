@@ -259,7 +259,7 @@ export function LeadEditPanel({
             </div>
 
             {isBackwards && (
-              <div className="mt-2 flex items-start gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+              <div className="mt-2 flex items-start gap-1.5 rounded border border-[var(--tivo-orange-border)] bg-[var(--tivo-orange-soft)] px-2 py-1.5 text-[11px] text-[var(--tivo-orange)]">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                 <span>
                   Statusa pazemināšana — pārvieto leadu atpakaļ piltuvē.

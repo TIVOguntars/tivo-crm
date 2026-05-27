@@ -197,7 +197,7 @@ function Stat({ label, value, warn }: { label: string; value: number; warn?: boo
       <span
         className={
           warn && value > 0
-            ? "font-semibold text-amber-600 dark:text-amber-500"
+            ? "font-semibold text-[var(--tivo-orange)]"
             : "font-medium text-foreground"
         }
       >
