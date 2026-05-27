@@ -1,12 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  getSupabaseEnvDiagnostics,
-  getSupabaseServiceKey,
-  getSupabaseUrlFromEnv,
-} from "@/lib/supabase-secret";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -20,17 +14,16 @@ export interface RoleLookupResult {
 }
 
 /**
- * Resolve role keys from `crm.user_roles` + `crm.roles` in the `crm` schema.
+ * Resolve role keys from `crm.user_roles` + `crm.roles` using the
+ * authenticated Supabase context (no service role secret).
  *
- * Interim Bridge (B):
- *   - Uses the verified Supabase auth user id when real auth is present.
- *   - During the existing shared-password/anonymous bridge, uses the selected
- *     crm.profiles operator id, but still re-reads assignments server-side.
- *   - Requires a valid Supabase bearer token (`requireSupabaseAuth`).
- *   - Returns `{ roleKeys: [], permissionKeys: [] }` when no operator is
- *     selected so the UI fails closed.
- *
- * Permissions feed is reserved for the Real Auth follow-up and returns `[]`.
+ * - Uses the verified Supabase auth user id when real auth is present.
+ * - During the existing shared-password/anonymous bridge, uses the selected
+ *   crm.profiles operator id, but still re-reads assignments server-side
+ *   via the authenticated client (RLS allows SELECT to `authenticated`).
+ * - Requires a valid Supabase bearer token (`requireSupabaseAuth`).
+ * - Returns `{ roleKeys: [], permissionKeys: [] }` when no operator is
+ *   selected so the UI fails closed.
  */
 export const getCurrentRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -47,49 +40,46 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     });
     if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
-    const SUPABASE_URL = getSupabaseUrlFromEnv();
-    const SUPABASE_SECRET_KEY = getSupabaseServiceKey();
-    const envDiagnostics = getSupabaseEnvDiagnostics();
-    console.log("[auth-debug] getCurrentRoles server env", {
-      hasSupabaseUrl: !!SUPABASE_URL,
-      hasSupabaseSecretKey: !!SUPABASE_SECRET_KEY,
-      diagnostics: envDiagnostics,
-    });
-    if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
-      const error = "Supabase servera slepenā atslēga nav pieejama vai nav derīga.";
-      console.error("[roles]", error);
-      return { roleKeys: [], permissionKeys: [], lookupUserId: uid, error };
-    }
-    const authHeader = getRequestHeader("authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
-    }
-
-    const baseHeaders: Record<string, string> = {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      "Accept-Profile": "crm",
-      Accept: "application/json",
+    // Use the request-bound authenticated Supabase client. The middleware
+    // already attached the user's bearer token; `.schema('crm')` switches
+    // PostgREST to the crm schema (Accept-Profile/Content-Profile).
+    const sb = context.supabase as unknown as {
+      schema: (name: string) => {
+        from: (table: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              limit: (n: number) => Promise<{ data: unknown; error: unknown }>;
+            };
+            limit: (n: number) => Promise<{ data: unknown; error: unknown }>;
+          };
+        };
+      };
     };
-    const root = SUPABASE_URL.replace(/\/+$/, "");
 
-    const [urResp, rolesResp] = await Promise.all([
-      fetch(
-        `${root}/rest/v1/user_roles?select=role_id&user_id=eq.${encodeURIComponent(uid)}&limit=200`,
-        { headers: baseHeaders },
-      ),
-      fetch(`${root}/rest/v1/roles?select=id,role_key&limit=200`, {
-        headers: baseHeaders,
-      }),
+    const [urRes, rolesRes] = await Promise.all([
+      sb.schema("crm").from("user_roles").select("role_id").eq("user_id", uid).limit(200),
+      sb.schema("crm").from("roles").select("id,role_key").limit(500),
     ]);
 
-    if (!urResp.ok || !rolesResp.ok) {
-      console.error("[roles] crm read failed", urResp.status, rolesResp.status);
-      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
+    if (urRes.error || rolesRes.error) {
+      const errMsg = (e: unknown): string | null => {
+        if (!e) return null;
+        if (typeof e === "object" && e && "message" in e) {
+          const m = (e as { message?: unknown }).message;
+          return typeof m === "string" ? m : null;
+        }
+        return null;
+      };
+      const message =
+        errMsg(urRes.error) ??
+        errMsg(rolesRes.error) ??
+        "Neizdevās nolasīt crm.user_roles / crm.roles";
+      console.error("[roles] crm read failed", message);
+      return { roleKeys: [], permissionKeys: [], lookupUserId: uid, error: message };
     }
 
-    const urRows = (await urResp.json()) as Array<{ role_id?: unknown }>;
-    const rolesRows = (await rolesResp.json()) as Array<{
+    const urRows = (urRes.data ?? []) as Array<{ role_id?: unknown }>;
+    const rolesRows = (rolesRes.data ?? []) as Array<{
       id?: unknown;
       role_key?: unknown;
     }>;
