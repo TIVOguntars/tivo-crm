@@ -255,9 +255,10 @@ function MiniKpi({
   const { text } = toneClasses(toneKey);
   const valueTone = tone === "neutral" ? "text-foreground" : text;
   const bar =
-    tone === "neutral"
-      ? "bg-border"
-      : `bg-[var(--tivo-${toneKey === "orange" ? "orange" : toneKey})]`;
+    tone === "red" ? "bg-[var(--tivo-red)]"
+    : tone === "amber" ? "bg-[var(--tivo-orange)]"
+    : tone === "blue" ? "bg-[var(--tivo-blue)]"
+    : "bg-border";
   return (
     <div className="relative rounded-md border border-border bg-card px-3 py-2 shadow-sm">
       <div className={cn("absolute inset-y-0 left-0 w-0.5 rounded-l-md", bar)} />
