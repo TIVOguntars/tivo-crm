@@ -14,6 +14,7 @@ import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as SisDarbaRindaRouteImport } from './routes/sis-darba-rinda'
 import { Route as SarakstesRouteImport } from './routes/sarakstes'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as PanelisRouteImport } from './routes/panelis'
 import { Route as ObjektiRouteImport } from './routes/objekti'
@@ -67,6 +68,11 @@ const SisDarbaRindaRoute = SisDarbaRindaRouteImport.update({
 const SarakstesRoute = SarakstesRouteImport.update({
   id: '/sarakstes',
   path: '/sarakstes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QueueRoute = QueueRouteImport.update({
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/objekti': typeof ObjektiRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sarakstes': typeof SarakstesRoute
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/objekti': typeof ObjektiRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sarakstes': typeof SarakstesRoute
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/objekti': typeof ObjektiRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sarakstes': typeof SarakstesRoute
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/objekti'
     | '/panelis'
     | '/queue'
+    | '/reset-password'
     | '/sarakstes'
     | '/sis-darba-rinda'
     | '/users'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/objekti'
     | '/panelis'
     | '/queue'
+    | '/reset-password'
     | '/sarakstes'
     | '/sis-darba-rinda'
     | '/users'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/objekti'
     | '/panelis'
     | '/queue'
+    | '/reset-password'
     | '/sarakstes'
     | '/sis-darba-rinda'
     | '/users'
@@ -452,6 +464,7 @@ export interface RootRouteChildren {
   ObjektiRoute: typeof ObjektiRoute
   PanelisRoute: typeof PanelisRoute
   QueueRoute: typeof QueueRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SarakstesRoute: typeof SarakstesRoute
   SisDarbaRindaRoute: typeof SisDarbaRindaRoute
   UsersRoute: typeof UsersRoute
@@ -509,6 +522,13 @@ declare module '@tanstack/react-router' {
       path: '/sarakstes'
       fullPath: '/sarakstes'
       preLoaderRoute: typeof SarakstesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/queue': {
@@ -732,6 +752,7 @@ const rootRouteChildren: RootRouteChildren = {
   ObjektiRoute: ObjektiRoute,
   PanelisRoute: PanelisRoute,
   QueueRoute: QueueRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SarakstesRoute: SarakstesRoute,
   SisDarbaRindaRoute: SisDarbaRindaRoute,
   UsersRoute: UsersRoute,
