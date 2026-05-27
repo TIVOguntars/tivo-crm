@@ -13,7 +13,6 @@ import {
   clearStoredOperator,
   displayName,
   listAssignableUsers,
-  listRoleKeysForUser,
   setStoredOperator,
   type AssignableUser,
 } from "@/lib/users";
@@ -82,8 +81,7 @@ export function OperatorPickerModal({
   async function selectOperator(u: AssignableUser) {
     setPickingId(u.id);
     try {
-      const roleKeys = await listRoleKeysForUser(u.id);
-      setStoredOperator(u, roleKeys);
+      setStoredOperator(u);
       notifyOperatorChanged();
       await qc.invalidateQueries({ queryKey: ["crm"] });
       setOpen(false);

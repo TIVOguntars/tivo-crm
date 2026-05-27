@@ -35,9 +35,7 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { useCrmView } from "@/hooks/useCrmView";
-import { hasAccess, useCurrentRole, type Role } from "@/lib/roles";
-
-const ALLOWED: readonly Role[] = ["admin", "manager"];
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const searchSchema = z.object({
   session: fallback(z.string().optional(), undefined),
@@ -128,8 +126,19 @@ function BoolPill({ value }: { value: unknown }) {
 }
 
 function ImportReviewPage() {
-  const role = useCurrentRole();
-  if (!hasAccess(role, ALLOWED)) {
+  const { roleKeys, isAdmin, isReady } = useCurrentUser();
+  if (!isReady) {
+    return (
+      <div>
+        <PageHeader
+          title="Importa pārskats"
+          description="Ielādē piekļuves datus…"
+        />
+      </div>
+    );
+  }
+  const allowed = isAdmin || roleKeys.includes("manager");
+  if (!allowed) {
     return (
       <div>
         <PageHeader

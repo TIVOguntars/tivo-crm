@@ -12,7 +12,6 @@ export interface AssignableUser {
 export interface StoredOperator {
   operator_id: string;
   full_name: string;
-  role_keys: string[];
   selected_at: string;
 }
 
@@ -71,36 +70,6 @@ export async function listAssignableUsers(): Promise<AssignableUser[]> {
     );
 }
 
-/** Fetch role_keys assigned to a single user via crm.user_roles + crm.roles. */
-export async function listRoleKeysForUser(userId: string): Promise<string[]> {
-  if (!userId) return [];
-  const [urRes, rolesRes] = await Promise.all([
-    fetchCrmView({
-      data: {
-        view: "user_roles",
-        query: `select=role_id&user_id=eq.${userId}&limit=100`,
-      },
-    }),
-    fetchCrmView({
-      data: { view: "roles", query: "select=id,role_key&limit=200" },
-    }),
-  ]);
-  const urRows = (urRes?.rows ?? []) as Record<string, unknown>[];
-  const rolesRows = (rolesRes?.rows ?? []) as Record<string, unknown>[];
-  const keyById = new Map<string, string>();
-  for (const r of rolesRows) {
-    if (typeof r.id === "string" && typeof r.role_key === "string") {
-      keyById.set(r.id, r.role_key);
-    }
-  }
-  const out = new Set<string>();
-  for (const r of urRows) {
-    const rid = typeof r.role_id === "string" ? r.role_id : null;
-    if (rid && keyById.has(rid)) out.add(keyById.get(rid)!);
-  }
-  return Array.from(out).sort();
-}
-
 function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
@@ -122,9 +91,6 @@ export function getStoredOperator(): StoredOperator | null {
       operator_id: parsed.operator_id,
       full_name:
         typeof parsed.full_name === "string" ? parsed.full_name : "",
-      role_keys: Array.isArray(parsed.role_keys)
-        ? parsed.role_keys.filter((k): k is string => typeof k === "string")
-        : [],
       selected_at:
         typeof parsed.selected_at === "string"
           ? parsed.selected_at
@@ -137,13 +103,11 @@ export function getStoredOperator(): StoredOperator | null {
 
 export function setStoredOperator(
   profile: Pick<AssignableUser, "id" | "full_name" | "email" | "user_code">,
-  roleKeys: string[],
 ): void {
   if (!isBrowser() || !profile.id) return;
   const payload: StoredOperator = {
     operator_id: profile.id,
     full_name: displayName(profile),
-    role_keys: Array.from(new Set(roleKeys.filter(Boolean))),
     selected_at: new Date().toISOString(),
   };
   try {
