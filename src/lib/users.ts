@@ -1,9 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import {
-  getSupabaseEnvDiagnostics,
-  getSupabaseServiceKey,
-  getSupabaseUrlFromEnv,
-} from "@/lib/supabase-secret";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface AssignableUser {
   id: string;
@@ -22,49 +18,66 @@ export interface StoredOperator {
 
 const STORAGE_KEY = "tivo.operator";
 
-const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ rows: AssignableUser[]; error: string | null }> => {
-    const url = getSupabaseUrlFromEnv();
-    const key = getSupabaseServiceKey();
-    console.log("[auth-debug] fetchAssignableUsers server env", getSupabaseEnvDiagnostics());
-    if (!url || !key) {
-      return { rows: [], error: "Supabase servera slepenā atslēga nav pieejama vai nav derīga." };
-    }
-
-    const query =
-      "select=id,user_code,full_name,email,status_key,is_active&is_active=eq.true&order=full_name.asc&limit=500";
-    const res = await fetch(`${url}/rest/v1/profiles?${query}`, {
-      method: "GET",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Accept-Profile": "crm",
-        Accept: "application/json",
-      },
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return {
-        rows: [],
-        error: `Neizdevās nolasīt crm.profiles (${res.status}): ${text.slice(0, 300)}`,
+const fetchAssignableUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
+    async ({
+      context,
+    }): Promise<{ rows: AssignableUser[]; error: string | null }> => {
+      const sb = context.supabase as unknown as {
+        schema: (name: string) => {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (col: string, val: unknown) => {
+                order: (
+                  col: string,
+                  opts: { ascending: boolean },
+                ) => {
+                  limit: (
+                    n: number,
+                  ) => Promise<{ data: unknown; error: unknown }>;
+                };
+              };
+            };
+          };
+        };
       };
-    }
-    const rows = (await res.json()) as Record<string, unknown>[];
-    return {
-      rows: rows
-        .filter((r) => r && typeof r.id === "string")
-        .map((r) => ({
-          id: String(r.id),
-          user_code: r.user_code == null ? null : String(r.user_code),
-          full_name: r.full_name == null ? null : String(r.full_name),
-          email: r.email == null ? null : String(r.email),
-          status_key: r.status_key == null ? null : String(r.status_key),
-          is_active: r.is_active !== false,
-        })),
-      error: null,
-    };
-  },
-);
+
+      const res = await sb
+        .schema("crm")
+        .from("profiles")
+        .select("id,user_code,full_name,email,status_key,is_active")
+        .eq("is_active", true)
+        .order("full_name", { ascending: true })
+        .limit(500);
+
+      if (res.error) {
+        const m =
+          (typeof res.error === "object" &&
+            res.error &&
+            "message" in res.error &&
+            typeof (res.error as { message?: unknown }).message === "string"
+            ? (res.error as { message: string }).message
+            : null) ?? "Neizdevās nolasīt crm.profiles";
+        return { rows: [], error: m };
+      }
+
+      const rows = (res.data ?? []) as Record<string, unknown>[];
+      return {
+        rows: rows
+          .filter((r) => r && typeof r.id === "string")
+          .map((r) => ({
+            id: String(r.id),
+            user_code: r.user_code == null ? null : String(r.user_code),
+            full_name: r.full_name == null ? null : String(r.full_name),
+            email: r.email == null ? null : String(r.email),
+            status_key: r.status_key == null ? null : String(r.status_key),
+            is_active: r.is_active !== false,
+          })),
+        error: null,
+      };
+    },
+  );
 
 /** Display priority: full_name → email → user_code → id. */
 export function displayName(
