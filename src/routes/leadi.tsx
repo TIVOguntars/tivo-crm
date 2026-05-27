@@ -811,16 +811,6 @@ function LeadiPage() {
         const task_assigned_name = s(r.task_assigned_name);
         const has_task =
           r.has_task === true || r.has_task === "true";
-        const priority_score_raw = r.priority_score;
-        const priority_stars_raw = r.priority_stars;
-        const priority_score =
-          priority_score_raw == null || priority_score_raw === ""
-            ? null
-            : Number(priority_score_raw);
-        const priority_stars =
-          priority_stars_raw == null || priority_stars_raw === ""
-            ? null
-            : Number(priority_stars_raw);
         return {
           lead_id: id,
           name: s(r.display_name),
@@ -861,14 +851,9 @@ function LeadiPage() {
           queue_bucket: s(r.queue_bucket),
           queue_bucket_label: s(r.queue_bucket_label),
           operational_bucket: s(r.operational_bucket),
-          needs_attention:
-            r.needs_attention === true || r.needs_attention === "true",
-          priority_score: Number.isFinite(priority_score as number)
-            ? (priority_score as number)
-            : null,
-          priority_stars: Number.isFinite(priority_stars as number)
-            ? (priority_stars as number)
-            : null,
+          needs_attention: r.needs_attention,
+          priority_score: r.priority_score,
+          priority_stars: r.priority_stars,
           priority_label: s(r.priority_label),
           priority_breakdown: s(r.priority_breakdown),
           priority_updated_at: s(r.priority_updated_at) || null,
@@ -1678,10 +1663,7 @@ function LeadRow({
       </div>
       <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
         {(() => {
-          const stars =
-            l.priority_stars == null
-              ? 0
-              : Math.max(0, Math.min(5, Math.round(l.priority_stars)));
+          const stars = l.priority_stars ?? 0;
           const tooltipLines = [
             l.priority_label || "Bez prioritātes",
             l.priority_breakdown,
