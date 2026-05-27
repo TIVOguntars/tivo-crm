@@ -23,7 +23,7 @@ function getRuntimeEnvValue(name: string): unknown {
 }
 
 function isJwtLike(value: string): boolean {
-  return value.split(".").length === 3;
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value);
 }
 
 function firstStringValue(value: unknown): string | null {
