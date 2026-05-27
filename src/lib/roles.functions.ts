@@ -35,10 +35,20 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     const authUserId = context.userId;
     const claims = context.claims as { is_anonymous?: boolean } | undefined;
     const uid = claims?.is_anonymous ? data.operatorId : authUserId;
+    console.log("[auth-debug] getCurrentRoles server start", {
+      authUserId,
+      operatorId: data.operatorId,
+      isAnonymous: claims?.is_anonymous ?? null,
+      lookupUserId: uid,
+    });
     if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
     const SUPABASE_URL = getSupabaseUrlFromEnv();
     const SUPABASE_SECRET_KEY = getSupabaseSecretKeyFromEnv();
+    console.log("[auth-debug] getCurrentRoles server env", {
+      hasSupabaseUrl: !!SUPABASE_URL,
+      hasSupabaseSecretKey: !!SUPABASE_SECRET_KEY,
+    });
     if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
       const error = "Supabase servera slepenā atslēga nav pieejama vai nav derīga.";
       console.error("[roles]", error);
@@ -68,11 +78,7 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     ]);
 
     if (!urResp.ok || !rolesResp.ok) {
-      console.error(
-        "[roles] crm read failed",
-        urResp.status,
-        rolesResp.status,
-      );
+      console.error("[roles] crm read failed", urResp.status, rolesResp.status);
       return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
     }
 
@@ -94,6 +100,12 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
         out.add(keyById.get(r.role_id)!);
       }
     }
+    console.log("[auth-debug] getCurrentRoles server result", {
+      lookupUserId: uid,
+      userRolesRows: urRows.length,
+      rolesRows: rolesRows.length,
+      roleKeys: Array.from(out).sort(),
+    });
     return {
       roleKeys: Array.from(out).sort(),
       permissionKeys: [],

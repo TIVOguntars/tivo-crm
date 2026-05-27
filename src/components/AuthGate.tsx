@@ -31,16 +31,71 @@ export function AuthGate({ children }: AuthGateProps) {
   async function ensureSupabaseSession(): Promise<boolean> {
     try {
       const { data } = await supabase.auth.getSession();
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider ensureSupabaseSession:start", {
+          authSession: {
+            hasSession: !!data.session,
+            userId: data.session?.user?.id ?? null,
+            email: data.session?.user?.email ?? null,
+            isAnonymous: data.session?.user?.is_anonymous ?? null,
+            expiresAt: data.session?.expires_at ?? null,
+            accessTokenPresent: !!data.session?.access_token,
+            refreshTokenPresent: !!data.session?.refresh_token,
+          },
+          currentUserId: data.session?.user?.id ?? null,
+        });
+      }
       if (data.session) {
         const { data: userData, error } = await supabase.auth.getUser();
+        if (typeof window !== "undefined" && import.meta.env.DEV) {
+          console.log("[auth-debug] auth provider ensureSupabaseSession:user", {
+            authUser: userData.user
+              ? {
+                  id: userData.user.id,
+                  email: userData.user.email ?? null,
+                  isAnonymous: userData.user.is_anonymous ?? null,
+                }
+              : null,
+            currentUserId: userData.user?.id ?? null,
+            error: error?.message ?? null,
+          });
+        }
         return !error && !!userData.user;
       }
       const { data: signed, error } = await supabase.auth.signInAnonymously();
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider anonymous sign-in", {
+          authSession: {
+            hasSession: !!signed.session,
+            userId: signed.session?.user?.id ?? null,
+            email: signed.session?.user?.email ?? null,
+            isAnonymous: signed.session?.user?.is_anonymous ?? null,
+            expiresAt: signed.session?.expires_at ?? null,
+            accessTokenPresent: !!signed.session?.access_token,
+            refreshTokenPresent: !!signed.session?.refresh_token,
+          },
+          currentUserId: signed.session?.user?.id ?? null,
+          error: error?.message ?? null,
+        });
+      }
       if (error || !signed.session) {
         console.error("[auth] anonymous sign-in failed", error?.message);
         return false;
       }
       const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider anonymous user", {
+          authUser: userData.user
+            ? {
+                id: userData.user.id,
+                email: userData.user.email ?? null,
+                isAnonymous: userData.user.is_anonymous ?? null,
+              }
+            : null,
+          currentUserId: userData.user?.id ?? null,
+          error: userError?.message ?? null,
+        });
+      }
       if (userError || !userData.user) return false;
       return true;
     } catch (e) {
@@ -54,6 +109,9 @@ export function AuthGate({ children }: AuthGateProps) {
     let cancelled = false;
     (async () => {
       const valid = isSessionValid();
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider gate hydrate", { localSessionValid: valid });
+      }
       if (!valid) {
         clearAuth();
         if (!cancelled) setHydrated(true);
@@ -99,9 +157,7 @@ export function AuthGate({ children }: AuthGateProps) {
       "touchstart",
       "touchmove",
     ];
-    events.forEach((e) =>
-      window.addEventListener(e, onActivity, { passive: true }),
-    );
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
 
     // Periodically check inactivity
     timerRef.current = setInterval(() => {
@@ -130,7 +186,14 @@ export function AuthGate({ children }: AuthGateProps) {
       return;
     }
     setAuthenticated();
+    queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
     await queryClient.invalidateQueries({ queryKey: ["crm"] });
+    if (typeof window !== "undefined" && import.meta.env.DEV) {
+      console.log("[auth-debug] auth provider login success", {
+        currentRolesCacheRemoved: true,
+        crmCacheInvalidated: true,
+      });
+    }
     setAuthed(true);
     setError(null);
     setPassword("");
@@ -140,9 +203,7 @@ export function AuthGate({ children }: AuthGateProps) {
   // Render nothing meaningful until client hydration to keep SSR output
   // free of analytics content.
   if (!hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background" />
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-background" />;
   }
 
   if (!authed) {
