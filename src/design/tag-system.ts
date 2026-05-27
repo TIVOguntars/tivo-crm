@@ -1,37 +1,37 @@
 export const TAG_STYLES = {
   hot: {
-    bg: "bg-red-50",
-    text: "text-red-600",
+    bg: "bg-[var(--tivo-red-soft)]",
+    text: "text-[var(--tivo-red)]",
   },
 
   getestimate: {
-    bg: "bg-blue-50",
-    text: "text-blue-600",
+    bg: "bg-[var(--tivo-olive-soft)]",
+    text: "text-[var(--tivo-olive)]",
   },
 
   sketch: {
-    bg: "bg-purple-50",
-    text: "text-purple-600",
+    bg: "bg-[var(--tivo-purple-soft)]",
+    text: "text-[var(--tivo-purple)]",
   },
 
   info: {
-    bg: "bg-slate-50",
-    text: "text-slate-600",
+    bg: "bg-[var(--tivo-blue-soft)]",
+    text: "text-[var(--tivo-blue)]",
   },
 
   warning: {
-    bg: "bg-orange-50",
-    text: "text-orange-600",
+    bg: "bg-[var(--tivo-orange-soft)]",
+    text: "text-[var(--tivo-orange)]",
   },
 
   success: {
-    bg: "bg-green-50",
-    text: "text-green-600",
+    bg: "bg-[var(--tivo-green-soft)]",
+    text: "text-[var(--tivo-green)]",
   },
 
   default: {
-    bg: "bg-gray-50",
-    text: "text-gray-600",
+    bg: "bg-[var(--crm-muted)]",
+    text: "text-[var(--crm-text-muted)]",
   },
 };
 
