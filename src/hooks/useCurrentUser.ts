@@ -78,9 +78,7 @@ export function useCurrentUser(): CurrentUserCtx {
   const permissionKeys = rolesQ.data?.permissionKeys ?? [];
   const isAdmin = !!rolesQ.data && roleKeys.includes("admin");
 
-  const isReady =
-    !operatorId ||
-    ((!usersQ.isLoading || !!profile) && !rolesQ.isLoading && !rolesQ.isFetching);
+  const isReady = !operatorId || !rolesQ.isLoading;
 
   return {
     isReady,
