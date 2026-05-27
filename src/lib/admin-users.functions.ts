@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { parseSupabaseSecretKey } from "@/lib/supabase-secret";
+import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
 
 /**
  * Admin write helpers for the `crm` schema.
@@ -8,20 +8,14 @@ import { parseSupabaseSecretKey } from "@/lib/supabase-secret";
  */
 
 function getServiceEnv() {
-  const url =
-    process.env.SUPABASE_URL ||
-    process.env.ANALYTICS_SUPABASE_URL ||
-    "";
-  const key = parseSupabaseSecretKey(
-    process.env.SUPABASE_SECRET_KEYS,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  const url = getSupabaseUrlFromEnv();
+  const key = getSupabaseSecretKeyFromEnv();
   if (!url || !key) {
     throw new Error(
       "Supabase servera slepenā atslēga nav pieejama vai nav derīga.",
     );
   }
-  return { url: url.replace(/\/+$/, ""), key };
+  return { url, key };
 }
 
 type CrmMethod = "GET" | "POST" | "PATCH" | "DELETE";
