@@ -1,3 +1,5 @@
+import { createServerOnlyFn } from "@tanstack/react-start";
+
 type RuntimeEnvGlobal = typeof globalThis & {
   Deno?: { env?: { get?: (name: string) => string | undefined } };
 };
@@ -64,7 +66,7 @@ function pickKeyFromObject(value: Record<string, unknown>): {
   };
 }
 
-export function getSupabaseServiceKey(): string | null {
+export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
   const rawSecretKeys = getRuntimeEnvValue("SUPABASE_SECRET_KEYS");
   const fallbackServiceRoleKey = getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -113,7 +115,7 @@ export function getSupabaseServiceKey(): string | null {
   console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", firstLevelKeys);
   console.log("[auth-debug] selected Supabase service key source", selectedSource);
   return selectedKey;
-}
+});
 
 export function getSupabaseUrlFromEnv(): string {
   return (getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL") || "").replace(
