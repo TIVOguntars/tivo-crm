@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useHasRole } from "@/hooks/usePermission";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export function RequireRole({
   role,
@@ -10,6 +10,7 @@ export function RequireRole({
   children: ReactNode;
   fallback?: ReactNode;
 }) {
-  const ok = useHasRole(role);
+  const { roleKeys } = useCurrentUser();
+  const ok = !role || roleKeys.includes(role);
   return <>{ok ? children : fallback}</>;
 }

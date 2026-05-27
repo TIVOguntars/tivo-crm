@@ -1,6 +1,7 @@
 import {
   Outlet,
   Link,
+  useRouter,
   createRootRouteWithContext,
   HeadContent,
   Scripts,
@@ -8,10 +9,12 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { zodValidator } from "@tanstack/zod-adapter";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
 import { AuthGate } from "@/components/AuthGate";
+import { supabase } from "@/integrations/supabase/client";
 import { filtersSearchSchema } from "@/lib/filters";
 import { Toaster } from "@/components/ui/sonner";
 import { HeaderSlotProvider } from "@/components/HeaderSlot";
@@ -97,6 +100,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthStateInvalidator queryClient={queryClient} />
       <AuthGate>
         <OperatorPickerGate>
         <HeaderSlotProvider>
@@ -112,4 +116,18 @@ function RootComponent() {
       </AuthGate>
     </QueryClientProvider>
   );
+}
+
+function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void queryClient.invalidateQueries({ queryKey: ["crm"] });
+      void router.invalidate();
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient, router]);
+
+  return null;
 }
