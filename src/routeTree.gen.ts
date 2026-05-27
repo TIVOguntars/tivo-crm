@@ -38,6 +38,7 @@ import { Route as IestatijumiTemplatesRouteImport } from './routes/iestatijumi.t
 import { Route as IestatijumiStatusiRouteImport } from './routes/iestatijumi.statusi'
 import { Route as IestatijumiSisRouteImport } from './routes/iestatijumi.sis'
 import { Route as IestatijumiPazinojumiRouteImport } from './routes/iestatijumi.pazinojumi'
+import { Route as IestatijumiLietotajiRouteImport } from './routes/iestatijumi.lietotaji'
 import { Route as IestatijumiKomunikacijasRouteImport } from './routes/iestatijumi.komunikacijas'
 import { Route as IestatijumiIntegracijasRouteImport } from './routes/iestatijumi.integracijas'
 import { Route as IestatijumiAutomatizacijasRouteImport } from './routes/iestatijumi.automatizacijas'
@@ -188,6 +189,11 @@ const IestatijumiPazinojumiRoute = IestatijumiPazinojumiRouteImport.update({
   path: '/iestatijumi/pazinojumi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IestatijumiLietotajiRoute = IestatijumiLietotajiRouteImport.update({
+  id: '/iestatijumi/lietotaji',
+  path: '/iestatijumi/lietotaji',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IestatijumiKomunikacijasRoute =
   IestatijumiKomunikacijasRouteImport.update({
     id: '/iestatijumi/komunikacijas',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
   '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/lietotaji': typeof IestatijumiLietotajiRoute
   '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
   '/iestatijumi/sis': typeof IestatijumiSisRoute
   '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
   '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/lietotaji': typeof IestatijumiLietotajiRoute
   '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
   '/iestatijumi/sis': typeof IestatijumiSisRoute
   '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
   '/iestatijumi/komunikacijas': typeof IestatijumiKomunikacijasRoute
+  '/iestatijumi/lietotaji': typeof IestatijumiLietotajiRoute
   '/iestatijumi/pazinojumi': typeof IestatijumiPazinojumiRoute
   '/iestatijumi/sis': typeof IestatijumiSisRoute
   '/iestatijumi/statusi': typeof IestatijumiStatusiRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
     | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/lietotaji'
     | '/iestatijumi/pazinojumi'
     | '/iestatijumi/sis'
     | '/iestatijumi/statusi'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
     | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/lietotaji'
     | '/iestatijumi/pazinojumi'
     | '/iestatijumi/sis'
     | '/iestatijumi/statusi'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
     | '/iestatijumi/komunikacijas'
+    | '/iestatijumi/lietotaji'
     | '/iestatijumi/pazinojumi'
     | '/iestatijumi/sis'
     | '/iestatijumi/statusi'
@@ -449,6 +461,7 @@ export interface RootRouteChildren {
   IestatijumiAutomatizacijasRoute: typeof IestatijumiAutomatizacijasRoute
   IestatijumiIntegracijasRoute: typeof IestatijumiIntegracijasRoute
   IestatijumiKomunikacijasRoute: typeof IestatijumiKomunikacijasRoute
+  IestatijumiLietotajiRoute: typeof IestatijumiLietotajiRoute
   IestatijumiPazinojumiRoute: typeof IestatijumiPazinojumiRoute
   IestatijumiSisRoute: typeof IestatijumiSisRoute
   IestatijumiStatusiRoute: typeof IestatijumiStatusiRoute
@@ -666,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IestatijumiPazinojumiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/iestatijumi/lietotaji': {
+      id: '/iestatijumi/lietotaji'
+      path: '/iestatijumi/lietotaji'
+      fullPath: '/iestatijumi/lietotaji'
+      preLoaderRoute: typeof IestatijumiLietotajiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/iestatijumi/komunikacijas': {
       id: '/iestatijumi/komunikacijas'
       path: '/iestatijumi/komunikacijas'
@@ -721,6 +741,7 @@ const rootRouteChildren: RootRouteChildren = {
   IestatijumiAutomatizacijasRoute: IestatijumiAutomatizacijasRoute,
   IestatijumiIntegracijasRoute: IestatijumiIntegracijasRoute,
   IestatijumiKomunikacijasRoute: IestatijumiKomunikacijasRoute,
+  IestatijumiLietotajiRoute: IestatijumiLietotajiRoute,
   IestatijumiPazinojumiRoute: IestatijumiPazinojumiRoute,
   IestatijumiSisRoute: IestatijumiSisRoute,
   IestatijumiStatusiRoute: IestatijumiStatusiRoute,
@@ -735,13 +756,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
