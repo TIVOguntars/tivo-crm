@@ -41,24 +41,24 @@ export const CHANNEL_DIRECTION_TONE: Record<
   Record<CommDirection, string>
 > = {
   email: {
-    inbound: "bg-slate-50 text-slate-700 ring-1 ring-slate-200",
-    outbound: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
-    unknown: "bg-slate-50 text-slate-700 ring-1 ring-slate-200",
+    inbound: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)] ring-1 ring-[var(--tivo-blue-border)]",
+    outbound: "bg-[var(--tivo-navy-soft)] text-[var(--tivo-navy)] ring-1 ring-[var(--tivo-navy-border)]",
+    unknown: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)] ring-1 ring-[var(--tivo-blue-border)]",
   },
   sms: {
-    inbound: "bg-teal-50 text-teal-700 ring-1 ring-teal-200",
-    outbound: "bg-orange-50 text-orange-800 ring-1 ring-orange-200",
-    unknown: "bg-teal-50 text-teal-700 ring-1 ring-teal-200",
+    inbound: "bg-[var(--tivo-purple-soft)] text-[var(--tivo-purple)] ring-1 ring-[var(--tivo-purple-border)]",
+    outbound: "bg-[var(--tivo-purple-soft)] text-[var(--tivo-purple)] ring-1 ring-[var(--tivo-purple-border)]",
+    unknown: "bg-[var(--tivo-purple-soft)] text-[var(--tivo-purple)] ring-1 ring-[var(--tivo-purple-border)]",
   },
   whatsapp: {
-    inbound: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    outbound: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
-    unknown: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    inbound: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)] ring-1 ring-[var(--tivo-green-border)]",
+    outbound: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)] ring-1 ring-[var(--tivo-green-border)]",
+    unknown: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)] ring-1 ring-[var(--tivo-green-border)]",
   },
   call: {
-    inbound: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
-    outbound: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-    unknown: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+    inbound: "bg-[var(--tivo-teal-soft)] text-[var(--tivo-teal)] ring-1 ring-[var(--tivo-teal-border)]",
+    outbound: "bg-[var(--tivo-teal-soft)] text-[var(--tivo-teal)] ring-1 ring-[var(--tivo-teal-border)]",
+    unknown: "bg-[var(--tivo-teal-soft)] text-[var(--tivo-teal)] ring-1 ring-[var(--tivo-teal-border)]",
   },
   other: {
     inbound: "bg-muted text-foreground ring-1 ring-border",
@@ -69,4 +69,4 @@ export const CHANNEL_DIRECTION_TONE: Record<
 
 /** Emphasised badge for has_unread_reply = true. */
 export const UNREAD_REPLY_TONE =
-  "bg-rose-100 text-rose-700 ring-1 ring-rose-300";
+  "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)] ring-1 ring-[var(--tivo-red-border)]";
