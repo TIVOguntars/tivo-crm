@@ -110,13 +110,8 @@ const groups: readonly NavGroup[] = [
       { to: "/iestatijumi/sis", label: "SIS iestatījumi", icon: Cog },
       { to: "/iestatijumi/komunikacijas", label: "Komunikāciju iestatījumi", icon: MessageCircle },
       { to: "/iestatijumi/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon },
+      { to: "/audits", label: "Audits", icon: ShieldCheck },
     ],
-  },
-  {
-    label: "Audits",
-    icon: ShieldCheck,
-    roles: ADMIN_ONLY,
-    items: [{ to: "/audits", label: "Audits", icon: ShieldCheck }],
   },
 ];
 
