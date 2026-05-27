@@ -1,57 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSupabaseServiceKey, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Admin write helpers for the `crm` schema.
- * Service role key stays server-side. All PostgREST calls use
- * `Accept-Profile: crm` and `Content-Profile: crm`.
+ * Uses the authenticated Supabase context and security-definer RPCs
+ * that check `crm.has_role(auth.uid(), 'admin')` server-side.
  */
-
-function getServiceEnv() {
-  const url = getSupabaseUrlFromEnv();
-  const key = getSupabaseServiceKey();
-  if (!url || !key) {
-    throw new Error("Supabase servera slepenā atslēga nav pieejama vai nav derīga.");
-  }
-  return { url, key };
-}
-
-type CrmMethod = "GET" | "POST" | "PATCH" | "DELETE";
-
-async function crmRequest(
-  path: string,
-  init: {
-    method: CrmMethod;
-    body?: unknown;
-    prefer?: string;
-    query?: string;
-  },
-): Promise<unknown> {
-  const { url, key } = getServiceEnv();
-  const endpoint = `${url}/rest/v1/${path}${init.query ? `?${init.query}` : ""}`;
-  const headers: Record<string, string> = {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    "Accept-Profile": "crm",
-    "Content-Profile": "crm",
-    Accept: "application/json",
-  };
-  if (init.body !== undefined) headers["Content-Type"] = "application/json";
-  if (init.prefer) headers.Prefer = init.prefer;
-
-  const res = await fetch(endpoint, {
-    method: init.method,
-    headers,
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`crm.${path} ${init.method} (${res.status}): ${text.slice(0, 400)}`);
-  }
-  if (res.status === 204) return null;
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : res.text();
-}
 
 function requireText(v: unknown, label: string): string {
   const s = typeof v === "string" ? v.trim() : "";
@@ -59,18 +13,10 @@ function requireText(v: unknown, label: string): string {
   return s;
 }
 
-async function callCrmRpc(fn: string, body: Record<string, unknown>): Promise<unknown> {
-  return crmRequest(`rpc/${fn}`, {
-    method: "POST",
-    body,
-    prefer: "return=representation",
-  });
-}
-
 // ---------- Profile create / update ----------
 
 export interface AdminProfileInput {
-  actorUserId: string;
+  actorUserId?: string | null;
   id?: string | null;
   full_name: string;
   email: string;
@@ -80,9 +26,9 @@ export interface AdminProfileInput {
 }
 
 export const adminUpsertProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: AdminProfileInput) => {
     return {
-      actorUserId: requireText(input.actorUserId, "Operators"),
       id: input.id ? String(input.id) : null,
       full_name: requireText(input.full_name, "Vārds"),
       email: requireText(input.email, "E-pasts").toLowerCase(),
@@ -91,37 +37,24 @@ export const adminUpsertProfile = createServerFn({ method: "POST" })
       is_active: input.is_active !== false,
     };
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
-      let profileId = data.id;
-      if (profileId) {
-        // Update via existing audited RPC
-        await callCrmRpc("admin_update_profile_mvp", {
-          p_actor_user_id: data.actorUserId,
-          p_id: profileId,
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { data: rpcData, error } = await sb
+        .schema("crm")
+        .rpc("admin_upsert_profile", {
+          p_id: data.id,
           p_full_name: data.full_name,
           p_email: data.email,
           p_user_code: data.user_code,
+          p_phone: data.phone,
           p_is_active: data.is_active,
         });
-      } else {
-        const created = (await callCrmRpc("admin_create_profile_mvp", {
-          p_actor_user_id: data.actorUserId,
-          p_full_name: data.full_name,
-          p_email: data.email,
-          p_user_code: data.user_code,
-        })) as Array<{ id: string }> | { id: string } | null;
-        if (Array.isArray(created)) profileId = created[0]?.id ?? null;
-        else if (created && typeof created === "object") profileId = created.id ?? null;
-        if (!profileId) throw new Error("Neizdevās izveidot lietotāju");
-      }
-      // Phone is not part of MVP RPC — PATCH directly.
-      await crmRequest("profiles", {
-        method: "PATCH",
-        query: `id=eq.${profileId}`,
-        body: { phone: data.phone },
-        prefer: "return=minimal",
-      });
+      if (error) throw new Error(error.message);
+      const profileId = typeof rpcData === "string" ? rpcData : (rpcData as { id?: string } | null)?.id ?? null;
+      if (!profileId) throw new Error("Neizdevās saglabāt lietotāju");
       return { id: profileId, error: null as string | null };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
@@ -133,6 +66,7 @@ export const adminUpsertProfile = createServerFn({ method: "POST" })
 // ---------- User ↔ roles ----------
 
 export const adminSetUserRoles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { userId: string; roleKeys: string[] }) => ({
     userId: requireText(input.userId, "Lietotājs"),
     roleKeys: Array.isArray(input.roleKeys)
@@ -145,38 +79,18 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
         )
       : [],
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
-      // Resolve role_key -> role_id
-      let roleIds: string[] = [];
-      if (data.roleKeys.length > 0) {
-        const inList = data.roleKeys.map((k) => `"${k}"`).join(",");
-        const rows = (await crmRequest("roles", {
-          method: "GET",
-          query: `select=id,role_key&role_key=in.(${inList})`,
-        })) as Array<{ id: string; role_key: string }>;
-        const missing = data.roleKeys.filter((k) => !rows.some((r) => r.role_key === k));
-        if (missing.length > 0) {
-          throw new Error(`Nezināmas lomas: ${missing.join(", ")}`);
-        }
-        roleIds = rows.map((r) => r.id);
-      }
-      // Replace assignments transactionally-ish: delete then insert.
-      await crmRequest("user_roles", {
-        method: "DELETE",
-        query: `user_id=eq.${data.userId}`,
-        prefer: "return=minimal",
-      });
-      if (roleIds.length > 0) {
-        await crmRequest("user_roles", {
-          method: "POST",
-          body: roleIds.map((rid) => ({
-            user_id: data.userId,
-            role_id: rid,
-          })),
-          prefer: "return=minimal",
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { error } = await sb
+        .schema("crm")
+        .rpc("admin_set_user_roles", {
+          p_user_id: data.userId,
+          p_role_keys: data.roleKeys,
         });
-      }
+      if (error) throw new Error(error.message);
       return { error: null as string | null };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
@@ -188,6 +102,7 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
 // ---------- Role ↔ permissions ----------
 
 export const adminSetRolePermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { roleKey: string; permissionKeys: string[] }) => ({
     roleKey: requireText(input.roleKey, "Loma"),
     permissionKeys: Array.isArray(input.permissionKeys)
@@ -200,45 +115,18 @@ export const adminSetRolePermissions = createServerFn({ method: "POST" })
         )
       : [],
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
-      const roleRows = (await crmRequest("roles", {
-        method: "GET",
-        query: `select=id&role_key=eq.${data.roleKey}&limit=1`,
-      })) as Array<{ id: string }>;
-      const roleId = roleRows[0]?.id;
-      if (!roleId) throw new Error(`Nezināma loma: ${data.roleKey}`);
-
-      let permissionIds: string[] = [];
-      if (data.permissionKeys.length > 0) {
-        const inList = data.permissionKeys.map((k) => `"${k}"`).join(",");
-        const rows = (await crmRequest("permissions", {
-          method: "GET",
-          query: `select=id,permission_key&permission_key=in.(${inList})`,
-        })) as Array<{ id: string; permission_key: string }>;
-        const missing = data.permissionKeys.filter(
-          (k) => !rows.some((r) => r.permission_key === k),
-        );
-        if (missing.length > 0) {
-          throw new Error(`Nezināmas tiesības: ${missing.join(", ")}`);
-        }
-        permissionIds = rows.map((r) => r.id);
-      }
-      await crmRequest("role_permissions", {
-        method: "DELETE",
-        query: `role_id=eq.${roleId}`,
-        prefer: "return=minimal",
-      });
-      if (permissionIds.length > 0) {
-        await crmRequest("role_permissions", {
-          method: "POST",
-          body: permissionIds.map((pid) => ({
-            role_id: roleId,
-            permission_id: pid,
-          })),
-          prefer: "return=minimal",
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { error } = await sb
+        .schema("crm")
+        .rpc("admin_set_role_permissions", {
+          p_role_key: data.roleKey,
+          p_permission_keys: data.permissionKeys,
         });
-      }
+      if (error) throw new Error(error.message);
       return { error: null as string | null };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nezināma kļūda";
