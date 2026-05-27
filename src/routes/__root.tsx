@@ -150,6 +150,11 @@ function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
           currentUserId: session?.user?.id ?? null,
         });
       }
+      // Only react to identity changes — TOKEN_REFRESHED / INITIAL_SESSION
+      // fire frequently and must NOT wipe the cache (causes UI flicker).
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") {
+        return;
+      }
       queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
       void queryClient.invalidateQueries({ queryKey: ["crm"] });
       void router.invalidate();

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingState } from "@/components/DataState";
 
@@ -15,8 +15,16 @@ export function RequireRole({
 }) {
   const { isReady, rolesLoading, roleKeys, currentAuthUserId, currentRoles, rolesError } =
     useCurrentUser();
-  const stillLoading = !isReady || rolesLoading;
-  const ok = stillLoading ? null : roleKeys.includes(role);
+  // Remember the first resolved decision so background refetches don't flash
+  // the loading state back on.
+  const decidedRef = useRef<boolean | null>(null);
+  const hasResolved = isReady && !!currentRoles;
+  const currentDecision = hasResolved ? roleKeys.includes(role) : null;
+  useEffect(() => {
+    if (hasResolved) decidedRef.current = currentDecision;
+  }, [hasResolved, currentDecision]);
+  const stillLoading = decidedRef.current === null && (!isReady || rolesLoading);
+  const ok = decidedRef.current ?? currentDecision;
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] RequireRole", {
