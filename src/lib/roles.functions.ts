@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { fetchCrmView } from "@/server/analytics";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -33,20 +33,45 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     const uid = data.operatorId;
     if (!uid) return { roleKeys: [], permissionKeys: [] };
 
-    const [urRes, rolesRes] = await Promise.all([
-      fetchCrmView({
-        data: {
-          view: "user_roles",
-          query: `select=role_id&user_id=eq.${encodeURIComponent(uid)}&limit=200`,
-        },
-      }),
-      fetchCrmView({
-        data: { view: "roles", query: "select=id,role_key&limit=200" },
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+      return { roleKeys: [], permissionKeys: [] };
+    }
+    const authHeader = getRequestHeader("authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : SUPABASE_PUBLISHABLE_KEY;
+
+    const baseHeaders: Record<string, string> = {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${token}`,
+      "Accept-Profile": "crm",
+      Accept: "application/json",
+    };
+    const root = SUPABASE_URL.replace(/\/+$/, "");
+
+    const [urResp, rolesResp] = await Promise.all([
+      fetch(
+        `${root}/rest/v1/user_roles?select=role_id&user_id=eq.${encodeURIComponent(uid)}&limit=200`,
+        { headers: baseHeaders },
+      ),
+      fetch(`${root}/rest/v1/roles?select=id,role_key&limit=200`, {
+        headers: baseHeaders,
       }),
     ]);
 
-    const urRows = (urRes?.rows ?? []) as Array<{ role_id?: unknown }>;
-    const rolesRows = (rolesRes?.rows ?? []) as Array<{
+    if (!urResp.ok || !rolesResp.ok) {
+      console.error(
+        "[roles] crm read failed",
+        urResp.status,
+        rolesResp.status,
+      );
+      return { roleKeys: [], permissionKeys: [] };
+    }
+
+    const urRows = (await urResp.json()) as Array<{ role_id?: unknown }>;
+    const rolesRows = (await rolesResp.json()) as Array<{
       id?: unknown;
       role_key?: unknown;
     }>;
