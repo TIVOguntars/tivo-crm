@@ -101,7 +101,6 @@ const PAGE_SIZE = 2000;
 
 interface Lead {
   lead_id: string;
-  display_lead_id: string;
   name: string;
   lead_number: string;
   external_id: string;
@@ -135,7 +134,6 @@ interface Lead {
   last_communication_at: string | null;
   last_outbound_at: string | null;
   last_inbound_at: string | null;
-  is_hot: boolean;
   object_summary: string;
   /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
@@ -168,23 +166,6 @@ function parseDate(v: unknown): number | null {
   if (v == null || v === "") return null;
   const t = new Date(String(v)).getTime();
   return Number.isFinite(t) ? t : null;
-}
-function isUuidLike(v: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v.trim(),
-  );
-}
-function leadDisplayName(r: Row): string {
-  const candidates = [
-    s(r.display_name),
-    s(r.full_name),
-    s(r.name),
-    s(r.object_name),
-  ];
-  for (const n of candidates) {
-    if (n && !isUuidLike(n)) return n;
-  }
-  return "";
 }
 
 const MS_MIN = 60_000;
