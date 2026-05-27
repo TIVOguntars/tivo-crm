@@ -109,13 +109,14 @@ const groups: readonly NavGroup[] = [
       { to: "/iestatijumi/pazinojumi", label: "Paziņojumi", icon: Bell },
       { to: "/iestatijumi/sis", label: "SIS iestatījumi", icon: Cog },
       { to: "/iestatijumi/komunikacijas", label: "Komunikāciju iestatījumi", icon: MessageCircle },
+      { to: "/iestatijumi/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon },
     ],
   },
   {
     label: "Lietotāji un lomas",
     icon: UsersIcon,
     roles: ADMIN_ONLY,
-    items: [{ to: "/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon }],
+    items: [{ to: "/iestatijumi/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon }],
   },
   {
     label: "Audits",
@@ -149,6 +150,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/iestatijumi/pazinojumi": { title: "Paziņojumi", subtitle: "Paziņojumu iestatījumi" },
   "/iestatijumi/sis": { title: "SIS iestatījumi", subtitle: "SIS konfigurācija" },
   "/iestatijumi/komunikacijas": { title: "Komunikāciju iestatījumi", subtitle: "Kanālu konfigurācija" },
+  "/iestatijumi/lietotaji": { title: "Lietotāji un lomas", subtitle: "Piekļuves pārvaldība" },
   "/lietotaji": { title: "Lietotāji un lomas", subtitle: "Piekļuves pārvaldība" },
   "/audits": { title: "Audits", subtitle: "Sistēmas audita pieraksti" },
 };
