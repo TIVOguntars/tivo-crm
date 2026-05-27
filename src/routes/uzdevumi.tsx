@@ -719,8 +719,8 @@ function QueuePage() {
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:bg-muted/95 supports-[backdrop-filter]:[&_tr]:bg-muted/85">
-              <tr className="sticky top-0 z-20 border-b border-border/70 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
+            <thead className="crm-table-header">
+              <tr className="crm-table-header-row sticky top-0 z-20">
                 <HeadCell className="text-muted-foreground/70">
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
@@ -747,7 +747,7 @@ function QueuePage() {
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="sticky top-8 z-20 border-b-2 border-border bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+              <tr className="crm-table-filter-row sticky top-8 z-20">
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
