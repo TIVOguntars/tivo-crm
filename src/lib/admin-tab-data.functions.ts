@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type Row = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 function msg(e: unknown, fallback: string): string {
   if (e && typeof e === "object" && "message" in e) {
@@ -34,7 +35,7 @@ async function selectAll(
   if (res.error) {
     throw new Error(msg(res.error, `Neizdevās nolasīt ${schemaName}.${table}`));
   }
-  return ((res.data ?? []) as Row[]) ?? [];
+  return (res.data ?? []) as Row[];
 }
 
 export interface AdminUsersTabPayload {
