@@ -76,14 +76,20 @@ const VISIBLE_ROLE_ORDER = [
 
 function AdminUsersAndRolesPage() {
   const currentUser = useCurrentUser();
-  const { isReady, roleKeys, currentAuthUserId, currentRoles } = currentUser;
+  const { isReady, rolesLoading, rolesError, authReady, roleKeys, currentAuthUserId, currentRoles } = currentUser;
   const isAdmin = roleKeys.includes("admin");
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] /iestatijumi/lietotaji", {
+      authUser: currentAuthUserId,
       currentUserId: currentAuthUserId,
+      authReady,
       roleKeys,
       getCurrentRolesResponse: currentRoles,
+      rolesLoading,
+      rolesError,
+      isReady,
+      evaluatedAdmin: isAdmin,
     });
   }
 
