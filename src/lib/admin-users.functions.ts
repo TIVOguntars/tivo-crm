@@ -39,7 +39,10 @@ export const adminUpsertProfile = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     try {
-      const { data: rpcData, error } = await context.supabase
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { data: rpcData, error } = await sb
         .schema("crm")
         .rpc("admin_upsert_profile", {
           p_id: data.id,
@@ -78,7 +81,10 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     try {
-      const { error } = await context.supabase
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { error } = await sb
         .schema("crm")
         .rpc("admin_set_user_roles", {
           p_user_id: data.userId,
@@ -111,7 +117,10 @@ export const adminSetRolePermissions = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     try {
-      const { error } = await context.supabase
+      const sb = context.supabase as unknown as {
+        schema: (s: string) => { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+      };
+      const { error } = await sb
         .schema("crm")
         .rpc("admin_set_role_permissions", {
           p_role_key: data.roleKey,
