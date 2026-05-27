@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { parseSupabaseSecretKey } from "@/lib/supabase-secret";
+import { getSupabaseSecretKeyFromEnv, getSupabaseUrlFromEnv } from "@/lib/supabase-secret";
 
 export interface AssignableUser {
   id: string;
@@ -20,13 +20,8 @@ const STORAGE_KEY = "tivo.operator";
 
 const fetchAssignableUsers = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ rows: AssignableUser[]; error: string | null }> => {
-    const url = (
-      process.env.SUPABASE_URL || process.env.ANALYTICS_SUPABASE_URL || ""
-    ).replace(/\/+$/, "");
-    const key = parseSupabaseSecretKey(
-      process.env.SUPABASE_SECRET_KEYS,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-    );
+    const url = getSupabaseUrlFromEnv();
+    const key = getSupabaseSecretKeyFromEnv();
     if (!url || !key) {
       return { rows: [], error: "Supabase servera slepenā atslēga nav pieejama vai nav derīga." };
     }
