@@ -33,83 +33,83 @@ export interface ActivityStyle {
   Icon: LucideIcon;
 }
 
-const EMERALD_ACCENT = "border-l-emerald-500";
-const BLUE_ACCENT = "border-l-blue-500";
+const IN_ACCENT = "border-l-[var(--tivo-green)]";
+const OUT_ACCENT = "border-l-[var(--tivo-blue)]";
 
 const STYLES: Record<ActivityKind, ActivityStyle> = {
   email_in: {
-    bg: "bg-blue-50 dark:bg-blue-950/20",
-    accent: EMERALD_ACCENT,
+    bg: "bg-[var(--tivo-blue-soft)]",
+    accent: IN_ACCENT,
     Icon: Mail,
   },
   email_out: {
-    bg: "bg-blue-50 dark:bg-blue-950/20",
-    accent: BLUE_ACCENT,
+    bg: "bg-[var(--tivo-blue-soft)]",
+    accent: OUT_ACCENT,
     Icon: Mail,
   },
   call_in: {
-    bg: "bg-emerald-50 dark:bg-emerald-950/20",
-    accent: EMERALD_ACCENT,
+    bg: "bg-[var(--tivo-teal-soft)]",
+    accent: IN_ACCENT,
     Icon: Phone,
   },
   call_out: {
-    bg: "bg-emerald-50 dark:bg-emerald-950/20",
-    accent: BLUE_ACCENT,
+    bg: "bg-[var(--tivo-teal-soft)]",
+    accent: OUT_ACCENT,
     Icon: Phone,
   },
   sms_in: {
-    bg: "bg-violet-50 dark:bg-violet-950/20",
-    accent: EMERALD_ACCENT,
+    bg: "bg-[var(--tivo-purple-soft)]",
+    accent: IN_ACCENT,
     Icon: MessageSquare,
   },
   sms_out: {
-    bg: "bg-violet-50 dark:bg-violet-950/20",
-    accent: BLUE_ACCENT,
+    bg: "bg-[var(--tivo-purple-soft)]",
+    accent: OUT_ACCENT,
     Icon: MessageSquare,
   },
   whatsapp_in: {
-    bg: "bg-violet-50 dark:bg-violet-950/20",
-    accent: EMERALD_ACCENT,
+    bg: "bg-[var(--tivo-green-soft)]",
+    accent: IN_ACCENT,
     Icon: MessageSquare,
   },
   whatsapp_out: {
-    bg: "bg-violet-50 dark:bg-violet-950/20",
-    accent: BLUE_ACCENT,
+    bg: "bg-[var(--tivo-green-soft)]",
+    accent: OUT_ACCENT,
     Icon: MessageSquare,
   },
   note: {
-    bg: "bg-amber-50 dark:bg-amber-950/20",
-    accent: "border-l-amber-400",
+    bg: "bg-[var(--crm-muted)]",
+    accent: "border-l-[var(--crm-border)]",
     Icon: StickyNote,
   },
   task: {
-    bg: "bg-slate-50 dark:bg-slate-900/30",
-    accent: "border-l-slate-400",
+    bg: "bg-[var(--crm-muted)]",
+    accent: "border-l-[var(--crm-border)]",
     Icon: CheckSquare,
   },
   workflow: {
-    bg: "bg-violet-50/60 dark:bg-violet-950/15",
-    accent: "border-l-violet-500",
+    bg: "bg-[var(--tivo-purple-soft)]",
+    accent: "border-l-[var(--tivo-purple)]",
     Icon: Workflow,
   },
   automation: {
-    bg: "bg-muted/40",
-    accent: "border-l-muted-foreground/40",
+    bg: "bg-[var(--crm-muted)]",
+    accent: "border-l-[var(--crm-border)]",
     Icon: Activity,
   },
   audit: {
-    bg: "bg-muted/30",
-    accent: "border-l-muted-foreground/30",
+    bg: "bg-[var(--crm-muted)]",
+    accent: "border-l-[var(--crm-border)]",
     Icon: Activity,
   },
   error: {
-    bg: "bg-rose-50 dark:bg-rose-950/20",
-    accent: "border-l-rose-500",
+    bg: "bg-[var(--tivo-red-soft)]",
+    accent: "border-l-[var(--tivo-red)]",
     Icon: AlertTriangle,
   },
   other: {
-    bg: "bg-muted/30",
-    accent: "border-l-muted-foreground/40",
+    bg: "bg-[var(--crm-muted)]",
+    accent: "border-l-[var(--crm-border)]",
     Icon: Activity,
   },
 };
