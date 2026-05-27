@@ -175,7 +175,10 @@ function UsersTab({
 
   const [editing, setEditing] = useState<Row | null>(null);
   const open = dialogOpen;
-  const setOpen = setDialogOpen;
+  const setOpen = (v: boolean) => {
+    setDialogOpen(v);
+    if (!v) setEditing(null);
+  };
 
   if (tabQ.isLoading || !tabQ.data) {
     return <LoadingState label="Ielādē lietotājus..." />;
