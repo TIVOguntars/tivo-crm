@@ -177,16 +177,16 @@ const LEADS_GRID =
 
 /* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
 const QUEUE_BUCKET_TONE: Record<string, string> = {
-  overdue: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-  today: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  upcoming: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  scheduled: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  backlog: "bg-muted text-muted-foreground",
-  done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  overdue: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
+  today: "bg-[var(--tivo-orange-soft)] text-[var(--tivo-orange)]",
+  upcoming: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
+  scheduled: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
+  backlog: "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]",
+  done: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)]",
 };
 function queueBucketTone(bucket: string): string {
   const key = (bucket || "").toLowerCase();
-  return QUEUE_BUCKET_TONE[key] ?? "bg-muted text-muted-foreground";
+  return QUEUE_BUCKET_TONE[key] ?? "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]";
 }
 
 function fmtDate(v: string | null): string {
