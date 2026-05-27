@@ -10,6 +10,21 @@ const Input = z.object({
 export interface RoleLookupResult {
   roleKeys: string[];
   permissionKeys: string[];
+  lookupUserId?: string | null;
+}
+
+function parseSecretKey(raw: string | undefined): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "";
+  if (!value.startsWith("[")) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) && typeof parsed[0] === "string"
+      ? parsed[0]
+      : "";
+  } catch {
+    return value;
+  }
 }
 
 /**
@@ -29,23 +44,29 @@ export interface RoleLookupResult {
 export const getCurrentRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => Input.parse(d))
-  .handler(async ({ data }): Promise<RoleLookupResult> => {
-    const uid = data.operatorId;
-    if (!uid) return { roleKeys: [], permissionKeys: [] };
+  .handler(async ({ data, context }): Promise<RoleLookupResult> => {
+    const authUserId = context.userId;
+    const claims = context.claims as { is_anonymous?: boolean } | undefined;
+    const uid = claims?.is_anonymous ? data.operatorId : authUserId;
+    if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      return { roleKeys: [], permissionKeys: [] };
+    const SUPABASE_SERVICE_ROLE_KEY = parseSecretKey(
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEYS,
+    );
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("[roles] Supabase server env missing");
+      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
     }
     const authHeader = getRequestHeader("authorization") ?? "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : SUPABASE_PUBLISHABLE_KEY;
+    if (!authHeader.startsWith("Bearer ")) {
+      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
+    }
 
     const baseHeaders: Record<string, string> = {
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       "Accept-Profile": "crm",
       Accept: "application/json",
     };
