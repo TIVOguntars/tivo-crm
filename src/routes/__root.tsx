@@ -122,7 +122,19 @@ function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider root state invalidator", {
+          event,
+          authSession: {
+            hasSession: !!session,
+            userId: session?.user?.id ?? null,
+            email: session?.user?.email ?? null,
+          },
+          currentUserId: session?.user?.id ?? null,
+        });
+      }
+      queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
       void queryClient.invalidateQueries({ queryKey: ["crm"] });
       void router.invalidate();
     });
