@@ -72,8 +72,8 @@ function StatusBadge({ status }: { status: string }) {
       className={cn(
         "h-5 rounded px-1.5 py-0 text-[11px] font-medium leading-none border-transparent",
         isActive
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-          : "bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
+          ? "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)]"
+          : "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]"
       )}
     >
       {label}
