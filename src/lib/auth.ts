@@ -1,14 +1,9 @@
 const AUTH_KEY = "tivo_auth_v1";
 const ACTIVITY_KEY = "tivo_last_activity_v1";
-const PASSWORD = "TIVO_analitics";
 export const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 
 export function isBrowser(): boolean {
   return typeof window !== "undefined";
-}
-
-export function checkPassword(input: string): boolean {
-  return input === PASSWORD;
 }
 
 export function getStoredAuth(): boolean {
