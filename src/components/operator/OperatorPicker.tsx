@@ -26,12 +26,7 @@ import {
  * after the shared password gate. Beta-only operator identity — NOT auth.
  */
 export function OperatorPickerGate({ children }: { children: ReactNode }) {
-  const { operatorId, isReady } = useCurrentUser();
-  if (!isReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background" />
-    );
-  }
+  const { operatorId } = useCurrentUser();
   if (!operatorId) {
     return <OperatorPickerModal mandatory />;
   }
