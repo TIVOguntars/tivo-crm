@@ -15,7 +15,7 @@ export function RequireRole({
 }) {
   const { isReady, rolesLoading, roleKeys, currentAuthUserId, currentRoles, rolesError } = useCurrentUser();
   const stillLoading = !isReady || rolesLoading;
-  const ok = !role || roleKeys.includes(role);
+  const ok = roleKeys.includes(role);
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] RequireRole", {
