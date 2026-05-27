@@ -216,7 +216,7 @@ function MiniStat({ label, value, warn }: { label: string; value: number; warn?:
       <span
         className={
           warn
-            ? "font-semibold text-amber-600 dark:text-amber-500"
+            ? "font-semibold text-[var(--tivo-orange)]"
             : "font-medium text-foreground"
         }
       >

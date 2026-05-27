@@ -294,7 +294,7 @@ function BulkStatusAction({
           className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {requiresConfirm && (
-          <div className="flex items-start gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-1.5 rounded border border-[var(--tivo-orange-border)] bg-[var(--tivo-orange-soft)] px-2 py-1.5 text-[11px] text-[var(--tivo-orange)]">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
             <span>
               {backwardsCount} leadiem statuss tiek pārvietots atpakaļ piltuvē.

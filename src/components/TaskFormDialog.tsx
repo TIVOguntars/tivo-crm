@@ -1211,7 +1211,7 @@ export function TaskFormDialog({
                 />
               </TabsContent>
               <TabsContent value="relative" className="space-y-3">
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                <div className="flex items-start gap-2 rounded-md border border-[var(--tivo-orange-border)] bg-[var(--tivo-orange-soft)] px-3 py-2 text-xs text-[var(--tivo-orange)]">
                   <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   <span>Automātiska pārrēķināšana tiks aktivizēta nākamajā fāzē.</span>
                 </div>

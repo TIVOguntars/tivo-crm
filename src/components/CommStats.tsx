@@ -36,7 +36,7 @@ export function CommStats({
               empty
                 ? "text-muted-foreground/40"
                 : hasUnread && it.inn > 0
-                  ? "text-blue-600/90 dark:text-blue-300/90"
+                  ? "text-[var(--tivo-blue)]"
                   : "text-muted-foreground/80",
             )}
           >
