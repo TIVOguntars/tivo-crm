@@ -4,18 +4,18 @@ interface PageHeaderProps {
   children?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, children }: PageHeaderProps) {
+/**
+ * Page title + subtitle are rendered globally in the TopNav header.
+ * This component now only renders optional action buttons (children),
+ * so individual pages do not duplicate the title/subtitle in the body.
+ * Title/description props are kept for backwards compatibility but
+ * intentionally not rendered.
+ */
+export function PageHeader({ title: _title, description: _description, children }: PageHeaderProps) {
+  if (!children) return null;
   return (
-    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+    <div className="mb-4 flex items-center justify-end gap-2">
+      {children}
     </div>
   );
 }
