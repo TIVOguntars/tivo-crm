@@ -29,12 +29,14 @@ import {
   Bell,
   Cog,
   MessageCircle,
+  UserRound,
 } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
-import { ChangeOperatorButton } from "@/components/operator/OperatorPicker";
+import { OperatorPickerModal } from "@/components/operator/OperatorPicker";
 import tivoLogo from "@/assets/tivo-logo.png";
 import { useCurrentRole, hasAccess, type Role } from "@/lib/roles";
-import { HeaderSlotOutlet } from "@/components/HeaderSlot";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,6 +126,51 @@ const groups: readonly NavGroup[] = [
   },
 ];
 
+/** Per-route page title + subtitle shown in the global header. */
+const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
+  "/panelis": { title: "Panelis", subtitle: "Lietotāja darba pārskats" },
+  "/leadi": { title: "Leadi", subtitle: "Analītiskā leadu darba vide" },
+  "/objekti": { title: "Objekti", subtitle: "Objektu pārvaldība" },
+  "/uzdevumi": { title: "Uzdevumi", subtitle: "Aktīvie un plānotie uzdevumi" },
+  "/uzdevumi-sis": { title: "Uzdevumi SIS", subtitle: "SIS ģenerētie uzdevumi" },
+  "/sis-darba-rinda": { title: "SIS darba rinda", subtitle: "Automātiskā darba rinda" },
+  "/e-pasti": { title: "E-pasti", subtitle: "Ienākošā un izejošā e-pasta plūsma" },
+  "/sarakstes": { title: "Sarakstes", subtitle: "Klientu sarakstes vēsture" },
+  "/import-review": { title: "Import review", subtitle: "Importēto datu pārskats" },
+  "/parskati/vadiba": { title: "Vadības pārskats", subtitle: "Augstā līmeņa rādītāji" },
+  "/parskati/marketings": { title: "Mārketinga pārskats", subtitle: "Kampaņu efektivitāte" },
+  "/parskati/ppv": { title: "PPV pārskats", subtitle: "PPV plūsmas analīze" },
+  "/analitika": { title: "Analītika", subtitle: "Detalizēta datu analītika" },
+  "/iestatijumi/statusi": { title: "Statusi", subtitle: "Statusu konfigurācija" },
+  "/iestatijumi/workflows": { title: "Workflows", subtitle: "Darbplūsmu konfigurācija" },
+  "/iestatijumi/templates": { title: "Templates", subtitle: "Veidņu pārvaldība" },
+  "/iestatijumi/automatizacijas": { title: "Automatizācijas", subtitle: "Automātiskās darbības" },
+  "/iestatijumi/integracijas": { title: "Integrācijas", subtitle: "Ārējās integrācijas" },
+  "/iestatijumi/validacijas": { title: "Validācijas", subtitle: "Datu validācijas noteikumi" },
+  "/iestatijumi/pazinojumi": { title: "Paziņojumi", subtitle: "Paziņojumu iestatījumi" },
+  "/iestatijumi/sis": { title: "SIS iestatījumi", subtitle: "SIS konfigurācija" },
+  "/iestatijumi/komunikacijas": { title: "Komunikāciju iestatījumi", subtitle: "Kanālu konfigurācija" },
+  "/lietotaji": { title: "Lietotāji un lomas", subtitle: "Piekļuves pārvaldība" },
+  "/audits": { title: "Audits", subtitle: "Sistēmas audita pieraksti" },
+};
+
+function resolvePageTitle(pathname: string): { title: string; subtitle: string } {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  if (pathname.startsWith("/lead/")) {
+    return { title: "Leada 360° profils", subtitle: "Pilna leada darba vide" };
+  }
+  // Longest-prefix match for nested routes.
+  let best: { title: string; subtitle: string } | null = null;
+  let bestLen = 0;
+  for (const [key, val] of Object.entries(PAGE_TITLES)) {
+    if (pathname.startsWith(key + "/") && key.length > bestLen) {
+      best = val;
+      bestLen = key.length;
+    }
+  }
+  return best ?? { title: "CRM", subtitle: "TIVO darba vide" };
+}
+
 const triggerClass =
   "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap";
 
@@ -131,16 +178,34 @@ export function TopNav() {
   const role = useCurrentRole();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const visibleGroups = groups.filter((g) => hasAccess(role, g.roles));
+  const { profile, stored } = useCurrentUser();
+  const [operatorOpen, setOperatorOpen] = useState(false);
+  const userCode =
+    (profile?.user_code && profile.user_code.trim()) ||
+    (stored?.full_name ? "" : "");
+  const codeLabel = userCode || "—";
+  const page = resolvePageTitle(pathname);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[96rem] items-center justify-between gap-6 px-4 sm:px-6">
-        <div className="flex items-center gap-2">
+      <div className="mx-auto flex h-14 max-w-[96rem] items-center px-4 sm:px-6">
+        <Link
+          to="/panelis"
+          className="flex items-center gap-2 rounded-md transition-opacity hover:opacity-80"
+          aria-label="Uz sākumlapu"
+        >
           <img src={tivoLogo} alt="TIVO" className="h-7 w-auto" />
           <span className="text-sm font-semibold tracking-tight">CRM</span>
-          <HeaderSlotOutlet className="ml-[50px] flex items-center" />
+        </Link>
+        <div className="ml-[30px] flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-sm font-semibold text-foreground">
+            {page.title}
+          </span>
+          <span className="truncate text-[11px] text-muted-foreground">
+            {page.subtitle}
+          </span>
         </div>
-        <nav className="flex items-center gap-1 overflow-x-auto">
+        <nav className="ml-auto flex items-center gap-1 overflow-x-auto">
           {visibleGroups.map((group) => {
             const groupActive = group.items.some(
               (i) => pathname === i.to || pathname.startsWith(i.to + "/"),
@@ -205,11 +270,24 @@ export function TopNav() {
             );
           })}
 
-          <div className="ml-2 flex items-center gap-1 border-l border-border pl-2">
-            <ChangeOperatorButton />
-            <LogoutButton />
-          </div>
         </nav>
+        <button
+          type="button"
+          onClick={() => setOperatorOpen(true)}
+          title="Mainīt operatoru"
+          className="ml-[30px] inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+          </span>
+          <span className="font-mono text-xs text-foreground">{codeLabel}</span>
+        </button>
+        <div className="ml-[30px]">
+          <LogoutButton />
+        </div>
+        {operatorOpen && (
+          <OperatorPickerModal open={operatorOpen} onOpenChange={setOperatorOpen} />
+        )}
       </div>
     </header>
   );
