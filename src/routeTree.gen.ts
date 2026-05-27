@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UzdevumiSisRouteImport } from './routes/uzdevumi-sis'
 import { Route as UzdevumiRouteImport } from './routes/uzdevumi'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as SisDarbaRindaRouteImport } from './routes/sis-darba-rinda'
@@ -42,6 +43,11 @@ import { Route as IestatijumiIntegracijasRouteImport } from './routes/iestatijum
 import { Route as IestatijumiAutomatizacijasRouteImport } from './routes/iestatijumi.automatizacijas'
 import { Route as LeadRouteImport } from './routes/lead.'
 
+const UzdevumiSisRoute = UzdevumiSisRouteImport.update({
+  id: '/uzdevumi-sis',
+  path: '/uzdevumi-sis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UzdevumiRoute = UzdevumiRouteImport.update({
   id: '/uzdevumi',
   path: '/uzdevumi',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
+  '/uzdevumi-sis': typeof UzdevumiSisRoute
   '/lead/': typeof LeadRoute
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
+  '/uzdevumi-sis': typeof UzdevumiSisRoute
   '/lead': typeof LeadRoute
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/sis-darba-rinda': typeof SisDarbaRindaRoute
   '/users': typeof UsersRoute
   '/uzdevumi': typeof UzdevumiRoute
+  '/uzdevumi-sis': typeof UzdevumiSisRoute
   '/lead/': typeof LeadRoute
   '/iestatijumi/automatizacijas': typeof IestatijumiAutomatizacijasRoute
   '/iestatijumi/integracijas': typeof IestatijumiIntegracijasRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
+    | '/uzdevumi-sis'
     | '/lead/'
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
+    | '/uzdevumi-sis'
     | '/lead'
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/sis-darba-rinda'
     | '/users'
     | '/uzdevumi'
+    | '/uzdevumi-sis'
     | '/lead/'
     | '/iestatijumi/automatizacijas'
     | '/iestatijumi/integracijas'
@@ -432,6 +444,7 @@ export interface RootRouteChildren {
   SisDarbaRindaRoute: typeof SisDarbaRindaRoute
   UsersRoute: typeof UsersRoute
   UzdevumiRoute: typeof UzdevumiRoute
+  UzdevumiSisRoute: typeof UzdevumiSisRoute
   LeadRoute: typeof LeadRoute
   IestatijumiAutomatizacijasRoute: typeof IestatijumiAutomatizacijasRoute
   IestatijumiIntegracijasRoute: typeof IestatijumiIntegracijasRoute
@@ -450,6 +463,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/uzdevumi-sis': {
+      id: '/uzdevumi-sis'
+      path: '/uzdevumi-sis'
+      fullPath: '/uzdevumi-sis'
+      preLoaderRoute: typeof UzdevumiSisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/uzdevumi': {
       id: '/uzdevumi'
       path: '/uzdevumi'
@@ -696,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   SisDarbaRindaRoute: SisDarbaRindaRoute,
   UsersRoute: UsersRoute,
   UzdevumiRoute: UzdevumiRoute,
+  UzdevumiSisRoute: UzdevumiSisRoute,
   LeadRoute: LeadRoute,
   IestatijumiAutomatizacijasRoute: IestatijumiAutomatizacijasRoute,
   IestatijumiIntegracijasRoute: IestatijumiIntegracijasRoute,
@@ -714,13 +735,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
