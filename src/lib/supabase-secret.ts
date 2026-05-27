@@ -135,23 +135,21 @@ function resolveSupabaseServiceKey(): {
   };
 }
 
-export const getSupabaseEnvDiagnostics = createServerOnlyFn(
-  (): SupabaseEnvDiagnostics => {
-    const url = getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL");
-    const resolved = resolveSupabaseServiceKey();
-    const raw = resolved.rawSecretKeys;
+export const getSupabaseEnvDiagnostics = createServerOnlyFn((): SupabaseEnvDiagnostics => {
+  const url = getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL");
+  const resolved = resolveSupabaseServiceKey();
+  const raw = resolved.rawSecretKeys;
 
-    return {
-      has_SUPABASE_URL: !!url,
-      has_SUPABASE_SECRET_KEYS: raw != null && String(raw).length > 0,
-      type_SUPABASE_SECRET_KEYS: typeof raw,
-      length_SUPABASE_SECRET_KEYS: raw == null ? 0 : String(raw).length,
-      has_SUPABASE_SERVICE_ROLE_KEY: !!resolved.fallbackServiceRoleKey,
-      selected_key_source: resolved.source,
-      selected_key_length: resolved.key?.length ?? null,
-    };
-  },
-);
+  return {
+    has_SUPABASE_URL: !!url,
+    has_SUPABASE_SECRET_KEYS: raw != null && String(raw).length > 0,
+    type_SUPABASE_SECRET_KEYS: typeof raw,
+    length_SUPABASE_SECRET_KEYS: raw == null ? 0 : String(raw).length,
+    has_SUPABASE_SERVICE_ROLE_KEY: !!resolved.fallbackServiceRoleKey,
+    selected_key_source: resolved.source,
+    selected_key_length: resolved.key?.length ?? null,
+  };
+});
 
 export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
   const resolved = resolveSupabaseServiceKey();
