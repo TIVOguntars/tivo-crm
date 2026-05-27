@@ -9,6 +9,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getSupabaseDiagnostics } from "@/lib/supabase-diagnostics.functions";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -70,6 +71,7 @@ const VISIBLE_ROLE_ORDER = ["admin", "management", "ppv", "marketing", "designer
 
 function AdminUsersAndRolesPage() {
   const currentUser = useCurrentUser();
+  const getDiagnostics = useServerFn(getSupabaseDiagnostics);
   const {
     isReady,
     rolesLoading,
@@ -80,6 +82,13 @@ function AdminUsersAndRolesPage() {
     currentRoles,
   } = currentUser;
   const isAdmin = roleKeys.includes("admin");
+
+  useEffect(() => {
+    if (!isAdmin || !import.meta.env.DEV) return;
+    void getDiagnostics().then((diagnostics) => {
+      console.log("[auth-debug] /iestatijumi/lietotaji Supabase diagnostics", diagnostics);
+    });
+  }, [getDiagnostics, isAdmin]);
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] /iestatijumi/lietotaji", {
