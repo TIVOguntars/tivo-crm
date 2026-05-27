@@ -23,13 +23,13 @@ function collectSecretCandidates(
     const score =
       role === "service_role"
         ? 100
+        : role === "anon"
+          ? -100
         : lowerHint.includes("active") ||
             lowerHint.includes("service") ||
             lowerHint.includes("secret")
           ? 50
-          : role === "anon"
-            ? -100
-            : 0;
+          : 0;
     return [{ key, score }];
   }
   if (Array.isArray(value)) {
