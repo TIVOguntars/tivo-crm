@@ -759,3 +759,30 @@ function useStateReset(key: string, fn: () => void) {
     }
   }, [key, fn]);
 }
+
+function ResetPasswordAction({ email }: { email: string }) {
+  const [sending, setSending] = useState(false);
+  const onClick = async () => {
+    const target = (email || "").trim();
+    if (!target) {
+      toast.error("Lietotājam nav e-pasta");
+      return;
+    }
+    if (!window.confirm(`Nosūtīt paroles atiestatīšanas e-pastu uz ${target}?`)) return;
+    setSending(true);
+    const redirectTo =
+      typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(target, { redirectTo });
+    setSending(false);
+    if (error) {
+      toast.error("Neizdevās nosūtīt e-pastu");
+      return;
+    }
+    toast.success("E-pasts nosūtīts");
+  };
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} disabled={sending}>
+      {sending ? "Sūta…" : "Atiestatīt paroli"}
+    </Button>
+  );
+}
