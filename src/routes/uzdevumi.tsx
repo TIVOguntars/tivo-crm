@@ -942,8 +942,8 @@ function QueuePage() {
                                 className={cn(
                                   "h-4 rounded px-1 text-[9px] font-semibold uppercase leading-none tracking-wide",
                                   isAuto
-                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
-                                    : "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
+                                    ? "border-[var(--tivo-purple-border)] bg-[var(--tivo-purple-soft)] text-[var(--tivo-purple)]"
+                                    : "border-border bg-[var(--crm-muted)] text-[var(--crm-text-muted)]",
                                 )}
                               >
                                 {isAuto ? "Auto" : "Manual"}
