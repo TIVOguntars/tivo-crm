@@ -32,7 +32,6 @@ import {
   UserRound,
 } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
-import { ChangePasswordButton } from "@/components/auth/ChangePasswordButton";
 import { OperatorPickerModal } from "@/components/operator/OperatorPicker";
 import tivoLogo from "@/assets/tivo-logo.png";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -112,12 +111,6 @@ const groups: readonly NavGroup[] = [
       { to: "/iestatijumi/komunikacijas", label: "Komunikāciju iestatījumi", icon: MessageCircle },
       { to: "/iestatijumi/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon },
     ],
-  },
-  {
-    label: "Lietotāji un lomas",
-    icon: UsersIcon,
-    roles: ADMIN_ONLY,
-    items: [{ to: "/iestatijumi/lietotaji", label: "Lietotāji un lomas", icon: UsersIcon }],
   },
   {
     label: "Audits",
@@ -293,9 +286,6 @@ export function TopNav() {
           <span className="font-mono text-xs text-foreground">{codeLabel}</span>
         </button>
         <div className="ml-[30px]">
-          <ChangePasswordButton />
-        </div>
-        <div className="ml-2">
           <LogoutButton />
         </div>
         {operatorOpen && (
