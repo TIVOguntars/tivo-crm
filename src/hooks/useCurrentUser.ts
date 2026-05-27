@@ -89,11 +89,15 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
         });
       }
       if (!cancelled) {
-        setState((prev) => ({
-          userId: data.user?.id ?? null,
-          version: prev.version + 1,
-          ready: true,
-        }));
+        setState((prev) => {
+          const nextUserId = data.user?.id ?? null;
+          if (prev.ready && prev.userId === nextUserId) return prev;
+          return {
+            userId: nextUserId,
+            version: prev.version + 1,
+            ready: true,
+          };
+        });
       }
     });
     const {
@@ -113,11 +117,16 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
           currentUserId: session?.user?.id ?? null,
         });
       }
-      setState((prev) => ({
-        userId: session?.user?.id ?? null,
-        version: prev.version + 1,
-        ready: true,
-      }));
+      setState((prev) => {
+        const nextUserId = session?.user?.id ?? null;
+        // Ignore noisy events that don't change identity (TOKEN_REFRESHED, etc.)
+        if (prev.ready && prev.userId === nextUserId) return prev;
+        return {
+          userId: nextUserId,
+          version: prev.version + 1,
+          ready: true,
+        };
+      });
     });
     return () => {
       cancelled = true;
@@ -147,7 +156,6 @@ export function useCurrentUser(): CurrentUserCtx {
       "current_roles",
       auth.userId ?? "no-auth",
       operatorId ?? "none",
-      auth.version,
     ],
     queryFn: async () => {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
@@ -165,9 +173,11 @@ export function useCurrentUser(): CurrentUserCtx {
       return response;
     },
     enabled: auth.ready && !!operatorId,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const profile = (usersQ.data ?? []).find((u) => u.id === operatorId) ?? null;
