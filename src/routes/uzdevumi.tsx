@@ -1021,7 +1021,7 @@ function HeadCell({
   return (
     <th
       className={cn(
-        "h-8 px-2 text-left align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+        "crm-table-header-cell h-8 px-2 text-left align-middle text-[10px] uppercase tracking-wide",
         className,
       )}
     >
