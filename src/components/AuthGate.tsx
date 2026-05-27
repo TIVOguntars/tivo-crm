@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   checkPassword,
   clearAuth,
@@ -17,6 +18,7 @@ interface AuthGateProps {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  const queryClient = useQueryClient();
   // Always start unauthenticated on the server / first paint to avoid
   // hydration mismatches and to ensure no analytics renders before check.
   const [authed, setAuthed] = useState(false);
@@ -29,12 +31,17 @@ export function AuthGate({ children }: AuthGateProps) {
   async function ensureSupabaseSession(): Promise<boolean> {
     try {
       const { data } = await supabase.auth.getSession();
-      if (data.session) return true;
+      if (data.session) {
+        const { data: userData, error } = await supabase.auth.getUser();
+        return !error && !!userData.user;
+      }
       const { data: signed, error } = await supabase.auth.signInAnonymously();
       if (error || !signed.session) {
         console.error("[auth] anonymous sign-in failed", error?.message);
         return false;
       }
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) return false;
       return true;
     } catch (e) {
       console.error("[auth] ensureSupabaseSession", e);
@@ -123,6 +130,7 @@ export function AuthGate({ children }: AuthGateProps) {
       return;
     }
     setAuthenticated();
+    await queryClient.invalidateQueries({ queryKey: ["crm"] });
     setAuthed(true);
     setError(null);
     setPassword("");
