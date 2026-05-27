@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { zodValidator } from "@tanstack/zod-adapter";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import appCss from "../styles.css?url";
 import { TopNav } from "@/components/TopNav";
@@ -134,6 +134,7 @@ function RootComponent() {
 
 function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
   const router = useRouter();
+  const lastUserIdRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     const {
@@ -155,6 +156,15 @@ function AuthStateInvalidator({ queryClient }: { queryClient: QueryClient }) {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") {
         return;
       }
+      // Supabase emits multiple SIGNED_IN events back-to-back (initial,
+      // multi-tab sync, token-refresh-as-signin). Wiping the cache on each
+      // one restarts the in-flight `current_roles` query forever, so the
+      // role-gated nav groups never appear. Deduplicate by user id.
+      const nextUserId = session?.user?.id ?? null;
+      if (lastUserIdRef.current === nextUserId) {
+        return;
+      }
+      lastUserIdRef.current = nextUserId;
       queryClient.removeQueries({ queryKey: ["crm", "current_roles"] });
       void queryClient.invalidateQueries({ queryKey: ["crm"] });
       void router.invalidate();
