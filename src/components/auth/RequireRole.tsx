@@ -16,7 +16,7 @@ export function RequireRole({
   const { isReady, rolesLoading, roleKeys, currentAuthUserId, currentRoles, rolesError } =
     useCurrentUser();
   const stillLoading = !isReady || rolesLoading;
-  const ok = roleKeys.includes(role);
+  const ok = stillLoading ? null : roleKeys.includes(role);
 
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] RequireRole", {
@@ -37,5 +37,5 @@ export function RequireRole({
     return <>{loadingFallback ?? <LoadingState label="Pārbauda piekļuves tiesības..." />}</>;
   }
 
-  return <>{ok ? children : fallback}</>;
+  return <>{ok === true ? children : fallback}</>;
 }
