@@ -13,6 +13,16 @@ const PREFERRED_SECRET_KEYS = [
   "default",
 ];
 
+export interface SupabaseEnvDiagnostics {
+  has_SUPABASE_URL: boolean;
+  has_SUPABASE_SECRET_KEYS: boolean;
+  type_SUPABASE_SECRET_KEYS: string;
+  length_SUPABASE_SECRET_KEYS: number;
+  has_SUPABASE_SERVICE_ROLE_KEY: boolean;
+  selected_key_source: string | null;
+  selected_key_length: number | null;
+}
+
 export function getRuntimeEnv(name: string): string | undefined {
   const value = getRuntimeEnvValue(name);
   return typeof value === "string" ? value : undefined;
@@ -66,14 +76,18 @@ function pickKeyFromObject(value: Record<string, unknown>): {
   };
 }
 
-export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
+function resolveSupabaseServiceKey(): {
+  key: string | null;
+  source: string | null;
+  rawSecretKeys: unknown;
+  fallbackServiceRoleKey: string | undefined;
+  firstLevelKeys: string[];
+} {
   const rawSecretKeys = getRuntimeEnvValue("SUPABASE_SECRET_KEYS");
   const fallbackServiceRoleKey = getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY");
 
-  console.log("[auth-debug] typeof SUPABASE_SECRET_KEYS", typeof rawSecretKeys);
-
   let selectedKey: string | null = null;
-  let selectedSource = "not found";
+  let selectedSource: string | null = null;
   let firstLevelKeys: string[] = [];
 
   if (rawSecretKeys && typeof rawSecretKeys === "object") {
@@ -112,9 +126,41 @@ export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
     selectedSource = "SUPABASE_SERVICE_ROLE_KEY fallback";
   }
 
-  console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", firstLevelKeys);
-  console.log("[auth-debug] selected Supabase service key source", selectedSource);
-  return selectedKey;
+  return {
+    key: selectedKey,
+    source: selectedSource,
+    rawSecretKeys,
+    fallbackServiceRoleKey,
+    firstLevelKeys,
+  };
+}
+
+export const getSupabaseEnvDiagnostics = createServerOnlyFn(
+  (): SupabaseEnvDiagnostics => {
+    const url = getRuntimeEnv("SUPABASE_URL") || getRuntimeEnv("ANALYTICS_SUPABASE_URL");
+    const resolved = resolveSupabaseServiceKey();
+    const raw = resolved.rawSecretKeys;
+
+    return {
+      has_SUPABASE_URL: !!url,
+      has_SUPABASE_SECRET_KEYS: raw != null && String(raw).length > 0,
+      type_SUPABASE_SECRET_KEYS: typeof raw,
+      length_SUPABASE_SECRET_KEYS: raw == null ? 0 : String(raw).length,
+      has_SUPABASE_SERVICE_ROLE_KEY: !!resolved.fallbackServiceRoleKey,
+      selected_key_source: resolved.source,
+      selected_key_length: resolved.key?.length ?? null,
+    };
+  },
+);
+
+export const getSupabaseServiceKey = createServerOnlyFn((): string | null => {
+  const resolved = resolveSupabaseServiceKey();
+
+  console.log("[auth-debug] typeof SUPABASE_SECRET_KEYS", typeof resolved.rawSecretKeys);
+  console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", resolved.firstLevelKeys);
+  console.log("[auth-debug] selected Supabase service key source", resolved.source ?? "not found");
+
+  return resolved.key;
 });
 
 export function getSupabaseUrlFromEnv(): string {
