@@ -721,7 +721,7 @@ function QueuePage() {
           <table className="w-full caption-bottom text-sm">
             <thead className="crm-table-header">
               <tr className="crm-table-header-row sticky top-0 z-20">
-                <HeadCell className="text-muted-foreground/70">
+                <HeadCell>
                   <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[200px]">
@@ -730,7 +730,7 @@ function QueuePage() {
                 <HeadCell className="w-[120px]">
                   <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
                 </HeadCell>
-                <HeadCell className="text-muted-foreground/70">
+                <HeadCell>
                   <SortButton label="Statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
                 </HeadCell>
                 <HeadCell className="w-[64px]">
