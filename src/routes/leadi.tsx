@@ -1260,25 +1260,25 @@ function LeadiPage() {
               <div role="table" className={cn("w-full text-xs")}>
                 <div
                   role="rowgroup"
-                  className="sticky top-0 z-10 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur"
+                  className="crm-table-header sticky top-0 z-10 text-[11px] uppercase tracking-wide"
                 >
-                  <div role="row" className={cn(LEADS_GRID, "border-b border-border")}>
-                    <div role="columnheader" className="px-1.5 py-2 flex items-center">
+                  <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 flex items-center">
                       <Checkbox
                         checked={allVisibleSelected}
                         onCheckedChange={toggleAll}
                         className="h-3.5 w-3.5"
                       />
                     </div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">PPV</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Lead</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Tagi</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Statuss</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Atbildīgais</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Uzdevums</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Aktivitāte</div>
-                    <div role="columnheader" className="px-1.5 py-2 font-medium">Prioritāte</div>
-                    <div role="columnheader" className="px-1.5 py-2 text-right font-medium" aria-label="Darbības" />
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">PPV</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Lead</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Tagi</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Statuss</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Atbildīgais</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Uzdevums</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Aktivitāte</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Prioritāte</div>
+                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 text-right" aria-label="Darbības" />
                   </div>
                 </div>
                 <div role="rowgroup">
