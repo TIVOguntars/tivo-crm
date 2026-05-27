@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   getStoredOperator,
   listAssignableUsers,
-  listRoleKeysForUser,
   OPERATOR_STORAGE_KEY,
   type AssignableUser,
   type StoredOperator,
 } from "@/lib/users";
+import { getCurrentRoles } from "@/lib/roles.functions";
 
 export interface CurrentUserCtx {
   isReady: boolean;
@@ -60,9 +61,10 @@ export function useCurrentUser(): CurrentUserCtx {
     enabled: !!operatorId,
   });
 
+  const getRoles = useServerFn(getCurrentRoles);
   const rolesQ = useQuery({
-    queryKey: ["crm", "user_role_keys", operatorId ?? "none"],
-    queryFn: () => listRoleKeysForUser(operatorId!),
+    queryKey: ["crm", "current_roles", operatorId ?? "none"],
+    queryFn: () => getRoles({ data: { operatorId } }),
     enabled: !!operatorId,
     staleTime: 5 * 60_000,
   });
@@ -70,28 +72,22 @@ export function useCurrentUser(): CurrentUserCtx {
   const profile =
     (usersQ.data ?? []).find((u) => u.id === operatorId) ?? null;
 
-  // Prefer freshly-fetched role keys; fall back to the snapshot we stored at
-  // selection time so role checks still work before the role query resolves.
-  const roleKeys =
-    rolesQ.data ??
-    (stored?.role_keys && stored.role_keys.length > 0
-      ? stored.role_keys
-      : []);
-
-  const isAdmin = roleKeys.includes("admin");
+  // Role keys are ALWAYS resolved server-side; no localStorage fallback.
+  // While the server fn is in-flight, roleKeys is [] → all gates fail closed.
+  const roleKeys = rolesQ.data?.roleKeys ?? [];
+  const permissionKeys = rolesQ.data?.permissionKeys ?? [];
+  const isAdmin = !!rolesQ.data && roleKeys.includes("admin");
 
   const isReady =
     !operatorId ||
-    ((!usersQ.isLoading || !!profile) && !rolesQ.isLoading);
+    ((!usersQ.isLoading || !!profile) && !rolesQ.isLoading && !rolesQ.isFetching);
 
   return {
     isReady,
     operatorId,
     profile,
     roleKeys,
-    // No frontend permission feed today — gates fall back to role checks
-    // (admin = pass) until a server fn surfaces effective permissions.
-    permissionKeys: [],
+    permissionKeys,
     isAdmin,
     stored,
   };

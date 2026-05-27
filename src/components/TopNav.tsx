@@ -34,7 +34,6 @@ import {
 import { LogoutButton } from "@/components/AuthGate";
 import { OperatorPickerModal } from "@/components/operator/OperatorPicker";
 import tivoLogo from "@/assets/tivo-logo.png";
-import { useCurrentRole, hasAccess, type Role } from "@/lib/roles";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useState } from "react";
 import {
@@ -49,7 +48,7 @@ type NavItem = { to: string; label: string; icon: Icon };
 type NavGroup = {
   label: string;
   icon: Icon;
-  roles: readonly Role[];
+  roles: readonly string[];
   items: readonly NavItem[];
 };
 
@@ -175,10 +174,14 @@ const triggerClass =
   "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap";
 
 export function TopNav() {
-  const role = useCurrentRole();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const visibleGroups = groups.filter((g) => hasAccess(role, g.roles));
-  const { profile, stored } = useCurrentUser();
+  const { profile, stored, roleKeys, isAdmin, isReady } = useCurrentUser();
+  // Fail closed: hide role-gated groups until roles are loaded server-side.
+  const visibleGroups = isReady
+    ? groups.filter(
+        (g) => isAdmin || g.roles.some((r) => roleKeys.includes(r)),
+      )
+    : [];
   const [operatorOpen, setOperatorOpen] = useState(false);
   const userCode =
     (profile?.user_code && profile.user_code.trim()) ||
