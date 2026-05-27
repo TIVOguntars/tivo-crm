@@ -28,13 +28,12 @@ function parseSecretKey(raw: string | undefined): string {
 }
 
 /**
- * Resolve role keys for the currently-selected operator from the `crm` schema.
+ * Resolve role keys from `crm.user_roles` + `crm.roles` in the `crm` schema.
  *
  * Interim Bridge (B):
- *   - Trusts the client-supplied `operatorId` (chosen via OperatorPicker) for
- *     the lookup, BUT always re-reads role assignments from
- *     `crm.user_roles` + `crm.roles` server-side. Role claims are never read
- *     from the client payload or localStorage.
+ *   - Uses the verified Supabase auth user id when real auth is present.
+ *   - During the existing shared-password/anonymous bridge, uses the selected
+ *     crm.profiles operator id, but still re-reads assignments server-side.
  *   - Requires a valid Supabase bearer token (`requireSupabaseAuth`).
  *   - Returns `{ roleKeys: [], permissionKeys: [] }` when no operator is
  *     selected so the UI fails closed.
@@ -88,7 +87,7 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
         urResp.status,
         rolesResp.status,
       );
-      return { roleKeys: [], permissionKeys: [] };
+      return { roleKeys: [], permissionKeys: [], lookupUserId: uid };
     }
 
     const urRows = (await urResp.json()) as Array<{ role_id?: unknown }>;
@@ -112,5 +111,6 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     return {
       roleKeys: Array.from(out).sort(),
       permissionKeys: [],
+      lookupUserId: uid,
     };
   });
