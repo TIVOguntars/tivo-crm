@@ -73,6 +73,8 @@ const VISIBLE_ROLE_LABELS: Record<string, string> = {
 const VISIBLE_ROLE_ORDER = ["admin", "management", "ppv", "marketing", "designer", "estimator"];
 
 function AdminUsersAndRolesPage() {
+  const [activeTab, setActiveTab] = useState("users");
+  const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   return (
     <div className="space-y-6">
       <PageHeader
@@ -88,13 +90,23 @@ function AdminUsersAndRolesPage() {
           </div>
         }
       >
-        <Tabs defaultValue="users" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="users">Lietotāji</TabsTrigger>
-            <TabsTrigger value="roles">Lomas un tiesības</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="users">Lietotāji</TabsTrigger>
+              <TabsTrigger value="roles">Lomas un tiesības</TabsTrigger>
+            </TabsList>
+            {activeTab === "users" && (
+              <Button onClick={() => setUsersDialogOpen(true)}>
+                Pievienot lietotāju
+              </Button>
+            )}
+          </div>
           <TabsContent value="users" className="space-y-4">
-            <UsersTab />
+            <UsersTab
+              dialogOpen={usersDialogOpen}
+              setDialogOpen={setUsersDialogOpen}
+            />
           </TabsContent>
           <TabsContent value="roles" className="space-y-4">
             <RolesTab />
@@ -109,7 +121,13 @@ function AdminUsersAndRolesPage() {
 // TAB 1 — Lietotāji
 // ============================================================
 
-function UsersTab() {
+function UsersTab({
+  dialogOpen,
+  setDialogOpen,
+}: {
+  dialogOpen: boolean;
+  setDialogOpen: (v: boolean) => void;
+}) {
   const loadFn = useServerFn(loadAdminUsersTab);
   const tabQ = useQuery({
     queryKey: ["crm", "admin-users-tab"],
@@ -155,8 +173,12 @@ function UsersTab() {
     return m;
   }, [userRoles, roleById]);
 
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const open = dialogOpen;
+  const setOpen = (v: boolean) => {
+    setDialogOpen(v);
+    if (!v) setEditing(null);
+  };
 
   if (tabQ.isLoading || !tabQ.data) {
     return <LoadingState label="Ielādē lietotājus..." />;
@@ -172,17 +194,6 @@ function UsersTab() {
 
   return (
     <>
-      <div className="flex justify-end">
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setOpen(true);
-          }}
-        >
-          Pievienot lietotāju
-        </Button>
-      </div>
-
       {profiles.length === 0 ? (
         <EmptyState label="Lietotāji vēl nav pievienoti" />
       ) : (
