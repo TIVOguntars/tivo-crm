@@ -12,6 +12,11 @@ const PREFERRED_SECRET_KEYS = [
 ];
 
 export function getRuntimeEnv(name: string): string | undefined {
+  const value = getRuntimeEnvValue(name);
+  return typeof value === "string" ? value : undefined;
+}
+
+function getRuntimeEnvValue(name: string): unknown {
   const fromProcess =
     typeof process !== "undefined" ? process.env?.[name] : undefined;
   if (fromProcess) return fromProcess;
@@ -64,7 +69,7 @@ function pickKeyFromObject(value: Record<string, unknown>): {
 }
 
 export function getSupabaseServiceKey(): string | null {
-  const rawSecretKeys = getRuntimeEnv("SUPABASE_SECRET_KEYS");
+  const rawSecretKeys = getRuntimeEnvValue("SUPABASE_SECRET_KEYS");
   const fallbackServiceRoleKey = getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   console.log("[auth-debug] typeof SUPABASE_SECRET_KEYS", typeof rawSecretKeys);
@@ -72,8 +77,14 @@ export function getSupabaseServiceKey(): string | null {
   let selectedKey: string | null = null;
   let selectedSource = "not found";
 
-  const raw = rawSecretKeys?.trim();
-  if (raw) {
+  if (rawSecretKeys && typeof rawSecretKeys === "object") {
+    const picked = pickKeyFromObject(rawSecretKeys as Record<string, unknown>);
+    selectedKey = picked.key;
+    selectedSource = picked.source;
+  }
+
+  const raw = typeof rawSecretKeys === "string" ? rawSecretKeys.trim() : "";
+  if (!selectedKey && raw) {
     if (isJwtLike(raw)) {
       selectedKey = raw;
       selectedSource = "SUPABASE_SECRET_KEYS plain JWT string";
