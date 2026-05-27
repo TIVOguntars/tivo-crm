@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { fetchCrmView } from "@/server/analytics";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -28,31 +29,27 @@ export interface RoleLookupResult {
 export const getCurrentRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => Input.parse(d))
-  .handler(async ({ data, context }): Promise<RoleLookupResult> => {
-    const { supabase } = context;
+  .handler(async ({ data }): Promise<RoleLookupResult> => {
     const uid = data.operatorId;
     if (!uid) return { roleKeys: [], permissionKeys: [] };
 
-    const crm = supabase.schema("crm" as never) as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => Promise<{ data: unknown }>;
-        } & Promise<{ data: unknown }>;
-      };
-    };
-
     const [urRes, rolesRes] = await Promise.all([
-      crm.from("user_roles").select("role_id").eq("user_id", uid),
-      crm.from("roles").select("id,role_key"),
+      fetchCrmView({
+        data: {
+          view: "user_roles",
+          query: `select=role_id&user_id=eq.${encodeURIComponent(uid)}&limit=200`,
+        },
+      }),
+      fetchCrmView({
+        data: { view: "roles", query: "select=id,role_key&limit=200" },
+      }),
     ]);
 
-    const urRows = (((urRes as { data: unknown }).data ?? []) as Array<{
-      role_id?: string;
-    }>);
-    const rolesRows = (((rolesRes as { data: unknown }).data ?? []) as Array<{
-      id?: string;
-      role_key?: string;
-    }>);
+    const urRows = (urRes?.rows ?? []) as Array<{ role_id?: unknown }>;
+    const rolesRows = (rolesRes?.rows ?? []) as Array<{
+      id?: unknown;
+      role_key?: unknown;
+    }>;
 
     const keyById = new Map<string, string>();
     for (const r of rolesRows) {
