@@ -48,9 +48,6 @@ function pickKeyFromObject(value: Record<string, unknown>): {
   key: string | null;
   source: string;
 } {
-  const firstLevelKeys = Object.keys(value);
-  console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", firstLevelKeys);
-
   for (const keyName of PREFERRED_SECRET_KEYS) {
     const selected = firstStringValue(value[keyName]);
     if (selected) {
@@ -76,8 +73,10 @@ export function getSupabaseServiceKey(): string | null {
 
   let selectedKey: string | null = null;
   let selectedSource = "not found";
+  let firstLevelKeys: string[] = [];
 
   if (rawSecretKeys && typeof rawSecretKeys === "object") {
+    firstLevelKeys = Object.keys(rawSecretKeys as Record<string, unknown>);
     const picked = pickKeyFromObject(rawSecretKeys as Record<string, unknown>);
     selectedKey = picked.key;
     selectedSource = picked.source;
@@ -92,6 +91,7 @@ export function getSupabaseServiceKey(): string | null {
       try {
         const parsed = JSON.parse(raw) as unknown;
         if (parsed && typeof parsed === "object") {
+          firstLevelKeys = Object.keys(parsed as Record<string, unknown>);
           const picked = pickKeyFromObject(parsed as Record<string, unknown>);
           selectedKey = picked.key;
           selectedSource = picked.source;
@@ -111,6 +111,7 @@ export function getSupabaseServiceKey(): string | null {
     selectedSource = "SUPABASE_SERVICE_ROLE_KEY fallback";
   }
 
+  console.log("[auth-debug] SUPABASE_SECRET_KEYS first-level keys", firstLevelKeys);
   console.log("[auth-debug] selected Supabase service key source", selectedSource);
   return selectedKey;
 }
