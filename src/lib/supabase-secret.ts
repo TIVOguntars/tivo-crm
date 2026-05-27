@@ -112,10 +112,3 @@ export function getSupabaseUrlFromEnv(): string {
     "",
   );
 }
-
-export function getSupabaseSecretKeyFromEnv(): string | null {
-  return parseSupabaseSecretKey(
-    getRuntimeEnv("SUPABASE_SECRET_KEYS"),
-    getRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY"),
-  );
-}
