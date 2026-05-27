@@ -27,6 +27,7 @@ import { ChevronDown } from "lucide-react";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
+import { getCrmColorToken, deadlineTone, toneClasses } from "@/lib/crmColors";
 import {
   Tooltip,
   TooltipContent,
@@ -128,20 +129,15 @@ function dueState(v: unknown): DueState {
 }
 
 function DueCell({ value }: { value: unknown }) {
-  const state = dueState(value);
-  const tone =
-    state === "overdue"
-      ? "text-red-600 dark:text-red-400 font-semibold"
-      : state === "today"
-        ? "text-orange-600 dark:text-orange-400 font-semibold"
-        : state === "tomorrow"
-          ? "text-blue-600 dark:text-blue-400 font-semibold"
-          : state === "week"
-            ? "text-foreground font-medium"
-            : state === "future"
-              ? "text-muted-foreground"
-              : "text-muted-foreground";
-  return <span className={cn("whitespace-nowrap tabular-nums", tone)}>{fmtDate(value)}</span>;
+  if (!value) return <span className="whitespace-nowrap text-muted-foreground">—</span>;
+  const tone = deadlineTone({ dueAt: String(value) });
+  const { text } = toneClasses(tone);
+  const emphasis = tone === "red" || tone === "orange" ? "font-semibold" : "font-medium";
+  return (
+    <span className={cn("whitespace-nowrap tabular-nums", text, emphasis)}>
+      {fmtDate(value)}
+    </span>
+  );
 }
 
 function uniq(values: string[]): string[] {
@@ -152,19 +148,12 @@ function uniq(values: string[]): string[] {
 
 function PriorityBadge({ label }: { label: string }) {
   if (!label) return <span className="text-muted-foreground">—</span>;
-  const tone =
-    label === "Augsta"
-      ? "bg-orange-500 text-white border-transparent"
-      : label === "Vidēja"
-        ? "bg-blue-200 text-blue-900 border-transparent"
-        : label === "Zema"
-          ? "bg-slate-200 text-slate-700 border-transparent"
-          : "";
+  const { className } = getCrmColorToken("taskPriority", label);
   return (
     <Badge
       className={cn(
-        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none",
-        tone,
+        "h-5 rounded px-1.5 py-0 text-[10px] font-medium leading-none border-transparent",
+        className,
       )}
     >
       {label}
@@ -228,22 +217,20 @@ function OwnerBadge({ value }: { value: string }) {
   const v = value.toUpperCase();
   if (v === "—" || v === "NAV PIEŠĶIRTS" || v === "NAV PIESKIRTS")
     return <span className="text-muted-foreground">—</span>;
-  const tone =
-    v === "SIS"
-      ? "bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
-      : v === "MO"
-        ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200"
-        : v === "UC"
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-          : v === "CP"
-            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-            : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200";
+  const toneKey =
+    v === "SIS" ? "muted"
+    : v === "MO" ? "teal"
+    : v === "UC" ? "green"
+    : v === "CP" ? "orange"
+    : "purple";
+  const { bg, text } = toneClasses(toneKey);
   return (
     <Badge
       className={cn(
         "h-5 rounded px-1.5 py-0 text-[10px] font-semibold leading-none",
         "border-transparent",
-        tone,
+        bg,
+        text,
       )}
     >
       {value}
@@ -260,22 +247,17 @@ function MiniKpi({
   value: number;
   tone: "red" | "amber" | "blue" | "neutral";
 }) {
-  const valueTone =
-    tone === "red"
-      ? "text-red-600 dark:text-red-400"
-      : tone === "amber"
-        ? "text-amber-700 dark:text-amber-400"
-        : tone === "blue"
-          ? "text-blue-600 dark:text-blue-400"
-          : "text-foreground";
+  const toneKey =
+    tone === "red" ? "red"
+    : tone === "amber" ? "orange"
+    : tone === "blue" ? "blue"
+    : "navy";
+  const { text } = toneClasses(toneKey);
+  const valueTone = tone === "neutral" ? "text-foreground" : text;
   const bar =
-    tone === "red"
-      ? "bg-red-500"
-      : tone === "amber"
-        ? "bg-amber-500"
-        : tone === "blue"
-          ? "bg-blue-500"
-          : "bg-border";
+    tone === "neutral"
+      ? "bg-border"
+      : `bg-[var(--tivo-${toneKey === "orange" ? "orange" : toneKey})]`;
   return (
     <div className="relative rounded-md border border-border bg-card px-3 py-2 shadow-sm">
       <div className={cn("absolute inset-y-0 left-0 w-0.5 rounded-l-md", bar)} />
