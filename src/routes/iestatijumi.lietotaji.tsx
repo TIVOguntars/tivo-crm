@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -93,44 +94,34 @@ function AdminUsersAndRolesPage() {
     });
   }
 
-  if (!isReady) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Lietotāji un lomas" description="Piekļuves pārvaldība" />
-        <LoadingState label="Ielādē..." />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Lietotāji un lomas" description="Piekļuves pārvaldība" />
-        <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          Pieejams tikai administratoram
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Lietotāji un lomas"
         description="Pārvaldi CRM lietotājus, lomas un tiesības"
       />
-      <Tabs defaultValue="users" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="users">Lietotāji</TabsTrigger>
-          <TabsTrigger value="roles">Lomas un tiesības</TabsTrigger>
-        </TabsList>
-        <TabsContent value="users" className="space-y-4">
-          <UsersTab />
-        </TabsContent>
-        <TabsContent value="roles" className="space-y-4">
-          <RolesTab />
-        </TabsContent>
-      </Tabs>
+      <RequireRole
+        role="admin"
+        loadingFallback={<LoadingState label="Pārbauda administratora tiesības..." />}
+        fallback={(
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            Pieejams tikai administratoram
+          </div>
+        )}
+      >
+        <Tabs defaultValue="users" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="users">Lietotāji</TabsTrigger>
+            <TabsTrigger value="roles">Lomas un tiesības</TabsTrigger>
+          </TabsList>
+          <TabsContent value="users" className="space-y-4">
+            <UsersTab />
+          </TabsContent>
+          <TabsContent value="roles" className="space-y-4">
+            <RolesTab />
+          </TabsContent>
+        </Tabs>
+      </RequireRole>
     </div>
   );
 }
