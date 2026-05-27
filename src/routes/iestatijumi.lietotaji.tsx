@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
 import { RequireRole } from "@/components/auth/RequireRole";
-import { useCrmView } from "@/hooks/useCrmView";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { getSupabaseDiagnostics } from "@/lib/supabase-diagnostics.functions";
+import {
+  loadAdminUsersTab,
+  loadAdminRolesTab,
+} from "@/lib/admin-tab-data.functions";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -70,40 +72,6 @@ const VISIBLE_ROLE_LABELS: Record<string, string> = {
 const VISIBLE_ROLE_ORDER = ["admin", "management", "ppv", "marketing", "designer", "estimator"];
 
 function AdminUsersAndRolesPage() {
-  const currentUser = useCurrentUser();
-  const getDiagnostics = useServerFn(getSupabaseDiagnostics);
-  const {
-    isReady,
-    rolesLoading,
-    rolesError,
-    authReady,
-    roleKeys,
-    currentAuthUserId,
-    currentRoles,
-  } = currentUser;
-  const isAdmin = roleKeys.includes("admin");
-
-  useEffect(() => {
-    if (!isAdmin || !import.meta.env.DEV) return;
-    void getDiagnostics().then((diagnostics) => {
-      console.log("[auth-debug] /iestatijumi/lietotaji Supabase diagnostics", diagnostics);
-    });
-  }, [getDiagnostics, isAdmin]);
-
-  if (typeof window !== "undefined" && import.meta.env.DEV) {
-    console.log("[auth-debug] /iestatijumi/lietotaji", {
-      authUser: currentAuthUserId,
-      currentUserId: currentAuthUserId,
-      authReady,
-      roleKeys,
-      getCurrentRolesResponse: currentRoles,
-      rolesLoading,
-      rolesError,
-      isReady,
-      evaluatedAdmin: isAdmin,
-    });
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -141,19 +109,24 @@ function AdminUsersAndRolesPage() {
 // ============================================================
 
 function UsersTab() {
-  const profilesQ = useCrmView(
-    "profiles",
-    "select=id,full_name,email,user_code,phone,is_active,status_key&order=full_name.asc",
-    { all: true },
-  );
-  const rolesQ = useCrmView("roles", "select=id,role_key,role_name&order=role_name.asc", {
-    all: true,
+  const loadFn = useServerFn(loadAdminUsersTab);
+  const tabQ = useQuery({
+    queryKey: ["crm", "admin-users-tab"],
+    queryFn: () => loadFn(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
-  const userRolesQ = useCrmView("user_roles", "select=user_id,role_id", { all: true });
 
-  const profiles = (profilesQ.data?.rows ?? []) as Row[];
-  const roles = (rolesQ.data?.rows ?? []) as Row[];
-  const userRoles = (userRolesQ.data?.rows ?? []) as Row[];
+  const profiles = useMemo(
+    () =>
+      [...((tabQ.data?.profiles ?? []) as Row[])].sort((a, b) =>
+        s(a.full_name).localeCompare(s(b.full_name), "lv"),
+      ),
+    [tabQ.data],
+  );
+  const roles = (tabQ.data?.roles ?? []) as Row[];
+  const userRoles = (tabQ.data?.userRoles ?? []) as Row[];
 
   const roleById = useMemo(() => {
     const m = new Map<string, { id: string; role_key: string; role_name: string }>();
@@ -184,16 +157,14 @@ function UsersTab() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
 
-  if (profilesQ.isLoading || rolesQ.isLoading || userRolesQ.isLoading) {
+  if (tabQ.isLoading || !tabQ.data) {
     return <LoadingState label="Ielādē lietotājus..." />;
   }
 
   const error =
-    profilesQ.error?.message ||
-    profilesQ.data?.error ||
-    rolesQ.data?.error ||
-    userRolesQ.data?.error;
-
+    tabQ.error instanceof Error
+      ? tabQ.error.message
+      : tabQ.data?.error || null;
   if (error) {
     return <ErrorState message={error} />;
   }
@@ -362,8 +333,7 @@ function UserFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? "Lietotājs atjaunināts" : "Lietotājs pievienots");
-      queryClient.invalidateQueries({ queryKey: ["crm", "profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["crm", "user_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["crm", "admin-users-tab"] });
       onOpenChange(false);
     },
     onError: (err: unknown) => {
@@ -541,17 +511,18 @@ function UserFormDialog({
 // ============================================================
 
 function RolesTab() {
-  const rolesQ = useCrmView("roles", "select=id,role_key,role_name", { all: true });
-  const permsQ = useCrmView(
-    "permissions",
-    "select=id,permission_key,description,resource,action&order=permission_key.asc",
-    { all: true },
-  );
-  const rpQ = useCrmView("role_permissions", "select=role_id,permission_id", { all: true });
+  const loadFn = useServerFn(loadAdminRolesTab);
+  const tabQ = useQuery({
+    queryKey: ["crm", "admin-roles-tab"],
+    queryFn: () => loadFn(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
-  const roles = (rolesQ.data?.rows ?? []) as Row[];
-  const perms = (permsQ.data?.rows ?? []) as Row[];
-  const rolePerms = (rpQ.data?.rows ?? []) as Row[];
+  const roles = (tabQ.data?.roles ?? []) as Row[];
+  const perms = (tabQ.data?.permissions ?? []) as Row[];
+  const rolePerms = (tabQ.data?.rolePermissions ?? []) as Row[];
 
   const visibleRoles = useMemo(() => {
     const byKey = new Map<string, { id: string; role_key: string; role_name: string }>();
@@ -621,17 +592,18 @@ function RolesTab() {
     },
     onSuccess: (_d, v) => {
       toast.success(`Tiesības saglabātas (${VISIBLE_ROLE_LABELS[v.roleKey] || v.roleKey})`);
-      queryClient.invalidateQueries({ queryKey: ["crm", "role_permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["crm", "admin-roles-tab"] });
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "Neizdevās saglabāt");
     },
   });
 
-  if (rolesQ.isLoading || permsQ.isLoading || rpQ.isLoading) {
+  if (tabQ.isLoading || !tabQ.data) {
     return <LoadingState label="Ielādē lomas un tiesības..." />;
   }
-  const err = rolesQ.data?.error || permsQ.data?.error || rpQ.data?.error;
+  const err =
+    tabQ.error instanceof Error ? tabQ.error.message : tabQ.data?.error || null;
   if (err) return <ErrorState message={err} />;
 
   if (visibleRoles.length === 0) {
