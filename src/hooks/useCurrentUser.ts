@@ -13,7 +13,9 @@ import { getCurrentRoles } from "@/lib/roles.functions";
 
 export interface CurrentUserCtx {
   isReady: boolean;
+  authReady: boolean;
   rolesLoading: boolean;
+  rolesError: string | null;
   operatorId: string | null;
   currentAuthUserId: string | null;
   profile: AssignableUser | null;
@@ -59,7 +61,29 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data: sessionData, error: sessionError }) => {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider session", {
+          hasSession: !!sessionData.session,
+          sessionUserId: sessionData.session?.user?.id ?? null,
+          sessionUserEmail: sessionData.session?.user?.email ?? null,
+          expiresAt: sessionData.session?.expires_at ?? null,
+          accessTokenPresent: !!sessionData.session?.access_token,
+          refreshTokenPresent: !!sessionData.session?.refresh_token,
+          error: sessionError?.message ?? null,
+        });
+      }
+    });
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider user", {
+          authUser: data.user
+            ? { id: data.user.id, email: data.user.email ?? null, isAnonymous: data.user.is_anonymous ?? null }
+            : null,
+          currentUserId: data.user?.id ?? null,
+          error: error?.message ?? null,
+        });
+      }
       if (!cancelled) {
         setState((prev) => ({
           userId: data.user?.id ?? null,
@@ -68,7 +92,21 @@ function useAuthIdentity(): { userId: string | null; version: number; ready: boo
         }));
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] auth provider state change", {
+          event,
+          authSession: {
+            hasSession: !!session,
+            userId: session?.user?.id ?? null,
+            email: session?.user?.email ?? null,
+            expiresAt: session?.expires_at ?? null,
+            accessTokenPresent: !!session?.access_token,
+            refreshTokenPresent: !!session?.refresh_token,
+          },
+          currentUserId: session?.user?.id ?? null,
+        });
+      }
       setState((prev) => ({
         userId: session?.user?.id ?? null,
         version: prev.version + 1,
@@ -99,7 +137,21 @@ export function useCurrentUser(): CurrentUserCtx {
   const getRoles = useServerFn(getCurrentRoles);
   const rolesQ = useQuery({
     queryKey: ["crm", "current_roles", auth.userId ?? "no-auth", operatorId ?? "none", auth.version],
-    queryFn: () => getRoles({ data: { operatorId } }),
+    queryFn: async () => {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] getCurrentRoles browser call", {
+          authUserId: auth.userId,
+          operatorId,
+          authReady: auth.ready,
+          authVersion: auth.version,
+        });
+      }
+      const response = await getRoles({ data: { operatorId } });
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        console.log("[auth-debug] getCurrentRoles raw response", response);
+      }
+      return response;
+    },
     enabled: auth.ready && !!operatorId,
     staleTime: 0,
     refetchOnMount: "always",
@@ -115,6 +167,7 @@ export function useCurrentUser(): CurrentUserCtx {
   const roleKeys = currentRoles?.roleKeys ?? [];
   const permissionKeys = currentRoles?.permissionKeys ?? [];
   const isAdmin = !!rolesQ.data && roleKeys.includes("admin");
+  const rolesError = rolesQ.error instanceof Error ? rolesQ.error.message : rolesQ.error ? String(rolesQ.error) : null;
 
   const rolesLoading = auth.ready && !!operatorId && (rolesQ.isLoading || rolesQ.isFetching);
   const isReady = !operatorId || (auth.ready && !rolesQ.isLoading && !rolesQ.isFetching);
@@ -122,17 +175,26 @@ export function useCurrentUser(): CurrentUserCtx {
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     console.log("[auth-debug] useCurrentUser", {
       currentUserId: auth.userId,
+      authReady: auth.ready,
+      authVersion: auth.version,
       operatorId,
       roleKeys,
+      permissionKeys,
       getCurrentRolesResponse: rolesQ.data,
+      queryStatus: rolesQ.status,
+      fetchStatus: rolesQ.fetchStatus,
+      isReady,
       rolesLoading,
-      rolesError: rolesQ.error instanceof Error ? rolesQ.error.message : rolesQ.error,
+      rolesError,
+      isRoleKeysMissingBeforeLoadComplete: !isReady && (!Array.isArray(roleKeys) || roleKeys.length === 0),
     });
   }
 
   return {
     isReady,
+    authReady: auth.ready,
     rolesLoading,
+    rolesError,
     operatorId,
     currentAuthUserId: auth.userId,
     profile,
