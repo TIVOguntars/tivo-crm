@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { parseSupabaseSecretKey } from "@/lib/supabase-secret";
 
 const Input = z.object({
   operatorId: z.string().uuid().nullable(),
@@ -12,61 +13,6 @@ export interface RoleLookupResult {
   permissionKeys: string[];
   lookupUserId?: string | null;
   error?: string | null;
-}
-
-function decodeJwtRole(value: string): string | null {
-  const payload = value.split(".")[1];
-  if (!payload) return null;
-  try {
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const json = JSON.parse(atob(padded)) as { role?: unknown };
-    return typeof json.role === "string" ? json.role : null;
-  } catch {
-    return null;
-  }
-}
-
-function collectSecretCandidates(value: unknown, hint = ""): Array<{ key: string; score: number }> {
-  if (typeof value === "string") {
-    const key = value.trim();
-    if (!key) return [];
-    const lowerHint = hint.toLowerCase();
-    const role = decodeJwtRole(key);
-    const score =
-      role === "service_role"
-        ? 100
-        : lowerHint.includes("service") || lowerHint.includes("secret")
-          ? 50
-          : role === "anon"
-            ? -100
-            : 0;
-    return [{ key, score }];
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap((item, index) => collectSecretCandidates(item, `${hint}.${index}`));
-  }
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([k, v]) => collectSecretCandidates(v, `${hint}.${k}`));
-  }
-  return [];
-}
-
-function parseSupabaseSecretKey(): string | null {
-  const raw = process.env.SUPABASE_SECRET_KEYS?.trim();
-  const fallback = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const candidates: Array<{ key: string; score: number }> = [];
-  if (raw) {
-    try {
-      candidates.push(...collectSecretCandidates(JSON.parse(raw), "SUPABASE_SECRET_KEYS"));
-    } catch {
-      candidates.push(...collectSecretCandidates(raw, "SUPABASE_SECRET_KEYS"));
-    }
-  }
-  if (fallback) candidates.push(...collectSecretCandidates(fallback, "SUPABASE_SERVICE_ROLE_KEY"));
-  return candidates
-    .filter((c) => c.score >= 0)
-    .sort((a, b) => b.score - a.score)[0]?.key ?? null;
 }
 
 /**
@@ -92,7 +38,10 @@ export const getCurrentRoles = createServerFn({ method: "POST" })
     if (!uid) return { roleKeys: [], permissionKeys: [], lookupUserId: null };
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SECRET_KEY = parseSupabaseSecretKey();
+    const SUPABASE_SECRET_KEY = parseSupabaseSecretKey(
+      process.env.SUPABASE_SECRET_KEYS,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
     if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
       const error = "Supabase servera slepenā atslēga nav pieejama vai nav derīga.";
       console.error("[roles]", error);
