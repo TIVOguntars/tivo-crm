@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-tab-data.functions";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
   TableBody,
@@ -225,16 +226,19 @@ function UsersTab() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditing(p);
-                            setOpen(true);
-                          }}
-                        >
-                          Rediģēt
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <ResetPasswordAction email={s(p.email)} />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditing(p);
+                              setOpen(true);
+                            }}
+                          >
+                            Rediģēt
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
