@@ -109,7 +109,7 @@ export function ClearAllFiltersButton({
       onClick={onClick}
       title="Notīrīt visus filtrus"
       className={cn(
-        "inline-flex h-7 items-center justify-center gap-1 rounded-md border border-[var(--tivo-navy-border)] bg-white px-2 text-[11px] font-medium leading-none text-[var(--tivo-navy)] transition-colors hover:bg-[var(--tivo-navy-soft)]",
+        "crm-filter-control justify-center gap-1 font-medium transition-colors hover:bg-[var(--tivo-navy-soft)]",
         className,
       )}
     >
