@@ -39,6 +39,11 @@ import { TaskFormDialog } from "@/components/TaskFormDialog";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { Plus } from "lucide-react";
+import {
+  CrmPageActionsRow,
+  CrmBannerRow,
+  CrmTableToolbar,
+} from "@/components/crm/CrmLayout";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -651,37 +656,38 @@ function QueuePage() {
       <PageHeader
         title="Uzdevumi"
         description="Nākamās darbības ar leadiem"
-      >
+      />
+      <CrmPageActionsRow>
         <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
           <Plus className="mr-1 h-4 w-4" />
           Uzdevums
         </Button>
-      </PageHeader>
+      </CrmPageActionsRow>
 
-      <div className="mb-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {dueChips.map((c) => (
-          <FilterCard
-            key={c.key}
-            label={c.label}
-            count={dueCounts.get(c.key) ?? 0}
-            active={dueFilter === c.key}
-            onClick={() => setDueFilter(dueFilter === c.key ? "all" : c.key)}
-          />
-        ))}
-      </div>
-      <div className="mb-3 grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-        {leadStatusChips.map((c) => (
-          <FilterCard
-            key={`s-${c.label}`}
-            label={c.label}
-            count={leadStatusCounts.get(c.label) ?? 0}
-            active={leadStatus === c.label}
-            onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
-          />
-        ))}
-      </div>
+      <CrmBannerRow>
+        {[
+          ...dueChips.map((c) => (
+            <FilterCard
+              key={`due-${c.key}`}
+              label={c.label}
+              count={dueCounts.get(c.key) ?? 0}
+              active={dueFilter === c.key}
+              onClick={() => setDueFilter(dueFilter === c.key ? "all" : c.key)}
+            />
+          )),
+          ...leadStatusChips.map((c) => (
+            <FilterCard
+              key={`s-${c.label}`}
+              label={c.label}
+              count={leadStatusCounts.get(c.label) ?? 0}
+              active={leadStatus === c.label}
+              onClick={() => setLeadStatus(leadStatus === c.label ? "all" : c.label)}
+            />
+          )),
+        ]}
+      </CrmBannerRow>
 
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <CrmTableToolbar>
         {([
           { key: "all", label: "Visi", count: sourceCounts.all },
           { key: "auto", label: "Auto", count: sourceCounts.auto },
@@ -709,7 +715,7 @@ function QueuePage() {
             </span>
           </button>
         ))}
-      </div>
+      </CrmTableToolbar>
 
       {view.isLoading ? (
         <LoadingState />
