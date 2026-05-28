@@ -272,6 +272,33 @@ Obligāti:
 * vienots height;
 * vienots focus ring.
 
+### 6.1.1. Baltā fona noteikums (OBLIGĀTI)
+
+Visi tabulu filtra un meklēšanas lauki vienmēr ir balti.
+
+Attiecas uz:
+
+* search input;
+* select trigger;
+* multi-select trigger;
+* date filter;
+* clear filters pogu, ja tā atrodas filter row.
+
+Aizliegts:
+
+* transparent background;
+* inherited header background;
+* navy-soft background pašam input/select laukam;
+* disabled-looking input appearance aktīvam filtram.
+
+Filter row fons drīkst būt TIVO navy-soft.
+Paši filter controls vienmēr ir white surface:
+
+* `background: var(--crm-surface)` vai `#ffffff`;
+* `border: 1px solid var(--crm-border)`;
+* `border-radius: 6px`;
+* `height: 32px`.
+
 ---
 
 ## 6.2. Clear filters
