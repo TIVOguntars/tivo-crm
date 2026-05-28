@@ -1355,7 +1355,6 @@ function LeadiPage() {
                 openLead={openLead}
                 bumpActivity={bumpActivity}
                 commCounts={commCounts}
-                allVisibleSelected={allVisibleSelected}
               />
             </CrmDataBody>
           </CrmDataTable>
