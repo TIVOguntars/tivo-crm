@@ -355,7 +355,7 @@ Obligāti:
 
 * white background;
 * 6px radius;
-* vienots height (**28px** — skat. 5.3.1);
+* vienots height (**25px** — skat. 5.3.1);
 * bez ēnām (`box-shadow: none`);
 * vienots focus state.
 
