@@ -1156,101 +1156,31 @@ function LeadiPage() {
           <p className="text-[11px] text-muted-foreground">Analītiskā leadu darba vide</p>
         </div>
       </HeaderSlot>
-      <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <div />
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
-            <Bookmark className="h-3.5 w-3.5" />
-            Saglabāt skatu
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
-            <Upload className="h-3.5 w-3.5" />
-            Importēt
-          </Button>
-          <Button size="sm" className="h-8 gap-1.5 text-xs">
-            <Plus className="h-3.5 w-3.5" />
-            Jauns leads
-          </Button>
-        </div>
-      </header>
+      <CrmPageActionsRow>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+          <Bookmark className="h-3.5 w-3.5" />
+          Saglabāt skatu
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+          <Upload className="h-3.5 w-3.5" />
+          Importēt
+        </Button>
+        <Button size="sm" className="h-8 gap-1.5 text-xs">
+          <Plus className="h-3.5 w-3.5" />
+          Jauns leads
+        </Button>
+      </CrmPageActionsRow>
 
-      {/* Toolbar */}
-      <div className="sticky top-0 z-20 -mx-4 mb-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2">
-          <SavedViewSelector value={view} onChange={setView} />
-
-          <div className="mx-1 h-5 w-px bg-border" aria-hidden />
-
-          <FilterBuilder
-            rules={flt}
-            options={options}
-            onChange={setFlt}
-          />
-
-          <GroupByControl
-            value={gby}
-            onChange={setGby}
-            onCollapseAll={collapseAll}
-            onExpandAll={expandAll}
-          />
-
-          <SortControl value={sort} onChange={setSort} />
-
-          <div className="relative ml-1 min-w-[220px] flex-1 sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search.q ?? ""}
-              onChange={(e) => setSearch({ q: e.target.value || undefined })}
-              placeholder="Meklēt pēc vārda, telefona, email"
-              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          {selected.size === 0 && (
-            <div className="ml-auto flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled
-                      className="h-8 gap-1.5 text-xs opacity-60"
-                    >
-                      <Columns3 className="h-3.5 w-3.5" />
-                      Kolonnas
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Drīzumā</TooltipContent>
-              </Tooltip>
-              {hasActive && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 gap-1 px-2 text-xs"
-                  onClick={clearAll}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Notīrīt visu
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Active chips */}
-        {(flt.length > 0 || q || view !== "all") && (
-          <ActiveFilterChips
-            view={view}
-            onClearView={() => setView("all")}
-            rules={flt}
-            onRemoveRule={(i) => setFlt(flt.filter((_, idx) => idx !== i))}
-            q={q}
-            onClearQ={() => setSearch({ q: undefined })}
-          />
-        )}
-      </div>
+      <CrmTableToolbar
+        groupSlot={<SavedViewSelector value={view} onChange={setView} />}
+      >
+        <GroupByControl
+          value={gby}
+          onChange={setGby}
+          onCollapseAll={collapseAll}
+          onExpandAll={expandAll}
+        />
+      </CrmTableToolbar>
 
       {selected.size > 0 && (
         <BulkActionsBar
