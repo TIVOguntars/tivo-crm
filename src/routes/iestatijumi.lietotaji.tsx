@@ -32,7 +32,6 @@ import {
   CrmDataTableHeader,
   CrmDataTableLabelRow,
   CrmFilterCell,
-  CrmFilterInput,
   CrmSearchInput,
   CrmFilterSelect,
   CrmSortableHead,
