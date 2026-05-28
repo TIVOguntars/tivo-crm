@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
@@ -759,15 +758,11 @@ function QueuePage() {
                 />
               </CrmFilterCell>
               <CrmFilterCell>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--tivo-navy)] opacity-60" />
-                  <CrmFilterInput
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Meklēt leadu vai objektu..."
-                    className="pl-7"
-                  />
-                </div>
+                <CrmSearchInput
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Meklēt leadu vai objektu..."
+                />
               </CrmFilterCell>
               <CrmFilterCell>
                 <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
