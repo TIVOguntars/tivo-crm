@@ -255,8 +255,8 @@
   /* Standard filter control (input / select / button) — 28px tall, 13px.
      Compact CRM density: ~15% smaller than consumer SaaS controls. */
   .crm-filter-control {
-    height: 25px !important;
-    min-height: 25px !important;
+    height: 28px !important;
+    min-height: 28px !important;
     font-size: 13px !important;
     line-height: 1;
     border-radius: 6px !important;

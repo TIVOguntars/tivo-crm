@@ -222,7 +222,7 @@ Aizliegts:
 | --------------- | ------- |
 | Header row      | 40px    |
 | Filter row      | 40px    |
-| Filter controls | 25px    |
+| Filter controls | 28px    |
 | Dense row       | 52px    |
 | Rich row        | 64–72px |
 
@@ -231,7 +231,7 @@ Aizliegts:
 Visi tabulu filter/search/select controls ir kompakti enterprise stila —
 bez ēnām, bez consumer SaaS "fat controls":
 
-* **height: 25px** (stingrs maksimums);
+* **height: 28px** (stingrs maksimums);
 * **background:** `var(--crm-surface)` / `#ffffff`;
 * **border:** `1px solid var(--crm-border)`;
 * **border-radius:** `6px`;
@@ -252,7 +252,7 @@ Aizliegts:
 * `drop-shadow`, inset shadow, jebkura dekoratīva ēna;
 * transparent background;
 * navy-soft background pašam input/select laukam;
-* oversized filter controls (>25px);
+* oversized filter controls (>28px);
 * consumer SaaS "fat controls" (36–40px).
 
 ---
@@ -333,7 +333,7 @@ Obligāti:
 
 * white background;
 * 6px radius;
-* vienots height (**25px** — skat. 5.3.1);
+* vienots height (**28px** — skat. 5.3.1);
 * bez ēnām (`box-shadow: none`);
 * vienots focus state.
 
@@ -362,7 +362,7 @@ Paši filter controls vienmēr ir white surface:
 * `background: var(--crm-surface)` vai `#ffffff`;
 * `border: 1px solid var(--crm-border)`;
 * `border-radius: 6px`;
-* `height: 25px`;
+* `height: 28px`;
 * `box-shadow: none`.
 
 ---
