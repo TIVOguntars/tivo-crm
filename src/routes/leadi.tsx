@@ -18,7 +18,10 @@ import {
   X,
   AlertTriangle,
   Layers,
+  ArrowUpDown,
   Trash2,
+  ArrowUp,
+  ArrowDown,
   Eye,
   Star,
 } from "lucide-react";
