@@ -45,6 +45,7 @@ import {
   CrmDataTableLabelRow,
   CrmFilterCell,
   CrmFilterInput,
+  CrmSearchInput,
   CrmFilterSelect,
   CrmSortableHead,
   type CrmTableSort,
