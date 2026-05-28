@@ -33,6 +33,7 @@ import {
   CrmDataTableLabelRow,
   CrmFilterCell,
   CrmFilterInput,
+  CrmSearchInput,
   CrmFilterSelect,
   CrmSortableHead,
 } from "@/components/crm/table/CrmDataTable";
@@ -292,21 +293,21 @@ function UsersTab({
                     />
                   </CrmFilterCell>
                   <CrmFilterCell>
-                    <CrmFilterInput
+                    <CrmSearchInput
                       value={fName}
                       onChange={(e) => setFName(e.target.value)}
                       placeholder="Meklēt vārdu…"
                     />
                   </CrmFilterCell>
                   <CrmFilterCell>
-                    <CrmFilterInput
+                    <CrmSearchInput
                       value={fEmail}
                       onChange={(e) => setFEmail(e.target.value)}
                       placeholder="Meklēt e-pastu…"
                     />
                   </CrmFilterCell>
                   <CrmFilterCell>
-                    <CrmFilterInput
+                    <CrmSearchInput
                       value={fPhone}
                       onChange={(e) => setFPhone(e.target.value)}
                       placeholder="Telefons…"
