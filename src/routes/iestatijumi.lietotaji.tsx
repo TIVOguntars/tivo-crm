@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { KeyRound, Pencil } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
@@ -15,14 +16,6 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,13 +23,25 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ClearAllFiltersButton } from "@/components/crm/CrmLayout";
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterInput,
+  CrmFilterSelect,
+  CrmSortableHead,
+} from "@/components/crm/table/CrmDataTable";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -184,7 +189,9 @@ function UsersTab({
   const [editing, setEditing] = useState<Row | null>(null);
   // Inline filters (client-side)
   const [fId, setFId] = useState<string>("all");
-  const [fSearch, setFSearch] = useState("");
+  const [fName, setFName] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fPhone, setFPhone] = useState("");
   const [fRole, setFRole] = useState<string>("all");
 
   const allRoleOptions = useMemo(
@@ -202,26 +209,38 @@ function UsersTab({
   }, [profiles]);
 
   const filteredProfiles = useMemo(() => {
-    const q = fSearch.trim().toLowerCase();
+    const qn = fName.trim().toLowerCase();
+    const qe = fEmail.trim().toLowerCase();
+    const qp = fPhone.trim().toLowerCase();
     return profiles.filter((p) => {
       const uid = s(p.id);
       const code = s(p.user_code);
       const name = s(p.full_name).toLowerCase();
       const email = s(p.email).toLowerCase();
+      const phone = s(p.phone).toLowerCase();
       if (fId !== "all" && code !== fId) return false;
-      if (q && !name.includes(q) && !email.includes(q)) return false;
+      if (qn && !name.includes(qn)) return false;
+      if (qe && !email.includes(qe)) return false;
+      if (qp && !phone.includes(qp)) return false;
       if (fRole !== "all") {
         const keys = rolesByUser.get(uid) ?? [];
         if (!keys.includes(fRole)) return false;
       }
       return true;
     });
-  }, [profiles, rolesByUser, fId, fSearch, fRole]);
+  }, [profiles, rolesByUser, fId, fName, fEmail, fPhone, fRole]);
 
-  const hasActiveFilters = fId !== "all" || fSearch.trim() !== "" || fRole !== "all";
+  const hasActiveFilters =
+    fId !== "all" ||
+    fName.trim() !== "" ||
+    fEmail.trim() !== "" ||
+    fPhone.trim() !== "" ||
+    fRole !== "all";
   const clearAllFilters = () => {
     setFId("all");
-    setFSearch("");
+    setFName("");
+    setFEmail("");
+    setFPhone("");
     setFRole("all");
   };
 
@@ -248,122 +267,151 @@ function UsersTab({
       {profiles.length === 0 ? (
         <EmptyState label="Lietotāji vēl nav pievienoti" />
       ) : (
-        <div className="rounded-lg border border-border bg-card shadow-sm">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Vārds Uzvārds</TableHead>
-                  <TableHead>E-pasts</TableHead>
-                  <TableHead>Telefons</TableHead>
-                  <TableHead>Lomas</TableHead>
-                  <TableHead className="text-right">Darbības</TableHead>
-                </TableRow>
-                <TableRow className="crm-table-filter-row hover:bg-[var(--tivo-navy-soft)]">
-                  <TableHead className="crm-table-filter-cell">
-                    <Select value={fId} onValueChange={setFId}>
-                      <SelectTrigger className="crm-filter-control">
-                        <SelectValue placeholder="Visi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Visi</SelectItem>
-                        {idOptions.map((code) => (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableHead>
-                  <TableHead colSpan={2} className="crm-table-filter-cell">
-                    <Input
-                      value={fSearch}
-                      onChange={(e) => setFSearch(e.target.value)}
-                      placeholder="Meklēt pēc vārda vai e-pasta..."
-                      className="crm-filter-control"
+        <TooltipProvider delayDuration={150}>
+          <div
+            className="flex min-h-0 flex-col"
+            style={{ height: "calc(100vh - 16rem)" }}
+          >
+            <CrmDataTable className="min-h-0 flex-1" maxHeight="100%">
+              <CrmDataTableHeader>
+                <CrmDataTableLabelRow>
+                  <CrmSortableHead label="ID" style={{ width: 72 }} />
+                  <CrmSortableHead label="Vārds Uzvārds" style={{ width: "auto" }} />
+                  <CrmSortableHead label="E-pasts" style={{ width: 240 }} />
+                  <CrmSortableHead label="Telefons" style={{ width: 140 }} />
+                  <CrmSortableHead label="Lomas" style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <CrmSortableHead label="" align="right" style={{ width: 96 }} />
+                </CrmDataTableLabelRow>
+                <CrmDataTableFilterRow>
+                  <CrmFilterCell>
+                    <CrmFilterSelect
+                      value={fId === "all" ? "" : fId}
+                      onValueChange={(v) => setFId(v || "all")}
+                      options={idOptions.map((code) => ({ value: code, label: code }))}
+                      allLabel="Visi"
                     />
-                  </TableHead>
-                  <TableHead className="crm-table-filter-cell" />
-                  <TableHead className="crm-table-filter-cell">
-                    <Select value={fRole} onValueChange={setFRole}>
-                      <SelectTrigger className="crm-filter-control">
-                        <SelectValue placeholder="Visas" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Visas</SelectItem>
-                        {allRoleOptions.map((r) => (
-                          <SelectItem key={r.id} value={r.role_key}>
-                            {r.role_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableHead>
-                  <TableHead className="crm-table-filter-cell text-right">
-                    <div className="flex justify-end">
-                      <ClearAllFiltersButton
-                        active={hasActiveFilters}
-                        onClick={clearAllFilters}
-                      />
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  </CrmFilterCell>
+                  <CrmFilterCell>
+                    <CrmFilterInput
+                      value={fName}
+                      onChange={(e) => setFName(e.target.value)}
+                      placeholder="Meklēt vārdu…"
+                    />
+                  </CrmFilterCell>
+                  <CrmFilterCell>
+                    <CrmFilterInput
+                      value={fEmail}
+                      onChange={(e) => setFEmail(e.target.value)}
+                      placeholder="Meklēt e-pastu…"
+                    />
+                  </CrmFilterCell>
+                  <CrmFilterCell>
+                    <CrmFilterInput
+                      value={fPhone}
+                      onChange={(e) => setFPhone(e.target.value)}
+                      placeholder="Telefons…"
+                    />
+                  </CrmFilterCell>
+                  <CrmFilterCell>
+                    <CrmFilterSelect
+                      value={fRole === "all" ? "" : fRole}
+                      onValueChange={(v) => setFRole(v || "all")}
+                      options={allRoleOptions.map((r) => ({
+                        value: r.role_key,
+                        label: r.role_name,
+                      }))}
+                      allLabel="Visas"
+                    />
+                  </CrmFilterCell>
+                  <CrmFilterCell align="right">
+                    <CrmClearFiltersButton
+                      active={hasActiveFilters}
+                      onClick={clearAllFilters}
+                    />
+                  </CrmFilterCell>
+                </CrmDataTableFilterRow>
+              </CrmDataTableHeader>
+              <CrmDataBody>
                 {filteredProfiles.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  <CrmDataRow>
+                    <CrmDataCell
+                      colSpan={6}
+                      align="center"
+                      className="text-muted-foreground"
+                    >
                       Nav ierakstu, kas atbilst filtriem.
-                    </TableCell>
-                  </TableRow>
-                ) : filteredProfiles.map((p) => {
-                  const uid = s(p.id);
-                  const keys = rolesByUser.get(uid) ?? [];
-                  return (
-                    <TableRow key={uid || Math.random()}>
-                      <TableCell className="font-mono text-xs">{s(p.user_code) || "—"}</TableCell>
-                      <TableCell className="font-medium">{s(p.full_name) || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{s(p.email) || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{s(p.phone) || "—"}</TableCell>
-                      <TableCell>
-                        {keys.length === 0 ? (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {keys.map((k) => {
-                              const r = Array.from(roleById.values()).find((x) => x.role_key === k);
-                              return (
-                                <Badge key={k} variant="secondary" className="font-normal">
-                                  {r?.role_name || k}
-                                </Badge>
-                              );
-                            })}
+                    </CrmDataCell>
+                  </CrmDataRow>
+                ) : (
+                  filteredProfiles.map((p) => {
+                    const uid = s(p.id);
+                    const keys = rolesByUser.get(uid) ?? [];
+                    return (
+                      <CrmDataRow key={uid || Math.random()}>
+                        <CrmDataCell className="font-mono text-xs">
+                          {s(p.user_code) || "—"}
+                        </CrmDataCell>
+                        <CrmDataCell className="font-medium">
+                          {s(p.full_name) || "—"}
+                        </CrmDataCell>
+                        <CrmDataCell className="text-muted-foreground">
+                          {s(p.email) || "—"}
+                        </CrmDataCell>
+                        <CrmDataCell className="text-muted-foreground">
+                          {s(p.phone) || "—"}
+                        </CrmDataCell>
+                        <CrmDataCell>
+                          {keys.length === 0 ? (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {keys.map((k) => {
+                                const r = Array.from(roleById.values()).find(
+                                  (x) => x.role_key === k,
+                                );
+                                return (
+                                  <Badge
+                                    key={k}
+                                    variant="secondary"
+                                    className="font-normal"
+                                  >
+                                    {r?.role_name || k}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </CrmDataCell>
+                        <CrmDataCell align="right">
+                          <div className="flex justify-end gap-1">
+                            <ResetPasswordAction email={s(p.email)} />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  aria-label="Rediģēt"
+                                  onClick={() => {
+                                    setEditing(p);
+                                    setOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Rediģēt</TooltipContent>
+                            </Tooltip>
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <ResetPasswordAction email={s(p.email)} />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditing(p);
-                              setOpen(true);
-                            }}
-                          >
-                            Rediģēt
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        </CrmDataCell>
+                      </CrmDataRow>
+                    );
+                  })
+                )}
+              </CrmDataBody>
+            </CrmDataTable>
           </div>
-        </div>
+        </TooltipProvider>
       )}
 
       <UserFormDialog
@@ -898,8 +946,22 @@ function ResetPasswordAction({ email }: { email: string }) {
     toast.success("E-pasts nosūtīts");
   };
   return (
-    <Button size="sm" variant="outline" onClick={onClick} disabled={sending}>
-      {sending ? "Sūta…" : "Atiestatīt paroli"}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          aria-label="Atiestatīt paroli"
+          onClick={onClick}
+          disabled={sending}
+        >
+          <KeyRound className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {sending ? "Sūta…" : "Atiestatīt paroli"}
+      </TooltipContent>
+    </Tooltip>
   );
 }
