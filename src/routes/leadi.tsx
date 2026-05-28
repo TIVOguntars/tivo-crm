@@ -1413,16 +1413,15 @@ function GroupRenderer({
         }
         const isCollapsed = !!collapsed[n.path];
         const header = (
-          <div
+          <CrmDataRow
             key={`gh-${n.path}`}
-            role="row"
-            className={cn(LEADS_GRID, "border-t border-border/40 bg-muted/30")}
+            className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <div role="cell" style={{ gridColumn: "1 / -1" }} className="p-0">
+            <CrmDataCell colSpan={10} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
-                className="flex w-full items-center gap-1.5 px-3 py-1 text-left text-[11px] hover:bg-muted/50"
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[12px]"
                 style={{ paddingLeft: 12 + n.depth * 16 }}
                 aria-label={isCollapsed ? "Izvērst grupu" : "Sakļaut grupu"}
               >
@@ -1438,8 +1437,8 @@ function GroupRenderer({
                   {n.rows.length}
                 </span>
               </button>
-            </div>
-          </div>
+            </CrmDataCell>
+          </CrmDataRow>
         );
         if (isCollapsed) return [header];
         const children = n.children ? (
