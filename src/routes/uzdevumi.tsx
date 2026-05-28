@@ -753,7 +753,7 @@ function QueuePage() {
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="crm-table-filter-row sticky top-8 z-20">
+              <tr className="crm-table-filter-row sticky top-10 z-20">
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
