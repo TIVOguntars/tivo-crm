@@ -1004,65 +1004,6 @@ function QueuePage() {
   );
 }
 
-function HeadCell({
-  className,
-  children,
-}: {
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <th
-      className={cn(
-        "crm-table-header-cell text-left",
-        className,
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-function FilterCell({ children }: { children?: React.ReactNode }) {
-  return <th className="crm-table-filter-cell">{children}</th>;
-}
-
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors",
-        active
-          ? "border-primary/50 bg-primary/10 text-foreground"
-          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          "rounded px-1 text-[10px] tabular-nums",
-          active ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
 function FilterCard({
   label,
   count,
