@@ -16,7 +16,6 @@ import {
   ChevronDown,
   ChevronRight,
   X,
-  Search,
   AlertTriangle,
   Layers,
   ArrowUpDown,
@@ -53,8 +52,23 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   CrmPageActionsRow,
   CrmTableToolbar,
-  ClearAllFiltersButton,
 } from "@/components/crm/CrmLayout";
+import {
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterSelect,
+  CrmSearchInput,
+  CrmSortableHead,
+  type CrmTableSort,
+  type SortDir,
+} from "@/components/crm/table/CrmDataTable";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
@@ -176,9 +190,6 @@ function parseDate(v: unknown): number | null {
 const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
-
-const LEADS_GRID =
-  "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
 
 /* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
 const QUEUE_BUCKET_TONE: Record<string, string> = {
@@ -1123,6 +1134,16 @@ function LeadiPage() {
     else setSort([]);
   };
 
+  /* Bridge legacy SortRule[] state to CrmDataTable CrmTableSort */
+  const tableSort: CrmTableSort =
+    sort.length > 0
+      ? { key: sort[0].f, dir: sort[0].d }
+      : { key: null, dir: "asc" };
+  const handleTableSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort([]);
+    else setSort([{ f: key, d: dir }]);
+  };
+
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
     function walk(nodes: GroupNode[]) {
@@ -1150,6 +1171,10 @@ function LeadiPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
+      <div
+        className="mx-auto flex w-full max-w-[1600px] flex-col px-4 sm:px-6"
+        style={{ height: "calc(100vh - 4rem)" }}
+      >
       <HeaderSlot>
         <div className="min-w-0 leading-tight">
           <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
@@ -1203,203 +1228,136 @@ function LeadiPage() {
       {!errorMsg && loading && <LoadingState />}
 
       {!errorMsg && !loading && (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          {sorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="text-sm font-medium text-foreground">
-                Nav atrastu leadu
-              </div>
-              {hasActive && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={clearAll}
-                >
-                  Notīrīt filtrus
-                </Button>
-              )}
+        sorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-border bg-card py-12 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
             </div>
-          ) : (
-            <div className="max-h-[calc(100vh-220px)] overflow-y-auto overflow-x-hidden">
-              <div role="table" className={cn("w-full text-xs")}>
-                <div
-                  role="rowgroup"
-                  className="crm-table-header sticky top-0 z-10"
-                >
-                  {(() => {
-                    const SortHead = ({
-                      label,
-                      sortKey,
-                    }: { label: string; sortKey?: string }) => {
-                      const dir = sortKey ? sortDirOf(sortKey) : null;
-                      return (
-                        <div
-                          role="columnheader"
-                          className={cn(
-                            "crm-table-header-cell flex items-center gap-1",
-                            sortKey && "cursor-pointer select-none crm-sort-trigger",
-                          )}
-                          onClick={sortKey ? () => cycleSort(sortKey) : undefined}
-                        >
-                          <span>{label}</span>
-                          {sortKey ? (
-                            dir === "asc" ? (
-                              <ArrowUp className="h-3 w-3 opacity-80" />
-                            ) : dir === "desc" ? (
-                              <ArrowDown className="h-3 w-3 opacity-80" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )
-                          ) : null}
-                        </div>
-                      );
-                    };
-                    const ColSelect = ({
-                      fieldKey,
-                      placeholder,
-                      items,
-                    }: { fieldKey: string; placeholder: string; items: string[] }) => (
-                      <select
-                        value={colFilterValue(fieldKey)}
-                        onChange={(e) => setColFilter(fieldKey, e.target.value)}
-                        className="crm-filter-control"
-                      >
-                        <option value="">{placeholder}</option>
-                        {items.map((it) => (
-                          <option key={it} value={it}>{it}</option>
-                        ))}
-                      </select>
-                    );
-                    return (
-                      <>
-                        <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
-                          <div role="columnheader" className="crm-table-header-cell flex items-center">
-                            <Checkbox
-                              checked={allVisibleSelected}
-                              onCheckedChange={toggleAll}
-                              className="h-3.5 w-3.5"
-                            />
-                          </div>
-                          <SortHead label="PPV" sortKey="ppv" />
-                          <SortHead label="Lead" sortKey="lead" />
-                          <SortHead label="Tagi" sortKey="tags" />
-                          <SortHead label="Statuss" sortKey="status" />
-                          <SortHead label="Atbildīgais" sortKey="owner" />
-                          <SortHead label="Uzdevums" sortKey="effective_due_at" />
-                          <SortHead label="Aktivitāte" sortKey="last_communication_at" />
-                          <SortHead label="Prioritāte" sortKey="priority_score" />
-                          <div
-                            role="columnheader"
-                            className="crm-table-header-cell text-right"
-                            aria-label="Darbības"
-                          />
-                        </div>
-                        <div
-                          role="row"
-                          className={cn(LEADS_GRID, "crm-table-filter-row")}
-                        >
-                          <div role="cell" className="crm-table-filter-cell" />
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="ppv"
-                              placeholder="Visi"
-                              items={options.ppv}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <input
-                              value={search.q ?? ""}
-                              onChange={(e) =>
-                                setSearch({ q: e.target.value || undefined })
-                              }
-                              placeholder="Meklēt…"
-                              className="crm-filter-control"
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="tags"
-                              placeholder="Visi"
-                              items={options.tags}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="status"
-                              placeholder="Visi"
-                              items={options.status}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="owner"
-                              placeholder="Visi"
-                              items={options.owner}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="action_label"
-                              placeholder="Visi"
-                              items={options.action_label}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="communication_state"
-                              placeholder="Visi"
-                              items={options.communication_state}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="priority_label"
-                              placeholder="Visi"
-                              items={options.priority_label}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell flex items-center justify-end">
-                            <ClearAllFiltersButton
-                              active={anyColFilterActive}
-                              onClick={clearAll}
-                            />
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                <div role="rowgroup">
-                  <GroupRenderer
-                    nodes={groupTree}
-                    collapsed={collapsed}
-                    toggle={toggleCollapsed}
-                    selected={selected}
-                    toggleOne={toggleOne}
-                    openLead={openLead}
-                    bumpActivity={bumpActivity}
-                    commCounts={commCounts}
-                  />
-                </div>
-              </div>
+            <div className="text-sm font-medium text-foreground">
+              Nav atrastu leadu
             </div>
-          )}
-          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground">
-            <span>
-              Rāda {sorted.length} no {leads.length}
-            </span>
-            <span>
-              {gby.length > 0
-                ? `Grupēts: ${gby.map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k).join(" › ")}`
-                : "Bez grupēšanas"}
-            </span>
+            {hasActive && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={clearAll}
+              >
+                Notīrīt filtrus
+              </Button>
+            )}
           </div>
-        </div>
+        ) : (
+          <CrmDataTable
+            className="min-h-0 flex-1"
+            maxHeight="100%"
+            sort={tableSort}
+            onSortChange={handleTableSort}
+          >
+            <CrmDataTableHeader>
+              <CrmDataTableLabelRow>
+                <CrmSortableHead label={
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    onCheckedChange={toggleAll}
+                    className="h-3.5 w-3.5"
+                    aria-label="Atzīmēt visus"
+                  />
+                } style={{ width: 36 }} />
+                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+                <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
+                <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
+                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
+                <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
+                <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
+                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
+                <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
+              </CrmDataTableLabelRow>
+              <CrmDataTableFilterRow>
+                <CrmFilterCell />
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("ppv")}
+                    onValueChange={(v) => setColFilter("ppv", v)}
+                    options={options.ppv.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmSearchInput
+                    value={search.q ?? ""}
+                    onChange={(e) =>
+                      setSearch({ q: e.target.value || undefined })
+                    }
+                    placeholder="Meklēt…"
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("tags")}
+                    onValueChange={(v) => setColFilter("tags", v)}
+                    options={options.tags.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("status")}
+                    onValueChange={(v) => setColFilter("status", v)}
+                    options={options.status.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("owner")}
+                    onValueChange={(v) => setColFilter("owner", v)}
+                    options={options.owner.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("action_label")}
+                    onValueChange={(v) => setColFilter("action_label", v)}
+                    options={options.action_label.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("communication_state")}
+                    onValueChange={(v) => setColFilter("communication_state", v)}
+                    options={options.communication_state.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("priority_label")}
+                    onValueChange={(v) => setColFilter("priority_label", v)}
+                    options={options.priority_label.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell align="right">
+                  <CrmClearFiltersButton
+                    active={anyColFilterActive}
+                    onClick={clearAll}
+                  />
+                </CrmFilterCell>
+              </CrmDataTableFilterRow>
+            </CrmDataTableHeader>
+            <CrmDataBody>
+              <GroupRenderer
+                nodes={groupTree}
+                collapsed={collapsed}
+                toggle={toggleCollapsed}
+                selected={selected}
+                toggleOne={toggleOne}
+                openLead={openLead}
+                bumpActivity={bumpActivity}
+                commCounts={commCounts}
+              />
+            </CrmDataBody>
+          </CrmDataTable>
+        )
       )}
+      </div>
     </TooltipProvider>
   );
 }
@@ -1452,16 +1410,15 @@ function GroupRenderer({
         }
         const isCollapsed = !!collapsed[n.path];
         const header = (
-          <div
+          <CrmDataRow
             key={`gh-${n.path}`}
-            role="row"
-            className={cn(LEADS_GRID, "border-t border-border/40 bg-muted/30")}
+            className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <div role="cell" style={{ gridColumn: "1 / -1" }} className="p-0">
+            <CrmDataCell colSpan={10} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
-                className="flex w-full items-center gap-1.5 px-3 py-1 text-left text-[11px] hover:bg-muted/50"
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[12px]"
                 style={{ paddingLeft: 12 + n.depth * 16 }}
                 aria-label={isCollapsed ? "Izvērst grupu" : "Sakļaut grupu"}
               >
@@ -1477,8 +1434,8 @@ function GroupRenderer({
                   {n.rows.length}
                 </span>
               </button>
-            </div>
-          </div>
+            </CrmDataCell>
+          </CrmDataRow>
         );
         if (isCollapsed) return [header];
         const children = n.children ? (
@@ -1564,41 +1521,34 @@ function LeadRow({
             : l.communication_state === "no_contact"
               ? "Nav kontakta"
               : "");
-  const commTimeSrc = l.last_reply_at || l.last_communication_at;
   return (
-    <div
-      role="row"
+    <CrmDataRow
       onClick={() => openLead(l.lead_id)}
       className={cn(
-        LEADS_GRID,
-        "group relative cursor-pointer border-b border-border/30 transition-colors",
+        "group relative cursor-pointer",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
-        isSel ? "bg-primary/[0.04]" : "hover:bg-muted/30",
+        isSel && "bg-[var(--tivo-navy-soft)]",
       )}
     >
-      <div
-        role="cell"
-        className="px-1.5 py-1 flex items-center"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <CrmDataCell onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isSel}
           onCheckedChange={() => toggleOne(l.lead_id)}
           className="h-3.5 w-3.5"
         />
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         <span
-          className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
           title={l.ppv_name || l.ppv_user_code || "-"}
         >
           {l.ppv_user_code || (
             <span className="text-muted-foreground/60">-</span>
           )}
         </span>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
             {l.name || (
@@ -1614,13 +1564,13 @@ function LeadRow({
             />
           )}
         </div>
-        <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
+        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums">
           <span className="text-muted-foreground/70">{l.country || "—"}</span>
           <span className="mx-1 opacity-40">•</span>
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
@@ -1629,20 +1579,20 @@ function LeadRow({
               <Tag key={t} tag={t} />
             ))}
             {l.tags.length > 3 && (
-              <span className="text-[10px] text-muted-foreground/55 tabular-nums">
+              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
                 +{l.tags.length - 3}
               </span>
             )}
           </div>
         )}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex min-w-0 flex-col gap-0.5">
           <StatusBadge status={l.status} />
           <div className="flex items-center gap-1">
             <span
               className={cn(
-                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[10px] font-medium",
+                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[11px] font-medium",
                 queueBucketTone(l.queue_bucket),
               )}
               title={l.queue_bucket_label || "Nav rindas"}
@@ -1657,11 +1607,11 @@ function LeadRow({
             )}
           </div>
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {l.owner_user_code ? (
           <span
-            className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+            className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
             title={l.owner || l.owner_user_code}
           >
             {l.owner_user_code}
@@ -1669,12 +1619,12 @@ function LeadRow({
         ) : (
           <span className="text-muted-foreground/50">-</span>
         )}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
             className={cn(
-              "truncate text-[11.5px] font-medium",
+              "truncate text-[13px] font-medium",
               l.has_task && l.next_action
                 ? "text-foreground"
                 : "text-muted-foreground/60",
@@ -1685,7 +1635,7 @@ function LeadRow({
           {l.has_task && l.next_action_due && (
             <span
               className={cn(
-                "truncate text-[10px] tabular-nums",
+                "truncate text-[12px] tabular-nums",
                 isOverdue
                   ? "text-[var(--tivo-red)]"
                   : "text-muted-foreground/70",
@@ -1695,8 +1645,8 @@ function LeadRow({
             </span>
           )}
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell>
         {(() => {
           let bestDate: string | null = null;
           let src: "reply" | "inbound" | "outbound" | "communication" | null =
@@ -1723,7 +1673,7 @@ function LeadRow({
                 {commLabel ? (
                   <span
                     className={cn(
-                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[10.5px] font-medium",
+                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
                       tone,
                     )}
                     title={commLabel}
@@ -1731,12 +1681,12 @@ function LeadRow({
                     {commLabel}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground/60 text-[11px]">—</span>
+                  <span className="text-muted-foreground/60 text-[12px]">—</span>
                 )}
                 {l.has_unread_reply && (
                   <span
                     className={cn(
-                      "inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold",
+                      "inline-flex items-center rounded px-1.5 py-[1px] text-[11px] font-semibold",
                       UNREAD_REPLY_TONE,
                     )}
                   >
@@ -1745,15 +1695,15 @@ function LeadRow({
                 )}
               </div>
               {bestDate && !isFutureDate(bestDate) && (
-                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
                   {fmtRelative(bestDate)}
                 </span>
               )}
             </div>
           );
         })()}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
           const tooltipLines = [
@@ -1784,7 +1734,7 @@ function LeadRow({
                 ))}
               </div>
               {(l.priority_label || l.priority_score != null) && (
-                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
                   {l.priority_label || ""}
                   {l.priority_label && l.priority_score != null ? " · " : ""}
                   {l.priority_score != null ? l.priority_score : ""}
@@ -1793,12 +1743,8 @@ function LeadRow({
             </div>
           );
         })()}
-      </div>
-      <div
-        role="cell"
-        className="min-w-0 px-1.5 py-1 flex items-center justify-end"
-        onClick={(e) => e.stopPropagation()}
-      >
+      </CrmDataCell>
+      <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
           <RowAction
             icon={<Phone className="h-3.5 w-3.5" />}
@@ -1833,8 +1779,8 @@ function LeadRow({
             onClick={() => openLead(l.lead_id)}
           />
         </div>
-      </div>
-    </div>
+      </CrmDataCell>
+    </CrmDataRow>
   );
 }
 
