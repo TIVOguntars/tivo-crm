@@ -279,6 +279,48 @@
     outline-offset: -1px;
     box-shadow: none !important;
   }
+  /* Unified CRM search input — icon LEFT, input RIGHT, flex row, never overlay. */
+  .crm-search-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 25px;
+    min-height: 25px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid var(--crm-border);
+    background-color: #ffffff;
+    color: var(--tivo-navy);
+    box-shadow: none;
+  }
+  .crm-search-input > svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: color-mix(in oklab, var(--tivo-navy) 55%, transparent);
+  }
+  .crm-search-input > input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--tivo-navy);
+    font-size: 13px;
+    line-height: 1;
+    box-shadow: none;
+  }
+  .crm-search-input > input::placeholder {
+    color: color-mix(in oklab, var(--tivo-navy) 50%, transparent);
+  }
+  .crm-search-input:focus-within {
+    outline: 1px solid var(--tivo-navy);
+    outline-offset: -1px;
+  }
   /* Sort trigger inside a header cell — keeps icon + label aligned. */
   .crm-sort-trigger {
     display: inline-flex;
