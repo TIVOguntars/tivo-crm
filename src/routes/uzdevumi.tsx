@@ -1,20 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +16,6 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { getCrmColorToken, deadlineTone, toneClasses } from "@/lib/crmColors";
@@ -44,6 +35,22 @@ import {
   CrmBannerRow,
   CrmTableToolbar,
 } from "@/components/crm/CrmLayout";
+import {
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterInput,
+  CrmFilterSelect,
+  CrmSortableHead,
+  type CrmTableSort,
+  type SortDir,
+} from "@/components/crm/table/CrmDataTable";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -401,7 +408,7 @@ function QueuePage() {
   const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
   const [source, setSource] = useState<"all" | "auto" | "manual">("all");
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "desc" });
 
   // Persist filters/sort to sessionStorage so returning from /lead/$id restores state.
   const filtersHydratedRef = useRef(false);
@@ -426,10 +433,13 @@ function QueuePage() {
       if (
         p.sort &&
         typeof p.sort === "object" &&
-        (p.sort as { key?: unknown }).key &&
         ((p.sort as { dir?: unknown }).dir === "asc" || (p.sort as { dir?: unknown }).dir === "desc")
       ) {
-        setSort(p.sort as { key: SortKey; dir: "asc" | "desc" });
+        const k = (p.sort as { key?: unknown }).key;
+        setSort({
+          key: typeof k === "string" ? k : null,
+          dir: (p.sort as { dir: "asc" | "desc" }).dir,
+        });
       }
     } catch {
       /* ignore */
@@ -459,12 +469,9 @@ function QueuePage() {
     }
   }, [actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
-  const toggleSort = (key: SortKey) => {
-    setSort((cur) => {
-      if (!cur || cur.key !== key) return { key, dir: "desc" };
-      if (cur.dir === "desc") return { key, dir: "asc" };
-      return null;
-    });
+  const handleSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort({ key: null, dir: "asc" });
+    else setSort({ key, dir });
   };
 
   const actionTypes = useMemo(
@@ -538,10 +545,10 @@ function QueuePage() {
   const filtered = useMemo(() => {
     const list = rows.filter((r) => matchRow(r));
     list.sort((a, b) => {
-      if (sort) {
+      if (sort.key) {
         const dir = sort.dir === "asc" ? 1 : -1;
-        const av = sortValue(a, sort.key);
-        const bv = sortValue(b, sort.key);
+        const av = sortValue(a, sort.key as SortKey);
+        const bv = sortValue(b, sort.key as SortKey);
         if (typeof av === "number" && typeof bv === "number") {
           if (av !== bv) return (av - bv) * dir;
         } else {
@@ -623,7 +630,7 @@ function QueuePage() {
     tags.length > 0 ||
     q.trim() !== "" ||
     source !== "all" ||
-    sort !== null;
+    sort.key !== null;
 
   const clearAllFilters = () => {
     setActionType("all");
@@ -636,7 +643,7 @@ function QueuePage() {
     setTags([]);
     setQ("");
     setSource("all");
-    setSort(null);
+    setSort({ key: null, dir: "asc" });
   };
 
   const sourceCounts = useMemo(() => {
@@ -652,7 +659,10 @@ function QueuePage() {
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div
+      className="mx-auto flex max-w-7xl flex-col px-4 py-6 sm:px-6"
+      style={{ height: "calc(100vh - 4rem)" }}
+    >
       <PageHeader
         title="Uzdevumi"
         description="Nākamās darbības ar leadiem"
@@ -722,121 +732,108 @@ function QueuePage() {
       ) : view.data?.error ? (
         <ErrorState message={view.data.error} />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="relative w-full overflow-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
-          <table className="w-full caption-bottom text-sm">
-            <thead className="crm-table-header">
-              <tr className="crm-table-header-row sticky top-0 z-20">
-                <HeadCell>
-                  <SortButton label="PPV" k="ppv" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[200px]">
-                  <SortButton label="Vārds Uzvārds / VAL" k="lead" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[120px]">
-                  <SortButton label="Tagi" k="tags" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell>
-                  <SortButton label="Statuss" k="leadStatus" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[64px]">
-                  <SortButton label="Atbildīgais" k="owner" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[100px]">
-                  <SortButton label="Termiņš" k="due" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[88px]">
-                  <SortButton label="Prioritāte" k="priority" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell>
-                  <SortButton label="Darbība" k="action" sort={sort} onClick={toggleSort} />
-                </HeadCell>
-                <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
-              </tr>
-              <tr className="crm-table-filter-row sticky top-10 z-20">
-                <FilterCell>
-                  <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
-                </FilterCell>
-                <FilterCell>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--tivo-navy)] opacity-60" />
-                    <Input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Meklēt leadu vai objektu..."
-                      className="crm-filter-control pl-7"
-                    />
-                  </div>
-                </FilterCell>
-                <FilterCell>
-                  <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={leadStatus} onChange={setLeadStatus} options={leadStatuses} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={owner} onChange={setOwner} options={owners} />
-                </FilterCell>
-                <FilterCell>
-                  <Select value={dueFilter} onValueChange={setDueFilter}>
-                    <SelectTrigger className="crm-filter-control">
-                      <SelectValue placeholder="Visi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Visi</SelectItem>
-                      {dueChips.map((c) => (
-                        <SelectItem key={c.key} value={c.key}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={taskPriority} onChange={setTaskPriority} options={taskPriorities} />
-                </FilterCell>
-                <FilterCell>
-                  <HeaderOptionsSelect value={actionType} onChange={setActionType} options={actionTypes} />
-                </FilterCell>
-                <FilterCell>
-                  {hasActiveFilters ? (
-                    <button
-                      type="button"
-                      onClick={clearAllFilters}
-                      className="crm-filter-control justify-center gap-1 hover:bg-[var(--tivo-navy-soft)]"
-                      title="Notīrīt visus filtrus"
-                    >
-                      <X className="h-3 w-3" />
-                      <span>Notīrīt</span>
-                    </button>
-                  ) : null}
-                </FilterCell>
-              </tr>
-            </thead>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
-                    {hasActiveFilters
-                      ? "Nav ierakstu, kas atbilst filtriem."
-                      : "Rindā nav ierakstu"}
-                  </TableCell>
-                </TableRow>
-              ) : filtered.map((r, i) => {
+        <CrmDataTable
+          className="min-h-0 flex-1"
+          maxHeight="100%"
+          sort={sort}
+          onSortChange={handleSort}
+        >
+          <CrmDataTableHeader>
+            <CrmDataTableLabelRow>
+              <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+              <CrmSortableHead sortKey="lead" label="Vārds Uzvārds / VAL" style={{ width: "auto" }} />
+              <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
+              <CrmSortableHead sortKey="leadStatus" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
+              <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
+              <CrmSortableHead sortKey="due" label="Termiņš" style={{ width: 120 }} />
+              <CrmSortableHead sortKey="priority" label="Prioritāte" style={{ width: "1%", whiteSpace: "nowrap" }} />
+              <CrmSortableHead sortKey="action" label="Darbība" style={{ width: "auto" }} />
+              <CrmSortableHead label="Darbības" align="right" style={{ width: 80 }} />
+            </CrmDataTableLabelRow>
+            <CrmDataTableFilterRow>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={ppv === "all" ? "" : ppv}
+                  onValueChange={(v) => setPpv(v || "all")}
+                  options={ppvs.map((o) => ({ value: o, label: o }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--tivo-navy)] opacity-60" />
+                  <CrmFilterInput
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Meklēt leadu vai objektu..."
+                    className="pl-7"
+                  />
+                </div>
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <TagsMultiSelect value={tags} onChange={setTags} options={allTags} />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={leadStatus === "all" ? "" : leadStatus}
+                  onValueChange={(v) => setLeadStatus(v || "all")}
+                  options={leadStatuses.map((o) => ({ value: o, label: o }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={owner === "all" ? "" : owner}
+                  onValueChange={(v) => setOwner(v || "all")}
+                  options={owners.map((o) => ({ value: o, label: o }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={dueFilter === "all" ? "" : dueFilter}
+                  onValueChange={(v) => setDueFilter(v || "all")}
+                  options={dueChips.map((c) => ({ value: c.key, label: c.label }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={taskPriority === "all" ? "" : taskPriority}
+                  onValueChange={(v) => setTaskPriority(v || "all")}
+                  options={taskPriorities.map((o) => ({ value: o, label: o }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={actionType === "all" ? "" : actionType}
+                  onValueChange={(v) => setActionType(v || "all")}
+                  options={actionTypes.map((o) => ({ value: o, label: o }))}
+                />
+              </CrmFilterCell>
+              <CrmFilterCell align="right">
+                <CrmClearFiltersButton active={hasActiveFilters} onClick={clearAllFilters} />
+              </CrmFilterCell>
+            </CrmDataTableFilterRow>
+          </CrmDataTableHeader>
+          <CrmDataBody>
+            {filtered.length === 0 ? (
+              <CrmDataRow>
+                <CrmDataCell colSpan={9} align="center" className="text-muted-foreground">
+                  {hasActiveFilters
+                    ? "Nav ierakstu, kas atbilst filtriem."
+                    : "Rindā nav ierakstu"}
+                </CrmDataCell>
+              </CrmDataRow>
+            ) : (
+              filtered.map((r, i) => {
                 const leadId = s(r.lead_id);
                 const tLabel = s(r.task_priority_label);
-                const tags = parseTags(r.tags);
+                const rowTags = parseTags(r.tags);
                 const taskId = s(r.id);
                 const isTask =
                   s(r.action_source).toLowerCase() === "task" &&
                   UUID_RE.test(taskId);
                 return (
-                  <TableRow
+                  <CrmDataRow
                     key={s(r.id) || s(r.queue_id) || s(r.next_action_id) || i}
-                    className={cn(
-                      "text-xs",
-                      isTask && "cursor-pointer",
-                    )}
+                    className={cn(isTask && "cursor-pointer")}
                     onClick={
                       isTask
                         ? () =>
@@ -848,8 +845,7 @@ function QueuePage() {
                         : undefined
                     }
                   >
-                    {/* 2. PPV */}
-                    <TableCell className="py-3 text-muted-foreground">
+                    <CrmDataCell className="text-muted-foreground">
                       {s(r.ppv_label) ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -862,9 +858,8 @@ function QueuePage() {
                       ) : (
                         "—"
                       )}
-                    </TableCell>
-                    {/* 3. Vārds Uzvārds / VAL */}
-                    <TableCell className="py-3 align-top">
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
                       {leadId ? (
                         <Link
                           to="/lead/$leadId"
@@ -877,10 +872,10 @@ function QueuePage() {
                               /* ignore */
                             }
                           }}
-                          className="block max-w-[200px] text-left text-primary/90 hover:underline"
+                          className="block text-left text-primary/90 hover:underline"
                         >
                           <div className="line-clamp-1 font-medium">{leadLabel(r)}</div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
@@ -888,9 +883,9 @@ function QueuePage() {
                           </div>
                         </Link>
                       ) : (
-                        <div className="max-w-[200px]">
+                        <div>
                           <div className="line-clamp-1">{leadLabel(r)}</div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                             {s(r.country) && (
                               <span className="uppercase tracking-wide">{s(r.country)}</span>
                             )}
@@ -898,17 +893,14 @@ function QueuePage() {
                           </div>
                         </div>
                       )}
-                    </TableCell>
-                    {/* 4. Tagi */}
-                    <TableCell className="py-3">
-                      <TagsCell tags={tags} />
-                    </TableCell>
-                    {/* 6. Statuss */}
-                    <TableCell className="py-3">
+                    </CrmDataCell>
+                    <CrmDataCell>
+                      <TagsCell tags={rowTags} />
+                    </CrmDataCell>
+                    <CrmDataCell>
                       <StatusBadge status={mapStatus(s(r.lead_status))} />
-                    </TableCell>
-                    {/* 7. Atbildīgais */}
-                    <TableCell className="py-3">
+                    </CrmDataCell>
+                    <CrmDataCell>
                       {s(r.task_executor_label) ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -923,17 +915,14 @@ function QueuePage() {
                       ) : (
                         <OwnerBadge value="" />
                       )}
-                    </TableCell>
-                    {/* 8. Termiņš */}
-                    <TableCell className="py-3">
+                    </CrmDataCell>
+                    <CrmDataCell>
                       <DueCell value={r.effective_due_at ?? r.due_at} />
-                    </TableCell>
-                    {/* 9. Prioritāte (uzdevuma) */}
-                    <TableCell className="py-3">
+                    </CrmDataCell>
+                    <CrmDataCell>
                       <PriorityBadge label={tLabel} />
-                    </TableCell>
-                    {/* 10. Darbība */}
-                    <TableCell className="py-3 align-top">
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
                       {(() => {
                         const isAuto = s(r.task_source) === "daily_planned_task_generator";
                         const gen = s(r.generated_for_date);
@@ -956,16 +945,15 @@ function QueuePage() {
                               </Badge>
                             </div>
                             {isAuto && gen ? (
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="text-[12px] text-muted-foreground">
                                 Ģenerēts: {fmtDate(gen)}
                               </span>
                             ) : null}
                           </div>
                         );
                       })()}
-                    </TableCell>
-                    {/* 11. Darbības */}
-                    <TableCell className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    </CrmDataCell>
+                    <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {isTask ? (
                           <TaskActionsMenu
@@ -979,14 +967,13 @@ function QueuePage() {
                           />
                         ) : null}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </CrmDataCell>
+                  </CrmDataRow>
                 );
-              })}
-            </TableBody>
-          </table>
-          </div>
-        </div>
+              })
+            )}
+          </CrmDataBody>
+        </CrmDataTable>
       )}
 
       <TaskFormDialog
@@ -1014,65 +1001,6 @@ function QueuePage() {
       ) : null}
     </div>
     </TooltipProvider>
-  );
-}
-
-function HeadCell({
-  className,
-  children,
-}: {
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <th
-      className={cn(
-        "crm-table-header-cell text-left",
-        className,
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-function FilterCell({ children }: { children?: React.ReactNode }) {
-  return <th className="crm-table-filter-cell">{children}</th>;
-}
-
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors",
-        active
-          ? "border-primary/50 bg-primary/10 text-foreground"
-          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          "rounded px-1 text-[10px] tabular-nums",
-          active ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
-        )}
-      >
-        {count}
-      </span>
-    </button>
   );
 }
 
@@ -1154,124 +1082,6 @@ function sortValue(r: Row, key: SortKey): string | number {
       return mapStatus(s(r.lead_status)).toLowerCase();
     }
   }
-}
-
-function SortButton({
-  label,
-  k,
-  sort,
-  onClick,
-  ariaLabel,
-}: {
-  label?: string;
-  k: SortKey;
-  sort: { key: SortKey; dir: "asc" | "desc" } | null;
-  onClick: (k: SortKey) => void;
-  ariaLabel?: string;
-}) {
-  const active = sort?.key === k;
-  const Icon = !active ? ArrowUpDown : sort!.dir === "asc" ? ArrowUp : ArrowDown;
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel || label}
-      onClick={() => onClick(k)}
-      className={cn(
-        "crm-sort-trigger transition-colors",
-        active ? "opacity-100" : "opacity-90",
-      )}
-    >
-      {label && <span>{label}</span>}
-      <Icon
-        className={cn("h-3 w-3", !active && "opacity-50")}
-        strokeWidth={2.25}
-      />
-    </button>
-  );
-}
-
-function FilterPill({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { v: string; l: string }[];
-}) {
-  const active = value !== "all";
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger
-        className={cn(
-          "h-7 w-auto min-w-0 gap-1 rounded-full border px-2.5 text-[11px]",
-          active
-            ? "border-primary/40 bg-primary/10 text-foreground"
-            : "border-border bg-background text-muted-foreground",
-        )}
-      >
-        <span className="font-medium">{label}</span>
-        {active && <span className="text-foreground">: {value}</span>}
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">Visi</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o.v} value={o.v}>
-            {o.l}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function HeaderSelect({
-  value,
-  onChange,
-  placeholder,
-  children,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-6 w-full min-w-0 px-1.5 text-[11px]">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>{children}</SelectContent>
-    </Select>
-  );
-}
-
-function HeaderOptionsSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="crm-filter-control">
-        <SelectValue placeholder="Visi" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">Visi</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 function TagsMultiSelect({
