@@ -26,6 +26,7 @@ import { Route as IenakosasZinasRouteImport } from './routes/ienakosas-zinas'
 import { Route as FunnelRouteImport } from './routes/funnel'
 import { Route as EPastiRouteImport } from './routes/e-pasti'
 import { Route as DarbaRindaRouteImport } from './routes/darba-rinda'
+import { Route as CrmTableDemoRouteImport } from './routes/crm-table-demo'
 import { Route as AuditsRouteImport } from './routes/audits'
 import { Route as AnalitikaRouteImport } from './routes/analitika'
 import { Route as IndexRouteImport } from './routes/index'
@@ -130,6 +131,11 @@ const DarbaRindaRoute = DarbaRindaRouteImport.update({
   path: '/darba-rinda',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CrmTableDemoRoute = CrmTableDemoRouteImport.update({
+  id: '/crm-table-demo',
+  path: '/crm-table-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuditsRoute = AuditsRouteImport.update({
   id: '/audits',
   path: '/audits',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analitika': typeof AnalitikaRoute
   '/audits': typeof AuditsRoute
+  '/crm-table-demo': typeof CrmTableDemoRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analitika': typeof AnalitikaRoute
   '/audits': typeof AuditsRoute
+  '/crm-table-demo': typeof CrmTableDemoRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analitika': typeof AnalitikaRoute
   '/audits': typeof AuditsRoute
+  '/crm-table-demo': typeof CrmTableDemoRoute
   '/darba-rinda': typeof DarbaRindaRoute
   '/e-pasti': typeof EPastiRoute
   '/funnel': typeof FunnelRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analitika'
     | '/audits'
+    | '/crm-table-demo'
     | '/darba-rinda'
     | '/e-pasti'
     | '/funnel'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analitika'
     | '/audits'
+    | '/crm-table-demo'
     | '/darba-rinda'
     | '/e-pasti'
     | '/funnel'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analitika'
     | '/audits'
+    | '/crm-table-demo'
     | '/darba-rinda'
     | '/e-pasti'
     | '/funnel'
@@ -453,6 +465,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalitikaRoute: typeof AnalitikaRoute
   AuditsRoute: typeof AuditsRoute
+  CrmTableDemoRoute: typeof CrmTableDemoRoute
   DarbaRindaRoute: typeof DarbaRindaRoute
   EPastiRoute: typeof EPastiRoute
   FunnelRoute: typeof FunnelRoute
@@ -608,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DarbaRindaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/crm-table-demo': {
+      id: '/crm-table-demo'
+      path: '/crm-table-demo'
+      fullPath: '/crm-table-demo'
+      preLoaderRoute: typeof CrmTableDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audits': {
       id: '/audits'
       path: '/audits'
@@ -741,6 +761,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalitikaRoute: AnalitikaRoute,
   AuditsRoute: AuditsRoute,
+  CrmTableDemoRoute: CrmTableDemoRoute,
   DarbaRindaRoute: DarbaRindaRoute,
   EPastiRoute: EPastiRoute,
   FunnelRoute: FunnelRoute,
