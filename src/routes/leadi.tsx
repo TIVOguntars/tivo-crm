@@ -1090,6 +1090,37 @@ function LeadiPage() {
   const hasActive =
     view !== "all" || flt.length > 0 || !!q || (search.gby && search.gby.length > 0) || (search.sort ?? []).length > 0;
 
+  /* ---- per-column filter helpers (table 2nd header row) ---- */
+  const colFilterValue = (key: string): string => {
+    const r = flt.find((x) => x.f === key && x.op === "is_any_of");
+    if (!r) return "";
+    const v = r.v as unknown;
+    if (Array.isArray(v)) return v.length > 0 ? String(v[0]) : "";
+    return "";
+  };
+  const setColFilter = (key: string, value: string) => {
+    const others = flt.filter((x) => !(x.f === key && x.op === "is_any_of"));
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    setFlt([...others, { f: key, op: "is_any_of", v: [value] }]);
+  };
+  const anyColFilterActive =
+    flt.length > 0 || !!q || view !== "all";
+
+  /* ---- click-to-sort helpers ---- */
+  const sortDirOf = (key: string): "asc" | "desc" | null => {
+    const r = sort.find((s) => s.f === key);
+    return r ? r.d : null;
+  };
+  const cycleSort = (key: string) => {
+    const cur = sortDirOf(key);
+    if (cur === null) setSort([{ f: key, d: "asc" }]);
+    else if (cur === "asc") setSort([{ f: key, d: "desc" }]);
+    else setSort([]);
+  };
+
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
     function walk(nodes: GroupNode[]) {
