@@ -252,12 +252,14 @@
     padding: 0 8px !important;
     vertical-align: middle;
   }
-  /* Standard filter control (input / select / button) — 32px tall, 13px. */
+  /* Standard filter control (input / select / button) — 28px tall, 13px.
+     Compact CRM density: ~15% smaller than consumer SaaS controls. */
   .crm-filter-control {
-    height: 32px !important;
+    height: 28px !important;
+    min-height: 28px !important;
     font-size: 13px !important;
     line-height: 1;
-    border-radius: 0.375rem;
+    border-radius: 6px !important;
     border: 1px solid var(--crm-border) !important;
     background-color: #ffffff !important;
     color: var(--tivo-navy);
@@ -296,5 +298,16 @@
     padding: 8px 12px;
     font-size: 14px;
     vertical-align: middle;
+  }
+  /* Scroll container for CrmDataTable when maxHeight is set.
+     The shadcn <Table> wraps its <table> in a div with overflow-auto; we
+     promote THAT inner div to be the scroll container so sticky header +
+     filter rows pin correctly. Without this, sticky breaks because the
+     scroll happens on a different ancestor than `position: sticky` resolves
+     against. */
+  .crm-table-scroll { overflow: visible; }
+  .crm-table-scroll > div {
+    max-height: var(--crm-table-max-h, none);
+    overflow: auto;
   }
 }

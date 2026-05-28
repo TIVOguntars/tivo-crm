@@ -68,19 +68,21 @@ export function CrmDataTable({
   children,
   ...rest
 }: CrmDataTableProps) {
-  const style =
-    maxHeight != null
-      ? {
-          maxHeight:
-            typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight,
-        }
-      : undefined;
+  const cssMax =
+    maxHeight == null
+      ? undefined
+      : typeof maxHeight === "number"
+        ? `${maxHeight}px`
+        : maxHeight;
+  const style = cssMax
+    ? ({ ["--crm-table-max-h" as string]: cssMax } as React.CSSProperties)
+    : undefined;
   return (
     <TableCtx.Provider value={{ sort, onSortChange }}>
       <div
         className={cn(
           "rounded-md border border-[color:var(--crm-border)] bg-[color:var(--crm-surface)]",
-          maxHeight != null && "overflow-auto",
+          cssMax && "crm-table-scroll",
           className,
         )}
         style={style}

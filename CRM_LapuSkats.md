@@ -222,9 +222,32 @@ Aizliegts:
 | --------------- | ------- |
 | Header row      | 40px    |
 | Filter row      | 40px    |
-| Filter controls | 32px    |
+| Filter controls | 28px    |
 | Dense row       | 52px    |
 | Rich row        | 64–72px |
+
+### 5.3.1. Filter control height (OBLIGĀTI)
+
+Visi tabulu filter controls ir kompakti — ~15% mazāki par consumer SaaS
+"fat controls":
+
+* standarta augstums: **28px**;
+* radius: **6px**;
+* white surface obligāts.
+
+Attiecas uz:
+
+* search input;
+* select trigger;
+* multi-select trigger;
+* date filter;
+* clear filters button (kad atrodas filter row).
+
+Aizliegts:
+
+* oversized filter controls;
+* consumer SaaS "fat controls";
+* 36–40px filter inputi tabulās.
 
 ---
 
@@ -259,6 +282,41 @@ Scroll:
 
 * tikai body rows.
 
+### 5.5.1. Table header sticky sistēma (OBLIGĀTI)
+
+Tabulu **header row** un **filter row** vienmēr ir iesaldētas (sticky).
+Vertikālā ritināšana notiek tikai table body rows.
+
+Aizliegts:
+
+* scrollējošs table header;
+* scrollējoša filter row;
+* scrollējoša visa lapa;
+* body (page-level) scroll.
+
+**Sticky hierarchy** (no augšas uz leju):
+
+1. page header
+2. action row
+3. banner row
+4. toolbar row
+5. table header row
+6. table filter row
+7. scrollable body rows
+
+### 5.5.2. Table body scroll (OBLIGĀTI)
+
+Tabulas body:
+
+* `overflow-y: auto`;
+* `flex: 1`;
+* aizņem atlikušo lapas augstumu.
+
+Visa CRM lapa:
+
+* `height: 100vh`;
+* `overflow: hidden`.
+
 ---
 
 # 6. FILTER SISTĒMA
@@ -269,7 +327,7 @@ Obligāti:
 
 * white background;
 * 6px radius;
-* vienots height;
+* vienots height (28px — skat. 5.3.1);
 * vienots focus ring.
 
 ### 6.1.1. Baltā fona noteikums (OBLIGĀTI)
