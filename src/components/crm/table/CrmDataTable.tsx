@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -318,6 +318,22 @@ export const CrmFilterInput = React.forwardRef<
   />
 ));
 CrmFilterInput.displayName = "CrmFilterInput";
+
+/**
+ * Unified CRM search input. Icon is always rendered on the LEFT inside a
+ * flex row — never as an absolute overlay above the placeholder.
+ * Use this for every search/filter text input across CRM tables.
+ */
+export const CrmSearchInput = React.forwardRef<
+  HTMLInputElement,
+  CrmFilterInputProps
+>(({ className, ...rest }, ref) => (
+  <div className={cn("crm-search-input", className)}>
+    <Search aria-hidden />
+    <input ref={ref} type="text" {...rest} />
+  </div>
+));
+CrmSearchInput.displayName = "CrmSearchInput";
 
 export interface CrmFilterSelectOption {
   value: string;
