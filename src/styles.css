@@ -230,14 +230,14 @@
   /* Header label cell — 12px / 600 / uppercase, 12px horizontal padding. */
   .crm-table-header-cell {
     color: var(--tivo-navy);
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 600 !important;
+    font-size: 12px !important;
     line-height: 1;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    height: 40px;
-    padding-left: 12px;
-    padding-right: 12px;
+    height: 40px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
     vertical-align: middle;
   }
   /* Filter row (row 2) — 40px, single outer bottom border, same bg. */
@@ -248,20 +248,20 @@
   }
   /* Filter cell — 8px horizontal padding, vertically centered, 40px tall. */
   .crm-table-filter-cell {
-    height: 40px;
-    padding: 0 8px;
+    height: 40px !important;
+    padding: 0 8px !important;
     vertical-align: middle;
   }
   /* Standard filter control (input / select / button) — 32px tall, 13px. */
   .crm-filter-control {
-    height: 32px;
-    font-size: 13px;
+    height: 32px !important;
+    font-size: 13px !important;
     line-height: 1;
     border-radius: 0.375rem;
     border: 1px solid var(--tivo-navy-border);
     background-color: #ffffff;
     color: var(--tivo-navy);
-    padding: 0 8px;
+    padding: 0 8px !important;
     display: inline-flex;
     align-items: center;
     width: 100%;
