@@ -1164,6 +1164,10 @@ function LeadiPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
+      <div
+        className="mx-auto flex w-full max-w-[1600px] flex-col px-4 sm:px-6"
+        style={{ height: "calc(100vh - 4rem)" }}
+      >
       <HeaderSlot>
         <div className="min-w-0 leading-tight">
           <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
@@ -1217,203 +1221,137 @@ function LeadiPage() {
       {!errorMsg && loading && <LoadingState />}
 
       {!errorMsg && !loading && (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          {sorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="text-sm font-medium text-foreground">
-                Nav atrastu leadu
-              </div>
-              {hasActive && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={clearAll}
-                >
-                  Notīrīt filtrus
-                </Button>
-              )}
+        sorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-border bg-card py-12 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
             </div>
-          ) : (
-            <div className="max-h-[calc(100vh-220px)] overflow-y-auto overflow-x-hidden">
-              <div role="table" className={cn("w-full text-xs")}>
-                <div
-                  role="rowgroup"
-                  className="crm-table-header sticky top-0 z-10"
-                >
-                  {(() => {
-                    const SortHead = ({
-                      label,
-                      sortKey,
-                    }: { label: string; sortKey?: string }) => {
-                      const dir = sortKey ? sortDirOf(sortKey) : null;
-                      return (
-                        <div
-                          role="columnheader"
-                          className={cn(
-                            "crm-table-header-cell flex items-center gap-1",
-                            sortKey && "cursor-pointer select-none crm-sort-trigger",
-                          )}
-                          onClick={sortKey ? () => cycleSort(sortKey) : undefined}
-                        >
-                          <span>{label}</span>
-                          {sortKey ? (
-                            dir === "asc" ? (
-                              <ArrowUp className="h-3 w-3 opacity-80" />
-                            ) : dir === "desc" ? (
-                              <ArrowDown className="h-3 w-3 opacity-80" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )
-                          ) : null}
-                        </div>
-                      );
-                    };
-                    const ColSelect = ({
-                      fieldKey,
-                      placeholder,
-                      items,
-                    }: { fieldKey: string; placeholder: string; items: string[] }) => (
-                      <select
-                        value={colFilterValue(fieldKey)}
-                        onChange={(e) => setColFilter(fieldKey, e.target.value)}
-                        className="crm-filter-control"
-                      >
-                        <option value="">{placeholder}</option>
-                        {items.map((it) => (
-                          <option key={it} value={it}>{it}</option>
-                        ))}
-                      </select>
-                    );
-                    return (
-                      <>
-                        <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
-                          <div role="columnheader" className="crm-table-header-cell flex items-center">
-                            <Checkbox
-                              checked={allVisibleSelected}
-                              onCheckedChange={toggleAll}
-                              className="h-3.5 w-3.5"
-                            />
-                          </div>
-                          <SortHead label="PPV" sortKey="ppv" />
-                          <SortHead label="Lead" sortKey="lead" />
-                          <SortHead label="Tagi" sortKey="tags" />
-                          <SortHead label="Statuss" sortKey="status" />
-                          <SortHead label="Atbildīgais" sortKey="owner" />
-                          <SortHead label="Uzdevums" sortKey="effective_due_at" />
-                          <SortHead label="Aktivitāte" sortKey="last_communication_at" />
-                          <SortHead label="Prioritāte" sortKey="priority_score" />
-                          <div
-                            role="columnheader"
-                            className="crm-table-header-cell text-right"
-                            aria-label="Darbības"
-                          />
-                        </div>
-                        <div
-                          role="row"
-                          className={cn(LEADS_GRID, "crm-table-filter-row")}
-                        >
-                          <div role="cell" className="crm-table-filter-cell" />
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="ppv"
-                              placeholder="Visi"
-                              items={options.ppv}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <input
-                              value={search.q ?? ""}
-                              onChange={(e) =>
-                                setSearch({ q: e.target.value || undefined })
-                              }
-                              placeholder="Meklēt…"
-                              className="crm-filter-control"
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="tags"
-                              placeholder="Visi"
-                              items={options.tags}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="status"
-                              placeholder="Visi"
-                              items={options.status}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="owner"
-                              placeholder="Visi"
-                              items={options.owner}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="action_label"
-                              placeholder="Visi"
-                              items={options.action_label}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="communication_state"
-                              placeholder="Visi"
-                              items={options.communication_state}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell">
-                            <ColSelect
-                              fieldKey="priority_label"
-                              placeholder="Visi"
-                              items={options.priority_label}
-                            />
-                          </div>
-                          <div role="cell" className="crm-table-filter-cell flex items-center justify-end">
-                            <ClearAllFiltersButton
-                              active={anyColFilterActive}
-                              onClick={clearAll}
-                            />
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                <div role="rowgroup">
-                  <GroupRenderer
-                    nodes={groupTree}
-                    collapsed={collapsed}
-                    toggle={toggleCollapsed}
-                    selected={selected}
-                    toggleOne={toggleOne}
-                    openLead={openLead}
-                    bumpActivity={bumpActivity}
-                    commCounts={commCounts}
-                  />
-                </div>
-              </div>
+            <div className="text-sm font-medium text-foreground">
+              Nav atrastu leadu
             </div>
-          )}
-          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground">
-            <span>
-              Rāda {sorted.length} no {leads.length}
-            </span>
-            <span>
-              {gby.length > 0
-                ? `Grupēts: ${gby.map((k) => GROUP_FIELD_BY_KEY[k]?.label ?? k).join(" › ")}`
-                : "Bez grupēšanas"}
-            </span>
+            {hasActive && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={clearAll}
+              >
+                Notīrīt filtrus
+              </Button>
+            )}
           </div>
-        </div>
+        ) : (
+          <CrmDataTable
+            className="min-h-0 flex-1"
+            maxHeight="100%"
+            sort={tableSort}
+            onSortChange={handleTableSort}
+          >
+            <CrmDataTableHeader>
+              <CrmDataTableLabelRow>
+                <CrmSortableHead label={
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    onCheckedChange={toggleAll}
+                    className="h-3.5 w-3.5"
+                    aria-label="Atzīmēt visus"
+                  />
+                } style={{ width: 36 }} />
+                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+                <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
+                <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
+                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
+                <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
+                <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
+                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
+                <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
+              </CrmDataTableLabelRow>
+              <CrmDataTableFilterRow>
+                <CrmFilterCell />
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("ppv")}
+                    onValueChange={(v) => setColFilter("ppv", v)}
+                    options={options.ppv.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmSearchInput
+                    value={search.q ?? ""}
+                    onChange={(e) =>
+                      setSearch({ q: e.target.value || undefined })
+                    }
+                    placeholder="Meklēt…"
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("tags")}
+                    onValueChange={(v) => setColFilter("tags", v)}
+                    options={options.tags.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("status")}
+                    onValueChange={(v) => setColFilter("status", v)}
+                    options={options.status.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("owner")}
+                    onValueChange={(v) => setColFilter("owner", v)}
+                    options={options.owner.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("action_label")}
+                    onValueChange={(v) => setColFilter("action_label", v)}
+                    options={options.action_label.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("communication_state")}
+                    onValueChange={(v) => setColFilter("communication_state", v)}
+                    options={options.communication_state.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("priority_label")}
+                    onValueChange={(v) => setColFilter("priority_label", v)}
+                    options={options.priority_label.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell align="right">
+                  <CrmClearFiltersButton
+                    active={anyColFilterActive}
+                    onClick={clearAll}
+                  />
+                </CrmFilterCell>
+              </CrmDataTableFilterRow>
+            </CrmDataTableHeader>
+            <CrmDataBody>
+              <GroupRenderer
+                nodes={groupTree}
+                collapsed={collapsed}
+                toggle={toggleCollapsed}
+                selected={selected}
+                toggleOne={toggleOne}
+                openLead={openLead}
+                bumpActivity={bumpActivity}
+                commCounts={commCounts}
+                allVisibleSelected={allVisibleSelected}
+              />
+            </CrmDataBody>
+          </CrmDataTable>
+        )
       )}
+      </div>
     </TooltipProvider>
   );
 }
