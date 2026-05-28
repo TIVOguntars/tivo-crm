@@ -222,18 +222,21 @@ Aizliegts:
 | --------------- | ------- |
 | Header row      | 40px    |
 | Filter row      | 40px    |
-| Filter controls | 28px    |
+| Filter controls | 25px    |
 | Dense row       | 52px    |
 | Rich row        | 64–72px |
 
-### 5.3.1. Filter control height (OBLIGĀTI)
+### 5.3.1. Filter control standarts (OBLIGĀTI)
 
-Visi tabulu filter controls ir kompakti — ~15% mazāki par consumer SaaS
-"fat controls":
+Visi tabulu filter/search/select controls ir kompakti enterprise stila —
+bez ēnām, bez consumer SaaS "fat controls":
 
-* standarta augstums: **28px**;
-* radius: **6px**;
-* white surface obligāts.
+* **height: 25px** (stingrs maksimums);
+* **background:** `var(--crm-surface)` / `#ffffff`;
+* **border:** `1px solid var(--crm-border)`;
+* **border-radius:** `6px`;
+* **font-size:** `13px`;
+* **box-shadow:** `none` (obligāti).
 
 Attiecas uz:
 
@@ -245,9 +248,12 @@ Attiecas uz:
 
 Aizliegts:
 
-* oversized filter controls;
-* consumer SaaS "fat controls";
-* 36–40px filter inputi tabulās.
+* `shadow-sm`, `shadow`, `shadow-md`, `shadow-lg`;
+* `drop-shadow`, inset shadow, jebkura dekoratīva ēna;
+* transparent background;
+* navy-soft background pašam input/select laukam;
+* oversized filter controls (>25px);
+* consumer SaaS "fat controls" (36–40px).
 
 ---
 
@@ -327,8 +333,9 @@ Obligāti:
 
 * white background;
 * 6px radius;
-* vienots height (28px — skat. 5.3.1);
-* vienots focus ring.
+* vienots height (**25px** — skat. 5.3.1);
+* bez ēnām (`box-shadow: none`);
+* vienots focus state.
 
 ### 6.1.1. Baltā fona noteikums (OBLIGĀTI)
 
@@ -355,7 +362,8 @@ Paši filter controls vienmēr ir white surface:
 * `background: var(--crm-surface)` vai `#ffffff`;
 * `border: 1px solid var(--crm-border)`;
 * `border-radius: 6px`;
-* `height: 32px`.
+* `height: 25px`;
+* `box-shadow: none`.
 
 ---
 
