@@ -1,9 +1,16 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CrmPageActionsRow } from "@/components/crm/CrmLayout";
+import { STATUS_BASE_CLASS, STATUS_STYLES } from "@/design/status-system";
 import {
   CrmClearFiltersButton,
   CrmDataBody,
@@ -52,6 +59,13 @@ const STATUS_LABEL: Record<Status, string> = {
   paused: "Pauzēts",
   done: "Pabeigts",
 };
+/** Map demo status → semantic status helper key. */
+const STATUS_SEMANTIC: Record<Status, keyof typeof STATUS_STYLES> = {
+  new: "jauns",
+  active: "kvalificēts",
+  paused: "atlikts",
+  done: "pabeigts",
+};
 const PRIORITY_LABEL: Record<Priority, string> = {
   high: "Augsta",
   medium: "Vidēja",
@@ -83,35 +97,20 @@ const DATA: DemoRow[] = [
 const OWNERS = Array.from(new Set(DATA.map((r) => r.owner))).sort();
 
 function StatusBadge({ s }: { s: Status }) {
-  const map: Record<Status, { bg: string; fg: string; bd: string }> = {
-    new:    { bg: "var(--tivo-blue-soft)",  fg: "var(--tivo-navy)",  bd: "var(--tivo-blue-border)" },
-    active: { bg: "var(--tivo-green-soft)", fg: "var(--tivo-navy)",  bd: "var(--tivo-green-border)" },
-    paused: { bg: "var(--tivo-orange-soft)",fg: "var(--tivo-navy)",  bd: "var(--tivo-orange-border)" },
-    done:   { bg: "var(--tivo-navy-soft)",  fg: "var(--tivo-navy)",  bd: "var(--tivo-navy-border)" },
-  };
-  const c = map[s];
+  const style = STATUS_STYLES[STATUS_SEMANTIC[s]];
   return (
-    <span
-      className="inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-medium"
-      style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.bd }}
-    >
+    <span className={`${STATUS_BASE_CLASS} ${style.bg} ${style.text}`}>
       {STATUS_LABEL[s]}
     </span>
   );
 }
 
 function PriorityTag({ p }: { p: Priority }) {
-  const map: Record<Priority, { bg: string; fg: string; bd: string }> = {
-    high:   { bg: "var(--tivo-red-soft)",   fg: "var(--tivo-red)",   bd: "var(--tivo-red-border)" },
-    medium: { bg: "var(--tivo-orange-soft)",fg: "var(--tivo-navy)",  bd: "var(--tivo-orange-border)" },
-    low:    { bg: "var(--tivo-navy-soft)",  fg: "var(--tivo-navy)",  bd: "var(--tivo-navy-border)" },
-  };
-  const c = map[p];
+  const key: keyof typeof STATUS_STYLES =
+    p === "high" ? "atcelts" : p === "medium" ? "atlikts" : "default";
+  const style = STATUS_STYLES[key];
   return (
-    <span
-      className="inline-flex h-6 items-center rounded-md border px-2 text-[12px] font-medium"
-      style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.bd }}
-    >
+    <span className={`${STATUS_BASE_CLASS} ${style.bg} ${style.text}`}>
       {PRIORITY_LABEL[p]}
     </span>
   );
@@ -190,35 +189,30 @@ function CrmTableDemo() {
   }, [search, fStatus, fPriority, fOwner, sort]);
 
   return (
-    <div>
-      <CrmPageActionsRow>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
-          Jauns ieraksts
-        </Button>
-      </CrmPageActionsRow>
+    <TooltipProvider delayDuration={150}>
+      <div className="flex flex-col" style={{ height: "calc(100vh - 9rem)" }}>
+        <CrmPageActionsRow className="mb-0" style={{ marginBottom: 20 }}>
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+            Jauns ieraksts
+          </Button>
+        </CrmPageActionsRow>
 
-      <header className="mb-4">
-        <h1 className="text-lg font-semibold text-[color:var(--tivo-navy)]">
-          CRM DataTable demo
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Izolēta demonstrācija jaunajai vienotajai CRM tabulu sistēmai.
-          Neviena esoša lapa nav modificēta.
-        </p>
-      </header>
-
-      <CrmDataTable maxHeight={480} sort={sort} onSortChange={handleSort}>
+        <CrmDataTable
+          className="min-h-0 flex-1"
+          maxHeight="100%"
+          sort={sort}
+          onSortChange={handleSort}
+        >
         <CrmDataTableHeader>
           <CrmDataTableLabelRow>
-            <CrmSortableHead sortKey="id" label="ID" />
-            <CrmSortableHead sortKey="lead" label="Lead" />
-            <CrmSortableHead sortKey="status" label="Statuss" />
-            <CrmSortableHead sortKey="priority" label="Prioritāte" />
-            <CrmSortableHead sortKey="due" label="Termiņš" />
-            <CrmSortableHead sortKey="owner" label="Atbildīgais" />
-            <CrmSortableHead sortKey="action" label="Darbība" />
-            <CrmSortableHead label="" align="right" />
+            <CrmSortableHead sortKey="id" label="ID" style={{ width: 72 }} />
+            <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+            <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
+            <CrmSortableHead sortKey="priority" label="Prioritāte" style={{ width: "1%", whiteSpace: "nowrap" }} />
+            <CrmSortableHead sortKey="due" label="Termiņš" style={{ width: 130 }} />
+            <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 160 }} />
+            <CrmSortableHead label="" align="right" style={{ width: 56 }} />
           </CrmDataTableLabelRow>
           <CrmDataTableFilterRow>
             <CrmFilterCell />
@@ -257,7 +251,6 @@ function CrmTableDemo() {
                 options={OWNERS.map((o) => ({ value: o, label: o }))}
               />
             </CrmFilterCell>
-            <CrmFilterCell />
             <CrmFilterCell align="right">
               <CrmClearFiltersButton active={anyFilter} onClick={clearAll} />
             </CrmFilterCell>
@@ -267,7 +260,7 @@ function CrmTableDemo() {
           {rows.length === 0 ? (
             <CrmDataRow>
               <CrmDataCell
-                colSpan={8}
+                colSpan={7}
                 align="center"
                 className="text-muted-foreground"
               >
@@ -283,20 +276,28 @@ function CrmTableDemo() {
                 <CrmDataCell><PriorityTag p={r.priority} /></CrmDataCell>
                 <CrmDataCell><DueDate iso={r.due} /></CrmDataCell>
                 <CrmDataCell>{r.owner}</CrmDataCell>
-                <CrmDataCell>{r.action}</CrmDataCell>
                 <CrmDataCell align="right">
-                  <Button size="sm" variant="outline">Atvērt</Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        aria-label="Atvērt"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Atvērt</TooltipContent>
+                  </Tooltip>
                 </CrmDataCell>
               </CrmDataRow>
             ))
           )}
         </CrmDataBody>
-      </CrmDataTable>
-
-      <p className="mt-3 text-xs text-muted-foreground">
-        Rāda {rows.length} no {DATA.length}.
-      </p>
-    </div>
+        </CrmDataTable>
+      </div>
+    </TooltipProvider>
   );
 }
 
