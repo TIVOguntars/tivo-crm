@@ -356,7 +356,7 @@ export function CrmFilterSelect({
       }
       disabled={disabled}
     >
-      <SelectTrigger className={cn("crm-filter-control", className)}>
+      <SelectTrigger className={cn("crm-filter-control border-0 shadow-none", className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
