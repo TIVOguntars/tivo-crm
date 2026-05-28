@@ -224,7 +224,7 @@
   .crm-table-header-row {
     background-color: var(--tivo-navy-soft);
     color: var(--tivo-navy);
-    height: 40px;
+    height: 32px;
     border-bottom: 0 !important;
   }
   /* Header label cell — 12px / 600 / uppercase, 12px horizontal padding. */
@@ -235,7 +235,9 @@
     line-height: 1;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    height: 40px !important;
+    height: 32px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
     padding-left: 12px !important;
     padding-right: 12px !important;
     vertical-align: middle;
@@ -243,20 +245,20 @@
   /* Filter row (row 2) — 40px, single outer bottom border, same bg. */
   .crm-table-filter-row {
     background-color: var(--tivo-navy-soft);
-    height: 40px;
+    height: 32px;
     border-bottom: 1px solid var(--tivo-navy-border);
   }
   /* Filter cell — 8px horizontal padding, vertically centered, 40px tall. */
   .crm-table-filter-cell {
-    height: 40px !important;
+    height: 32px !important;
     padding: 0 8px !important;
     vertical-align: middle;
   }
   /* Standard filter control (input / select / button) — 28px tall, 13px.
      Compact CRM density: ~15% smaller than consumer SaaS controls. */
   .crm-filter-control {
-    height: 28px !important;
-    min-height: 28px !important;
+    height: 25px !important;
+    min-height: 25px !important;
     font-size: 13px !important;
     line-height: 1;
     border-radius: 6px !important;

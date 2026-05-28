@@ -220,9 +220,9 @@ Aizliegts:
 
 | Elements        | Height  |
 | --------------- | ------- |
-| Header row      | 40px    |
-| Filter row      | 40px    |
-| Filter controls | 28px    |
+| Header row      | 32px    |
+| Filter row      | 32px    |
+| Filter controls | 25px    |
 | Dense row       | 52px    |
 | Rich row        | 64–72px |
 
@@ -231,7 +231,7 @@ Aizliegts:
 Visi tabulu filter/search/select controls ir kompakti enterprise stila —
 bez ēnām, bez consumer SaaS "fat controls":
 
-* **height: 28px** (stingrs maksimums);
+* **height: 25px** (stingrs maksimums);
 * **background:** `var(--crm-surface)` / `#ffffff`;
 * **border:** `1px solid var(--crm-border)`;
 * **border-radius:** `6px`;
@@ -252,8 +252,30 @@ Aizliegts:
 * `drop-shadow`, inset shadow, jebkura dekoratīva ēna;
 * transparent background;
 * navy-soft background pašam input/select laukam;
-* oversized filter controls (>28px);
+* oversized filter controls (>25px);
 * consumer SaaS "fat controls" (36–40px).
+
+### 5.3.2. Header + filter bloka blīvums (OBLIGĀTI)
+
+Header row un filter row vienmēr izskatās kā **viens vienots sticky bloks**.
+Nav lieka vertikāla gaisa starp row1 un row2.
+
+Stingri noteikumi:
+
+* header row height: **32px**;
+* filter row height: **32px**;
+* nekāda separator līnija starp abām rindām;
+* nekāds papildus padding / gap / margin starp tām;
+* nekāda shadow starp rindām;
+* abas rindas dalās ar to pašu TIVO navy-soft background.
+
+Tehniski (shared CSS, nevis lokāli route override):
+
+* `.crm-table-header-row` un `.crm-table-filter-row` augstums = 32px;
+* `.crm-table-header-cell` un `.crm-table-filter-cell` `padding-block: 0`;
+* filter cell `padding: 0 8px` (tikai horizontāli);
+* filter control 25px tiek vertikāli centrēts ar minimālu “gaisu” (~3.5px);
+* sticky offset filter rindai = header rindas augstums (32px / `top-8`).
 
 ---
 
@@ -333,7 +355,7 @@ Obligāti:
 
 * white background;
 * 6px radius;
-* vienots height (**28px** — skat. 5.3.1);
+* vienots height (**25px** — skat. 5.3.1);
 * bez ēnām (`box-shadow: none`);
 * vienots focus state.
 
@@ -362,7 +384,7 @@ Paši filter controls vienmēr ir white surface:
 * `background: var(--crm-surface)` vai `#ffffff`;
 * `border: 1px solid var(--crm-border)`;
 * `border-radius: 6px`;
-* `height: 28px`;
+* `height: 25px`;
 * `box-shadow: none`.
 
 ---
