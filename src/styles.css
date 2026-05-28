@@ -255,8 +255,8 @@
   /* Standard filter control (input / select / button) — 28px tall, 13px.
      Compact CRM density: ~15% smaller than consumer SaaS controls. */
   .crm-filter-control {
-    height: 28px !important;
-    min-height: 28px !important;
+    height: 25px !important;
+    min-height: 25px !important;
     font-size: 13px !important;
     line-height: 1;
     border-radius: 6px !important;
@@ -264,6 +264,8 @@
     background-color: #ffffff !important;
     color: var(--tivo-navy);
     padding: 0 8px !important;
+    box-shadow: none !important;
+    filter: none !important;
     display: inline-flex;
     align-items: center;
     width: 100%;
@@ -271,8 +273,9 @@
   .crm-filter-control::placeholder { color: color-mix(in oklab, var(--tivo-navy) 50%, transparent); }
   .crm-filter-control:focus,
   .crm-filter-control:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 1px var(--tivo-navy);
+    outline: 1px solid var(--tivo-navy);
+    outline-offset: -1px;
+    box-shadow: none !important;
   }
   /* Sort trigger inside a header cell — keeps icon + label aligned. */
   .crm-sort-trigger {
