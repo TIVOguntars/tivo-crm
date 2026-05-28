@@ -1228,24 +1228,148 @@ function LeadiPage() {
                   role="rowgroup"
                   className="crm-table-header sticky top-0 z-10 text-[11px] uppercase tracking-wide"
                 >
-                  <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 flex items-center">
-                      <Checkbox
-                        checked={allVisibleSelected}
-                        onCheckedChange={toggleAll}
-                        className="h-3.5 w-3.5"
-                      />
-                    </div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">PPV</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Lead</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Tagi</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Statuss</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Atbildīgais</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Uzdevums</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Aktivitāte</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2">Prioritāte</div>
-                    <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 text-right" aria-label="Darbības" />
-                  </div>
+                  {(() => {
+                    const SortHead = ({
+                      label,
+                      sortKey,
+                    }: { label: string; sortKey?: string }) => {
+                      const dir = sortKey ? sortDirOf(sortKey) : null;
+                      return (
+                        <div
+                          role="columnheader"
+                          className={cn(
+                            "crm-table-header-cell px-1.5 py-2 flex items-center gap-1",
+                            sortKey && "cursor-pointer select-none",
+                          )}
+                          onClick={sortKey ? () => cycleSort(sortKey) : undefined}
+                        >
+                          <span>{label}</span>
+                          {sortKey ? (
+                            dir === "asc" ? (
+                              <ArrowUp className="h-3 w-3 opacity-80" />
+                            ) : dir === "desc" ? (
+                              <ArrowDown className="h-3 w-3 opacity-80" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )
+                          ) : null}
+                        </div>
+                      );
+                    };
+                    const ColSelect = ({
+                      fieldKey,
+                      placeholder,
+                      items,
+                    }: { fieldKey: string; placeholder: string; items: string[] }) => (
+                      <select
+                        value={colFilterValue(fieldKey)}
+                        onChange={(e) => setColFilter(fieldKey, e.target.value)}
+                        className="h-6 w-full rounded border border-[var(--tivo-navy-border)] bg-white px-1 text-[11px] text-[var(--tivo-navy)] focus:outline-none focus:ring-1 focus:ring-[var(--tivo-navy)]"
+                      >
+                        <option value="">{placeholder}</option>
+                        {items.map((it) => (
+                          <option key={it} value={it}>{it}</option>
+                        ))}
+                      </select>
+                    );
+                    return (
+                      <>
+                        <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
+                          <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 flex items-center">
+                            <Checkbox
+                              checked={allVisibleSelected}
+                              onCheckedChange={toggleAll}
+                              className="h-3.5 w-3.5"
+                            />
+                          </div>
+                          <SortHead label="PPV" sortKey="ppv" />
+                          <SortHead label="Lead" />
+                          <SortHead label="Tagi" />
+                          <SortHead label="Statuss" sortKey="status" />
+                          <SortHead label="Atbildīgais" sortKey="owner" />
+                          <SortHead label="Uzdevums" sortKey="effective_due_at" />
+                          <SortHead label="Aktivitāte" sortKey="last_communication_at" />
+                          <SortHead label="Prioritāte" sortKey="priority_score" />
+                          <div
+                            role="columnheader"
+                            className="crm-table-header-cell px-1.5 py-2 text-right"
+                            aria-label="Darbības"
+                          />
+                        </div>
+                        <div
+                          role="row"
+                          className={cn(LEADS_GRID, "crm-table-filter-row")}
+                        >
+                          <div role="cell" className="px-1.5 py-1.5" />
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="ppv"
+                              placeholder="Visi"
+                              items={options.ppv}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <input
+                              value={search.q ?? ""}
+                              onChange={(e) =>
+                                setSearch({ q: e.target.value || undefined })
+                              }
+                              placeholder="Meklēt…"
+                              className="h-6 w-full rounded border border-[var(--tivo-navy-border)] bg-white px-1.5 text-[11px] text-[var(--tivo-navy)] placeholder:text-[var(--tivo-navy)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--tivo-navy)]"
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="tags"
+                              placeholder="Visi"
+                              items={options.tags}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="status"
+                              placeholder="Visi"
+                              items={options.status}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="owner"
+                              placeholder="Visi"
+                              items={options.owner}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="action_label"
+                              placeholder="Visi"
+                              items={options.action_label}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="communication_state"
+                              placeholder="Visi"
+                              items={options.communication_state}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5">
+                            <ColSelect
+                              fieldKey="priority_label"
+                              placeholder="Visi"
+                              items={options.priority_label}
+                            />
+                          </div>
+                          <div role="cell" className="px-1.5 py-1.5 flex justify-end">
+                            <ClearAllFiltersButton
+                              active={anyColFilterActive}
+                              onClick={clearAll}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div role="rowgroup">
                   <GroupRenderer
