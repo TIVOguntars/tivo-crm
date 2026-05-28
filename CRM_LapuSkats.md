@@ -384,7 +384,7 @@ Paši filter controls vienmēr ir white surface:
 * `background: var(--crm-surface)` vai `#ffffff`;
 * `border: 1px solid var(--crm-border)`;
 * `border-radius: 6px`;
-* `height: 28px`;
+* `height: 25px`;
 * `box-shadow: none`.
 
 ---
