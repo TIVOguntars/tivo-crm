@@ -51,6 +51,11 @@ import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
+  CrmPageActionsRow,
+  CrmTableToolbar,
+  ClearAllFiltersButton,
+} from "@/components/crm/CrmLayout";
+import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
   detectChannel,
