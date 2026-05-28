@@ -1526,39 +1526,33 @@ function LeadRow({
               : "");
   const commTimeSrc = l.last_reply_at || l.last_communication_at;
   return (
-    <div
-      role="row"
+    <CrmDataRow
       onClick={() => openLead(l.lead_id)}
       className={cn(
-        LEADS_GRID,
-        "group relative cursor-pointer border-b border-border/30 transition-colors",
+        "group relative cursor-pointer",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
-        isSel ? "bg-primary/[0.04]" : "hover:bg-muted/30",
+        isSel && "bg-[var(--tivo-navy-soft)]",
       )}
     >
-      <div
-        role="cell"
-        className="px-1.5 py-1 flex items-center"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <CrmDataCell onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isSel}
           onCheckedChange={() => toggleOne(l.lead_id)}
           className="h-3.5 w-3.5"
         />
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 text-foreground flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         <span
-          className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
           title={l.ppv_name || l.ppv_user_code || "-"}
         >
           {l.ppv_user_code || (
             <span className="text-muted-foreground/60">-</span>
           )}
         </span>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
             {l.name || (
@@ -1574,13 +1568,13 @@ function LeadRow({
             />
           )}
         </div>
-        <div className="truncate text-[11px] text-muted-foreground/80 tabular-nums">
+        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums">
           <span className="text-muted-foreground/70">{l.country || "—"}</span>
           <span className="mx-1 opacity-40">•</span>
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
@@ -1589,20 +1583,20 @@ function LeadRow({
               <Tag key={t} tag={t} />
             ))}
             {l.tags.length > 3 && (
-              <span className="text-[10px] text-muted-foreground/55 tabular-nums">
+              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
                 +{l.tags.length - 3}
               </span>
             )}
           </div>
         )}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex min-w-0 flex-col gap-0.5">
           <StatusBadge status={l.status} />
           <div className="flex items-center gap-1">
             <span
               className={cn(
-                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[10px] font-medium",
+                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[11px] font-medium",
                 queueBucketTone(l.queue_bucket),
               )}
               title={l.queue_bucket_label || "Nav rindas"}
@@ -1617,11 +1611,11 @@ function LeadRow({
             )}
           </div>
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {l.owner_user_code ? (
           <span
-            className="truncate font-mono text-[10.5px] tabular-nums text-foreground/90"
+            className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
             title={l.owner || l.owner_user_code}
           >
             {l.owner_user_code}
@@ -1629,12 +1623,12 @@ function LeadRow({
         ) : (
           <span className="text-muted-foreground/50">-</span>
         )}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
             className={cn(
-              "truncate text-[11.5px] font-medium",
+              "truncate text-[13px] font-medium",
               l.has_task && l.next_action
                 ? "text-foreground"
                 : "text-muted-foreground/60",
@@ -1645,7 +1639,7 @@ function LeadRow({
           {l.has_task && l.next_action_due && (
             <span
               className={cn(
-                "truncate text-[10px] tabular-nums",
+                "truncate text-[12px] tabular-nums",
                 isOverdue
                   ? "text-[var(--tivo-red)]"
                   : "text-muted-foreground/70",
@@ -1655,8 +1649,8 @@ function LeadRow({
             </span>
           )}
         </div>
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1">
+      </CrmDataCell>
+      <CrmDataCell>
         {(() => {
           let bestDate: string | null = null;
           let src: "reply" | "inbound" | "outbound" | "communication" | null =
@@ -1683,7 +1677,7 @@ function LeadRow({
                 {commLabel ? (
                   <span
                     className={cn(
-                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[10.5px] font-medium",
+                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
                       tone,
                     )}
                     title={commLabel}
@@ -1691,12 +1685,12 @@ function LeadRow({
                     {commLabel}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground/60 text-[11px]">—</span>
+                  <span className="text-muted-foreground/60 text-[12px]">—</span>
                 )}
                 {l.has_unread_reply && (
                   <span
                     className={cn(
-                      "inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold",
+                      "inline-flex items-center rounded px-1.5 py-[1px] text-[11px] font-semibold",
                       UNREAD_REPLY_TONE,
                     )}
                   >
@@ -1705,15 +1699,15 @@ function LeadRow({
                 )}
               </div>
               {bestDate && !isFutureDate(bestDate) && (
-                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
                   {fmtRelative(bestDate)}
                 </span>
               )}
             </div>
           );
         })()}
-      </div>
-      <div role="cell" className="min-w-0 px-1.5 py-1 flex items-center">
+      </CrmDataCell>
+      <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
           const tooltipLines = [
@@ -1744,7 +1738,7 @@ function LeadRow({
                 ))}
               </div>
               {(l.priority_label || l.priority_score != null) && (
-                <span className="truncate text-[10px] text-muted-foreground/70 tabular-nums">
+                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
                   {l.priority_label || ""}
                   {l.priority_label && l.priority_score != null ? " · " : ""}
                   {l.priority_score != null ? l.priority_score : ""}
@@ -1753,12 +1747,8 @@ function LeadRow({
             </div>
           );
         })()}
-      </div>
-      <div
-        role="cell"
-        className="min-w-0 px-1.5 py-1 flex items-center justify-end"
-        onClick={(e) => e.stopPropagation()}
-      >
+      </CrmDataCell>
+      <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
           <RowAction
             icon={<Phone className="h-3.5 w-3.5" />}
@@ -1793,8 +1783,8 @@ function LeadRow({
             onClick={() => openLead(l.lead_id)}
           />
         </div>
-      </div>
-    </div>
+      </CrmDataCell>
+    </CrmDataRow>
   );
 }
 
