@@ -226,7 +226,7 @@
   }
   /* Toolbar / filter row sitting under (or above) a table — not a header. */
   .crm-table-filter-row {
-    background-color: var(--crm-surface);
-    border-bottom: 1px solid var(--crm-border);
+    background-color: var(--tivo-navy-soft);
+    border-bottom: 1px solid var(--tivo-navy-border);
   }
 }
