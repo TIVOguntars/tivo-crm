@@ -954,8 +954,22 @@ function ResetPasswordAction({ email }: { email: string }) {
     toast.success("E-pasts nosūtīts");
   };
   return (
-    <Button size="sm" variant="outline" onClick={onClick} disabled={sending}>
-      {sending ? "Sūta…" : "Atiestatīt paroli"}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          aria-label="Atiestatīt paroli"
+          onClick={onClick}
+          disabled={sending}
+        >
+          <KeyRound className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {sending ? "Sūta…" : "Atiestatīt paroli"}
+      </TooltipContent>
+    </Tooltip>
   );
 }
