@@ -191,7 +191,7 @@ function CrmTableDemo() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col" style={{ height: "calc(100vh - 9rem)" }}>
-        <CrmPageActionsRow className="mb-0" style={{ marginBottom: 20 }}>
+        <CrmPageActionsRow className="mb-5">
           <Button size="sm">
             <Plus className="h-4 w-4" />
             Jauns ieraksts
