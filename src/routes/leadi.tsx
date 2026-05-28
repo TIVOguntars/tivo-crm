@@ -1521,7 +1521,6 @@ function LeadRow({
             : l.communication_state === "no_contact"
               ? "Nav kontakta"
               : "");
-  const commTimeSrc = l.last_reply_at || l.last_communication_at;
   return (
     <CrmDataRow
       onClick={() => openLead(l.lead_id)}
