@@ -1137,6 +1137,16 @@ function LeadiPage() {
     else setSort([]);
   };
 
+  /* Bridge legacy SortRule[] state to CrmDataTable CrmTableSort */
+  const tableSort: CrmTableSort =
+    sort.length > 0
+      ? { key: sort[0].f, dir: sort[0].d }
+      : { key: null, dir: "asc" };
+  const handleTableSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort([]);
+    else setSort([{ f: key, d: dir }]);
+  };
+
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
     function walk(nodes: GroupNode[]) {
