@@ -753,18 +753,18 @@ function QueuePage() {
                 </HeadCell>
                 <HeadCell className="w-[80px] text-right">Darbības</HeadCell>
               </tr>
-              <tr className="crm-table-filter-row sticky top-8 z-20">
+              <tr className="crm-table-filter-row sticky top-10 z-20">
                 <FilterCell>
                   <HeaderOptionsSelect value={ppv} onChange={setPpv} options={ppvs} />
                 </FilterCell>
                 <FilterCell>
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--tivo-navy)] opacity-60" />
                     <Input
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Meklēt leadu vai objektu..."
-                      className="h-7 w-full rounded-md border border-input bg-white pl-6 pr-2 text-[11px] font-normal leading-none text-slate-900 placeholder:font-normal placeholder:text-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
+                      className="crm-filter-control pl-7"
                     />
                   </div>
                 </FilterCell>
@@ -779,7 +779,7 @@ function QueuePage() {
                 </FilterCell>
                 <FilterCell>
                   <Select value={dueFilter} onValueChange={setDueFilter}>
-                    <SelectTrigger className="h-7 w-full min-w-0 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900">
+                    <SelectTrigger className="crm-filter-control">
                       <SelectValue placeholder="Visi" />
                     </SelectTrigger>
                     <SelectContent>
@@ -803,7 +803,7 @@ function QueuePage() {
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="inline-flex h-7 w-full items-center justify-center gap-1 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-700 transition-colors hover:bg-slate-50 dark:bg-white dark:text-slate-700 dark:hover:bg-slate-100"
+                      className="crm-filter-control justify-center gap-1 hover:bg-[var(--tivo-navy-soft)]"
                       title="Notīrīt visus filtrus"
                     >
                       <X className="h-3 w-3" />
@@ -1027,7 +1027,7 @@ function HeadCell({
   return (
     <th
       className={cn(
-        "crm-table-header-cell h-8 px-2 text-left align-middle text-[10px] uppercase tracking-wide",
+        "crm-table-header-cell text-left",
         className,
       )}
     >
@@ -1037,7 +1037,7 @@ function HeadCell({
 }
 
 function FilterCell({ children }: { children?: React.ReactNode }) {
-  return <th className="px-1 pb-1 pt-0 align-middle">{children}</th>;
+  return <th className="crm-table-filter-cell">{children}</th>;
 }
 
 function FilterChip({
@@ -1177,8 +1177,8 @@ function SortButton({
       aria-label={ariaLabel || label}
       onClick={() => onClick(k)}
       className={cn(
-        "inline-flex items-center gap-1 rounded px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground",
-        active ? "text-foreground" : "text-muted-foreground",
+        "crm-sort-trigger transition-colors",
+        active ? "opacity-100" : "opacity-90",
       )}
     >
       {label && <span>{label}</span>}
@@ -1259,7 +1259,7 @@ function HeaderOptionsSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 w-full min-w-0 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900">
+      <SelectTrigger className="crm-filter-control">
         <SelectValue placeholder="Visi" />
       </SelectTrigger>
       <SelectContent>
@@ -1298,7 +1298,7 @@ function TagsMultiSelect({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-7 w-full min-w-0 items-center justify-between gap-1 rounded-md border border-input bg-white px-2 text-[11px] font-normal leading-none text-slate-900 dark:bg-white dark:text-slate-900"
+          className="crm-filter-control justify-between gap-1"
         >
           <span className="truncate">{label}</span>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />

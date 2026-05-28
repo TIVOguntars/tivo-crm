@@ -558,6 +558,8 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
     { key: "country", label: "Valsts", get: (l) => l.country },
+    { key: "lead", label: "Lead", get: (l) => l.name || l.company_name || "" },
+    { key: "tags", label: "Tagi", get: (l) => (l.tags ?? []).join(", ") },
     {
       key: "priority_score",
       label: "Prioritāte (score)",
@@ -1226,7 +1228,7 @@ function LeadiPage() {
               <div role="table" className={cn("w-full text-xs")}>
                 <div
                   role="rowgroup"
-                  className="crm-table-header sticky top-0 z-10 text-[11px] uppercase tracking-wide"
+                  className="crm-table-header sticky top-0 z-10"
                 >
                   {(() => {
                     const SortHead = ({
@@ -1238,8 +1240,8 @@ function LeadiPage() {
                         <div
                           role="columnheader"
                           className={cn(
-                            "crm-table-header-cell px-1.5 py-2 flex items-center gap-1",
-                            sortKey && "cursor-pointer select-none",
+                            "crm-table-header-cell flex items-center gap-1",
+                            sortKey && "cursor-pointer select-none crm-sort-trigger",
                           )}
                           onClick={sortKey ? () => cycleSort(sortKey) : undefined}
                         >
@@ -1264,7 +1266,7 @@ function LeadiPage() {
                       <select
                         value={colFilterValue(fieldKey)}
                         onChange={(e) => setColFilter(fieldKey, e.target.value)}
-                        className="h-6 w-full rounded border border-[var(--tivo-navy-border)] bg-white px-1 text-[11px] text-[var(--tivo-navy)] focus:outline-none focus:ring-1 focus:ring-[var(--tivo-navy)]"
+                        className="crm-filter-control"
                       >
                         <option value="">{placeholder}</option>
                         {items.map((it) => (
@@ -1275,7 +1277,7 @@ function LeadiPage() {
                     return (
                       <>
                         <div role="row" className={cn(LEADS_GRID, "crm-table-header-row")}>
-                          <div role="columnheader" className="crm-table-header-cell px-1.5 py-2 flex items-center">
+                          <div role="columnheader" className="crm-table-header-cell flex items-center">
                             <Checkbox
                               checked={allVisibleSelected}
                               onCheckedChange={toggleAll}
@@ -1283,8 +1285,8 @@ function LeadiPage() {
                             />
                           </div>
                           <SortHead label="PPV" sortKey="ppv" />
-                          <SortHead label="Lead" />
-                          <SortHead label="Tagi" />
+                          <SortHead label="Lead" sortKey="lead" />
+                          <SortHead label="Tagi" sortKey="tags" />
                           <SortHead label="Statuss" sortKey="status" />
                           <SortHead label="Atbildīgais" sortKey="owner" />
                           <SortHead label="Uzdevums" sortKey="effective_due_at" />
@@ -1292,7 +1294,7 @@ function LeadiPage() {
                           <SortHead label="Prioritāte" sortKey="priority_score" />
                           <div
                             role="columnheader"
-                            className="crm-table-header-cell px-1.5 py-2 text-right"
+                            className="crm-table-header-cell text-right"
                             aria-label="Darbības"
                           />
                         </div>
@@ -1300,67 +1302,67 @@ function LeadiPage() {
                           role="row"
                           className={cn(LEADS_GRID, "crm-table-filter-row")}
                         >
-                          <div role="cell" className="px-1.5 py-1.5" />
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell" />
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="ppv"
                               placeholder="Visi"
                               items={options.ppv}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <input
                               value={search.q ?? ""}
                               onChange={(e) =>
                                 setSearch({ q: e.target.value || undefined })
                               }
                               placeholder="Meklēt…"
-                              className="h-6 w-full rounded border border-[var(--tivo-navy-border)] bg-white px-1.5 text-[11px] text-[var(--tivo-navy)] placeholder:text-[var(--tivo-navy)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--tivo-navy)]"
+                              className="crm-filter-control"
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="tags"
                               placeholder="Visi"
                               items={options.tags}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="status"
                               placeholder="Visi"
                               items={options.status}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="owner"
                               placeholder="Visi"
                               items={options.owner}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="action_label"
                               placeholder="Visi"
                               items={options.action_label}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="communication_state"
                               placeholder="Visi"
                               items={options.communication_state}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="priority_label"
                               placeholder="Visi"
                               items={options.priority_label}
                             />
                           </div>
-                          <div role="cell" className="px-1.5 py-1.5 flex justify-end">
+                          <div role="cell" className="crm-table-filter-cell flex items-center justify-end">
                             <ClearAllFiltersButton
                               active={anyColFilterActive}
                               onClick={clearAll}

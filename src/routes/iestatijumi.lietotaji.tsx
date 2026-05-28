@@ -261,9 +261,9 @@ function UsersTab({
                   <TableHead className="text-right">Darbības</TableHead>
                 </TableRow>
                 <TableRow className="crm-table-filter-row hover:bg-[var(--tivo-navy-soft)]">
-                  <TableHead className="py-1.5">
+                  <TableHead className="crm-table-filter-cell">
                     <Select value={fId} onValueChange={setFId}>
-                      <SelectTrigger className="h-7 w-full bg-white text-[11px]">
+                      <SelectTrigger className="crm-filter-control">
                         <SelectValue placeholder="Visi" />
                       </SelectTrigger>
                       <SelectContent>
@@ -276,18 +276,18 @@ function UsersTab({
                       </SelectContent>
                     </Select>
                   </TableHead>
-                  <TableHead colSpan={2} className="py-1.5">
+                  <TableHead colSpan={2} className="crm-table-filter-cell">
                     <Input
                       value={fSearch}
                       onChange={(e) => setFSearch(e.target.value)}
                       placeholder="Meklēt pēc vārda vai e-pasta..."
-                      className="h-7 bg-white text-[11px]"
+                      className="crm-filter-control"
                     />
                   </TableHead>
-                  <TableHead className="py-1.5" />
-                  <TableHead className="py-1.5">
+                  <TableHead className="crm-table-filter-cell" />
+                  <TableHead className="crm-table-filter-cell">
                     <Select value={fRole} onValueChange={setFRole}>
-                      <SelectTrigger className="h-7 w-full bg-white text-[11px]">
+                      <SelectTrigger className="crm-filter-control">
                         <SelectValue placeholder="Visas" />
                       </SelectTrigger>
                       <SelectContent>
@@ -300,7 +300,7 @@ function UsersTab({
                       </SelectContent>
                     </Select>
                   </TableHead>
-                  <TableHead className="py-1.5 text-right">
+                  <TableHead className="crm-table-filter-cell text-right">
                     <div className="flex justify-end">
                       <ClearAllFiltersButton
                         active={hasActiveFilters}

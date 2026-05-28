@@ -17,10 +17,7 @@ const TableHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <thead
     ref={ref}
-    className={cn(
-      "crm-table-header [&_tr]:border-b [&_tr]:border-[var(--tivo-navy-border)]",
-      className,
-    )}
+    className={cn("crm-table-header", className)}
     {...props}
   />
 ));
@@ -67,7 +64,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "crm-table-header-cell h-10 px-2 text-left align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      "crm-table-header-cell text-left align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
       className,
     )}
     {...props}

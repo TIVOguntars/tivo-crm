@@ -208,25 +208,93 @@
 }
 
 @layer components {
-  /* Unified CRM table header — used in /leadi, /uzdevumi, /iestatijumi/lietotaji
-     and any other table view. Keep all three classes in sync. */
+  /* =====================================================================
+   * UNIFIED CRM TABLE STANDARD
+   * Single source of truth for /leadi, /uzdevumi, /iestatijumi/lietotaji
+   * and any future table view. DO NOT add local table sizing in routes.
+   * ===================================================================== */
+
+  /* <thead> wrapper — only carries the background; no border here so we
+     never paint a separator between the label row and the filter row. */
   .crm-table-header {
     background-color: var(--tivo-navy-soft);
     color: var(--tivo-navy);
-    border-bottom: 1px solid var(--tivo-navy-border);
   }
+  /* Header label row (row 1) — 40px, no bottom border. */
   .crm-table-header-row {
     background-color: var(--tivo-navy-soft);
     color: var(--tivo-navy);
-    border-bottom: 1px solid var(--tivo-navy-border);
+    height: 40px;
+    border-bottom: 0 !important;
   }
+  /* Header label cell — 12px / 600 / uppercase, 12px horizontal padding. */
   .crm-table-header-cell {
     color: var(--tivo-navy);
-    font-weight: 600;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    height: 40px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    vertical-align: middle;
   }
-  /* Toolbar / filter row sitting under (or above) a table — not a header. */
+  /* Filter row (row 2) — 40px, single outer bottom border, same bg. */
   .crm-table-filter-row {
     background-color: var(--tivo-navy-soft);
+    height: 40px;
     border-bottom: 1px solid var(--tivo-navy-border);
+  }
+  /* Filter cell — 8px horizontal padding, vertically centered, 40px tall. */
+  .crm-table-filter-cell {
+    height: 40px !important;
+    padding: 0 8px !important;
+    vertical-align: middle;
+  }
+  /* Standard filter control (input / select / button) — 32px tall, 13px. */
+  .crm-filter-control {
+    height: 32px !important;
+    font-size: 13px !important;
+    line-height: 1;
+    border-radius: 0.375rem;
+    border: 1px solid var(--tivo-navy-border);
+    background-color: #ffffff;
+    color: var(--tivo-navy);
+    padding: 0 8px !important;
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+  }
+  .crm-filter-control::placeholder { color: color-mix(in oklab, var(--tivo-navy) 50%, transparent); }
+  .crm-filter-control:focus,
+  .crm-filter-control:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--tivo-navy);
+  }
+  /* Sort trigger inside a header cell — keeps icon + label aligned. */
+  .crm-sort-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tivo-navy);
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  .crm-sort-trigger:hover { color: var(--tivo-navy-hover); }
+  /* Body row + cell — 44px min row height, 14px body type, 12/8 padding. */
+  .crm-table-body-row { min-height: 44px; }
+  .crm-table-body-cell {
+    padding: 8px 12px;
+    font-size: 14px;
+    vertical-align: middle;
   }
 }
