@@ -30,6 +30,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ClearAllFiltersButton } from "@/components/crm/CrmLayout";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -174,6 +182,49 @@ function UsersTab({
   }, [userRoles, roleById]);
 
   const [editing, setEditing] = useState<Row | null>(null);
+  // Inline filters (client-side)
+  const [fId, setFId] = useState<string>("all");
+  const [fSearch, setFSearch] = useState("");
+  const [fRole, setFRole] = useState<string>("all");
+
+  const allRoleOptions = useMemo(
+    () => Array.from(roleById.values()),
+    [roleById],
+  );
+
+  const idOptions = useMemo(() => {
+    const out = new Set<string>();
+    for (const p of profiles) {
+      const code = s(p.user_code);
+      if (code) out.add(code);
+    }
+    return Array.from(out).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [profiles]);
+
+  const filteredProfiles = useMemo(() => {
+    const q = fSearch.trim().toLowerCase();
+    return profiles.filter((p) => {
+      const uid = s(p.id);
+      const code = s(p.user_code);
+      const name = s(p.full_name).toLowerCase();
+      const email = s(p.email).toLowerCase();
+      if (fId !== "all" && code !== fId) return false;
+      if (q && !name.includes(q) && !email.includes(q)) return false;
+      if (fRole !== "all") {
+        const keys = rolesByUser.get(uid) ?? [];
+        if (!keys.includes(fRole)) return false;
+      }
+      return true;
+    });
+  }, [profiles, rolesByUser, fId, fSearch, fRole]);
+
+  const hasActiveFilters = fId !== "all" || fSearch.trim() !== "" || fRole !== "all";
+  const clearAllFilters = () => {
+    setFId("all");
+    setFSearch("");
+    setFRole("all");
+  };
+
   const open = dialogOpen;
   const setOpen = (v: boolean) => {
     setDialogOpen(v);
@@ -209,9 +260,64 @@ function UsersTab({
                   <TableHead>Lomas</TableHead>
                   <TableHead className="text-right">Darbības</TableHead>
                 </TableRow>
+                <TableRow className="crm-table-filter-row hover:bg-[var(--tivo-navy-soft)]">
+                  <TableHead className="py-1.5">
+                    <Select value={fId} onValueChange={setFId}>
+                      <SelectTrigger className="h-7 w-full bg-white text-[11px]">
+                        <SelectValue placeholder="Visi" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Visi</SelectItem>
+                        {idOptions.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableHead>
+                  <TableHead colSpan={2} className="py-1.5">
+                    <Input
+                      value={fSearch}
+                      onChange={(e) => setFSearch(e.target.value)}
+                      placeholder="Meklēt pēc vārda vai e-pasta..."
+                      className="h-7 bg-white text-[11px]"
+                    />
+                  </TableHead>
+                  <TableHead className="py-1.5" />
+                  <TableHead className="py-1.5">
+                    <Select value={fRole} onValueChange={setFRole}>
+                      <SelectTrigger className="h-7 w-full bg-white text-[11px]">
+                        <SelectValue placeholder="Visas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Visas</SelectItem>
+                        {allRoleOptions.map((r) => (
+                          <SelectItem key={r.id} value={r.role_key}>
+                            {r.role_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableHead>
+                  <TableHead className="py-1.5 text-right">
+                    <div className="flex justify-end">
+                      <ClearAllFiltersButton
+                        active={hasActiveFilters}
+                        onClick={clearAllFilters}
+                      />
+                    </div>
+                  </TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((p) => {
+                {filteredProfiles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                      Nav ierakstu, kas atbilst filtriem.
+                    </TableCell>
+                  </TableRow>
+                ) : filteredProfiles.map((p) => {
                   const uid = s(p.id);
                   const keys = rolesByUser.get(uid) ?? [];
                   return (
