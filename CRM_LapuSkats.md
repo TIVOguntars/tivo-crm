@@ -690,3 +690,65 @@ Obligāti:
 2. uzdot secīgus jautājumus;
 3. izstrādāt sistēmu;
 4. tikai tad ieviest.
+
+---
+
+# 21. Search Input Layout System (OBLIGĀTI)
+
+Visiem CRM search/filter text input laukiem:
+
+- Ikona VIENMĒR pa kreisi.
+- Teksts/placeholder VIENMĒR pa labi no ikonas.
+- Aizliegts ikonu renderēt `absolute` overlay veidā virs teksta.
+- Aizliegts `pl-7`/negative margin hacks.
+
+Wrapper (`.crm-search-input`):
+- `display: flex`
+- `align-items: center`
+- `gap: 8px`
+- `height: 25px`
+- `padding: 0 8px`
+- `background: #ffffff`
+- `border: 1px solid var(--crm-border)`
+- `border-radius: 6px`
+- `box-shadow: none`
+- focus-within → 1px solid `--tivo-navy` outline
+
+Input:
+- bez border, bez outline, transparent background
+- `flex: 1`, `min-width: 0`
+- `font-size: 13px`
+- vertikāli centrēts
+
+Ikona:
+- 14×14px
+- muted CRM tone (`color-mix` ar `--tivo-navy`)
+- `flex-shrink: 0`
+
+Aizliegts:
+- absolute positioned search icons
+- placeholder/icon pārklāšanās
+- route-level search styling
+- native input hacks
+
+Vienīgais ceļš: shared `CrmSearchInput` komponente no
+`src/components/crm/table/CrmDataTable.tsx`.
+
+Struktūra:
+
+```tsx
+<CrmSearchInput
+  value={q}
+  onChange={(e) => setQ(e.target.value)}
+  placeholder="Meklēt…"
+/>
+```
+
+Renderē:
+
+```html
+<div class="crm-search-input">
+  <Search />
+  <input />
+</div>
+```
