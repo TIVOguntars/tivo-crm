@@ -408,7 +408,7 @@ function QueuePage() {
   const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState<string>("");
   const [source, setSource] = useState<"all" | "auto" | "manual">("all");
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "desc" });
 
   // Persist filters/sort to sessionStorage so returning from /lead/$id restores state.
   const filtersHydratedRef = useRef(false);
@@ -433,10 +433,13 @@ function QueuePage() {
       if (
         p.sort &&
         typeof p.sort === "object" &&
-        (p.sort as { key?: unknown }).key &&
         ((p.sort as { dir?: unknown }).dir === "asc" || (p.sort as { dir?: unknown }).dir === "desc")
       ) {
-        setSort(p.sort as { key: SortKey; dir: "asc" | "desc" });
+        const k = (p.sort as { key?: unknown }).key;
+        setSort({
+          key: typeof k === "string" ? k : null,
+          dir: (p.sort as { dir: "asc" | "desc" }).dir,
+        });
       }
     } catch {
       /* ignore */
@@ -466,12 +469,9 @@ function QueuePage() {
     }
   }, [actionType, dueFilter, leadStatus, taskPriority, owner, country, ppv, tags, q, source, sort]);
 
-  const toggleSort = (key: SortKey) => {
-    setSort((cur) => {
-      if (!cur || cur.key !== key) return { key, dir: "desc" };
-      if (cur.dir === "desc") return { key, dir: "asc" };
-      return null;
-    });
+  const handleSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort({ key: null, dir: "asc" });
+    else setSort({ key, dir });
   };
 
   const actionTypes = useMemo(
@@ -545,10 +545,10 @@ function QueuePage() {
   const filtered = useMemo(() => {
     const list = rows.filter((r) => matchRow(r));
     list.sort((a, b) => {
-      if (sort) {
+      if (sort.key) {
         const dir = sort.dir === "asc" ? 1 : -1;
-        const av = sortValue(a, sort.key);
-        const bv = sortValue(b, sort.key);
+        const av = sortValue(a, sort.key as SortKey);
+        const bv = sortValue(b, sort.key as SortKey);
         if (typeof av === "number" && typeof bv === "number") {
           if (av !== bv) return (av - bv) * dir;
         } else {
@@ -630,7 +630,7 @@ function QueuePage() {
     tags.length > 0 ||
     q.trim() !== "" ||
     source !== "all" ||
-    sort !== null;
+    sort.key !== null;
 
   const clearAllFilters = () => {
     setActionType("all");
@@ -643,7 +643,7 @@ function QueuePage() {
     setTags([]);
     setQ("");
     setSource("all");
-    setSort(null);
+    setSort({ key: null, dir: "asc" });
   };
 
   const sourceCounts = useMemo(() => {
