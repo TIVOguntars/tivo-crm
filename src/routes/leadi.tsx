@@ -191,9 +191,6 @@ const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
-const LEADS_GRID =
-  "grid grid-cols-[32px_72px_minmax(180px,1.3fr)_minmax(120px,1fr)_120px_140px_140px_160px_110px_124px]";
-
 /* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
 const QUEUE_BUCKET_TONE: Record<string, string> = {
   overdue: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
