@@ -144,7 +144,7 @@ export function CrmDataTableFilterRow({
     <TableRow
       className={cn(
         "crm-table-filter-row hover:bg-[var(--tivo-navy-soft)]",
-        sticky && "sticky top-10 z-20",
+        sticky && "sticky top-8 z-20",
         className,
       )}
     >
