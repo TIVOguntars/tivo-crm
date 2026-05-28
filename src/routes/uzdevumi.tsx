@@ -1,20 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState, ErrorState } from "@/components/DataState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +16,6 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { getCrmColorToken, deadlineTone, toneClasses } from "@/lib/crmColors";
@@ -44,6 +35,22 @@ import {
   CrmBannerRow,
   CrmTableToolbar,
 } from "@/components/crm/CrmLayout";
+import {
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterInput,
+  CrmFilterSelect,
+  CrmSortableHead,
+  type CrmTableSort,
+  type SortDir,
+} from "@/components/crm/table/CrmDataTable";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
