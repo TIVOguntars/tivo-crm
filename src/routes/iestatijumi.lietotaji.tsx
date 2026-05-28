@@ -197,7 +197,9 @@ function UsersTab({
   const [editing, setEditing] = useState<Row | null>(null);
   // Inline filters (client-side)
   const [fId, setFId] = useState<string>("all");
-  const [fSearch, setFSearch] = useState("");
+  const [fName, setFName] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fPhone, setFPhone] = useState("");
   const [fRole, setFRole] = useState<string>("all");
 
   const allRoleOptions = useMemo(
@@ -215,26 +217,38 @@ function UsersTab({
   }, [profiles]);
 
   const filteredProfiles = useMemo(() => {
-    const q = fSearch.trim().toLowerCase();
+    const qn = fName.trim().toLowerCase();
+    const qe = fEmail.trim().toLowerCase();
+    const qp = fPhone.trim().toLowerCase();
     return profiles.filter((p) => {
       const uid = s(p.id);
       const code = s(p.user_code);
       const name = s(p.full_name).toLowerCase();
       const email = s(p.email).toLowerCase();
+      const phone = s(p.phone).toLowerCase();
       if (fId !== "all" && code !== fId) return false;
-      if (q && !name.includes(q) && !email.includes(q)) return false;
+      if (qn && !name.includes(qn)) return false;
+      if (qe && !email.includes(qe)) return false;
+      if (qp && !phone.includes(qp)) return false;
       if (fRole !== "all") {
         const keys = rolesByUser.get(uid) ?? [];
         if (!keys.includes(fRole)) return false;
       }
       return true;
     });
-  }, [profiles, rolesByUser, fId, fSearch, fRole]);
+  }, [profiles, rolesByUser, fId, fName, fEmail, fPhone, fRole]);
 
-  const hasActiveFilters = fId !== "all" || fSearch.trim() !== "" || fRole !== "all";
+  const hasActiveFilters =
+    fId !== "all" ||
+    fName.trim() !== "" ||
+    fEmail.trim() !== "" ||
+    fPhone.trim() !== "" ||
+    fRole !== "all";
   const clearAllFilters = () => {
     setFId("all");
-    setFSearch("");
+    setFName("");
+    setFEmail("");
+    setFPhone("");
     setFRole("all");
   };
 
