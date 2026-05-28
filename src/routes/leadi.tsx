@@ -16,13 +16,9 @@ import {
   ChevronDown,
   ChevronRight,
   X,
-  Search,
   AlertTriangle,
   Layers,
-  ArrowUpDown,
   Trash2,
-  ArrowUp,
-  ArrowDown,
   Eye,
   Star,
 } from "lucide-react";
@@ -53,8 +49,23 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   CrmPageActionsRow,
   CrmTableToolbar,
-  ClearAllFiltersButton,
 } from "@/components/crm/CrmLayout";
+import {
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterSelect,
+  CrmSearchInput,
+  CrmSortableHead,
+  type CrmTableSort,
+  type SortDir,
+} from "@/components/crm/table/CrmDataTable";
 import {
   CHANNEL_DIRECTION_TONE,
   UNREAD_REPLY_TONE,
