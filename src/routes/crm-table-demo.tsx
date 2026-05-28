@@ -21,7 +21,7 @@ import {
   CrmDataTableHeader,
   CrmDataTableLabelRow,
   CrmFilterCell,
-  CrmFilterInput,
+  CrmSearchInput,
   CrmFilterSelect,
   CrmSortableHead,
   type CrmTableSort,
@@ -217,7 +217,7 @@ function CrmTableDemo() {
           <CrmDataTableFilterRow>
             <CrmFilterCell />
             <CrmFilterCell>
-              <CrmFilterInput
+              <CrmSearchInput
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Meklēt leadu…"
