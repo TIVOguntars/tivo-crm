@@ -558,6 +558,8 @@ const SORT_FIELDS: { key: string; label: string; get: (l: Lead) => unknown }[] =
     { key: "owner", label: "Atbildīgais", get: (l) => l.owner },
     { key: "ppv", label: "PPV", get: (l) => l.ppv },
     { key: "country", label: "Valsts", get: (l) => l.country },
+    { key: "lead", label: "Lead", get: (l) => l.name || l.company_name || "" },
+    { key: "tags", label: "Tagi", get: (l) => (l.tags ?? []).join(", ") },
     {
       key: "priority_score",
       label: "Prioritāte (score)",
@@ -1301,7 +1303,7 @@ function LeadiPage() {
                           className={cn(LEADS_GRID, "crm-table-filter-row")}
                         >
                           <div role="cell" className="crm-table-filter-cell" />
-                          <div role="cell" className="px-1.5 py-1.5">
+                          <div role="cell" className="crm-table-filter-cell">
                             <ColSelect
                               fieldKey="ppv"
                               placeholder="Visi"
