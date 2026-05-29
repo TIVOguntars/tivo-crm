@@ -65,17 +65,7 @@ import {
   type WorkflowTaskRow,
 } from "@/lib/workflow";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { callCrmRpc } from "@/server/analytics";
-import { COMM_STATUS_LV, QUEUE_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { COMM_STATUS_LV, lv } from "@/lib/i18nLabels";
 import { getActivityStyle } from "@/lib/activityStyles";
 import {
   classifyLocal,
@@ -217,26 +207,6 @@ const TEMPLATE_LABEL_MAP: Record<string, string> = {
   email_sketch_3: "sketch 3",
   email_sketch_4: "sketch 4",
 };
-const ALLOWED_AUTOMATION_KEYS: ReadonlyArray<string> = Object.keys(
-  TEMPLATE_LABEL_MAP,
-);
-function templateLabelFor(key: string): string {
-  return TEMPLATE_LABEL_MAP[key] ?? key;
-}
-/** Convert ISO/timestamptz to value usable by <input type="datetime-local">. */
-function toLocalInputValue(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-function fromLocalInputValue(s: string): string {
-  if (!s) return "";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString();
-}
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function normalizeTemplateKey(raw: string): string {
   return raw
@@ -373,11 +343,6 @@ function LeadProfilePage() {
   const plannedActionsQ = useCrmView(
     "v_lead_planned_actions",
     `select=source,id,lead_id,kind,status,scheduled_for,title,metadata&lead_id=eq.${leadId}&order=scheduled_for.asc.nullslast`,
-  );
-  const queueTemplatesQ = useCrmView(
-    "communication_queue",
-    `select=id,template_key,subject,body,recipient,scheduled_for,status&lead_id=eq.${leadId}`,
-    { all: true },
   );
   // Workflow chain: load tasks belonging to any workflow_instance for this lead.
   const workflowTasksQ = useCrmView(
@@ -665,7 +630,6 @@ function LeadProfilePage() {
   }, [communications, notes, rawPayloadById, completedTasks, activitiesQ.data]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
-  const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editPanelOpen, setEditPanelOpen] = useState(false);
@@ -1168,7 +1132,6 @@ function LeadProfilePage() {
                 type PlannedItem = {
                   key: string;
                   source: string;
-                  queueId?: string;
                   taskId?: string;
                   taskType?: string;
                   title: string;
@@ -1179,19 +1142,6 @@ function LeadProfilePage() {
                   status: string;
                 };
                 const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
-                const queueById = new Map<string, Row>();
-                for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
-                  const id = str(r.id);
-                  if (id) queueById.set(id, r);
-                }
-                // Build set of already-sent automation template keys for this lead.
-                const sentTemplateKeys = new Set<string>();
-                for (const rp of rawPayloadById.values()) {
-                  const step = str(pick(rp, "automation_step", "template_key"));
-                  if (!step || UUID_RE.test(step)) continue;
-                  const norm = normalizeTemplateKey(step);
-                  if (TEMPLATE_LABEL_MAP[norm]) sentTemplateKeys.add(norm);
-                }
                 const items: PlannedItem[] = [];
                 plannedRows.forEach((r, i) => {
                   const source = str(r.source);
@@ -1207,33 +1157,9 @@ function LeadProfilePage() {
                   ) {
                     return;
                   }
-                  if (source === "queue") {
-                    const qRow = queueById.get(str(r.id));
-                    const tk = str(qRow?.template_key);
-                    const tkNorm = tk ? normalizeTemplateKey(tk) : "";
-                    // Dedupe: skip queued automation emails already sent
-                    if (tkNorm && sentTemplateKeys.has(tkNorm)) return;
-                    const subject = str(r.title) || str(qRow?.subject);
-                    const statusLabel = lv(
-                      QUEUE_STATUS_LV,
-                      rawStatus,
-                      rawStatus,
-                    );
-                    const tplLabel = tkNorm ? templateLabelFor(tkNorm) : "";
-                    const scheduledIso = str(r.scheduled_for ?? qRow?.scheduled_for);
-                    items.push({
-                      key: `q:${id}`,
-                      source,
-                      queueId: id,
-                      title: tplLabel || tk || subject || fmt(str(r.kind)),
-                      subtitle: subject || undefined,
-                      responsible: "SIS",
-                      scheduledIso,
-                      scheduledLabel: fmtDate(scheduledIso),
-                      status: statusLabel,
-                    });
-                    return;
-                  }
+                  // Legacy automation email queue removed — those planned items
+                  // are now managed exclusively through SIS tasks.
+                  if (source === "queue") return;
                   const scheduledIso = str(r.scheduled_for);
                   if (source === "task") {
                     const taskType = str(r.kind).toLowerCase();
@@ -1300,14 +1226,11 @@ function LeadProfilePage() {
                       <ul className="divide-y">
                         {items.map((it) => {
                           const clickable =
-                            (it.source === "queue" && !!it.queueId) ||
                             (it.source === "task" && !!it.taskId);
                           const rowBody = (
                             <div className="flex items-start justify-between gap-3 py-2 w-full">
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
-                                {it.source === "queue" ? (
-                                  <Mail className="h-3.5 w-3.5" />
-                                ) : it.source === "task" ? (
+                                {it.source === "task" ? (
                                   (() => {
                                     const tt = (it.taskType || "").toLowerCase();
                                     if (tt === "call") return <PhoneIcon className="h-3.5 w-3.5" />;
@@ -1362,8 +1285,7 @@ function LeadProfilePage() {
                                   type="button"
                                   className={itemClasses}
                                   onClick={() => {
-                                    if (it.source === "queue") setEditQueueId(it.queueId!);
-                                    else if (it.source === "task") setCompleteTaskId(it.taskId!);
+                                    if (it.source === "task") setCompleteTaskId(it.taskId!);
                                   }}
                                 >
                                   {rowBody}
@@ -2262,24 +2184,6 @@ function LeadProfilePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Planned queue item edit modal (automation emails only) */}
-          <PlannedQueueEditDialog
-            open={!!editQueueId}
-            queueRow={
-              editQueueId
-                ? (((queueTemplatesQ.data?.rows ?? []) as Row[]).find(
-                    (r) => str(r.id) === editQueueId,
-                  ) ?? null)
-                : null
-            }
-            onOpenChange={(o: boolean) => !o && setEditQueueId(null)}
-            onSaved={() => {
-              setEditQueueId(null);
-              plannedActionsQ.refetch();
-              queueTemplatesQ.refetch();
-            }}
-          />
-
           <CompleteActionModal
             open={!!completeTaskId}
             onOpenChange={(o) => !o && setCompleteTaskId(null)}
@@ -2319,134 +2223,5 @@ function LeadProfilePage() {
         </>
       )}
     </div>
-  );
-}
-
-/* -------------------------- Planned queue edit dialog -------------------------- */
-
-function PlannedQueueEditDialog({
-  open,
-  queueRow,
-  onOpenChange,
-  onSaved,
-}: {
-  open: boolean;
-  queueRow: Row | null;
-  onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
-}) {
-  const initialKey = str(queueRow?.template_key);
-  const initialIso = str(queueRow?.scheduled_for);
-
-  const [templateKey, setTemplateKey] = useState<string>(initialKey);
-  const [whenLocal, setWhenLocal] = useState<string>(toLocalInputValue(initialIso));
-  const [saving, setSaving] = useState(false);
-
-  // Reset state whenever a different queue row is opened
-  const rowId = str(queueRow?.id);
-  useEffect(() => {
-    setTemplateKey(initialKey);
-    setWhenLocal(toLocalInputValue(initialIso));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowId]);
-
-  const queueId = str(queueRow?.id);
-  const canSave = !!queueId && !!templateKey && !!whenLocal && !saving;
-
-  async function handleSave() {
-    if (!queueId) return;
-    setSaving(true);
-    try {
-      const newIso = fromLocalInputValue(whenLocal);
-      const templateChanged = templateKey && templateKey !== initialKey;
-      const dateChanged = newIso && newIso !== initialIso;
-
-      if (templateChanged) {
-        const res = await callCrmRpc({
-          data: {
-            fn: "queue_item_edit",
-            params: {
-              p_id: queueId,
-              p_subject: str(queueRow?.subject),
-              p_body: str(queueRow?.body),
-              p_recipient: str(queueRow?.recipient),
-              p_template_key: templateKey,
-            },
-          },
-        });
-        if (res.error) throw new Error(res.error);
-      }
-      if (dateChanged) {
-        const res = await callCrmRpc({
-          data: {
-            fn: "queue_item_reschedule",
-            params: { p_id: queueId, p_when: newIso },
-          },
-        });
-        if (res.error) throw new Error(res.error);
-      }
-      if (!templateChanged && !dateChanged) {
-        toast.info("Nav izmaiņu");
-        setSaving(false);
-        return;
-      }
-      toast.success("Saglabāts");
-      onSaved();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Neizdevās saglabāt");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Rediģēt automātisko e-pastu</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="queue-edit-template">Šablons</Label>
-            <Select value={templateKey} onValueChange={setTemplateKey}>
-              <SelectTrigger id="queue-edit-template">
-                <SelectValue placeholder="Izvēlies šablonu" />
-              </SelectTrigger>
-              <SelectContent>
-                {ALLOWED_AUTOMATION_KEYS.map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {templateLabelFor(k)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="queue-edit-when">Plānotais laiks</Label>
-            <Input
-              id="queue-edit-when"
-              type="datetime-local"
-              value={whenLocal}
-              onChange={(e) => setWhenLocal(e.target.value)}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Manuāla maiņa apiet 80/dienā limitu (apzināta lietotāja darbība).
-            </p>
-          </div>
-        </div>
-        <DialogHeader className="pt-2">
-          <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={saving}>
-                Atcelt
-              </Button>
-            </DialogClose>
-            <Button onClick={handleSave} disabled={!canSave}>
-              {saving ? "Saglabā..." : "Saglabāt"}
-            </Button>
-          </div>
-        </DialogHeader>
-      </DialogContent>
-    </Dialog>
   );
 }
