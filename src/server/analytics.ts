@@ -249,7 +249,6 @@ const CRM_VIEWS = [
   "lead_row_communication_counts",
   "leads_list_display_v3",
   "v_lead_planned_actions",
-  "communication_queue",
   "message_templates",
   "v_tasks_queue_ui_v2",
   "task_types",
