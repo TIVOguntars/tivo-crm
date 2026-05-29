@@ -360,11 +360,6 @@ function LeadProfilePage() {
     "v_lead_planned_actions",
     `select=source,id,lead_id,kind,status,scheduled_for,title,metadata&lead_id=eq.${leadId}&order=scheduled_for.asc.nullslast`,
   );
-  const queueTemplatesQ = useCrmView(
-    "communication_queue",
-    `select=id,template_key,subject,body,recipient,scheduled_for,status&lead_id=eq.${leadId}`,
-    { all: true },
-  );
   // Workflow chain: load tasks belonging to any workflow_instance for this lead.
   const workflowTasksQ = useCrmView(
     "tasks",
