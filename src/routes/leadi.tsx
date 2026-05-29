@@ -1189,6 +1189,55 @@ function LeadiPage() {
     { value: "30", label: "30 dienas" },
     { value: "90", label: "90 dienas" },
   ];
+  /* Termiņš (next action due date) filter using next_action_date engine ops. */
+  const dueFilterValue = (): string => {
+    const r = flt.find((x) => x.f === "next_action_date");
+    if (!r) return "";
+    if (r.op === "overdue") return "overdue";
+    if (r.op === "today") return "today";
+    if (r.op === "next_x_days") return `next_${r.v}`;
+    return "";
+  };
+  const setDueFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "next_action_date");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    if (value === "overdue")
+      setFlt([...others, { f: "next_action_date", op: "overdue" }]);
+    else if (value === "today")
+      setFlt([...others, { f: "next_action_date", op: "today" }]);
+    else if (value.startsWith("next_"))
+      setFlt([
+        ...others,
+        { f: "next_action_date", op: "next_x_days", v: Number(value.slice(5)) },
+      ]);
+  };
+  const DUE_FILTER_OPTIONS = [
+    { value: "overdue", label: "Kavēts" },
+    { value: "today", label: "Šodien" },
+    { value: "next_7", label: "7 dienas" },
+    { value: "next_30", label: "30 dienas" },
+  ];
+  /* Datums (last activity date) filter using last_communication_at last_x_days. */
+  const activityDateFilterValue = (): string => {
+    const r = flt.find(
+      (x) => x.f === "last_communication_at" && x.op === "last_x_days",
+    );
+    return r && r.v != null ? String(r.v) : "";
+  };
+  const setActivityDateFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "last_communication_at");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    setFlt([
+      ...others,
+      { f: "last_communication_at", op: "last_x_days", v: Number(value) },
+    ]);
+  };
   const anyColFilterActive =
     flt.length > 0 || !!q || view !== "all";
 
