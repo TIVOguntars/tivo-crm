@@ -1137,6 +1137,38 @@ function LeadiPage() {
     }
     setFlt([...others, { f: key, op: "is_any_of", v: [value] }]);
   };
+  /* Multi-tag filter using the "contains_all" engine operator. */
+  const tagsFilterValue = (): string[] => {
+    const r = flt.find((x) => x.f === "tags");
+    return Array.isArray(r?.v) ? (r!.v as string[]) : [];
+  };
+  const setTagsFilter = (vals: string[]) => {
+    const others = flt.filter((x) => x.f !== "tags");
+    if (vals.length === 0) {
+      setFlt(others);
+      return;
+    }
+    setFlt([...others, { f: "tags", op: "contains_all", v: vals }]);
+  };
+  /* Created-date filter using the "last_x_days" engine operator. */
+  const createdFilterValue = (): string => {
+    const r = flt.find((x) => x.f === "created_at" && x.op === "last_x_days");
+    return r && r.v != null ? String(r.v) : "";
+  };
+  const setCreatedFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "created_at");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    setFlt([...others, { f: "created_at", op: "last_x_days", v: Number(value) }]);
+  };
+  const CREATED_FILTER_OPTIONS = [
+    { value: "1", label: "Šodien" },
+    { value: "7", label: "7 dienas" },
+    { value: "30", label: "30 dienas" },
+    { value: "90", label: "90 dienas" },
+  ];
   const anyColFilterActive =
     flt.length > 0 || !!q || view !== "all";
 
