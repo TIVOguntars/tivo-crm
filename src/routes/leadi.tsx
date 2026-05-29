@@ -154,6 +154,8 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   object_summary: string;
+  /** Short free-text note from v3 (short_note). Display + search only. */
+  short_note: string;
   /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
   /** Queue bucket sourced directly from backend (no frontend calc). */
@@ -858,6 +860,7 @@ function LeadiPage() {
           last_outbound_at: s(r.last_outbound_at) || null,
           last_inbound_at: s(r.last_inbound_at) || null,
           object_summary: s(r.object_summary),
+          short_note: s(r.short_note),
           has_task,
           queue_bucket: s(r.queue_bucket),
           queue_bucket_label: s(r.queue_bucket_label),
