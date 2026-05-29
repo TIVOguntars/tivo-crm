@@ -62,7 +62,7 @@ type LooseClient = {
 export const getViewPreference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => GetInput.parse(d))
-  .handler(async ({ data, context }): Promise<ViewPreference | null> => {
+  .handler(async ({ data, context }) => {
     if (!data.operatorId) return null;
     const sb = context.supabase as unknown as LooseClient;
     const { data: row, error } = await sb
@@ -81,14 +81,14 @@ export const getViewPreference = createServerFn({ method: "POST" })
     return {
       filters: (Array.isArray(r.filters) ? r.filters : []) as Record<string, unknown>[],
       sorting: (Array.isArray(r.sorting) ? r.sorting : []) as Record<string, unknown>[],
-      grouping: Array.isArray(r.grouping) ? (r.grouping as string[]) : [],
+      grouping: (Array.isArray(r.grouping) ? r.grouping : []) as string[],
     };
   });
 
 export const saveViewPreference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => SaveInput.parse(d))
-  .handler(async ({ data, context }): Promise<{ ok: boolean; error?: string }> => {
+  .handler(async ({ data, context }) => {
     if (!data.operatorId) return { ok: false, error: "no-operator" };
     const sb = context.supabase as unknown as LooseClient;
     const { error } = await sb
