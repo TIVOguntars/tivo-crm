@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import {
@@ -46,6 +47,13 @@ import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  getViewPreference,
+  saveViewPreference,
+  type StoredFilter,
+  type StoredSort,
+} from "@/lib/viewPreferences.functions";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -670,60 +678,70 @@ function LeadiPage() {
     });
   }, [search, setSearch]);
 
-  /* ---- persist & restore session filters/grouping/sort/view ---- */
-  const sessionStorageKey = "leadi:session:v1";
-  const restoreDoneRef = useRef(false);
+  /* ---- persist & restore filters/grouping/sorting via crm.user_view_preferences ----
+   * No localStorage. Per-operator server-side persistence (view_key = "leads_list").
+   * Only filters / sorting / grouping are persisted — never the session-only
+   * "Check" column or collapsed/expanded group state. */
+  const VIEW_KEY = "leads_list";
+  const { operatorId } = useCurrentUser();
+  const loadPrefs = useServerFn(getViewPreference);
+  const savePrefs = useServerFn(saveViewPreference);
+  const prefsRestoredRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (restoreDoneRef.current) return;
-    restoreDoneRef.current = true;
-    if (typeof window === "undefined") return;
+    if (prefsRestoredRef.current) return;
+    if (!operatorId) return;
+    let cancelled = false;
     const urlIsFresh =
       (search.view ?? "all") === "all" &&
       (search.flt?.length ?? 0) === 0 &&
       (search.sort?.length ?? 0) === 0 &&
       search.gby === undefined &&
       !search.q;
-    if (!urlIsFresh) return;
-    try {
-      const raw = window.localStorage.getItem(sessionStorageKey);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as {
-        view?: string;
-        flt?: FilterRule[];
-        gby?: string[];
-        sort?: SortRule[];
-        q?: string;
-      };
-      const patch: Record<string, unknown> = {};
-      if (saved.view && saved.view !== "all") patch.view = saved.view;
-      if (saved.flt && saved.flt.length > 0) patch.flt = saved.flt;
-      if (Array.isArray(saved.gby)) patch.gby = saved.gby;
-      if (saved.sort && saved.sort.length > 0) patch.sort = saved.sort;
-      if (saved.q) patch.q = saved.q;
-      if (Object.keys(patch).length > 0) setSearch(patch);
-    } catch {
-      /* ignore */
-    }
-  }, [search, setSearch]);
+    (async () => {
+      try {
+        const pref = await loadPrefs({ data: { viewKey: VIEW_KEY, operatorId } });
+        if (cancelled) return;
+        if (pref && urlIsFresh) {
+          const patch: Record<string, unknown> = {};
+          if (Array.isArray(pref.filters) && pref.filters.length > 0)
+            patch.flt = pref.filters;
+          if (Array.isArray(pref.sorting) && pref.sorting.length > 0)
+            patch.sort = pref.sorting;
+          if (Array.isArray(pref.grouping)) patch.gby = pref.grouping;
+          if (Object.keys(patch).length > 0) setSearch(patch);
+        }
+      } catch {
+        /* ignore — fail open with empty defaults */
+      } finally {
+        if (!cancelled) prefsRestoredRef.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [operatorId, search, setSearch, loadPrefs]);
 
   useEffect(() => {
-    if (!restoreDoneRef.current) return;
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        sessionStorageKey,
-        JSON.stringify({
-          view: search.view,
-          flt: search.flt,
-          gby: search.gby,
-          sort: search.sort,
-          q: search.q,
-        }),
-      );
-    } catch {
-      /* ignore */
-    }
-  }, [search.view, search.flt, search.gby, search.sort, search.q]);
+    if (!prefsRestoredRef.current) return;
+    if (!operatorId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const filters = (search.flt ?? []) as StoredFilter[];
+    const sorting = (search.sort ?? []) as StoredSort[];
+    // gby === undefined means the default grouping (["status"]) is in effect.
+    const grouping = (search.gby ?? ["status"]) as string[];
+    saveTimerRef.current = setTimeout(() => {
+      savePrefs({
+        data: { viewKey: VIEW_KEY, operatorId, filters, sorting, grouping },
+      }).catch(() => {
+        /* ignore */
+      });
+    }, 600);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [search.flt, search.sort, search.gby, operatorId, savePrefs]);
 
   const view = search.view ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
@@ -737,27 +755,10 @@ function LeadiPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
-  /* ---- collapsed group state ---- */
-  const collapseStorageKey = "leadi:collapsed:v1";
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const raw = window.localStorage.getItem(collapseStorageKey);
-      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-    } catch {
-      return {};
-    }
-  });
+  /* ---- collapsed group state (session-only; groups open by default, never persisted) ---- */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggleCollapsed = useCallback((path: string) => {
-    setCollapsed((prev) => {
-      const next = { ...prev, [path]: !prev[path] };
-      try {
-        window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    setCollapsed((prev) => ({ ...prev, [path]: !prev[path] }));
   }, []);
 
   /* ---- data ---- */
@@ -1154,19 +1155,9 @@ function LeadiPage() {
     }
     walk(groupTree);
     setCollapsed(next);
-    try {
-      window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
   };
   const expandAll = () => {
     setCollapsed({});
-    try {
-      window.localStorage.removeItem(collapseStorageKey);
-    } catch {
-      /* ignore */
-    }
   };
 
   return (
