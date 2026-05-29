@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import {
@@ -46,6 +47,13 @@ import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  getViewPreference,
+  saveViewPreference,
+  type StoredFilter,
+  type StoredSort,
+} from "@/lib/viewPreferences.functions";
 import { cn } from "@/lib/utils";
 import { Tag, normalizeTags } from "@/components/ui/Tag";
 import { StatusBadge } from "@/components/ui/StatusBadge";
