@@ -156,6 +156,8 @@ interface Lead {
   object_summary: string;
   /** Short free-text note from v3 (short_note). Display + search only. */
   short_note: string;
+  /** Session-only review flag injected for grouping (never persisted). */
+  _checked?: boolean;
   /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
   /** Queue bucket sourced directly from backend (no frontend calc). */
@@ -519,33 +521,38 @@ type GroupFieldDef = {
   order?: string[];
 };
 const GROUP_FIELDS: GroupFieldDef[] = [
-  { key: "status", label: "Statuss", get: (l) => l.status || "Bez statusa" },
   {
-    key: "owner",
-    label: "Atbildīgais",
-    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
-  },
-  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
-  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
-  {
-    key: "action_label",
-    label: "Nākamā darbība",
-    get: (l) => l.next_action || "Bez darbības",
-  },
-  {
-    key: "tags",
-    label: "Tagi",
-    get: (l) => l.tags[0] || "Bez tagiem",
+    key: "checked",
+    label: "Check",
+    get: (l) => (l._checked ? "Atzīmēts" : "Nav atzīmēts"),
   },
   {
     key: "priority_label",
     label: "Prioritāte",
     get: (l) => l.priority_label || "Bez prioritātes",
   },
+  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
+  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
+  { key: "status", label: "Lead statuss", get: (l) => l.status || "Bez statusa" },
   {
-    key: "queue_bucket_label",
-    label: "Queue",
-    get: (l) => l.queue_bucket_label || "Nav rindas",
+    key: "tags",
+    label: "Tagi",
+    get: (l) => l.tags[0] || "Bez tagiem",
+  },
+  {
+    key: "owner",
+    label: "Atbildīgais",
+    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
+  },
+  {
+    key: "action_label",
+    label: "Nākamā darbība",
+    get: (l) => l.next_action || "Bez darbības",
+  },
+  {
+    key: "last_activity",
+    label: "Pēdējā aktivitāte",
+    get: (l) => l.communication_label || "Bez aktivitātes",
   },
 ];
 const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
@@ -777,6 +784,11 @@ function LeadiPage() {
     });
   }, []);
 
+  /* ---- session-only "Check" filter (Visi / Atzīmēti / Neatzīmēti) ---- */
+  const [checkFilter, setCheckFilter] = useState<"all" | "checked" | "unchecked">(
+    "all",
+  );
+
   /* ---- data ---- */
   const overviewQuery = useMemo(
     () =>
@@ -952,21 +964,29 @@ function LeadiPage() {
     const pred = sv?.predicate;
     return leadsPatched.filter((l) => {
       if (pred && !pred(l)) return false;
+      if (checkFilter === "checked" && !checkedRows.has(l.lead_id)) return false;
+      if (checkFilter === "unchecked" && checkedRows.has(l.lead_id)) return false;
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country} ${l.short_note}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.communication_label} ${l.country} ${l.short_note}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [leadsPatched, view, flt, q]);
+  }, [leadsPatched, view, flt, q, checkFilter, checkedRows]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
     copy.sort((a, b) => compareLeads(a, b, sort));
     return copy;
   }, [filtered, sort]);
+
+  /* Inject session-only check flag so grouping by "Check" works. */
+  const groupRows = useMemo(
+    () => sorted.map((l) => ({ ...l, _checked: checkedRows.has(l.lead_id) })),
+    [sorted, checkedRows],
+  );
 
   /* ---- group tree ---- */
   type GroupNode = {
@@ -1024,8 +1044,8 @@ function LeadiPage() {
         return node;
       });
     }
-    return build(sorted, gby, "");
-  }, [sorted, gby]);
+    return build(groupRows, gby, "");
+  }, [groupRows, gby]);
 
   /* ---- selection / bulk ---- */
   const allVisibleSelected =
@@ -1110,6 +1130,8 @@ function LeadiPage() {
   const setSort = (next: SortRule[]) => setSearch({ sort: next });
 
   const clearAll = () =>
+  {
+    setCheckFilter("all");
     setSearch({
       view: "all",
       flt: [],
@@ -1117,6 +1139,7 @@ function LeadiPage() {
       sort: [],
       q: undefined,
     });
+  };
 
   const hasActive =
     view !== "all" || flt.length > 0 || !!q || (search.gby && search.gby.length > 0) || (search.sort ?? []).length > 0;
@@ -1169,8 +1192,57 @@ function LeadiPage() {
     { value: "30", label: "30 dienas" },
     { value: "90", label: "90 dienas" },
   ];
+  /* Termiņš (next action due date) filter using next_action_date engine ops. */
+  const dueFilterValue = (): string => {
+    const r = flt.find((x) => x.f === "next_action_date");
+    if (!r) return "";
+    if (r.op === "overdue") return "overdue";
+    if (r.op === "today") return "today";
+    if (r.op === "next_x_days") return `next_${r.v}`;
+    return "";
+  };
+  const setDueFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "next_action_date");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    if (value === "overdue")
+      setFlt([...others, { f: "next_action_date", op: "overdue" }]);
+    else if (value === "today")
+      setFlt([...others, { f: "next_action_date", op: "today" }]);
+    else if (value.startsWith("next_"))
+      setFlt([
+        ...others,
+        { f: "next_action_date", op: "next_x_days", v: Number(value.slice(5)) },
+      ]);
+  };
+  const DUE_FILTER_OPTIONS = [
+    { value: "overdue", label: "Kavēts" },
+    { value: "today", label: "Šodien" },
+    { value: "next_7", label: "7 dienas" },
+    { value: "next_30", label: "30 dienas" },
+  ];
+  /* Datums (last activity date) filter using last_communication_at last_x_days. */
+  const activityDateFilterValue = (): string => {
+    const r = flt.find(
+      (x) => x.f === "last_communication_at" && x.op === "last_x_days",
+    );
+    return r && r.v != null ? String(r.v) : "";
+  };
+  const setActivityDateFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "last_communication_at");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    setFlt([
+      ...others,
+      { f: "last_communication_at", op: "last_x_days", v: Number(value) },
+    ]);
+  };
   const anyColFilterActive =
-    flt.length > 0 || !!q || view !== "all";
+    flt.length > 0 || !!q || view !== "all" || checkFilter !== "all";
 
   /* ---- click-to-sort helpers ---- */
   const sortDirOf = (key: string): "asc" | "desc" | null => {
@@ -1247,6 +1319,13 @@ function LeadiPage() {
           onCollapseAll={collapseAll}
           onExpandAll={expandAll}
         />
+        <div className="ml-auto w-72 max-w-full">
+          <CrmSearchInput
+            value={search.q ?? ""}
+            onChange={(e) => setSearch({ q: e.target.value || undefined })}
+            placeholder="Meklēt: Lead, darbība, aktivitāte, piezīme…"
+          />
+        </div>
       </CrmTableToolbar>
 
       {selected.size > 0 && (
@@ -1296,13 +1375,7 @@ function LeadiPage() {
           >
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
-                <CrmSortableHead
-                  label={
-                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
-                  }
-                  align="center"
-                  style={{ width: 36 }}
-                />
+                {/* 1 — Atlase (bulk selection) */}
                 <CrmSortableHead label={
                   <Checkbox
                     checked={allVisibleSelected}
@@ -1310,59 +1383,55 @@ function LeadiPage() {
                     className="h-3.5 w-3.5"
                     aria-label="Atzīmēt visus"
                   />
-                } style={{ width: 36 }} />
-                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+                } align="center" style={{ width: 36 }} />
+                {/* 2 — Check (session review marker) */}
+                <CrmSortableHead
+                  label={
+                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                  align="center"
+                  style={{ width: 36 }}
+                />
+                {/* 3 — Izveidots */}
+                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 88 }} />
+                {/* 4 — Prioritāte */}
+                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 104 }} />
+                {/* 5 — Lead */}
                 <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
-                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
-                <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
-                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
-                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 96 }} />
-                <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
-                <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
-                <CrmSortableHead label="Īsā piezīme" style={{ width: 180 }} />
-                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
-                <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
+                {/* 6 — PPV */}
+                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 64 }} />
+                {/* 7 — Lead statuss */}
+                <CrmSortableHead sortKey="status" label="Lead statuss" style={{ width: 120 }} />
+                {/* 8 — Tagi */}
+                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: 120 }} />
+                {/* 9 — Atbildīgais */}
+                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 96 }} />
+                {/* 10 — Nākamā darbība */}
+                <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" style={{ width: 150 }} />
+                {/* 11 — Pēdējā aktivitāte */}
+                <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" style={{ width: 160 }} />
+                {/* 12 — Īsā piezīme */}
+                <CrmSortableHead label="Īsā piezīme" style={{ width: 170 }} />
+                {/* 13 — Darbības */}
+                <CrmSortableHead label="" align="right" style={{ width: 120 }} />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
+                {/* 1 — Atlase */}
                 <CrmFilterCell />
-                <CrmFilterCell />
+                {/* 2 — Check */}
                 <CrmFilterCell>
                   <CrmFilterSelect
-                    value={colFilterValue("ppv")}
-                    onValueChange={(v) => setColFilter("ppv", v)}
-                    options={options.ppv.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmSearchInput
-                    value={search.q ?? ""}
-                    onChange={(e) =>
-                      setSearch({ q: e.target.value || undefined })
+                    value={checkFilter === "all" ? "" : checkFilter}
+                    onValueChange={(v) =>
+                      setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
                     }
-                    placeholder="Meklēt…"
+                    options={[
+                      { value: "checked", label: "Atzīmēti" },
+                      { value: "unchecked", label: "Neatzīmēti" },
+                    ]}
                   />
                 </CrmFilterCell>
-                <CrmFilterCell>
-                  <MultiSelectInline
-                    options={options.tags}
-                    value={tagsFilterValue()}
-                    onChange={setTagsFilter}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("status")}
-                    onValueChange={(v) => setColFilter("status", v)}
-                    options={options.status.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("owner")}
-                    onValueChange={(v) => setColFilter("owner", v)}
-                    options={options.owner.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
+                {/* 3 — Izveidots */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={createdFilterValue()}
@@ -1370,21 +1439,7 @@ function LeadiPage() {
                     options={CREATED_FILTER_OPTIONS}
                   />
                 </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("action_label")}
-                    onValueChange={(v) => setColFilter("action_label", v)}
-                    options={options.action_label.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("communication_state")}
-                    onValueChange={(v) => setColFilter("communication_state", v)}
-                    options={options.communication_state.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell />
+                {/* 4 — Prioritāte */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("priority_label")}
@@ -1392,6 +1447,97 @@ function LeadiPage() {
                     options={options.priority_label.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
+                {/* 5 — Lead → Valsts filter */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("country")}
+                    onValueChange={(v) => setColFilter("country", v)}
+                    options={options.country.map((o) => ({ value: o, label: o }))}
+                    placeholder="Valsts"
+                    allLabel="Visas valstis"
+                  />
+                </CrmFilterCell>
+                {/* 6 — PPV */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("ppv")}
+                    onValueChange={(v) => setColFilter("ppv", v)}
+                    options={options.ppv.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 7 — Lead statuss */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("status")}
+                    onValueChange={(v) => setColFilter("status", v)}
+                    options={options.status.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 8 — Tagi */}
+                <CrmFilterCell>
+                  <MultiSelectInline
+                    options={options.tags}
+                    value={tagsFilterValue()}
+                    onChange={setTagsFilter}
+                  />
+                </CrmFilterCell>
+                {/* 9 — Atbildīgais */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("owner")}
+                    onValueChange={(v) => setColFilter("owner", v)}
+                    options={options.owner.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 10 — Nākamā darbība → Darbība + Termiņš */}
+                <CrmFilterCell>
+                  <div className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                    <CrmFilterSelect
+                      value={colFilterValue("action_label")}
+                      onValueChange={(v) => setColFilter("action_label", v)}
+                      options={options.action_label.map((o) => ({ value: o, label: o }))}
+                      placeholder="Darbība"
+                      allLabel="Visas darbības"
+                    />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                    <CrmFilterSelect
+                      value={dueFilterValue()}
+                      onValueChange={setDueFilter}
+                      options={DUE_FILTER_OPTIONS}
+                      placeholder="Termiņš"
+                      allLabel="Jebkurš termiņš"
+                    />
+                    </div>
+                  </div>
+                </CrmFilterCell>
+                {/* 11 — Pēdējā aktivitāte → Aktivitāte + Datums */}
+                <CrmFilterCell>
+                  <div className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                    <CrmFilterSelect
+                      value={colFilterValue("communication_state")}
+                      onValueChange={(v) => setColFilter("communication_state", v)}
+                      options={options.communication_state.map((o) => ({ value: o, label: o }))}
+                      placeholder="Aktivitāte"
+                      allLabel="Jebkura aktivitāte"
+                    />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                    <CrmFilterSelect
+                      value={activityDateFilterValue()}
+                      onValueChange={setActivityDateFilter}
+                      options={CREATED_FILTER_OPTIONS}
+                      placeholder="Datums"
+                      allLabel="Jebkurš datums"
+                    />
+                    </div>
+                  </div>
+                </CrmFilterCell>
+                {/* 12 — Īsā piezīme (searchable via global search) */}
+                <CrmFilterCell />
+                {/* 13 — Darbības → clear filters */}
                 <CrmFilterCell align="right">
                   <CrmClearFiltersButton
                     active={anyColFilterActive}
@@ -1606,6 +1752,15 @@ function LeadRow({
         isChecked && "opacity-60",
       )}
     >
+      {/* 1 — Atlase */}
+      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isSel}
+          onCheckedChange={() => toggleOne(l.lead_id)}
+          className="h-3.5 w-3.5"
+        />
+      </CrmDataCell>
+      {/* 2 — Check */}
       <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isChecked}
@@ -1614,23 +1769,58 @@ function LeadRow({
           aria-label="Atzīmēt kā pārskatītu"
         />
       </CrmDataCell>
-      <CrmDataCell onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          checked={isSel}
-          onCheckedChange={() => toggleOne(l.lead_id)}
-          className="h-3.5 w-3.5"
-        />
-      </CrmDataCell>
+      {/* 3 — Izveidots */}
       <CrmDataCell>
-        <span
-          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
-          title={l.ppv_name || l.ppv_user_code || "-"}
-        >
-          {l.ppv_user_code || (
-            <span className="text-muted-foreground/60">-</span>
-          )}
+        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
+          {fmtDate(l.created_at)}
         </span>
       </CrmDataCell>
+      {/* 4 — Prioritāte */}
+      <CrmDataCell>
+        {(() => {
+          const stars = l.priority_stars ?? 0;
+          const tooltipLines = [
+            l.priority_label || "Bez prioritātes",
+            l.priority_breakdown,
+            l.priority_updated_at
+              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <div
+              className="flex min-w-0 flex-col leading-tight"
+              title={tooltipLines}
+            >
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      "h-3 w-3",
+                      i < stars
+                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
+                        : "text-muted-foreground/30",
+                    )}
+                  />
+                ))}
+                {l.priority_score != null && (
+                  <span className="ml-1 text-[12px] tabular-nums text-muted-foreground/80">
+                    {l.priority_score}
+                  </span>
+                )}
+              </div>
+              {l.priority_label && (
+                <span className="truncate text-[12px] text-muted-foreground/70">
+                  {l.priority_label}
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </CrmDataCell>
+      {/* 5 — Lead */}
       <CrmDataCell className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
@@ -1653,22 +1843,18 @@ function LeadRow({
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
         </div>
       </CrmDataCell>
+      {/* 6 — PPV */}
       <CrmDataCell>
-        {l.tags.length === 0 ? (
-          <span className="text-muted-foreground/50">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-0.5">
-            {normalizeTags(l.tags).slice(0, 3).map((t) => (
-              <Tag key={t} tag={t} />
-            ))}
-            {l.tags.length > 3 && (
-              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
+        <span
+          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
+          title={l.ppv_name || l.ppv_user_code || "-"}
+        >
+          {l.ppv_user_code || (
+            <span className="text-muted-foreground/60">-</span>
+          )}
+        </span>
       </CrmDataCell>
+      {/* 7 — Lead statuss */}
       <CrmDataCell>
         <div className="flex min-w-0 flex-col gap-0.5">
           <StatusBadge status={l.status} />
@@ -1691,6 +1877,24 @@ function LeadRow({
           </div>
         </div>
       </CrmDataCell>
+      {/* 8 — Tagi */}
+      <CrmDataCell>
+        {l.tags.length === 0 ? (
+          <span className="text-muted-foreground/50">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-0.5">
+            {normalizeTags(l.tags).slice(0, 3).map((t) => (
+              <Tag key={t} tag={t} />
+            ))}
+            {l.tags.length > 3 && (
+              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
+                +{l.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </CrmDataCell>
+      {/* 9 — Atbildīgais */}
       <CrmDataCell>
         {l.owner_user_code ? (
           <span
@@ -1703,11 +1907,7 @@ function LeadRow({
           <span className="text-muted-foreground/50">-</span>
         )}
       </CrmDataCell>
-      <CrmDataCell>
-        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
-          {fmtDate(l.created_at)}
-        </span>
-      </CrmDataCell>
+      {/* 10 — Nākamā darbība */}
       <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
@@ -1734,6 +1934,7 @@ function LeadRow({
           )}
         </div>
       </CrmDataCell>
+      {/* 11 — Pēdējā aktivitāte */}
       <CrmDataCell>
         {(() => {
           let bestDate: string | null = null;
@@ -1791,6 +1992,7 @@ function LeadRow({
           );
         })()}
       </CrmDataCell>
+      {/* 12 — Īsā piezīme */}
       <CrmDataCell>
         {l.short_note ? (
           <span
@@ -1803,47 +2005,7 @@ function LeadRow({
           <span className="text-muted-foreground/40">—</span>
         )}
       </CrmDataCell>
-      <CrmDataCell>
-        {(() => {
-          const stars = l.priority_stars ?? 0;
-          const tooltipLines = [
-            l.priority_label || "Bez prioritātes",
-            l.priority_breakdown,
-            l.priority_updated_at
-              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join("\n");
-          return (
-            <div
-              className="flex min-w-0 flex-col leading-tight"
-              title={tooltipLines}
-            >
-              <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      "h-3 w-3",
-                      i < stars
-                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
-                        : "text-muted-foreground/30",
-                    )}
-                  />
-                ))}
-              </div>
-              {(l.priority_label || l.priority_score != null) && (
-                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
-                  {l.priority_label || ""}
-                  {l.priority_label && l.priority_score != null ? " · " : ""}
-                  {l.priority_score != null ? l.priority_score : ""}
-                </span>
-              )}
-            </div>
-          );
-        })()}
-      </CrmDataCell>
+      {/* 13 — Darbības */}
       <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
           <RowAction
