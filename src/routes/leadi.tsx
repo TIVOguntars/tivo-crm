@@ -964,15 +964,17 @@ function LeadiPage() {
     const pred = sv?.predicate;
     return leadsPatched.filter((l) => {
       if (pred && !pred(l)) return false;
+      if (checkFilter === "checked" && !checkedRows.has(l.lead_id)) return false;
+      if (checkFilter === "unchecked" && checkedRows.has(l.lead_id)) return false;
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country} ${l.short_note}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.communication_label} ${l.country} ${l.short_note}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [leadsPatched, view, flt, q]);
+  }, [leadsPatched, view, flt, q, checkFilter, checkedRows]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
