@@ -1744,6 +1744,15 @@ function LeadRow({
         isChecked && "opacity-60",
       )}
     >
+      {/* 1 — Atlase */}
+      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isSel}
+          onCheckedChange={() => toggleOne(l.lead_id)}
+          className="h-3.5 w-3.5"
+        />
+      </CrmDataCell>
+      {/* 2 — Check */}
       <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isChecked}
@@ -1752,23 +1761,58 @@ function LeadRow({
           aria-label="Atzīmēt kā pārskatītu"
         />
       </CrmDataCell>
-      <CrmDataCell onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          checked={isSel}
-          onCheckedChange={() => toggleOne(l.lead_id)}
-          className="h-3.5 w-3.5"
-        />
-      </CrmDataCell>
+      {/* 3 — Izveidots */}
       <CrmDataCell>
-        <span
-          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
-          title={l.ppv_name || l.ppv_user_code || "-"}
-        >
-          {l.ppv_user_code || (
-            <span className="text-muted-foreground/60">-</span>
-          )}
+        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
+          {fmtDate(l.created_at)}
         </span>
       </CrmDataCell>
+      {/* 4 — Prioritāte */}
+      <CrmDataCell>
+        {(() => {
+          const stars = l.priority_stars ?? 0;
+          const tooltipLines = [
+            l.priority_label || "Bez prioritātes",
+            l.priority_breakdown,
+            l.priority_updated_at
+              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <div
+              className="flex min-w-0 flex-col leading-tight"
+              title={tooltipLines}
+            >
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      "h-3 w-3",
+                      i < stars
+                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
+                        : "text-muted-foreground/30",
+                    )}
+                  />
+                ))}
+                {l.priority_score != null && (
+                  <span className="ml-1 text-[12px] tabular-nums text-muted-foreground/80">
+                    {l.priority_score}
+                  </span>
+                )}
+              </div>
+              {l.priority_label && (
+                <span className="truncate text-[12px] text-muted-foreground/70">
+                  {l.priority_label}
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </CrmDataCell>
+      {/* 5 — Lead */}
       <CrmDataCell className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
@@ -1791,22 +1835,18 @@ function LeadRow({
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
         </div>
       </CrmDataCell>
+      {/* 6 — PPV */}
       <CrmDataCell>
-        {l.tags.length === 0 ? (
-          <span className="text-muted-foreground/50">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-0.5">
-            {normalizeTags(l.tags).slice(0, 3).map((t) => (
-              <Tag key={t} tag={t} />
-            ))}
-            {l.tags.length > 3 && (
-              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
+        <span
+          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
+          title={l.ppv_name || l.ppv_user_code || "-"}
+        >
+          {l.ppv_user_code || (
+            <span className="text-muted-foreground/60">-</span>
+          )}
+        </span>
       </CrmDataCell>
+      {/* 7 — Lead statuss */}
       <CrmDataCell>
         <div className="flex min-w-0 flex-col gap-0.5">
           <StatusBadge status={l.status} />
@@ -1829,6 +1869,24 @@ function LeadRow({
           </div>
         </div>
       </CrmDataCell>
+      {/* 8 — Tagi */}
+      <CrmDataCell>
+        {l.tags.length === 0 ? (
+          <span className="text-muted-foreground/50">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-0.5">
+            {normalizeTags(l.tags).slice(0, 3).map((t) => (
+              <Tag key={t} tag={t} />
+            ))}
+            {l.tags.length > 3 && (
+              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
+                +{l.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </CrmDataCell>
+      {/* 9 — Atbildīgais */}
       <CrmDataCell>
         {l.owner_user_code ? (
           <span
@@ -1841,11 +1899,7 @@ function LeadRow({
           <span className="text-muted-foreground/50">-</span>
         )}
       </CrmDataCell>
-      <CrmDataCell>
-        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
-          {fmtDate(l.created_at)}
-        </span>
-      </CrmDataCell>
+      {/* 10 — Nākamā darbība */}
       <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
@@ -1872,6 +1926,7 @@ function LeadRow({
           )}
         </div>
       </CrmDataCell>
+      {/* 11 — Pēdējā aktivitāte */}
       <CrmDataCell>
         {(() => {
           let bestDate: string | null = null;
@@ -1929,6 +1984,7 @@ function LeadRow({
           );
         })()}
       </CrmDataCell>
+      {/* 12 — Īsā piezīme */}
       <CrmDataCell>
         {l.short_note ? (
           <span
@@ -1941,47 +1997,7 @@ function LeadRow({
           <span className="text-muted-foreground/40">—</span>
         )}
       </CrmDataCell>
-      <CrmDataCell>
-        {(() => {
-          const stars = l.priority_stars ?? 0;
-          const tooltipLines = [
-            l.priority_label || "Bez prioritātes",
-            l.priority_breakdown,
-            l.priority_updated_at
-              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join("\n");
-          return (
-            <div
-              className="flex min-w-0 flex-col leading-tight"
-              title={tooltipLines}
-            >
-              <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      "h-3 w-3",
-                      i < stars
-                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
-                        : "text-muted-foreground/30",
-                    )}
-                  />
-                ))}
-              </div>
-              {(l.priority_label || l.priority_score != null) && (
-                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
-                  {l.priority_label || ""}
-                  {l.priority_label && l.priority_score != null ? " · " : ""}
-                  {l.priority_score != null ? l.priority_score : ""}
-                </span>
-              )}
-            </div>
-          );
-        })()}
-      </CrmDataCell>
+      {/* 13 — Darbības */}
       <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
           <RowAction
