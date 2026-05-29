@@ -1130,6 +1130,8 @@ function LeadiPage() {
   const setSort = (next: SortRule[]) => setSearch({ sort: next });
 
   const clearAll = () =>
+  {
+    setCheckFilter("all");
     setSearch({
       view: "all",
       flt: [],
@@ -1137,6 +1139,7 @@ function LeadiPage() {
       sort: [],
       q: undefined,
     });
+  };
 
   const hasActive =
     view !== "all" || flt.length > 0 || !!q || (search.gby && search.gby.length > 0) || (search.sort ?? []).length > 0;
