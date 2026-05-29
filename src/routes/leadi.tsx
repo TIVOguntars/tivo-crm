@@ -1239,7 +1239,7 @@ function LeadiPage() {
     ]);
   };
   const anyColFilterActive =
-    flt.length > 0 || !!q || view !== "all";
+    flt.length > 0 || !!q || view !== "all" || checkFilter !== "all";
 
   /* ---- click-to-sort helpers ---- */
   const sortDirOf = (key: string): "asc" | "desc" | null => {
