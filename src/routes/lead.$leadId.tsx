@@ -2200,24 +2200,6 @@ function LeadProfilePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Planned queue item edit modal (automation emails only) */}
-          <PlannedQueueEditDialog
-            open={!!editQueueId}
-            queueRow={
-              editQueueId
-                ? (((queueTemplatesQ.data?.rows ?? []) as Row[]).find(
-                    (r) => str(r.id) === editQueueId,
-                  ) ?? null)
-                : null
-            }
-            onOpenChange={(o: boolean) => !o && setEditQueueId(null)}
-            onSaved={() => {
-              setEditQueueId(null);
-              plannedActionsQ.refetch();
-              queueTemplatesQ.refetch();
-            }}
-          />
-
           <CompleteActionModal
             open={!!completeTaskId}
             onOpenChange={(o) => !o && setCompleteTaskId(null)}
