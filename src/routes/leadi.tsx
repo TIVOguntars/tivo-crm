@@ -1325,6 +1325,7 @@ function LeadiPage() {
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
                 <CrmFilterCell />
+                <CrmFilterCell />
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("ppv")}
@@ -1342,10 +1343,10 @@ function LeadiPage() {
                   />
                 </CrmFilterCell>
                 <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("tags")}
-                    onValueChange={(v) => setColFilter("tags", v)}
-                    options={options.tags.map((o) => ({ value: o, label: o }))}
+                  <MultiSelectInline
+                    options={options.tags}
+                    value={tagsFilterValue()}
+                    onChange={setTagsFilter}
                   />
                 </CrmFilterCell>
                 <CrmFilterCell>
@@ -1364,6 +1365,13 @@ function LeadiPage() {
                 </CrmFilterCell>
                 <CrmFilterCell>
                   <CrmFilterSelect
+                    value={createdFilterValue()}
+                    onValueChange={setCreatedFilter}
+                    options={CREATED_FILTER_OPTIONS}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
                     value={colFilterValue("action_label")}
                     onValueChange={(v) => setColFilter("action_label", v)}
                     options={options.action_label.map((o) => ({ value: o, label: o }))}
@@ -1376,6 +1384,7 @@ function LeadiPage() {
                     options={options.communication_state.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
+                <CrmFilterCell />
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("priority_label")}
