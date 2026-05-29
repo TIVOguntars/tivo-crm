@@ -982,6 +982,12 @@ function LeadiPage() {
     return copy;
   }, [filtered, sort]);
 
+  /* Inject session-only check flag so grouping by "Check" works. */
+  const groupRows = useMemo(
+    () => sorted.map((l) => ({ ...l, _checked: checkedRows.has(l.lead_id) })),
+    [sorted, checkedRows],
+  );
+
   /* ---- group tree ---- */
   type GroupNode = {
     key: string;
@@ -1038,8 +1044,8 @@ function LeadiPage() {
         return node;
       });
     }
-    return build(sorted, gby, "");
-  }, [sorted, gby]);
+    return build(groupRows, gby, "");
+  }, [groupRows, gby]);
 
   /* ---- selection / bulk ---- */
   const allVisibleSelected =
