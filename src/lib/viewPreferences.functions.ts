@@ -36,8 +36,8 @@ const SaveInput = z.object({
 });
 
 export interface ViewPreference {
-  filters: unknown[];
-  sorting: unknown[];
+  filters: Record<string, unknown>[];
+  sorting: Record<string, unknown>[];
   grouping: string[];
 }
 
@@ -79,8 +79,8 @@ export const getViewPreference = createServerFn({ method: "POST" })
     if (!row || typeof row !== "object") return null;
     const r = row as { filters?: unknown; sorting?: unknown; grouping?: unknown };
     return {
-      filters: Array.isArray(r.filters) ? r.filters : [],
-      sorting: Array.isArray(r.sorting) ? r.sorting : [],
+      filters: (Array.isArray(r.filters) ? r.filters : []) as Record<string, unknown>[],
+      sorting: (Array.isArray(r.sorting) ? r.sorting : []) as Record<string, unknown>[],
       grouping: Array.isArray(r.grouping) ? (r.grouping as string[]) : [],
     };
   });
