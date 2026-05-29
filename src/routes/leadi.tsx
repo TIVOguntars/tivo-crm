@@ -1792,6 +1792,18 @@ function LeadRow({
         })()}
       </CrmDataCell>
       <CrmDataCell>
+        {l.short_note ? (
+          <span
+            className="line-clamp-2 text-[12px] text-muted-foreground/80"
+            title={l.short_note}
+          >
+            {l.short_note}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </CrmDataCell>
+      <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
           const tooltipLines = [
