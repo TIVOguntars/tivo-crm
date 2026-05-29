@@ -1407,6 +1407,8 @@ function LeadiPage() {
                 toggle={toggleCollapsed}
                 selected={selected}
                 toggleOne={toggleOne}
+                checkedRows={checkedRows}
+                toggleChecked={toggleChecked}
                 openLead={openLead}
                 bumpActivity={bumpActivity}
                 commCounts={commCounts}
