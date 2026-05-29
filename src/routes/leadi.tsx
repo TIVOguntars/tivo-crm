@@ -1296,6 +1296,13 @@ function LeadiPage() {
           >
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
+                <CrmSortableHead
+                  label={
+                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                  align="center"
+                  style={{ width: 36 }}
+                />
                 <CrmSortableHead label={
                   <Checkbox
                     checked={allVisibleSelected}
@@ -1309,8 +1316,10 @@ function LeadiPage() {
                 <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
                 <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
                 <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
+                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 96 }} />
                 <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
                 <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
+                <CrmSortableHead label="Īsā piezīme" style={{ width: 180 }} />
                 <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
                 <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
               </CrmDataTableLabelRow>
