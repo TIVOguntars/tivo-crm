@@ -12,17 +12,10 @@ import {
   Plus,
   Upload,
   Bookmark,
-  Filter,
-  Columns3,
   ChevronDown,
   ChevronRight,
-  X,
   AlertTriangle,
   Layers,
-  ArrowUpDown,
-  Trash2,
-  ArrowUp,
-  ArrowDown,
   Eye,
   Star,
 } from "lucide-react";
@@ -34,7 +27,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Tooltip,
   TooltipContent,
@@ -162,6 +154,8 @@ interface Lead {
   last_outbound_at: string | null;
   last_inbound_at: string | null;
   object_summary: string;
+  /** Short free-text note from v3 (short_note). Display + search only. */
+  short_note: string;
   /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
   /** Queue bucket sourced directly from backend (no frontend calc). */
@@ -532,6 +526,17 @@ const GROUP_FIELDS: GroupFieldDef[] = [
     get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
   },
   { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
+  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
+  {
+    key: "action_label",
+    label: "Nākamā darbība",
+    get: (l) => l.next_action || "Bez darbības",
+  },
+  {
+    key: "tags",
+    label: "Tagi",
+    get: (l) => l.tags[0] || "Bez tagiem",
+  },
   {
     key: "priority_label",
     label: "Prioritāte",
@@ -761,6 +766,17 @@ function LeadiPage() {
     setCollapsed((prev) => ({ ...prev, [path]: !prev[path] }));
   }, []);
 
+  /* ---- session-only "Check" column (operator review marker; resets on reload, never persisted) ---- */
+  const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+  const toggleChecked = useCallback((id: string) => {
+    setCheckedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   /* ---- data ---- */
   const overviewQuery = useMemo(
     () =>
@@ -866,6 +882,7 @@ function LeadiPage() {
           last_outbound_at: s(r.last_outbound_at) || null,
           last_inbound_at: s(r.last_inbound_at) || null,
           object_summary: s(r.object_summary),
+          short_note: s(r.short_note),
           has_task,
           queue_bucket: s(r.queue_bucket),
           queue_bucket_label: s(r.queue_bucket_label),
@@ -938,7 +955,7 @@ function LeadiPage() {
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country} ${l.short_note}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1120,6 +1137,38 @@ function LeadiPage() {
     }
     setFlt([...others, { f: key, op: "is_any_of", v: [value] }]);
   };
+  /* Multi-tag filter using the "contains_all" engine operator. */
+  const tagsFilterValue = (): string[] => {
+    const r = flt.find((x) => x.f === "tags");
+    return Array.isArray(r?.v) ? (r!.v as string[]) : [];
+  };
+  const setTagsFilter = (vals: string[]) => {
+    const others = flt.filter((x) => x.f !== "tags");
+    if (vals.length === 0) {
+      setFlt(others);
+      return;
+    }
+    setFlt([...others, { f: "tags", op: "contains_all", v: vals }]);
+  };
+  /* Created-date filter using the "last_x_days" engine operator. */
+  const createdFilterValue = (): string => {
+    const r = flt.find((x) => x.f === "created_at" && x.op === "last_x_days");
+    return r && r.v != null ? String(r.v) : "";
+  };
+  const setCreatedFilter = (value: string) => {
+    const others = flt.filter((x) => x.f !== "created_at");
+    if (!value) {
+      setFlt(others);
+      return;
+    }
+    setFlt([...others, { f: "created_at", op: "last_x_days", v: Number(value) }]);
+  };
+  const CREATED_FILTER_OPTIONS = [
+    { value: "1", label: "Šodien" },
+    { value: "7", label: "7 dienas" },
+    { value: "30", label: "30 dienas" },
+    { value: "90", label: "90 dienas" },
+  ];
   const anyColFilterActive =
     flt.length > 0 || !!q || view !== "all";
 
@@ -1247,6 +1296,13 @@ function LeadiPage() {
           >
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
+                <CrmSortableHead
+                  label={
+                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                  align="center"
+                  style={{ width: 36 }}
+                />
                 <CrmSortableHead label={
                   <Checkbox
                     checked={allVisibleSelected}
@@ -1260,12 +1316,15 @@ function LeadiPage() {
                 <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
                 <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
                 <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
+                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 96 }} />
                 <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
                 <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
+                <CrmSortableHead label="Īsā piezīme" style={{ width: 180 }} />
                 <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
                 <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
+                <CrmFilterCell />
                 <CrmFilterCell />
                 <CrmFilterCell>
                   <CrmFilterSelect
@@ -1284,10 +1343,10 @@ function LeadiPage() {
                   />
                 </CrmFilterCell>
                 <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("tags")}
-                    onValueChange={(v) => setColFilter("tags", v)}
-                    options={options.tags.map((o) => ({ value: o, label: o }))}
+                  <MultiSelectInline
+                    options={options.tags}
+                    value={tagsFilterValue()}
+                    onChange={setTagsFilter}
                   />
                 </CrmFilterCell>
                 <CrmFilterCell>
@@ -1306,6 +1365,13 @@ function LeadiPage() {
                 </CrmFilterCell>
                 <CrmFilterCell>
                   <CrmFilterSelect
+                    value={createdFilterValue()}
+                    onValueChange={setCreatedFilter}
+                    options={CREATED_FILTER_OPTIONS}
+                  />
+                </CrmFilterCell>
+                <CrmFilterCell>
+                  <CrmFilterSelect
                     value={colFilterValue("action_label")}
                     onValueChange={(v) => setColFilter("action_label", v)}
                     options={options.action_label.map((o) => ({ value: o, label: o }))}
@@ -1318,6 +1384,7 @@ function LeadiPage() {
                     options={options.communication_state.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
+                <CrmFilterCell />
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("priority_label")}
@@ -1340,6 +1407,8 @@ function LeadiPage() {
                 toggle={toggleCollapsed}
                 selected={selected}
                 toggleOne={toggleOne}
+                checkedRows={checkedRows}
+                toggleChecked={toggleChecked}
                 openLead={openLead}
                 bumpActivity={bumpActivity}
                 commCounts={commCounts}
@@ -1370,6 +1439,8 @@ function GroupRenderer({
   toggle,
   selected,
   toggleOne,
+  checkedRows,
+  toggleChecked,
   openLead,
   bumpActivity,
   commCounts,
@@ -1379,6 +1450,8 @@ function GroupRenderer({
   toggle: (path: string) => void;
   selected: Set<string>;
   toggleOne: (id: string) => void;
+  checkedRows: Set<string>;
+  toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
   bumpActivity: (id: string) => void;
   commCounts: Map<string, CommBuckets>;
@@ -1393,6 +1466,8 @@ function GroupRenderer({
               l={l}
               isSel={selected.has(l.lead_id)}
               toggleOne={toggleOne}
+              isChecked={checkedRows.has(l.lead_id)}
+              toggleChecked={toggleChecked}
               openLead={openLead}
               bumpActivity={bumpActivity}
               commCounts={commCounts}
@@ -1405,7 +1480,7 @@ function GroupRenderer({
             key={`gh-${n.path}`}
             className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <CrmDataCell colSpan={10} className="p-0">
+            <CrmDataCell colSpan={13} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
@@ -1437,6 +1512,8 @@ function GroupRenderer({
             toggle={toggle}
             selected={selected}
             toggleOne={toggleOne}
+            checkedRows={checkedRows}
+            toggleChecked={toggleChecked}
             openLead={openLead}
             bumpActivity={bumpActivity}
             commCounts={commCounts}
@@ -1457,6 +1534,8 @@ function GroupRenderer({
             toggle={toggle}
             selected={selected}
             toggleOne={toggleOne}
+            checkedRows={checkedRows}
+            toggleChecked={toggleChecked}
             openLead={openLead}
             bumpActivity={bumpActivity}
             commCounts={commCounts}
@@ -1474,6 +1553,8 @@ function LeadRow({
   l,
   isSel,
   toggleOne,
+  isChecked,
+  toggleChecked,
   openLead,
   bumpActivity,
   commCounts,
@@ -1481,6 +1562,8 @@ function LeadRow({
   l: Lead;
   isSel: boolean;
   toggleOne: (id: string) => void;
+  isChecked: boolean;
+  toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
   bumpActivity: (id: string) => void;
   commCounts: Map<string, CommBuckets>;
@@ -1520,8 +1603,17 @@ function LeadRow({
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
         isSel && "bg-[var(--tivo-navy-soft)]",
+        isChecked && "opacity-60",
       )}
     >
+      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isChecked}
+          onCheckedChange={() => toggleChecked(l.lead_id)}
+          className="h-3.5 w-3.5"
+          aria-label="Atzīmēt kā pārskatītu"
+        />
+      </CrmDataCell>
       <CrmDataCell onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isSel}
@@ -1612,6 +1704,11 @@ function LeadRow({
         )}
       </CrmDataCell>
       <CrmDataCell>
+        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
+          {fmtDate(l.created_at)}
+        </span>
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
             className={cn(
@@ -1693,6 +1790,18 @@ function LeadRow({
             </div>
           );
         })()}
+      </CrmDataCell>
+      <CrmDataCell>
+        {l.short_note ? (
+          <span
+            className="line-clamp-2 text-[12px] text-muted-foreground/80"
+            title={l.short_note}
+          >
+            {l.short_note}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
       </CrmDataCell>
       <CrmDataCell>
         {(() => {
@@ -1864,282 +1973,6 @@ function SavedViewSelector({
         ))}
       </PopoverContent>
     </Popover>
-  );
-}
-
-/* ============================ Filter builder ============================ */
-
-function FilterBuilder({
-  rules,
-  options,
-  onChange,
-}: {
-  rules: FilterRule[];
-  options: Record<string, string[]>;
-  onChange: (next: FilterRule[]) => void;
-}) {
-  const add = () => {
-    onChange([...rules, { f: "status", op: "is_any_of", v: [] }]);
-  };
-  const update = (i: number, patch: Partial<FilterRule>) => {
-    const next = rules.slice();
-    next[i] = { ...next[i], ...patch };
-    onChange(next);
-  };
-  const remove = (i: number) => onChange(rules.filter((_, idx) => idx !== i));
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
-            rules.length > 0
-              ? "border-primary/40 bg-primary/10 text-foreground"
-              : "border-border bg-background text-foreground hover:bg-muted/50",
-          )}
-        >
-          <Filter className="h-3.5 w-3.5" />
-          <span>Filtri</span>
-          {rules.length > 0 && (
-            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              {rules.length}
-            </span>
-          )}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[560px] p-2">
-        <div className="space-y-1.5">
-          {rules.length === 0 && (
-            <div className="px-1 py-2 text-xs text-muted-foreground">
-              Nav aktīvu filtru.
-            </div>
-          )}
-          {rules.map((r, i) => (
-            <FilterRuleRow
-              key={i}
-              rule={r}
-              options={options}
-              onChange={(p) => update(i, p)}
-              onRemove={() => remove(i)}
-            />
-          ))}
-        </div>
-        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={add}>
-            <Plus className="h-3.5 w-3.5" />
-            Pievienot filtru
-          </Button>
-          {rules.length > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-muted-foreground"
-              onClick={() => onChange([])}
-            >
-              Notīrīt
-            </Button>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function FilterRuleRow({
-  rule,
-  options,
-  onChange,
-  onRemove,
-}: {
-  rule: FilterRule;
-  options: Record<string, string[]>;
-  onChange: (patch: Partial<FilterRule>) => void;
-  onRemove: () => void;
-}) {
-  const def = FIELD_BY_KEY[rule.f] ?? FIELDS[0];
-  const ops = OPERATORS_BY_TYPE[def.type];
-  const fieldOptions = options[def.key] ?? [];
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <select
-        value={rule.f}
-        onChange={(e) => {
-          const f = e.target.value;
-          const t = FIELD_BY_KEY[f].type;
-          onChange({ f, op: OPERATORS_BY_TYPE[t][0], v: undefined });
-        }}
-        className="h-7 rounded border border-input bg-background px-1.5 text-xs"
-      >
-        {FIELDS.map((f) => (
-          <option key={f.key} value={f.key}>
-            {f.label}
-          </option>
-        ))}
-      </select>
-      <select
-        value={rule.op}
-        onChange={(e) => onChange({ op: e.target.value, v: undefined })}
-        className="h-7 rounded border border-input bg-background px-1.5 text-xs"
-      >
-        {ops.map((op) => (
-          <option key={op} value={op}>
-            {OP_LABELS[op] ?? op}
-          </option>
-        ))}
-      </select>
-      <div className="min-w-0 flex-1">
-        <FilterValueInput
-          rule={rule}
-          fieldOptions={fieldOptions}
-          onChange={(v) => onChange({ v })}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="Noņemt filtru"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-function FilterValueInput({
-  rule,
-  fieldOptions,
-  onChange,
-}: {
-  rule: FilterRule;
-  fieldOptions: string[];
-  onChange: (v: unknown) => void;
-}) {
-  const def = FIELD_BY_KEY[rule.f];
-  const op = rule.op;
-
-  if (op === "is_empty" || op === "is_not_empty") {
-    return <span className="text-[11px] text-muted-foreground">—</span>;
-  }
-  if (op === "today" || op === "overdue") {
-    return <span className="text-[11px] text-muted-foreground">—</span>;
-  }
-  if (op === "next_x_days" || op === "last_x_days" || op === "before_x_days") {
-    return (
-      <input
-        type="number"
-        min={1}
-        value={(rule.v as number) ?? ""}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        placeholder="Dienas"
-        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
-      />
-    );
-  }
-  if (op === "before_date" || op === "after_date") {
-    const d = rule.v ? new Date(String(rule.v)) : undefined;
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-7 w-full rounded border border-input bg-background px-2 text-left text-xs"
-          >
-            {d ? fmtDate(d.toISOString()) : "Izvēlies datumu"}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto p-0">
-          <Calendar
-            mode="single"
-            selected={d}
-            onSelect={(x) => onChange(x ? x.toISOString() : undefined)}
-            className={cn("p-3 pointer-events-auto")}
-          />
-        </PopoverContent>
-      </Popover>
-    );
-  }
-  if (op === "between_dates") {
-    const v = (rule.v ?? {}) as { from?: string; to?: string };
-    const from = v.from ? new Date(v.from) : undefined;
-    const to = v.to ? new Date(v.to) : undefined;
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-7 w-full rounded border border-input bg-background px-2 text-left text-xs"
-          >
-            {from && to
-              ? `${fmtDate(from.toISOString())} → ${fmtDate(to.toISOString())}`
-              : "Izvēlies periodu"}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto p-0">
-          <Calendar
-            mode="range"
-            selected={{ from, to }}
-            onSelect={(r) =>
-              onChange({
-                from: r?.from ? r.from.toISOString() : undefined,
-                to: r?.to ? r.to.toISOString() : undefined,
-              })
-            }
-            numberOfMonths={2}
-            className={cn("p-3 pointer-events-auto")}
-          />
-        </PopoverContent>
-      </Popover>
-    );
-  }
-  if (op === "gt" || op === "lt" || (def?.type === "number" && (op === "is" || op === "is_not"))) {
-    return (
-      <input
-        type="number"
-        value={(rule.v as number) ?? ""}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
-      />
-    );
-  }
-  if (op === "is_any_of" || op === "is_none_of" || op === "contains_all") {
-    const cur = Array.isArray(rule.v) ? (rule.v as string[]) : [];
-    return (
-      <MultiSelectInline
-        options={fieldOptions}
-        value={cur}
-        onChange={onChange}
-      />
-    );
-  }
-  // single text/enum
-  if (fieldOptions.length > 0) {
-    return (
-      <select
-        value={(rule.v as string) ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
-      >
-        <option value="">—</option>
-        {fieldOptions.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    );
-  }
-  return (
-    <input
-      type="text"
-      value={(rule.v as string) ?? ""}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-7 w-full rounded border border-input bg-background px-2 text-xs"
-    />
   );
 }
 
@@ -2338,181 +2171,5 @@ function GroupByControl({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-/* ============================ Sort control ============================ */
-
-function SortControl({
-  value,
-  onChange,
-}: {
-  value: SortRule[];
-  onChange: (v: SortRule[]) => void;
-}) {
-  const display =
-    value.length === 0
-      ? "Prioritāte ↓"
-      : value
-          .map((r) => {
-            const lbl = SORT_BY_KEY[r.f]?.label ?? r.f;
-            return `${lbl} ${r.d === "desc" ? "↓" : "↑"}`;
-          })
-          .join(", ");
-  const update = (i: number, patch: Partial<SortRule>) => {
-    const next = value.slice();
-    next[i] = { ...next[i], ...patch };
-    onChange(next);
-  };
-  const add = () =>
-    onChange([
-      ...value,
-      {
-        f: SORT_FIELDS.find((f) => !value.some((v) => v.f === f.key))?.key ??
-          SORT_FIELDS[0].key,
-        d: "desc",
-      },
-    ]);
-  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
-            value.length > 0
-              ? "border-primary/40 bg-primary/10 text-foreground"
-              : "border-border bg-background text-foreground hover:bg-muted/50",
-          )}
-        >
-          <ArrowUpDown className="h-3.5 w-3.5" />
-          <span className="text-muted-foreground">Kārtot:</span>
-          <span className="truncate text-foreground">{display}</span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-2">
-        <div className="space-y-1.5">
-          {value.length === 0 && (
-            <div className="rounded bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
-              Noklusētais: Prioritāte ↓ → Pēdējā komunikācija ↓ → Izveidots ↓
-            </div>
-          )}
-          {value.map((r, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <select
-                value={r.f}
-                onChange={(e) => update(i, { f: e.target.value })}
-                className="h-7 flex-1 rounded border border-input bg-background px-1.5 text-xs"
-              >
-                {SORT_FIELDS.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => update(i, { d: r.d === "desc" ? "asc" : "desc" })}
-                className="inline-flex h-7 w-7 items-center justify-center rounded border border-input hover:bg-muted/50"
-                aria-label="Pārslēgt virzienu"
-              >
-                {r.d === "desc" ? (
-                  <ArrowDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowUp className="h-3.5 w-3.5" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Noņemt"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={add}>
-            <Plus className="h-3.5 w-3.5" />
-            Pievienot kārtošanu
-          </Button>
-          {value.length > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-muted-foreground"
-              onClick={() => onChange([])}
-            >
-              Atjaunot noklusēto
-            </Button>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* ============================ Active filter chips ============================ */
-
-function ActiveFilterChips({
-  view,
-  onClearView,
-  rules,
-  onRemoveRule,
-  q,
-  onClearQ,
-}: {
-  view: string;
-  onClearView: () => void;
-  rules: FilterRule[];
-  onRemoveRule: (i: number) => void;
-  q: string;
-  onClearQ: () => void;
-}) {
-  const sv = SAVED_VIEW_BY_KEY[view];
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      {view !== "all" && sv && (
-        <Chip label={`Skats: ${sv.label}`} onRemove={onClearView} />
-      )}
-      {q && <Chip label={`Meklēšana: "${q}"`} onRemove={onClearQ} />}
-      {rules.map((r, i) => {
-        const def = FIELD_BY_KEY[r.f];
-        const opLbl = OP_LABELS[r.op] ?? r.op;
-        let val = "";
-        if (Array.isArray(r.v)) val = (r.v as string[]).join(", ");
-        else if (typeof r.v === "object" && r.v) {
-          const vv = r.v as { from?: string; to?: string };
-          val = `${vv.from ? fmtDate(vv.from) : ""} → ${vv.to ? fmtDate(vv.to) : ""}`;
-        } else if (r.v != null) val = String(r.v);
-        return (
-          <Chip
-            key={i}
-            label={`${def?.label ?? r.f} ${opLbl}${val ? `: ${val}` : ""}`}
-            onRemove={() => onRemoveRule(i)}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-muted/40 pl-2 pr-1 text-[11px] text-foreground">
-      <span className="truncate">{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
-        aria-label="Noņemt"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
   );
 }
