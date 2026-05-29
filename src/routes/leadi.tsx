@@ -1439,6 +1439,8 @@ function GroupRenderer({
   toggle,
   selected,
   toggleOne,
+  checkedRows,
+  toggleChecked,
   openLead,
   bumpActivity,
   commCounts,
@@ -1448,6 +1450,8 @@ function GroupRenderer({
   toggle: (path: string) => void;
   selected: Set<string>;
   toggleOne: (id: string) => void;
+  checkedRows: Set<string>;
+  toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
   bumpActivity: (id: string) => void;
   commCounts: Map<string, CommBuckets>;
@@ -1462,6 +1466,8 @@ function GroupRenderer({
               l={l}
               isSel={selected.has(l.lead_id)}
               toggleOne={toggleOne}
+              isChecked={checkedRows.has(l.lead_id)}
+              toggleChecked={toggleChecked}
               openLead={openLead}
               bumpActivity={bumpActivity}
               commCounts={commCounts}
@@ -1474,7 +1480,7 @@ function GroupRenderer({
             key={`gh-${n.path}`}
             className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <CrmDataCell colSpan={10} className="p-0">
+            <CrmDataCell colSpan={13} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
@@ -1506,6 +1512,8 @@ function GroupRenderer({
             toggle={toggle}
             selected={selected}
             toggleOne={toggleOne}
+            checkedRows={checkedRows}
+            toggleChecked={toggleChecked}
             openLead={openLead}
             bumpActivity={bumpActivity}
             commCounts={commCounts}
@@ -1526,6 +1534,8 @@ function GroupRenderer({
             toggle={toggle}
             selected={selected}
             toggleOne={toggleOne}
+            checkedRows={checkedRows}
+            toggleChecked={toggleChecked}
             openLead={openLead}
             bumpActivity={bumpActivity}
             commCounts={commCounts}
