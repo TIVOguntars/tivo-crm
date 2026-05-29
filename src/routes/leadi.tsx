@@ -12,17 +12,10 @@ import {
   Plus,
   Upload,
   Bookmark,
-  Filter,
-  Columns3,
   ChevronDown,
   ChevronRight,
-  X,
   AlertTriangle,
   Layers,
-  ArrowUpDown,
-  Trash2,
-  ArrowUp,
-  ArrowDown,
   Eye,
   Star,
 } from "lucide-react";
@@ -34,7 +27,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Tooltip,
   TooltipContent,
