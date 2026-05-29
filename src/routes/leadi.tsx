@@ -1375,13 +1375,7 @@ function LeadiPage() {
           >
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
-                <CrmSortableHead
-                  label={
-                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
-                  }
-                  align="center"
-                  style={{ width: 36 }}
-                />
+                {/* 1 — Atlase (bulk selection) */}
                 <CrmSortableHead label={
                   <Checkbox
                     checked={allVisibleSelected}
@@ -1389,18 +1383,37 @@ function LeadiPage() {
                     className="h-3.5 w-3.5"
                     aria-label="Atzīmēt visus"
                   />
-                } style={{ width: 36 }} />
-                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+                } align="center" style={{ width: 36 }} />
+                {/* 2 — Check (session review marker) */}
+                <CrmSortableHead
+                  label={
+                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                  align="center"
+                  style={{ width: 36 }}
+                />
+                {/* 3 — Izveidots */}
+                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 88 }} />
+                {/* 4 — Prioritāte */}
+                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 104 }} />
+                {/* 5 — Lead */}
                 <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
-                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: "1%", whiteSpace: "nowrap" }} />
-                <CrmSortableHead sortKey="status" label="Statuss" style={{ width: "1%", whiteSpace: "nowrap" }} />
-                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 110 }} />
-                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 96 }} />
-                <CrmSortableHead sortKey="effective_due_at" label="Uzdevums" style={{ width: 140 }} />
-                <CrmSortableHead sortKey="last_communication_at" label="Aktivitāte" style={{ width: 160 }} />
-                <CrmSortableHead label="Īsā piezīme" style={{ width: 180 }} />
-                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 110 }} />
-                <CrmSortableHead label="Darbības" align="right" style={{ width: 124 }} />
+                {/* 6 — PPV */}
+                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 64 }} />
+                {/* 7 — Lead statuss */}
+                <CrmSortableHead sortKey="status" label="Lead statuss" style={{ width: 120 }} />
+                {/* 8 — Tagi */}
+                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: 120 }} />
+                {/* 9 — Atbildīgais */}
+                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 96 }} />
+                {/* 10 — Nākamā darbība */}
+                <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" style={{ width: 150 }} />
+                {/* 11 — Pēdējā aktivitāte */}
+                <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" style={{ width: 160 }} />
+                {/* 12 — Īsā piezīme */}
+                <CrmSortableHead label="Īsā piezīme" style={{ width: 170 }} />
+                {/* 13 — Darbības */}
+                <CrmSortableHead label="" align="right" style={{ width: 120 }} />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
                 <CrmFilterCell />
