@@ -646,7 +646,6 @@ function LeadProfilePage() {
   }, [communications, notes, rawPayloadById, completedTasks, activitiesQ.data]);
 
   const [openItem, setOpenItem] = useState<TLItem | null>(null);
-  const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editPanelOpen, setEditPanelOpen] = useState(false);
