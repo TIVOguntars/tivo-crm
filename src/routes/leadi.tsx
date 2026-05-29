@@ -1416,45 +1416,22 @@ function LeadiPage() {
                 <CrmSortableHead label="" align="right" style={{ width: 120 }} />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
+                {/* 1 — Atlase */}
                 <CrmFilterCell />
-                <CrmFilterCell />
+                {/* 2 — Check */}
                 <CrmFilterCell>
                   <CrmFilterSelect
-                    value={colFilterValue("ppv")}
-                    onValueChange={(v) => setColFilter("ppv", v)}
-                    options={options.ppv.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmSearchInput
-                    value={search.q ?? ""}
-                    onChange={(e) =>
-                      setSearch({ q: e.target.value || undefined })
+                    value={checkFilter === "all" ? "" : checkFilter}
+                    onValueChange={(v) =>
+                      setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
                     }
-                    placeholder="Meklēt…"
+                    options={[
+                      { value: "checked", label: "Atzīmēti" },
+                      { value: "unchecked", label: "Neatzīmēti" },
+                    ]}
                   />
                 </CrmFilterCell>
-                <CrmFilterCell>
-                  <MultiSelectInline
-                    options={options.tags}
-                    value={tagsFilterValue()}
-                    onChange={setTagsFilter}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("status")}
-                    onValueChange={(v) => setColFilter("status", v)}
-                    options={options.status.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("owner")}
-                    onValueChange={(v) => setColFilter("owner", v)}
-                    options={options.owner.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
+                {/* 3 — Izveidots */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={createdFilterValue()}
@@ -1462,21 +1439,7 @@ function LeadiPage() {
                     options={CREATED_FILTER_OPTIONS}
                   />
                 </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("action_label")}
-                    onValueChange={(v) => setColFilter("action_label", v)}
-                    options={options.action_label.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("communication_state")}
-                    onValueChange={(v) => setColFilter("communication_state", v)}
-                    options={options.communication_state.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                <CrmFilterCell />
+                {/* 4 — Prioritāte */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("priority_label")}
@@ -1484,6 +1447,89 @@ function LeadiPage() {
                     options={options.priority_label.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
+                {/* 5 — Lead → Valsts filter */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("country")}
+                    onValueChange={(v) => setColFilter("country", v)}
+                    options={options.country.map((o) => ({ value: o, label: o }))}
+                    placeholder="Valsts"
+                    allLabel="Visas valstis"
+                  />
+                </CrmFilterCell>
+                {/* 6 — PPV */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("ppv")}
+                    onValueChange={(v) => setColFilter("ppv", v)}
+                    options={options.ppv.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 7 — Lead statuss */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("status")}
+                    onValueChange={(v) => setColFilter("status", v)}
+                    options={options.status.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 8 — Tagi */}
+                <CrmFilterCell>
+                  <MultiSelectInline
+                    options={options.tags}
+                    value={tagsFilterValue()}
+                    onChange={setTagsFilter}
+                  />
+                </CrmFilterCell>
+                {/* 9 — Atbildīgais */}
+                <CrmFilterCell>
+                  <CrmFilterSelect
+                    value={colFilterValue("owner")}
+                    onValueChange={(v) => setColFilter("owner", v)}
+                    options={options.owner.map((o) => ({ value: o, label: o }))}
+                  />
+                </CrmFilterCell>
+                {/* 10 — Nākamā darbība → Darbība + Termiņš */}
+                <CrmFilterCell>
+                  <div className="flex flex-col gap-1">
+                    <CrmFilterSelect
+                      value={colFilterValue("action_label")}
+                      onValueChange={(v) => setColFilter("action_label", v)}
+                      options={options.action_label.map((o) => ({ value: o, label: o }))}
+                      placeholder="Darbība"
+                      allLabel="Visas darbības"
+                    />
+                    <CrmFilterSelect
+                      value={dueFilterValue()}
+                      onValueChange={setDueFilter}
+                      options={DUE_FILTER_OPTIONS}
+                      placeholder="Termiņš"
+                      allLabel="Jebkurš termiņš"
+                    />
+                  </div>
+                </CrmFilterCell>
+                {/* 11 — Pēdējā aktivitāte → Aktivitāte + Datums */}
+                <CrmFilterCell>
+                  <div className="flex flex-col gap-1">
+                    <CrmFilterSelect
+                      value={colFilterValue("communication_state")}
+                      onValueChange={(v) => setColFilter("communication_state", v)}
+                      options={options.communication_state.map((o) => ({ value: o, label: o }))}
+                      placeholder="Aktivitāte"
+                      allLabel="Jebkura aktivitāte"
+                    />
+                    <CrmFilterSelect
+                      value={activityDateFilterValue()}
+                      onValueChange={setActivityDateFilter}
+                      options={CREATED_FILTER_OPTIONS}
+                      placeholder="Datums"
+                      allLabel="Jebkurš datums"
+                    />
+                  </div>
+                </CrmFilterCell>
+                {/* 12 — Īsā piezīme (searchable via global search) */}
+                <CrmFilterCell />
+                {/* 13 — Darbības → clear filters */}
                 <CrmFilterCell align="right">
                   <CrmClearFiltersButton
                     active={anyColFilterActive}
