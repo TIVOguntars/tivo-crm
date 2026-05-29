@@ -30,6 +30,7 @@ import {
   Cog,
   MessageCircle,
   UserRound,
+  LifeBuoy,
 } from "lucide-react";
 import { LogoutButton } from "@/components/AuthGate";
 import { OperatorPickerModal } from "@/components/operator/OperatorPicker";
@@ -113,6 +114,12 @@ const groups: readonly NavGroup[] = [
       { to: "/audits", label: "Audits", icon: ShieldCheck },
     ],
   },
+  {
+    label: "Palīdzība",
+    icon: LifeBuoy,
+    roles: ALL_ROLES,
+    items: [{ to: "/palidziba", label: "Palīdzība", icon: LifeBuoy }],
+  },
 ];
 
 /** Per-route page title + subtitle shown in the global header. */
@@ -142,6 +149,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/iestatijumi/lietotaji": { title: "Lietotāji un lomas", subtitle: "Piekļuves pārvaldība" },
   "/lietotaji": { title: "Lietotāji un lomas", subtitle: "Piekļuves pārvaldība" },
   "/audits": { title: "Audits", subtitle: "Sistēmas audita pieraksti" },
+  "/palidziba": { title: "Palīdzība", subtitle: "Operatoru rokasgrāmata" },
 };
 
 function resolvePageTitle(pathname: string): { title: string; subtitle: string } {

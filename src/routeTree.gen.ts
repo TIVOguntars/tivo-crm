@@ -17,6 +17,7 @@ import { Route as SarakstesRouteImport } from './routes/sarakstes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as PanelisRouteImport } from './routes/panelis'
+import { Route as PalidzibaRouteImport } from './routes/palidziba'
 import { Route as ObjektiRouteImport } from './routes/objekti'
 import { Route as LietotajiRouteImport } from './routes/lietotaji'
 import { Route as LeadiRouteImport } from './routes/leadi'
@@ -84,6 +85,11 @@ const QueueRoute = QueueRouteImport.update({
 const PanelisRoute = PanelisRouteImport.update({
   id: '/panelis',
   path: '/panelis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PalidzibaRoute = PalidzibaRouteImport.update({
+  id: '/palidziba',
+  path: '/palidziba',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ObjektiRoute = ObjektiRouteImport.update({
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/leadi': typeof LeadiRoute
   '/lietotaji': typeof LietotajiRoute
   '/objekti': typeof ObjektiRoute
+  '/palidziba': typeof PalidzibaRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   '/leadi': typeof LeadiRoute
   '/lietotaji': typeof LietotajiRoute
   '/objekti': typeof ObjektiRoute
+  '/palidziba': typeof PalidzibaRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/leadi': typeof LeadiRoute
   '/lietotaji': typeof LietotajiRoute
   '/objekti': typeof ObjektiRoute
+  '/palidziba': typeof PalidzibaRoute
   '/panelis': typeof PanelisRoute
   '/queue': typeof QueueRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/lietotaji'
     | '/objekti'
+    | '/palidziba'
     | '/panelis'
     | '/queue'
     | '/reset-password'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/lietotaji'
     | '/objekti'
+    | '/palidziba'
     | '/panelis'
     | '/queue'
     | '/reset-password'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/leadi'
     | '/lietotaji'
     | '/objekti'
+    | '/palidziba'
     | '/panelis'
     | '/queue'
     | '/reset-password'
@@ -475,6 +487,7 @@ export interface RootRouteChildren {
   LeadiRoute: typeof LeadiRoute
   LietotajiRoute: typeof LietotajiRoute
   ObjektiRoute: typeof ObjektiRoute
+  PalidzibaRoute: typeof PalidzibaRoute
   PanelisRoute: typeof PanelisRoute
   QueueRoute: typeof QueueRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -556,6 +569,13 @@ declare module '@tanstack/react-router' {
       path: '/panelis'
       fullPath: '/panelis'
       preLoaderRoute: typeof PanelisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/palidziba': {
+      id: '/palidziba'
+      path: '/palidziba'
+      fullPath: '/palidziba'
+      preLoaderRoute: typeof PalidzibaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/objekti': {
@@ -771,6 +791,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadiRoute: LeadiRoute,
   LietotajiRoute: LietotajiRoute,
   ObjektiRoute: ObjektiRoute,
+  PalidzibaRoute: PalidzibaRoute,
   PanelisRoute: PanelisRoute,
   QueueRoute: QueueRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -798,13 +819,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
