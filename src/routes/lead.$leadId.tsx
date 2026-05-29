@@ -1148,7 +1148,6 @@ function LeadProfilePage() {
                 type PlannedItem = {
                   key: string;
                   source: string;
-                  queueId?: string;
                   taskId?: string;
                   taskType?: string;
                   title: string;
@@ -1159,19 +1158,6 @@ function LeadProfilePage() {
                   status: string;
                 };
                 const plannedRows = (plannedActionsQ.data?.rows ?? []) as Row[];
-                const queueById = new Map<string, Row>();
-                for (const r of (queueTemplatesQ.data?.rows ?? []) as Row[]) {
-                  const id = str(r.id);
-                  if (id) queueById.set(id, r);
-                }
-                // Build set of already-sent automation template keys for this lead.
-                const sentTemplateKeys = new Set<string>();
-                for (const rp of rawPayloadById.values()) {
-                  const step = str(pick(rp, "automation_step", "template_key"));
-                  if (!step || UUID_RE.test(step)) continue;
-                  const norm = normalizeTemplateKey(step);
-                  if (TEMPLATE_LABEL_MAP[norm]) sentTemplateKeys.add(norm);
-                }
                 const items: PlannedItem[] = [];
                 plannedRows.forEach((r, i) => {
                   const source = str(r.source);
@@ -1187,33 +1173,9 @@ function LeadProfilePage() {
                   ) {
                     return;
                   }
-                  if (source === "queue") {
-                    const qRow = queueById.get(str(r.id));
-                    const tk = str(qRow?.template_key);
-                    const tkNorm = tk ? normalizeTemplateKey(tk) : "";
-                    // Dedupe: skip queued automation emails already sent
-                    if (tkNorm && sentTemplateKeys.has(tkNorm)) return;
-                    const subject = str(r.title) || str(qRow?.subject);
-                    const statusLabel = lv(
-                      QUEUE_STATUS_LV,
-                      rawStatus,
-                      rawStatus,
-                    );
-                    const tplLabel = tkNorm ? templateLabelFor(tkNorm) : "";
-                    const scheduledIso = str(r.scheduled_for ?? qRow?.scheduled_for);
-                    items.push({
-                      key: `q:${id}`,
-                      source,
-                      queueId: id,
-                      title: tplLabel || tk || subject || fmt(str(r.kind)),
-                      subtitle: subject || undefined,
-                      responsible: "SIS",
-                      scheduledIso,
-                      scheduledLabel: fmtDate(scheduledIso),
-                      status: statusLabel,
-                    });
-                    return;
-                  }
+                  // Legacy automation email queue removed — those planned items
+                  // are now managed exclusively through SIS tasks.
+                  if (source === "queue") return;
                   const scheduledIso = str(r.scheduled_for);
                   if (source === "task") {
                     const taskType = str(r.kind).toLowerCase();
