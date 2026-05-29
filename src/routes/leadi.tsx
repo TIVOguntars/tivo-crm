@@ -526,6 +526,17 @@ const GROUP_FIELDS: GroupFieldDef[] = [
     get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
   },
   { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
+  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
+  {
+    key: "action_label",
+    label: "Nākamā darbība",
+    get: (l) => l.next_action || "Bez darbības",
+  },
+  {
+    key: "tags",
+    label: "Tagi",
+    get: (l) => l.tags[0] || "Bez tagiem",
+  },
   {
     key: "priority_label",
     label: "Prioritāte",
@@ -933,7 +944,7 @@ function LeadiPage() {
       for (const r of flt) if (!evalRule(l, r)) return false;
       if (q) {
         const hay =
-          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country}`.toLowerCase();
+          `${l.name} ${l.company_name} ${l.lead_number} ${l.email} ${l.phone} ${l.next_action} ${l.country} ${l.short_note}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
