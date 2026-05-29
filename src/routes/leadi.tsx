@@ -1491,7 +1491,8 @@ function LeadiPage() {
                 </CrmFilterCell>
                 {/* 10 — Nākamā darbība → Darbība + Termiņš */}
                 <CrmFilterCell>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
                     <CrmFilterSelect
                       value={colFilterValue("action_label")}
                       onValueChange={(v) => setColFilter("action_label", v)}
@@ -1499,6 +1500,8 @@ function LeadiPage() {
                       placeholder="Darbība"
                       allLabel="Visas darbības"
                     />
+                    </div>
+                    <div className="min-w-0 flex-1">
                     <CrmFilterSelect
                       value={dueFilterValue()}
                       onValueChange={setDueFilter}
@@ -1506,11 +1509,13 @@ function LeadiPage() {
                       placeholder="Termiņš"
                       allLabel="Jebkurš termiņš"
                     />
+                    </div>
                   </div>
                 </CrmFilterCell>
                 {/* 11 — Pēdējā aktivitāte → Aktivitāte + Datums */}
                 <CrmFilterCell>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
                     <CrmFilterSelect
                       value={colFilterValue("communication_state")}
                       onValueChange={(v) => setColFilter("communication_state", v)}
@@ -1518,6 +1523,8 @@ function LeadiPage() {
                       placeholder="Aktivitāte"
                       allLabel="Jebkura aktivitāte"
                     />
+                    </div>
+                    <div className="min-w-0 flex-1">
                     <CrmFilterSelect
                       value={activityDateFilterValue()}
                       onValueChange={setActivityDateFilter}
@@ -1525,6 +1532,7 @@ function LeadiPage() {
                       placeholder="Datums"
                       allLabel="Jebkurš datums"
                     />
+                    </div>
                   </div>
                 </CrmFilterCell>
                 {/* 12 — Īsā piezīme (searchable via global search) */}
