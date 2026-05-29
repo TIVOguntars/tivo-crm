@@ -1704,6 +1704,11 @@ function LeadRow({
         )}
       </CrmDataCell>
       <CrmDataCell>
+        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
+          {fmtDate(l.created_at)}
+        </span>
+      </CrmDataCell>
+      <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
             className={cn(
