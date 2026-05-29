@@ -521,33 +521,38 @@ type GroupFieldDef = {
   order?: string[];
 };
 const GROUP_FIELDS: GroupFieldDef[] = [
-  { key: "status", label: "Statuss", get: (l) => l.status || "Bez statusa" },
   {
-    key: "owner",
-    label: "Atbildīgais",
-    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
-  },
-  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
-  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
-  {
-    key: "action_label",
-    label: "Nākamā darbība",
-    get: (l) => l.next_action || "Bez darbības",
-  },
-  {
-    key: "tags",
-    label: "Tagi",
-    get: (l) => l.tags[0] || "Bez tagiem",
+    key: "checked",
+    label: "Check",
+    get: (l) => (l._checked ? "Atzīmēts" : "Nav atzīmēts"),
   },
   {
     key: "priority_label",
     label: "Prioritāte",
     get: (l) => l.priority_label || "Bez prioritātes",
   },
+  { key: "country", label: "Valsts", get: (l) => l.country || "Bez valsts" },
+  { key: "ppv", label: "PPV", get: (l) => l.ppv || l.ppv_user_code || "Nav PPV" },
+  { key: "status", label: "Lead statuss", get: (l) => l.status || "Bez statusa" },
   {
-    key: "queue_bucket_label",
-    label: "Queue",
-    get: (l) => l.queue_bucket_label || "Nav rindas",
+    key: "tags",
+    label: "Tagi",
+    get: (l) => l.tags[0] || "Bez tagiem",
+  },
+  {
+    key: "owner",
+    label: "Atbildīgais",
+    get: (l) => l.owner || l.owner_user_code || "Nepiešķirts",
+  },
+  {
+    key: "action_label",
+    label: "Nākamā darbība",
+    get: (l) => l.next_action || "Bez darbības",
+  },
+  {
+    key: "last_activity",
+    label: "Pēdējā aktivitāte",
+    get: (l) => l.communication_label || "Bez aktivitātes",
   },
 ];
 const GROUP_FIELD_BY_KEY: Record<string, GroupFieldDef> = Object.fromEntries(
