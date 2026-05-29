@@ -353,8 +353,6 @@ const CRM_RPCS = [
   "bulk_create_task",
   "log_lead_communication",
   "get_lead_360_profile",
-  "queue_item_edit",
-  "queue_item_reschedule",
   "rpc_complete_task",
   "rpc_reschedule_task",
   "rpc_cancel_task",
