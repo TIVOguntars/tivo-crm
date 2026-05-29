@@ -217,12 +217,6 @@ const TEMPLATE_LABEL_MAP: Record<string, string> = {
   email_sketch_3: "sketch 3",
   email_sketch_4: "sketch 4",
 };
-const ALLOWED_AUTOMATION_KEYS: ReadonlyArray<string> = Object.keys(
-  TEMPLATE_LABEL_MAP,
-);
-function templateLabelFor(key: string): string {
-  return TEMPLATE_LABEL_MAP[key] ?? key;
-}
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function normalizeTemplateKey(raw: string): string {
   return raw
