@@ -1155,19 +1155,9 @@ function LeadiPage() {
     }
     walk(groupTree);
     setCollapsed(next);
-    try {
-      window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
   };
   const expandAll = () => {
     setCollapsed({});
-    try {
-      window.localStorage.removeItem(collapseStorageKey);
-    } catch {
-      /* ignore */
-    }
   };
 
   return (
