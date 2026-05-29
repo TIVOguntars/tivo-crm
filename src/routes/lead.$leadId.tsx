@@ -1242,14 +1242,11 @@ function LeadProfilePage() {
                       <ul className="divide-y">
                         {items.map((it) => {
                           const clickable =
-                            (it.source === "queue" && !!it.queueId) ||
                             (it.source === "task" && !!it.taskId);
                           const rowBody = (
                             <div className="flex items-start justify-between gap-3 py-2 w-full">
                               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background/80 text-muted-foreground">
-                                {it.source === "queue" ? (
-                                  <Mail className="h-3.5 w-3.5" />
-                                ) : it.source === "task" ? (
+                                {it.source === "task" ? (
                                   (() => {
                                     const tt = (it.taskType || "").toLowerCase();
                                     if (tt === "call") return <PhoneIcon className="h-3.5 w-3.5" />;
@@ -1304,8 +1301,7 @@ function LeadProfilePage() {
                                   type="button"
                                   className={itemClasses}
                                   onClick={() => {
-                                    if (it.source === "queue") setEditQueueId(it.queueId!);
-                                    else if (it.source === "task") setCompleteTaskId(it.taskId!);
+                                    if (it.source === "task") setCompleteTaskId(it.taskId!);
                                   }}
                                 >
                                   {rowBody}
