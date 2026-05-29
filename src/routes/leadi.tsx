@@ -755,27 +755,10 @@ function LeadiPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
-  /* ---- collapsed group state ---- */
-  const collapseStorageKey = "leadi:collapsed:v1";
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const raw = window.localStorage.getItem(collapseStorageKey);
-      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-    } catch {
-      return {};
-    }
-  });
+  /* ---- collapsed group state (session-only; groups open by default, never persisted) ---- */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggleCollapsed = useCallback((path: string) => {
-    setCollapsed((prev) => {
-      const next = { ...prev, [path]: !prev[path] };
-      try {
-        window.localStorage.setItem(collapseStorageKey, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    setCollapsed((prev) => ({ ...prev, [path]: !prev[path] }));
   }, []);
 
   /* ---- data ---- */
