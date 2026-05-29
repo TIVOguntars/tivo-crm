@@ -766,6 +766,17 @@ function LeadiPage() {
     setCollapsed((prev) => ({ ...prev, [path]: !prev[path] }));
   }, []);
 
+  /* ---- session-only "Check" column (operator review marker; resets on reload, never persisted) ---- */
+  const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+  const toggleChecked = useCallback((id: string) => {
+    setCheckedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   /* ---- data ---- */
   const overviewQuery = useMemo(
     () =>
