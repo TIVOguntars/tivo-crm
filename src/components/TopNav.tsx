@@ -12,8 +12,6 @@ import {
   ListChecks,
   Building2,
   Bot,
-  ClipboardList,
-  Mail,
   MessageSquare,
   ClipboardCheck,
   BarChart3,
