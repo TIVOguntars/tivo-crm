@@ -1319,6 +1319,13 @@ function LeadiPage() {
           onCollapseAll={collapseAll}
           onExpandAll={expandAll}
         />
+        <div className="ml-auto w-72 max-w-full">
+          <CrmSearchInput
+            value={search.q ?? ""}
+            onChange={(e) => setSearch({ q: e.target.value || undefined })}
+            placeholder="Meklēt: Lead, darbība, aktivitāte, piezīme…"
+          />
+        </div>
       </CrmTableToolbar>
 
       {selected.size > 0 && (
