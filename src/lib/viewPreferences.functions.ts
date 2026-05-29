@@ -35,9 +35,27 @@ const SaveInput = z.object({
   grouping: z.array(z.string().min(1).max(64)).max(3),
 });
 
+export type StoredFilterValue =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | { from?: string; to?: string };
+
+export interface StoredFilter {
+  f: string;
+  op: string;
+  v?: StoredFilterValue;
+}
+export interface StoredSort {
+  f: string;
+  d: "asc" | "desc";
+}
+
 export interface ViewPreference {
-  filters: Record<string, unknown>[];
-  sorting: Record<string, unknown>[];
+  filters: StoredFilter[];
+  sorting: StoredSort[];
   grouping: string[];
 }
 
@@ -78,11 +96,12 @@ export const getViewPreference = createServerFn({ method: "POST" })
     }
     if (!row || typeof row !== "object") return null;
     const r = row as { filters?: unknown; sorting?: unknown; grouping?: unknown };
-    return {
-      filters: (Array.isArray(r.filters) ? r.filters : []) as Record<string, unknown>[],
-      sorting: (Array.isArray(r.sorting) ? r.sorting : []) as Record<string, unknown>[],
+    const out: ViewPreference = {
+      filters: (Array.isArray(r.filters) ? r.filters : []) as StoredFilter[],
+      sorting: (Array.isArray(r.sorting) ? r.sorting : []) as StoredSort[],
       grouping: (Array.isArray(r.grouping) ? r.grouping : []) as string[],
     };
+    return out;
   });
 
 export const saveViewPreference = createServerFn({ method: "POST" })
