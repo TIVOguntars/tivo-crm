@@ -784,6 +784,11 @@ function LeadiPage() {
     });
   }, []);
 
+  /* ---- session-only "Check" filter (Visi / Atzīmēti / Neatzīmēti) ---- */
+  const [checkFilter, setCheckFilter] = useState<"all" | "checked" | "unchecked">(
+    "all",
+  );
+
   /* ---- data ---- */
   const overviewQuery = useMemo(
     () =>
