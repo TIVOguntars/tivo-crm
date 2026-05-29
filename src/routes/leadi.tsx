@@ -156,6 +156,8 @@ interface Lead {
   object_summary: string;
   /** Short free-text note from v3 (short_note). Display + search only. */
   short_note: string;
+  /** Session-only review flag injected for grouping (never persisted). */
+  _checked?: boolean;
   /** True when v3 has a non-empty action_label for this lead. */
   has_task: boolean;
   /** Queue bucket sourced directly from backend (no frontend calc). */
