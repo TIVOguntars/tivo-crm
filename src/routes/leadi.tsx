@@ -1529,8 +1529,6 @@ function GroupRenderer({
   nodes,
   collapsed,
   toggle,
-  selected,
-  toggleOne,
   checkedRows,
   toggleChecked,
   openLead,
@@ -1540,8 +1538,6 @@ function GroupRenderer({
   nodes: GroupNode[];
   collapsed: Record<string, boolean>;
   toggle: (path: string) => void;
-  selected: Set<string>;
-  toggleOne: (id: string) => void;
   checkedRows: Set<string>;
   toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
@@ -1556,8 +1552,6 @@ function GroupRenderer({
             <LeadRow
               key={l.lead_id}
               l={l}
-              isSel={selected.has(l.lead_id)}
-              toggleOne={toggleOne}
               isChecked={checkedRows.has(l.lead_id)}
               toggleChecked={toggleChecked}
               openLead={openLead}
@@ -1602,8 +1596,6 @@ function GroupRenderer({
             nodes={n.children}
             collapsed={collapsed}
             toggle={toggle}
-            selected={selected}
-            toggleOne={toggleOne}
             checkedRows={checkedRows}
             toggleChecked={toggleChecked}
             openLead={openLead}
@@ -1624,8 +1616,6 @@ function GroupRenderer({
             ]}
             collapsed={collapsed}
             toggle={toggle}
-            selected={selected}
-            toggleOne={toggleOne}
             checkedRows={checkedRows}
             toggleChecked={toggleChecked}
             openLead={openLead}
