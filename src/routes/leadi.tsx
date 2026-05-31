@@ -118,18 +118,18 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "checked", width: 36 },
-  { key: "created", width: 86 },
-  { key: "priority", width: 92 },
+  { key: "checked", width: 34 },
+  { key: "created", width: 88 },
+  { key: "priority", width: 96 },
   { key: "lead" },
   { key: "ppv", width: 42 },
-  { key: "status", width: 110 },
-  { key: "tags", width: 110 },
-  { key: "owner", width: 72 },
-  { key: "next_action", width: 125 },
-  { key: "last_activity", width: 125 },
-  { key: "short_note", width: 130 },
-  { key: "actions", width: 62 },
+  { key: "status", width: 112 },
+  { key: "tags", width: 112 },
+  { key: "owner", width: 78 },
+  { key: "next_action", width: 128 },
+  { key: "last_activity", width: 132 },
+  { key: "short_note", width: 132 },
+  { key: "actions", width: 66 },
 ] as const;
 
 function LeadsTableColGroup() {
