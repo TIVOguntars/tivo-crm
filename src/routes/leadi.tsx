@@ -1680,20 +1680,15 @@ function LeadRow({
           "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
-        isSel && "bg-[var(--tivo-navy-soft)]",
         isChecked && "opacity-60",
       )}
     >
-      {/* 1 — Atlase */}
-      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          checked={isSel}
-          onCheckedChange={() => toggleOne(l.lead_id)}
-          className="h-3.5 w-3.5"
-        />
-      </CrmDataCell>
-      {/* 2 — Check */}
-      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
+      {/* 1 — Check */}
+      <CrmDataCell
+        align="left"
+        className="!pl-1 !pr-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Checkbox
           checked={isChecked}
           onCheckedChange={() => toggleChecked(l.lead_id)}
@@ -1701,13 +1696,13 @@ function LeadRow({
           aria-label="Atzīmēt kā pārskatītu"
         />
       </CrmDataCell>
-      {/* 3 — Izveidots */}
+      {/* 2 — Izveidots */}
       <CrmDataCell>
         <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
           {fmtDate(l.created_at)}
         </span>
       </CrmDataCell>
-      {/* 4 — Prioritāte */}
+      {/* 3 — Prioritāte */}
       <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
