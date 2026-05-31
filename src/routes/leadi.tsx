@@ -2091,13 +2091,13 @@ function MultiSelectInline({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="h-7 w-full truncate rounded border border-input bg-background px-2 text-left text-xs"
+          className="h-7 w-full truncate rounded border border-input bg-background px-1.5 text-left text-[11px]"
         >
           {value.length === 0
-            ? "Izvēlies vērtības"
+            ? "Tagi"
             : value.length <= 2
               ? value.join(", ")
-              : `${value.length} izvēlēti`}
+              : `${value.length} izv.`}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
