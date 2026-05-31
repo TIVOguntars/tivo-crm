@@ -1335,49 +1335,38 @@ function LeadiPage() {
             <LeadsTableColGroup />
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
-                {/* 1 — Atlase (bulk selection) */}
-                <CrmSortableHead label={
-                  <Checkbox
-                    checked={allVisibleSelected}
-                    onCheckedChange={toggleAll}
-                    className="h-3.5 w-3.5"
-                    aria-label="Atzīmēt visus"
-                  />
-                } align="center" />
-                {/* 2 — Check (session review marker) */}
+                {/* 1 — Check (session review marker) */}
                 <CrmSortableHead
                   label={
                     <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
                   }
                   align="center"
                 />
-                {/* 3 — Izveidots */}
+                {/* 2 — Izveidots */}
                 <CrmSortableHead sortKey="created_at" label="Izveidots" />
-                {/* 4 — Prioritāte */}
+                {/* 3 — Prioritāte */}
                 <CrmSortableHead sortKey="priority_score" label="Prioritāte" />
-                {/* 5 — Lead */}
+                {/* 4 — Lead */}
                 <CrmSortableHead sortKey="lead" label="Lead" />
-                {/* 6 — PPV */}
+                {/* 5 — PPV */}
                 <CrmSortableHead sortKey="ppv" label="PPV" />
-                {/* 7 — Lead statuss */}
-                <CrmSortableHead sortKey="status" label="Lead statuss" />
-                {/* 8 — Tagi */}
+                {/* 6 — Statuss */}
+                <CrmSortableHead sortKey="status" label="Statuss" />
+                {/* 7 — Tagi */}
                 <CrmSortableHead sortKey="tags" label="Tagi" />
-                {/* 9 — Atbildīgais */}
+                {/* 8 — Atbildīgais */}
                 <CrmSortableHead sortKey="owner" label="Atbildīgais" />
-                {/* 10 — Nākamā darbība */}
+                {/* 9 — Nākamā darbība */}
                 <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" />
-                {/* 11 — Pēdējā aktivitāte */}
+                {/* 10 — Pēdējā aktivitāte */}
                 <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" />
-                {/* 12 — Īsā piezīme */}
+                {/* 11 — Īsā piezīme */}
                 <CrmSortableHead label="Īsā piezīme" />
-                {/* 13 — Darbības */}
+                {/* 12 — Darbības (empty header) */}
                 <CrmSortableHead label="" align="right" />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
-                {/* 1 — Atlase */}
-                <CrmFilterCell />
-                {/* 2 — Check */}
+                {/* 1 — Check */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={checkFilter === "all" ? "" : checkFilter}
