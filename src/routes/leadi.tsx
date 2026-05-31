@@ -1385,7 +1385,7 @@ function LeadiPage() {
                 {/* 12 — Darbības (empty header) */}
                 <CrmSortableHead label="" align="right" />
               </CrmDataTableLabelRow>
-              <CrmDataTableFilterRow>
+              <CrmDataTableFilterRow className="!top-9">
                 {/* 1 — Check */}
                 <CrmFilterCell className="!pl-1 !pr-0">
                   <CrmFilterSelect
