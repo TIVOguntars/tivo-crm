@@ -1566,7 +1566,7 @@ function GroupRenderer({
             key={`gh-${n.path}`}
             className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <CrmDataCell colSpan={13} className="p-0">
+            <CrmDataCell colSpan={12} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
