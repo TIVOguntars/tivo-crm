@@ -1327,7 +1327,26 @@ function LeadiPage() {
           </div>
         ) : (
           <CrmDataTable
-            className="min-h-0 flex-1 [&>div]:overflow-x-hidden [&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px] [&_.crm-sort-trigger>span]:truncate [&_.crm-table-filter-cell]:!px-1 [&_.crm-table-header-cell]:!px-1.5 [&_table]:table-fixed [&_table]:w-full [&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden"
+            className={cn(
+              "min-h-0 flex-1",
+              "[&>div]:overflow-x-hidden",
+              "[&_table]:table-fixed [&_table]:w-full",
+              "[&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden",
+              // Filter controls: compact
+              "[&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px]",
+              "[&_.crm-table-filter-cell]:!px-1",
+              // Header cells: allow two-line, readable (never ellipsis) labels
+              "[&_.crm-table-header-row]:!h-9 [&_.crm-table-header-cell]:!h-9",
+              "[&_.crm-table-header-cell]:!px-1.5 [&_.crm-table-header-cell]:!py-0.5",
+              "[&_.crm-table-header-cell]:!whitespace-normal [&_.crm-table-header-cell]:!text-[10.5px]",
+              "[&_.crm-table-header-cell]:!leading-[1.1] [&_.crm-table-header-cell]:!tracking-normal",
+              "[&_.crm-table-header-cell]:[overflow-wrap:anywhere]",
+              // Sort trigger label: wrap to two lines instead of truncating
+              "[&_.crm-sort-trigger]:!whitespace-normal [&_.crm-sort-trigger]:!text-[10.5px]",
+              "[&_.crm-sort-trigger]:!leading-[1.1] [&_.crm-sort-trigger]:!tracking-normal",
+              "[&_.crm-sort-trigger]:items-center [&_.crm-sort-trigger>span]:[overflow-wrap:anywhere]",
+              "[&_.crm-sort-trigger>svg]:shrink-0",
+            )}
             maxHeight="100%"
             sort={tableSort}
             onSortChange={handleTableSort}
