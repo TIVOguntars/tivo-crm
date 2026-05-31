@@ -2093,7 +2093,7 @@ function RowAction({
 }) {
   const disabled = !href && !onClick;
   const className = cn(
-    "inline-flex h-[18px] w-[18px] items-center justify-center rounded border border-transparent text-muted-foreground transition-colors [&_svg]:h-3 [&_svg]:w-3",
+    "inline-flex h-5 w-3 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors [&_svg]:h-3 [&_svg]:w-3",
     disabled
       ? "cursor-not-allowed opacity-40"
       : "hover:border-border hover:bg-background hover:text-foreground",
