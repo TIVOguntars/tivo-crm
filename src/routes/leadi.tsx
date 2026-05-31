@@ -118,18 +118,18 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "checked", width: 36 },
-  { key: "created", width: 86 },
-  { key: "priority", width: 92 },
+  { key: "checked", width: 34 },
+  { key: "created", width: 88 },
+  { key: "priority", width: 96 },
   { key: "lead" },
   { key: "ppv", width: 42 },
-  { key: "status", width: 110 },
-  { key: "tags", width: 110 },
-  { key: "owner", width: 72 },
-  { key: "next_action", width: 125 },
-  { key: "last_activity", width: 125 },
-  { key: "short_note", width: 130 },
-  { key: "actions", width: 62 },
+  { key: "status", width: 112 },
+  { key: "tags", width: 112 },
+  { key: "owner", width: 78 },
+  { key: "next_action", width: 128 },
+  { key: "last_activity", width: 132 },
+  { key: "short_note", width: 132 },
+  { key: "actions", width: 66 },
 ] as const;
 
 function LeadsTableColGroup() {
@@ -1327,7 +1327,26 @@ function LeadiPage() {
           </div>
         ) : (
           <CrmDataTable
-            className="min-h-0 flex-1 [&>div]:overflow-x-hidden [&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px] [&_.crm-sort-trigger>span]:truncate [&_.crm-table-filter-cell]:!px-1 [&_.crm-table-header-cell]:!px-1.5 [&_table]:table-fixed [&_table]:w-full [&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden"
+            className={cn(
+              "min-h-0 flex-1",
+              "[&>div]:overflow-x-hidden",
+              "[&_table]:table-fixed [&_table]:w-full",
+              "[&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden",
+              // Filter controls: compact
+              "[&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px]",
+              "[&_.crm-table-filter-cell]:!px-1",
+              // Header cells: allow two-line, readable (never ellipsis) labels
+              "[&_.crm-table-header-row]:!h-9 [&_.crm-table-header-cell]:!h-9",
+              "[&_.crm-table-header-cell]:!px-1.5 [&_.crm-table-header-cell]:!py-0.5",
+              "[&_.crm-table-header-cell]:!whitespace-normal [&_.crm-table-header-cell]:!text-[10.5px]",
+              "[&_.crm-table-header-cell]:!leading-[1.1] [&_.crm-table-header-cell]:!tracking-normal",
+              "[&_.crm-table-header-cell]:[overflow-wrap:anywhere]",
+              // Sort trigger label: wrap to two lines instead of truncating
+              "[&_.crm-sort-trigger]:!whitespace-normal [&_.crm-sort-trigger]:!text-[10.5px]",
+              "[&_.crm-sort-trigger]:!leading-[1.1] [&_.crm-sort-trigger]:!tracking-normal",
+              "[&_.crm-sort-trigger]:items-center [&_.crm-sort-trigger>span]:[overflow-wrap:anywhere]",
+              "[&_.crm-sort-trigger>svg]:shrink-0",
+            )}
             maxHeight="100%"
             sort={tableSort}
             onSortChange={handleTableSort}
@@ -1366,7 +1385,7 @@ function LeadiPage() {
                 {/* 12 — Darbības (empty header) */}
                 <CrmSortableHead label="" align="right" />
               </CrmDataTableLabelRow>
-              <CrmDataTableFilterRow>
+              <CrmDataTableFilterRow className="!top-9">
                 {/* 1 — Check */}
                 <CrmFilterCell className="!pl-1 !pr-0">
                   <CrmFilterSelect
