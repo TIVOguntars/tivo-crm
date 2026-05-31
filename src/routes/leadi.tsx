@@ -34,7 +34,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
-import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
@@ -119,19 +118,18 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "select", width: 36 },
   { key: "checked", width: 36 },
-  { key: "created", width: 90 },
-  { key: "priority", width: 105 },
+  { key: "created", width: 86 },
+  { key: "priority", width: 92 },
   { key: "lead" },
-  { key: "ppv", width: 55 },
-  { key: "status", width: 105 },
-  { key: "tags", width: 120 },
-  { key: "owner", width: 80 },
-  { key: "next_action", width: 130 },
-  { key: "last_activity", width: 130 },
-  { key: "short_note", width: 140 },
-  { key: "actions", width: 70 },
+  { key: "ppv", width: 42 },
+  { key: "status", width: 110 },
+  { key: "tags", width: 110 },
+  { key: "owner", width: 72 },
+  { key: "next_action", width: 125 },
+  { key: "last_activity", width: 125 },
+  { key: "short_note", width: 130 },
+  { key: "actions", width: 62 },
 ] as const;
 
 function LeadsTableColGroup() {
