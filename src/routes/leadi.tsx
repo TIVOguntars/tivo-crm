@@ -1302,21 +1302,6 @@ function LeadiPage() {
         </div>
       </CrmTableToolbar>
 
-      {selected.size > 0 && (
-        <BulkActionsBar
-          selectedIds={Array.from(selected)}
-          options={{
-            statuses: options.status,
-            owners: options.owner,
-            ppvs: options.ppv,
-          }}
-          currentStatus={currentStatusMap}
-          onClear={clearSelected}
-          onPatchMany={patchMany}
-          onRollbackMany={rollbackMany}
-        />
-      )}
-
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && loading && <LoadingState />}
 
