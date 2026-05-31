@@ -1073,28 +1073,6 @@ function LeadiPage() {
     return build(groupRows, gby, "");
   }, [groupRows, gby]);
 
-  /* ---- selection / bulk ---- */
-  const allVisibleSelected =
-    sorted.length > 0 && sorted.every((l) => selected.has(l.lead_id));
-  const toggleAll = () => {
-    if (allVisibleSelected) {
-      const next = new Set(selected);
-      sorted.forEach((l) => next.delete(l.lead_id));
-      setSelected(next);
-    } else {
-      const next = new Set(selected);
-      sorted.forEach((l) => next.add(l.lead_id));
-      setSelected(next);
-    }
-  };
-  const toggleOne = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-  const clearSelected = () => setSelected(new Set());
-
   const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
@@ -1118,36 +1096,6 @@ function LeadiPage() {
   useEffect(() => {
     setDrawerOpen(false);
   }, []);
-
-  const patchMany = useCallback((ids: string[], patch: BulkPatch) => {
-    setPatches((prev) => {
-      const next = { ...prev };
-      ids.forEach((id) => {
-        next[id] = { ...next[id], ...(patch as Partial<Lead>) };
-      });
-      return next;
-    });
-  }, []);
-  const rollbackMany = useCallback(
-    (ids: string[], previous: Record<string, BulkPatch>) => {
-      setPatches((prev) => {
-        const next = { ...prev };
-        ids.forEach((id) => {
-          const p = previous[id];
-          if (!p) return;
-          next[id] = { ...next[id], ...(p as Partial<Lead>) };
-        });
-        return next;
-      });
-    },
-    [],
-  );
-
-  const currentStatusMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    leadsPatched.forEach((l) => (m[l.lead_id] = l.status));
-    return m;
-  }, [leadsPatched]);
 
   /* ---- toolbar handlers ---- */
   const setView = (v: string) => setSearch({ view: v });
