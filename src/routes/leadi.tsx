@@ -118,6 +118,35 @@ export const Route = createFileRoute("/leadi")({
 type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
+const LEADS_TABLE_COLUMNS = [
+  { key: "select", width: 36 },
+  { key: "checked", width: 36 },
+  { key: "created", width: 90 },
+  { key: "priority", width: 105 },
+  { key: "lead" },
+  { key: "ppv", width: 55 },
+  { key: "status", width: 105 },
+  { key: "tags", width: 120 },
+  { key: "owner", width: 80 },
+  { key: "next_action", width: 130 },
+  { key: "last_activity", width: 130 },
+  { key: "short_note", width: 140 },
+  { key: "actions", width: 70 },
+] as const;
+
+function LeadsTableColGroup() {
+  return (
+    <colgroup>
+      {LEADS_TABLE_COLUMNS.map((col) => (
+        <col
+          key={col.key}
+          style={"width" in col ? { width: col.width } : undefined}
+        />
+      ))}
+    </colgroup>
+  );
+}
+
 interface Lead {
   lead_id: string;
   name: string;
@@ -1368,11 +1397,12 @@ function LeadiPage() {
           </div>
         ) : (
           <CrmDataTable
-            className="min-h-0 flex-1"
+            className="min-h-0 flex-1 [&>div]:overflow-x-hidden [&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px] [&_.crm-sort-trigger>span]:truncate [&_.crm-table-filter-cell]:!px-1 [&_.crm-table-header-cell]:!px-1.5 [&_table]:table-fixed [&_table]:w-full [&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden"
             maxHeight="100%"
             sort={tableSort}
             onSortChange={handleTableSort}
           >
+            <LeadsTableColGroup />
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
                 {/* 1 — Atlase (bulk selection) */}
@@ -1383,37 +1413,36 @@ function LeadiPage() {
                     className="h-3.5 w-3.5"
                     aria-label="Atzīmēt visus"
                   />
-                } align="center" style={{ width: 36 }} />
+                } align="center" />
                 {/* 2 — Check (session review marker) */}
                 <CrmSortableHead
                   label={
                     <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
                   }
                   align="center"
-                  style={{ width: 36 }}
                 />
                 {/* 3 — Izveidots */}
-                <CrmSortableHead sortKey="created_at" label="Izveidots" style={{ width: 88 }} />
+                <CrmSortableHead sortKey="created_at" label="Izveidots" />
                 {/* 4 — Prioritāte */}
-                <CrmSortableHead sortKey="priority_score" label="Prioritāte" style={{ width: 104 }} />
+                <CrmSortableHead sortKey="priority_score" label="Prioritāte" />
                 {/* 5 — Lead */}
-                <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+                <CrmSortableHead sortKey="lead" label="Lead" />
                 {/* 6 — PPV */}
-                <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 64 }} />
+                <CrmSortableHead sortKey="ppv" label="PPV" />
                 {/* 7 — Lead statuss */}
-                <CrmSortableHead sortKey="status" label="Lead statuss" style={{ width: 120 }} />
+                <CrmSortableHead sortKey="status" label="Lead statuss" />
                 {/* 8 — Tagi */}
-                <CrmSortableHead sortKey="tags" label="Tagi" style={{ width: 120 }} />
+                <CrmSortableHead sortKey="tags" label="Tagi" />
                 {/* 9 — Atbildīgais */}
-                <CrmSortableHead sortKey="owner" label="Atbildīgais" style={{ width: 96 }} />
+                <CrmSortableHead sortKey="owner" label="Atbildīgais" />
                 {/* 10 — Nākamā darbība */}
-                <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" style={{ width: 150 }} />
+                <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" />
                 {/* 11 — Pēdējā aktivitāte */}
-                <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" style={{ width: 160 }} />
+                <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" />
                 {/* 12 — Īsā piezīme */}
-                <CrmSortableHead label="Īsā piezīme" style={{ width: 170 }} />
+                <CrmSortableHead label="Īsā piezīme" />
                 {/* 13 — Darbības */}
-                <CrmSortableHead label="" align="right" style={{ width: 120 }} />
+                <CrmSortableHead label="" align="right" />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
                 {/* 1 — Atlase */}
@@ -1744,8 +1773,8 @@ function LeadRow({
   return (
     <CrmDataRow
       onClick={() => openLead(l.lead_id)}
-      className={cn(
-        "group relative cursor-pointer",
+        className={cn(
+          "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
         isSel && "bg-[var(--tivo-navy-soft)]",
@@ -1793,12 +1822,12 @@ function LeadRow({
               className="flex min-w-0 flex-col leading-tight"
               title={tooltipLines}
             >
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-0.5 overflow-hidden">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      "h-3 w-3",
+                      "h-2.5 w-2.5 shrink-0",
                       i < stars
                         ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
                         : "text-muted-foreground/30",
@@ -1806,7 +1835,7 @@ function LeadRow({
                   />
                 ))}
                 {l.priority_score != null && (
-                  <span className="ml-1 text-[12px] tabular-nums text-muted-foreground/80">
+                  <span className="ml-0.5 truncate text-[11px] tabular-nums text-muted-foreground/80">
                     {l.priority_score}
                   </span>
                 )}
@@ -1822,7 +1851,7 @@ function LeadRow({
       </CrmDataCell>
       {/* 5 — Lead */}
       <CrmDataCell className="min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5" title={l.name || l.company_name || l.lead_number}>
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
             {l.name || (
               <span className="font-normal italic text-muted-foreground">
@@ -1837,7 +1866,7 @@ function LeadRow({
             />
           )}
         </div>
-        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums">
+        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums" title={l.country || undefined}>
           <span className="text-muted-foreground/70">{l.country || "—"}</span>
           <span className="mx-1 opacity-40">•</span>
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
@@ -1882,13 +1911,15 @@ function LeadRow({
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
-          <div className="flex flex-wrap gap-0.5">
-            {normalizeTags(l.tags).slice(0, 3).map((t) => (
-              <Tag key={t} tag={t} />
+          <div className="flex min-w-0 items-center gap-0.5" title={l.tags.join(", ")}>
+            {normalizeTags(l.tags).slice(0, 1).map((t) => (
+              <span key={t} className="min-w-0 max-w-[86px] truncate">
+                <Tag tag={t} />
+              </span>
             ))}
-            {l.tags.length > 3 && (
+            {l.tags.length > 1 && (
               <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 3}
+                +{l.tags.length - 1}
               </span>
             )}
           </div>
@@ -1917,6 +1948,7 @@ function LeadRow({
                 ? "text-foreground"
                 : "text-muted-foreground/60",
             )}
+            title={l.next_action || undefined}
           >
             {l.has_task ? l.next_action || "-" : "-"}
           </span>
@@ -1996,7 +2028,7 @@ function LeadRow({
       <CrmDataCell>
         {l.short_note ? (
           <span
-            className="line-clamp-2 text-[12px] text-muted-foreground/80"
+            className="block truncate text-[12px] text-muted-foreground/80"
             title={l.short_note}
           >
             {l.short_note}
@@ -2007,7 +2039,7 @@ function LeadRow({
       </CrmDataCell>
       {/* 13 — Darbības */}
       <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
+        <div className="flex justify-end gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
           <RowAction
             icon={<Phone className="h-3.5 w-3.5" />}
             label="Zvanīt"
@@ -2061,7 +2093,7 @@ function RowAction({
 }) {
   const disabled = !href && !onClick;
   const className = cn(
-    "inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors",
+    "inline-flex h-5 w-3 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors [&_svg]:h-3 [&_svg]:w-3",
     disabled
       ? "cursor-not-allowed opacity-40"
       : "hover:border-border hover:bg-background hover:text-foreground",
