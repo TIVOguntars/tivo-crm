@@ -146,7 +146,7 @@ export function useCurrentUser(): CurrentUserCtx {
     queryKey: ["crm", "assignable_users"],
     queryFn: listAssignableUsers,
     staleTime: 5 * 60_000,
-    enabled: !!operatorId,
+    enabled: !!operatorId && auth.ready && !!auth.userId,
   });
 
   const getRoles = useServerFn(getCurrentRoles);
