@@ -140,7 +140,7 @@ function LeadsTableColGroup() {
       {LEADS_TABLE_COLUMNS.map((col) => (
         <col
           key={col.key}
-          style={col.width ? { width: col.width } : undefined}
+          style={"width" in col ? { width: col.width } : undefined}
         />
       ))}
     </colgroup>
