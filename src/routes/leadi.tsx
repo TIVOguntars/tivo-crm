@@ -1399,7 +1399,7 @@ function LeadiPage() {
                     ]}
                   />
                 </CrmFilterCell>
-                {/* 3 — Izveidots */}
+                {/* 2 — Izveidots */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={createdFilterValue()}
@@ -1407,7 +1407,7 @@ function LeadiPage() {
                     options={CREATED_FILTER_OPTIONS}
                   />
                 </CrmFilterCell>
-                {/* 4 — Prioritāte */}
+                {/* 3 — Prioritāte */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("priority_label")}
@@ -1415,7 +1415,7 @@ function LeadiPage() {
                     options={options.priority_label.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
-                {/* 5 — Lead → Valsts filter */}
+                {/* 4 — Lead → Valsts filter (country is part of Lead column) */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("country")}
@@ -1425,7 +1425,7 @@ function LeadiPage() {
                     allLabel="Valstis"
                   />
                 </CrmFilterCell>
-                {/* 6 — PPV */}
+                {/* 5 — PPV */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("ppv")}
@@ -1433,7 +1433,7 @@ function LeadiPage() {
                     options={options.ppv.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
-                {/* 7 — Lead statuss */}
+                {/* 6 — Statuss */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("status")}
@@ -1441,7 +1441,7 @@ function LeadiPage() {
                     options={options.status.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
-                {/* 8 — Tagi */}
+                {/* 7 — Tagi */}
                 <CrmFilterCell>
                   <MultiSelectInline
                     options={options.tags}
@@ -1449,7 +1449,7 @@ function LeadiPage() {
                     onChange={setTagsFilter}
                   />
                 </CrmFilterCell>
-                {/* 9 — Atbildīgais */}
+                {/* 8 — Atbildīgais */}
                 <CrmFilterCell>
                   <CrmFilterSelect
                     value={colFilterValue("owner")}
@@ -1457,7 +1457,7 @@ function LeadiPage() {
                     options={options.owner.map((o) => ({ value: o, label: o }))}
                   />
                 </CrmFilterCell>
-                {/* 10 — Nākamā darbība → Darbība + Termiņš */}
+                {/* 9 — Nākamā darbība → Darbība + Termiņš */}
                 <CrmFilterCell>
                   <div className="flex items-center gap-1">
                     <div className="min-w-0 flex-1">
@@ -1480,7 +1480,7 @@ function LeadiPage() {
                     </div>
                   </div>
                 </CrmFilterCell>
-                {/* 11 — Pēdējā aktivitāte → Aktivitāte + Datums */}
+                {/* 10 — Pēdējā aktivitāte → Aktivitāte + Datums */}
                 <CrmFilterCell>
                   <div className="flex items-center gap-1">
                     <div className="min-w-0 flex-1">
@@ -1503,9 +1503,9 @@ function LeadiPage() {
                     </div>
                   </div>
                 </CrmFilterCell>
-                {/* 12 — Īsā piezīme (searchable via global search) */}
+                {/* 11 — Īsā piezīme (searchable via global search) */}
                 <CrmFilterCell />
-                {/* 13 — Darbības → clear filters */}
+                {/* 12 — Darbības → clear filters */}
                 <CrmFilterCell align="right">
                   <CrmClearFiltersButton
                     active={anyColFilterActive}
@@ -1767,7 +1767,7 @@ function LeadRow({
           );
         })()}
       </CrmDataCell>
-      {/* 5 — Lead */}
+      {/* 4 — Lead (name + country + comm summary) */}
       <CrmDataCell className="min-w-0">
         <div className="flex min-w-0 items-center gap-1.5" title={l.name || l.company_name || l.lead_number}>
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
@@ -1790,7 +1790,7 @@ function LeadRow({
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
         </div>
       </CrmDataCell>
-      {/* 6 — PPV */}
+      {/* 5 — PPV */}
       <CrmDataCell>
         <span
           className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
@@ -1801,7 +1801,7 @@ function LeadRow({
           )}
         </span>
       </CrmDataCell>
-      {/* 7 — Lead statuss */}
+      {/* 6 — Statuss */}
       <CrmDataCell>
         <div className="flex min-w-0 flex-col gap-0.5">
           <StatusBadge status={l.status} />
@@ -1824,7 +1824,7 @@ function LeadRow({
           </div>
         </div>
       </CrmDataCell>
-      {/* 8 — Tagi */}
+      {/* 7 — Tagi */}
       <CrmDataCell>
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
@@ -1843,7 +1843,7 @@ function LeadRow({
           </div>
         )}
       </CrmDataCell>
-      {/* 9 — Atbildīgais */}
+      {/* 8 — Atbildīgais */}
       <CrmDataCell>
         {l.owner_user_code ? (
           <span
@@ -1856,7 +1856,7 @@ function LeadRow({
           <span className="text-muted-foreground/50">-</span>
         )}
       </CrmDataCell>
-      {/* 10 — Nākamā darbība */}
+      {/* 9 — Nākamā darbība */}
       <CrmDataCell>
         <div className="flex flex-col leading-tight">
           <span
@@ -1884,7 +1884,7 @@ function LeadRow({
           )}
         </div>
       </CrmDataCell>
-      {/* 11 — Pēdējā aktivitāte */}
+      {/* 10 — Pēdējā aktivitāte */}
       <CrmDataCell>
         {(() => {
           let bestDate: string | null = null;
@@ -1942,7 +1942,7 @@ function LeadRow({
           );
         })()}
       </CrmDataCell>
-      {/* 12 — Īsā piezīme */}
+      {/* 11 — Īsā piezīme */}
       <CrmDataCell>
         {l.short_note ? (
           <span
@@ -1955,7 +1955,7 @@ function LeadRow({
           <span className="text-muted-foreground/40">—</span>
         )}
       </CrmDataCell>
-      {/* 13 — Darbības */}
+      {/* 12 — Darbības */}
       <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
           <RowAction
