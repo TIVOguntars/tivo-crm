@@ -1633,8 +1633,6 @@ function GroupRenderer({
 
 function LeadRow({
   l,
-  isSel,
-  toggleOne,
   isChecked,
   toggleChecked,
   openLead,
@@ -1642,8 +1640,6 @@ function LeadRow({
   commCounts,
 }: {
   l: Lead;
-  isSel: boolean;
-  toggleOne: (id: string) => void;
   isChecked: boolean;
   toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
