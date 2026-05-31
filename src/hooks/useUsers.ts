@@ -6,12 +6,15 @@ import {
   listAssignableUsers,
   type AssignableUser,
 } from "@/lib/users";
+import { useSessionReady } from "@/hooks/useSessionReady";
 
 export function useAssignableUsers() {
+  const sessionReady = useSessionReady();
   return useQuery({
     queryKey: ["crm", "assignable_users"],
     queryFn: listAssignableUsers,
     staleTime: 5 * 60_000,
+    enabled: sessionReady,
   });
 }
 

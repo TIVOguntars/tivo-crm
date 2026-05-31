@@ -20,6 +20,7 @@ import {
   notifyOperatorChanged,
   useCurrentUser,
 } from "@/hooks/useCurrentUser";
+import { useSessionReady } from "@/hooks/useSessionReady";
 
 /**
  * Blocking modal that forces the operator to pick their crm.profiles row
@@ -54,10 +55,12 @@ export function OperatorPickerModal({
   const [q, setQ] = useState("");
   const [pickingId, setPickingId] = useState<string | null>(null);
 
+  const sessionReady = useSessionReady();
   const usersQ = useQuery({
     queryKey: ["crm", "assignable_users"],
     queryFn: listAssignableUsers,
     staleTime: 5 * 60_000,
+    enabled: sessionReady,
   });
 
   const users: AssignableUser[] = usersQ.data ?? [];
