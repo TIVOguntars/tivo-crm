@@ -791,7 +791,6 @@ function LeadiPage() {
 
   const [drawerLeadId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
   /* ---- collapsed group state (session-only; groups open by default, never persisted) ---- */
