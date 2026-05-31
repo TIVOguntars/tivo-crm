@@ -118,6 +118,35 @@ export const Route = createFileRoute("/leadi")({
 type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
+const LEADS_TABLE_COLUMNS = [
+  { key: "select", width: 36 },
+  { key: "checked", width: 36 },
+  { key: "created", width: 90 },
+  { key: "priority", width: 105 },
+  { key: "lead" },
+  { key: "ppv", width: 55 },
+  { key: "status", width: 105 },
+  { key: "tags", width: 120 },
+  { key: "owner", width: 80 },
+  { key: "next_action", width: 130 },
+  { key: "last_activity", width: 130 },
+  { key: "short_note", width: 140 },
+  { key: "actions", width: 70 },
+] as const;
+
+function LeadsTableColGroup() {
+  return (
+    <colgroup>
+      {LEADS_TABLE_COLUMNS.map((col) => (
+        <col
+          key={col.key}
+          style={col.width ? { width: col.width } : undefined}
+        />
+      ))}
+    </colgroup>
+  );
+}
+
 interface Lead {
   lead_id: string;
   name: string;
