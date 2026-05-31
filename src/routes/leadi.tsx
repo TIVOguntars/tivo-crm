@@ -1338,9 +1338,10 @@ function LeadiPage() {
                 {/* 1 — Check (session review marker) */}
                 <CrmSortableHead
                   label={
-                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                    <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
                   }
-                  align="center"
+                  align="left"
+                  className="!pl-1 !pr-0"
                 />
                 {/* 2 — Izveidots */}
                 <CrmSortableHead sortKey="created_at" label="Izveidots" />
