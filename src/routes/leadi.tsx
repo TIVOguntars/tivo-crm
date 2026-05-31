@@ -1368,7 +1368,7 @@ function LeadiPage() {
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
                 {/* 1 — Check */}
-                <CrmFilterCell>
+                <CrmFilterCell className="!pl-1 !pr-0">
                   <CrmFilterSelect
                     value={checkFilter === "all" ? "" : checkFilter}
                     onValueChange={(v) =>
@@ -1402,8 +1402,8 @@ function LeadiPage() {
                     value={colFilterValue("country")}
                     onValueChange={(v) => setColFilter("country", v)}
                     options={options.country.map((o) => ({ value: o, label: o }))}
-                    placeholder="Valsts"
-                    allLabel="Visas valstis"
+                    placeholder="Valstis"
+                    allLabel="Valstis"
                   />
                 </CrmFilterCell>
                 {/* 6 — PPV */}
