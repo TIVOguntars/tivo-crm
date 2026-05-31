@@ -34,7 +34,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LoadingState, ErrorState } from "@/components/DataState";
-import { BulkActionsBar, type BulkPatch } from "@/components/BulkActionsBar";
 import { HeaderSlot } from "@/components/HeaderSlot";
 import { CommStats, type CommBuckets } from "@/components/CommStats";
 import { useCrmView } from "@/hooks/useCrmView";
@@ -119,19 +118,18 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "select", width: 36 },
   { key: "checked", width: 36 },
-  { key: "created", width: 90 },
-  { key: "priority", width: 105 },
+  { key: "created", width: 86 },
+  { key: "priority", width: 92 },
   { key: "lead" },
-  { key: "ppv", width: 55 },
-  { key: "status", width: 105 },
-  { key: "tags", width: 120 },
-  { key: "owner", width: 80 },
-  { key: "next_action", width: 130 },
-  { key: "last_activity", width: 130 },
-  { key: "short_note", width: 140 },
-  { key: "actions", width: 70 },
+  { key: "ppv", width: 42 },
+  { key: "status", width: 110 },
+  { key: "tags", width: 110 },
+  { key: "owner", width: 72 },
+  { key: "next_action", width: 125 },
+  { key: "last_activity", width: 125 },
+  { key: "short_note", width: 130 },
+  { key: "actions", width: 62 },
 ] as const;
 
 function LeadsTableColGroup() {
@@ -793,7 +791,6 @@ function LeadiPage() {
 
   const [drawerLeadId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [patches, setPatches] = useState<Record<string, Partial<Lead>>>({});
 
   /* ---- collapsed group state (session-only; groups open by default, never persisted) ---- */
@@ -1076,28 +1073,6 @@ function LeadiPage() {
     return build(groupRows, gby, "");
   }, [groupRows, gby]);
 
-  /* ---- selection / bulk ---- */
-  const allVisibleSelected =
-    sorted.length > 0 && sorted.every((l) => selected.has(l.lead_id));
-  const toggleAll = () => {
-    if (allVisibleSelected) {
-      const next = new Set(selected);
-      sorted.forEach((l) => next.delete(l.lead_id));
-      setSelected(next);
-    } else {
-      const next = new Set(selected);
-      sorted.forEach((l) => next.add(l.lead_id));
-      setSelected(next);
-    }
-  };
-  const toggleOne = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-  const clearSelected = () => setSelected(new Set());
-
   const patchLead = useCallback((id: string, patch: Partial<Lead>) => {
     setPatches((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
@@ -1121,36 +1096,6 @@ function LeadiPage() {
   useEffect(() => {
     setDrawerOpen(false);
   }, []);
-
-  const patchMany = useCallback((ids: string[], patch: BulkPatch) => {
-    setPatches((prev) => {
-      const next = { ...prev };
-      ids.forEach((id) => {
-        next[id] = { ...next[id], ...(patch as Partial<Lead>) };
-      });
-      return next;
-    });
-  }, []);
-  const rollbackMany = useCallback(
-    (ids: string[], previous: Record<string, BulkPatch>) => {
-      setPatches((prev) => {
-        const next = { ...prev };
-        ids.forEach((id) => {
-          const p = previous[id];
-          if (!p) return;
-          next[id] = { ...next[id], ...(p as Partial<Lead>) };
-        });
-        return next;
-      });
-    },
-    [],
-  );
-
-  const currentStatusMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    leadsPatched.forEach((l) => (m[l.lead_id] = l.status));
-    return m;
-  }, [leadsPatched]);
 
   /* ---- toolbar handlers ---- */
   const setView = (v: string) => setSearch({ view: v });
@@ -1357,21 +1302,6 @@ function LeadiPage() {
         </div>
       </CrmTableToolbar>
 
-      {selected.size > 0 && (
-        <BulkActionsBar
-          selectedIds={Array.from(selected)}
-          options={{
-            statuses: options.status,
-            owners: options.owner,
-            ppvs: options.ppv,
-          }}
-          currentStatus={currentStatusMap}
-          onClear={clearSelected}
-          onPatchMany={patchMany}
-          onRollbackMany={rollbackMany}
-        />
-      )}
-
       {errorMsg && <ErrorState message={errorMsg} />}
       {!errorMsg && loading && <LoadingState />}
 
@@ -1405,50 +1335,40 @@ function LeadiPage() {
             <LeadsTableColGroup />
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
-                {/* 1 — Atlase (bulk selection) */}
-                <CrmSortableHead label={
-                  <Checkbox
-                    checked={allVisibleSelected}
-                    onCheckedChange={toggleAll}
-                    className="h-3.5 w-3.5"
-                    aria-label="Atzīmēt visus"
-                  />
-                } align="center" />
-                {/* 2 — Check (session review marker) */}
+                {/* 1 — Check (session review marker) */}
                 <CrmSortableHead
                   label={
-                    <CheckSquare className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+                    <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
                   }
-                  align="center"
+                  align="left"
+                  className="!pl-1 !pr-0"
                 />
-                {/* 3 — Izveidots */}
+                {/* 2 — Izveidots */}
                 <CrmSortableHead sortKey="created_at" label="Izveidots" />
-                {/* 4 — Prioritāte */}
+                {/* 3 — Prioritāte */}
                 <CrmSortableHead sortKey="priority_score" label="Prioritāte" />
-                {/* 5 — Lead */}
+                {/* 4 — Lead */}
                 <CrmSortableHead sortKey="lead" label="Lead" />
-                {/* 6 — PPV */}
+                {/* 5 — PPV */}
                 <CrmSortableHead sortKey="ppv" label="PPV" />
-                {/* 7 — Lead statuss */}
-                <CrmSortableHead sortKey="status" label="Lead statuss" />
-                {/* 8 — Tagi */}
+                {/* 6 — Statuss */}
+                <CrmSortableHead sortKey="status" label="Statuss" />
+                {/* 7 — Tagi */}
                 <CrmSortableHead sortKey="tags" label="Tagi" />
-                {/* 9 — Atbildīgais */}
+                {/* 8 — Atbildīgais */}
                 <CrmSortableHead sortKey="owner" label="Atbildīgais" />
-                {/* 10 — Nākamā darbība */}
+                {/* 9 — Nākamā darbība */}
                 <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" />
-                {/* 11 — Pēdējā aktivitāte */}
+                {/* 10 — Pēdējā aktivitāte */}
                 <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" />
-                {/* 12 — Īsā piezīme */}
+                {/* 11 — Īsā piezīme */}
                 <CrmSortableHead label="Īsā piezīme" />
-                {/* 13 — Darbības */}
+                {/* 12 — Darbības (empty header) */}
                 <CrmSortableHead label="" align="right" />
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow>
-                {/* 1 — Atlase */}
-                <CrmFilterCell />
-                {/* 2 — Check */}
-                <CrmFilterCell>
+                {/* 1 — Check */}
+                <CrmFilterCell className="!pl-1 !pr-0">
                   <CrmFilterSelect
                     value={checkFilter === "all" ? "" : checkFilter}
                     onValueChange={(v) =>
@@ -1482,8 +1402,8 @@ function LeadiPage() {
                     value={colFilterValue("country")}
                     onValueChange={(v) => setColFilter("country", v)}
                     options={options.country.map((o) => ({ value: o, label: o }))}
-                    placeholder="Valsts"
-                    allLabel="Visas valstis"
+                    placeholder="Valstis"
+                    allLabel="Valstis"
                   />
                 </CrmFilterCell>
                 {/* 6 — PPV */}
@@ -1580,8 +1500,6 @@ function LeadiPage() {
                 nodes={groupTree}
                 collapsed={collapsed}
                 toggle={toggleCollapsed}
-                selected={selected}
-                toggleOne={toggleOne}
                 checkedRows={checkedRows}
                 toggleChecked={toggleChecked}
                 openLead={openLead}
@@ -1612,8 +1530,6 @@ function GroupRenderer({
   nodes,
   collapsed,
   toggle,
-  selected,
-  toggleOne,
   checkedRows,
   toggleChecked,
   openLead,
@@ -1623,8 +1539,6 @@ function GroupRenderer({
   nodes: GroupNode[];
   collapsed: Record<string, boolean>;
   toggle: (path: string) => void;
-  selected: Set<string>;
-  toggleOne: (id: string) => void;
   checkedRows: Set<string>;
   toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
@@ -1639,8 +1553,6 @@ function GroupRenderer({
             <LeadRow
               key={l.lead_id}
               l={l}
-              isSel={selected.has(l.lead_id)}
-              toggleOne={toggleOne}
               isChecked={checkedRows.has(l.lead_id)}
               toggleChecked={toggleChecked}
               openLead={openLead}
@@ -1655,7 +1567,7 @@ function GroupRenderer({
             key={`gh-${n.path}`}
             className="bg-[var(--tivo-navy-soft)]/40 hover:bg-[var(--tivo-navy-soft)]"
           >
-            <CrmDataCell colSpan={13} className="p-0">
+            <CrmDataCell colSpan={12} className="p-0">
               <button
                 type="button"
                 onClick={() => toggle(n.path)}
@@ -1685,8 +1597,6 @@ function GroupRenderer({
             nodes={n.children}
             collapsed={collapsed}
             toggle={toggle}
-            selected={selected}
-            toggleOne={toggleOne}
             checkedRows={checkedRows}
             toggleChecked={toggleChecked}
             openLead={openLead}
@@ -1707,8 +1617,6 @@ function GroupRenderer({
             ]}
             collapsed={collapsed}
             toggle={toggle}
-            selected={selected}
-            toggleOne={toggleOne}
             checkedRows={checkedRows}
             toggleChecked={toggleChecked}
             openLead={openLead}
@@ -1726,8 +1634,6 @@ function GroupRenderer({
 
 function LeadRow({
   l,
-  isSel,
-  toggleOne,
   isChecked,
   toggleChecked,
   openLead,
@@ -1735,8 +1641,6 @@ function LeadRow({
   commCounts,
 }: {
   l: Lead;
-  isSel: boolean;
-  toggleOne: (id: string) => void;
   isChecked: boolean;
   toggleChecked: (id: string) => void;
   openLead: (id: string) => void;
@@ -1777,20 +1681,15 @@ function LeadRow({
           "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
-        isSel && "bg-[var(--tivo-navy-soft)]",
         isChecked && "opacity-60",
       )}
     >
-      {/* 1 — Atlase */}
-      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          checked={isSel}
-          onCheckedChange={() => toggleOne(l.lead_id)}
-          className="h-3.5 w-3.5"
-        />
-      </CrmDataCell>
-      {/* 2 — Check */}
-      <CrmDataCell align="center" onClick={(e) => e.stopPropagation()}>
+      {/* 1 — Check */}
+      <CrmDataCell
+        align="left"
+        className="!pl-1 !pr-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Checkbox
           checked={isChecked}
           onCheckedChange={() => toggleChecked(l.lead_id)}
@@ -1798,13 +1697,13 @@ function LeadRow({
           aria-label="Atzīmēt kā pārskatītu"
         />
       </CrmDataCell>
-      {/* 3 — Izveidots */}
+      {/* 2 — Izveidots */}
       <CrmDataCell>
         <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
           {fmtDate(l.created_at)}
         </span>
       </CrmDataCell>
-      {/* 4 — Prioritāte */}
+      {/* 3 — Prioritāte */}
       <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
@@ -2192,13 +2091,13 @@ function MultiSelectInline({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="h-7 w-full truncate rounded border border-input bg-background px-2 text-left text-xs"
+          className="h-7 w-full truncate rounded border border-input bg-background px-1.5 text-left text-[11px]"
         >
           {value.length === 0
-            ? "Izvēlies vērtības"
+            ? "Tagi"
             : value.length <= 2
               ? value.join(", ")
-              : `${value.length} izvēlēti`}
+              : `${value.length} izv.`}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
