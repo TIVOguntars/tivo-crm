@@ -1499,8 +1499,6 @@ function LeadiPage() {
                 nodes={groupTree}
                 collapsed={collapsed}
                 toggle={toggleCollapsed}
-                selected={selected}
-                toggleOne={toggleOne}
                 checkedRows={checkedRows}
                 toggleChecked={toggleChecked}
                 openLead={openLead}
