@@ -1397,7 +1397,7 @@ function LeadiPage() {
           </div>
         ) : (
           <CrmDataTable
-            className="min-h-0 flex-1 [&>div]:overflow-x-hidden [&_table]:table-fixed [&_table]:w-full [&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden"
+            className="min-h-0 flex-1 [&>div]:overflow-x-hidden [&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px] [&_.crm-sort-trigger>span]:truncate [&_.crm-table-filter-cell]:!px-1 [&_.crm-table-header-cell]:!px-1.5 [&_table]:table-fixed [&_table]:w-full [&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden"
             maxHeight="100%"
             sort={tableSort}
             onSortChange={handleTableSort}
@@ -1913,7 +1913,9 @@ function LeadRow({
         ) : (
           <div className="flex min-w-0 items-center gap-0.5" title={l.tags.join(", ")}>
             {normalizeTags(l.tags).slice(0, 1).map((t) => (
-              <Tag key={t} tag={t} className="max-w-[86px] truncate" />
+              <span key={t} className="min-w-0 max-w-[86px] truncate">
+                <Tag tag={t} />
+              </span>
             ))}
             {l.tags.length > 1 && (
               <span className="text-[12px] text-muted-foreground/60 tabular-nums">
