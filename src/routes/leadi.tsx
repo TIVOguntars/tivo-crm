@@ -1773,8 +1773,8 @@ function LeadRow({
   return (
     <CrmDataRow
       onClick={() => openLead(l.lead_id)}
-      className={cn(
-        "group relative cursor-pointer",
+        className={cn(
+          "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
         isSel && "bg-[var(--tivo-navy-soft)]",
@@ -1822,12 +1822,12 @@ function LeadRow({
               className="flex min-w-0 flex-col leading-tight"
               title={tooltipLines}
             >
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-0.5 overflow-hidden">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      "h-3 w-3",
+                      "h-2.5 w-2.5 shrink-0",
                       i < stars
                         ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
                         : "text-muted-foreground/30",
@@ -1835,7 +1835,7 @@ function LeadRow({
                   />
                 ))}
                 {l.priority_score != null && (
-                  <span className="ml-1 text-[12px] tabular-nums text-muted-foreground/80">
+                  <span className="ml-0.5 truncate text-[11px] tabular-nums text-muted-foreground/80">
                     {l.priority_score}
                   </span>
                 )}
@@ -1851,7 +1851,7 @@ function LeadRow({
       </CrmDataCell>
       {/* 5 — Lead */}
       <CrmDataCell className="min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5" title={l.name || l.company_name || l.lead_number}>
           <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
             {l.name || (
               <span className="font-normal italic text-muted-foreground">
@@ -1866,7 +1866,7 @@ function LeadRow({
             />
           )}
         </div>
-        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums">
+        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums" title={l.country || undefined}>
           <span className="text-muted-foreground/70">{l.country || "—"}</span>
           <span className="mx-1 opacity-40">•</span>
           <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
@@ -1911,13 +1911,13 @@ function LeadRow({
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
-          <div className="flex flex-wrap gap-0.5">
-            {normalizeTags(l.tags).slice(0, 3).map((t) => (
-              <Tag key={t} tag={t} />
+          <div className="flex min-w-0 items-center gap-0.5" title={l.tags.join(", ")}>
+            {normalizeTags(l.tags).slice(0, 1).map((t) => (
+              <Tag key={t} tag={t} className="max-w-[86px] truncate" />
             ))}
-            {l.tags.length > 3 && (
+            {l.tags.length > 1 && (
               <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 3}
+                +{l.tags.length - 1}
               </span>
             )}
           </div>
@@ -1946,6 +1946,7 @@ function LeadRow({
                 ? "text-foreground"
                 : "text-muted-foreground/60",
             )}
+            title={l.next_action || undefined}
           >
             {l.has_task ? l.next_action || "-" : "-"}
           </span>
@@ -2025,7 +2026,7 @@ function LeadRow({
       <CrmDataCell>
         {l.short_note ? (
           <span
-            className="line-clamp-2 text-[12px] text-muted-foreground/80"
+            className="block truncate text-[12px] text-muted-foreground/80"
             title={l.short_note}
           >
             {l.short_note}
@@ -2036,7 +2037,7 @@ function LeadRow({
       </CrmDataCell>
       {/* 13 — Darbības */}
       <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100">
+        <div className="flex justify-end gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
           <RowAction
             icon={<Phone className="h-3.5 w-3.5" />}
             label="Zvanīt"
