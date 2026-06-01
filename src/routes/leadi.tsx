@@ -117,7 +117,7 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "checked", width: 30 },
+  { key: "checked", width: 34 },
   { key: "created", width: 78 },
   { key: "priority", width: 92 },
   { key: "lead" }, // main readable column — absorbs remaining width
@@ -1336,10 +1336,12 @@ function LeadiPage() {
                 {/* 1 — Check (session review marker) */}
                 <CrmSortableHead
                   label={
-                    <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="flex items-center justify-center">
+                      <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
                   }
-                  align="left"
-                  className="!pl-1 !pr-0"
+                  align="center"
+                  className="!p-0"
                 />
                 {/* 2 — Izveidots */}
                 <CrmSortableHead sortKey="created_at" label="Izveidots" />
@@ -1366,17 +1368,19 @@ function LeadiPage() {
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow className="!top-9">
                 {/* 1 — Check */}
-                <CrmFilterCell className="!pl-1 !pr-0">
-                  <CrmFilterSelect
-                    value={checkFilter === "all" ? "" : checkFilter}
-                    onValueChange={(v) =>
-                      setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
-                    }
-                    options={[
-                      { value: "checked", label: "Atzīmēti" },
-                      { value: "unchecked", label: "Neatzīmēti" },
-                    ]}
-                  />
+                <CrmFilterCell align="center" className="!p-0">
+                  <div className="flex items-center justify-center">
+                    <CrmFilterSelect
+                      value={checkFilter === "all" ? "" : checkFilter}
+                      onValueChange={(v) =>
+                        setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
+                      }
+                      options={[
+                        { value: "checked", label: "Atzīmēti" },
+                        { value: "unchecked", label: "Neatzīmēti" },
+                      ]}
+                    />
+                  </div>
                 </CrmFilterCell>
                 {/* 2 — Izveidots */}
                 <CrmFilterCell>
@@ -1684,16 +1688,18 @@ function LeadRow({
     >
       {/* 1 — Check */}
       <CrmDataCell
-        align="left"
-        className="!pl-1 !pr-0"
+        align="center"
+        className="!p-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <Checkbox
-          checked={isChecked}
-          onCheckedChange={() => toggleChecked(l.lead_id)}
-          className="h-3.5 w-3.5"
-          aria-label="Atzīmēt kā pārskatītu"
-        />
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={() => toggleChecked(l.lead_id)}
+            className="h-3.5 w-3.5"
+            aria-label="Atzīmēt kā pārskatītu"
+          />
+        </div>
       </CrmDataCell>
       {/* 2 — Izveidots */}
       <CrmDataCell>
