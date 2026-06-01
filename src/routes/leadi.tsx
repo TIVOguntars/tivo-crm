@@ -2069,9 +2069,6 @@ function LeadRow({
   bumpActivity: (id: string) => void;
   commCounts: Map<string, CommBuckets>;
 }) {
-  const dueT = parseDate(l.next_action_due);
-  const isOverdue = dueT != null && dueT < Date.now();
-  const isHot = l.tags.some((t) => /^(hot|karst)/i.test(t));
   const cellCtx: ColumnCellCtx = {
     isChecked,
     toggleChecked,
