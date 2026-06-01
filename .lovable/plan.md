@@ -1,69 +1,76 @@
+# SIS centrs → Komunikācija: use crm.v_sis_communication_history
 
-# Jauna CRM tabulu sistēmas bāze + izolēta demo lapa
+## Goal
+Make the Komunikācija tab display rows directly from the prepared Supabase view `crm.v_sis_communication_history` (2222 rows), removing all frontend join logic that combined `tasks` + `activities`.
 
-Veidot tikai jauno arhitektūru. Nepieslēgt esošajām lapām. Neaiztikt /leadi, /uzdevumi, /lietotaji, auth, RPC, krāsu tokenus, CSS.
+## Required supporting change (blocker)
+`useCrmView` calls a server function (`fetchCrmView`) that validates the view name against a hard-coded allow-list `CRM_VIEWS` in `src/server/analytics.ts`. `v_sis_communication_history` is **not** in that list, so the call would fail with "Nezināms skats" before reaching Supabase.
 
-## Jaunie faili
+- Add `"v_sis_communication_history"` to the `CRM_VIEWS` array in `src/server/analytics.ts`.
+- This is a frontend allow-list addition only — no schema, RPC, view, or migration change. The view already exists in Supabase.
 
-### 1. `src/components/crm/table/CrmDataTable.tsx` (jauns)
+## Changes in `src/routes/sis-darba-rinda.tsx` (KomunikacijaTab only)
 
-Eksportē primitīvus:
+### 1. Replace data sources
+Remove:
+- `useCrmView("activities", ...)`
+- `useCrmView("tasks", ...)`
+- `taskRows`, `allActivities`, `sisSendEmailTaskIds`
+- the `rows = allActivities.filter(... task_id ...)` join
 
-- `CrmDataTable` — ārējais wrapper. Renderē shadcn `Table` iekš `div` ar `border + bg-card`. Props: `maxHeight?: number|string` (ieslēdz vertikālo scroll un sticky header), `sort?: { key, dir }`, `onSortChange?(key, dir)`. Padod sort kontekstu pa React Context.
-- `CrmDataTableHeader` — wraps shadcn `TableHeader`, default `sticky top-0 z-20`.
-- `CrmDataTableLabelRow` — `TableRow` ar klasi `crm-table-header-row` (40px, bez bottom border).
-- `CrmDataTableFilterRow` — `TableRow` ar klasi `crm-table-filter-row` (40px), default `sticky top-10 z-20`.
-- `CrmSortableHead` — `TableHead` + `<button class="crm-sort-trigger">`. Cikls null → asc → desc → null. Rāda `ArrowUp/Down/UpDown` ikonu. Atbalsta `align`.
-- `CrmFilterCell` — `TableHead` ar `crm-table-filter-cell`. Atbalsta `colSpan`, `align`.
-- `CrmDataBody` — `TableBody` wrapper.
-- `CrmDataRow` — `TableRow` ar `crm-table-body-row`.
-- `CrmDataCell` — `TableCell` ar `crm-table-body-cell`. Atbalsta `align`, `colSpan`.
-- `CrmFilterInput` — shadcn `Input` ar `crm-filter-control border-0 shadow-none` (32px, 13px, vienots focus ring).
-- `CrmFilterSelect` — shadcn `Select` + `SelectTrigger.crm-filter-control`. Props: `value`, `onValueChange`, `options: {value,label}[]`, `placeholder`, `allValue` (default `"__all__"`), `allLabel` (default `"Visi"`). Tukša vērtība = "visi".
-- `CrmClearFiltersButton` — `<button class="crm-filter-control">` ar X ikonu. Rāda tikai ja `active`.
+Add:
+```text
+const history = useCrmView("v_sis_communication_history", "order=activity_at.desc", { all: true });
+const rows = (history.data?.rows ?? []) as Row[];
+const loading = history.isLoading;
+const errorMsg = (history.error as Error | null)?.message || history.data?.error;
+```
 
-Stingri ievērojam:
-- Tikai HTML `<table>` (caur shadcn `Table`). Nekur nelietojam `<div role="grid">`.
-- Nekur nelietojam native `<select>`/`<input>` — tikai shadcn.
-- Nekur netiek pielietoti lokāli `py-*`/`px-*` override; visi izmēri nāk no `crm-*` klasēm jau `src/styles.css`.
-- Krāsas tikai caur `var(--tivo-navy*)` un `var(--crm-*)` tokeniem.
+Keep `useCrmView("communication_events", ...)` ONLY for the detail-drawer event timeline (`eventByLead`). It must NOT decide which rows are shown — the displayed rows come solely from the view.
 
-### 2. `src/routes/_crm-table-demo.tsx` (jauns, izolēta demo lapa)
+### 2. Row identity and fields
+Map table/drawer to view columns:
+- row id → `activity_id` (fallback to index)
+- date → `activity_at`
+- `lead_id`, `contact_id`, `channel`, `subject`, `summary`
+- `latest_event_status`, `latest_event_type`, `provider_message_id`, `outcome_code`
+- drawer adds `communication_basis`, `activity_type`
 
-Route ceļš `/_crm-table-demo` (underscore prefiksā nodrošina, ka tas nesakaras ar esošajām navigācijām). Lapa ir patstāvīga — neimportē neko no esošajām CRM lapām, neizmanto auth, neizmanto RPC.
+### 3. Status + event badges (per-row, no enrichment join)
+Replace the `enrich()` helper (which read from `communication_events`) with direct field reads:
+- Status badge value = `latest_event_status` || `outcome_code`
+- Event-type badge value = `latest_event_type` || `activity_type`
+- Direction: the view has no event metadata direction; show the `Virziens` column as `—` (or drop reliance on event metadata). Layout stays unchanged unless a field is absent.
 
-Saturs (fake dati, ~8 rindas):
-- `CrmPageActionsRow` ar pogu "Jauns ieraksts".
-- Virsraksts "CRM DataTable demo".
-- `CrmDataTable` ar `maxHeight={480}`:
-  - Header row: `CrmSortableHead` kolonnām (ID, Lead, Statuss, Prioritāte, Termiņš, Atbildīgais, Darbība) + viena ne-sortēta darbības kolonna.
-  - Filter row: `CrmFilterInput` (Lead meklēšana), `CrmFilterSelect` (Statuss, Prioritāte, Atbildīgais), `CrmClearFiltersButton` pēdējā šūnā.
-  - Body:
-    - **Badge piemēri** statusiem (Jauns, Aktīvs, Pauzēts, Pabeigts) — izmantojot esošo `Badge` un `crm-*` toņus.
-    - **Priority** piemēri (Augsta = red soft, Vidēja = orange soft, Zema = navy soft) — `Tag` vai inline span ar TIVO soft fonu.
-    - **Overdue date** piemēri: termiņš pagātnē — teksts `var(--tivo-red)`; <24h — `var(--tivo-orange)`; tālāks — neitrāls.
-- Funkcionalitāte:
-  - Sorting strādā uz lokāla `useState` ({key, dir}).
-  - Filtrēšana caur `useState` (search string + 3 select).
-  - Clear filters notīra visus 4 laukus.
-  - Sticky header redzams, ritinot tabulu.
+### 4. Filters (based on view rows)
+Rebuild `options` and `filtered` from `rows`:
+- channel → `channel`
+- event type → `latest_event_type` (fallback `activity_type`)
+- status → `latest_event_status` (fallback `outcome_code`)
+- lead → `shortId(lead_id)`
+- contact → `shortId(contact_id)`
+- search → across `subject`, `summary`, `channel`, `activity_type`, `provider_message_id`
 
-### 3. Aug./ieturēšana
-- Demo lapa nav iekļauta nekādā navigācijā/menu. Piekļūstama tikai zinot URL.
-- `routeTree.gen.ts` regenerējas automātiski no Vite plugin.
+### 5. KPI counters (from `rows`, not global events)
+Count over `rows`:
+- Nosūtīts: `latest_event_type` or `outcome_code` ∈ {sent, send}
+- Atvērts: `latest_event_type` ∈ {opened, open}
+- Click: `latest_event_type` ∈ {clicked, click}
+- Atbildēts: `latest_event_type` ∈ {replied, reply} OR `outcome_code` = replied
 
-## Ko NEDARĪT
+### 6. Preserve
+- Empty-state text: `"Nav SIS komunikācijas ierakstu."`
+- Table column structure and the `CommDetailDrawer` (event timeline still sourced from `communication_events` by `lead_id`).
+- `SIS_PROFILE_ID` constant stays (still used by `UzdevumiTab`); it is simply no longer referenced inside `KomunikacijaTab`.
 
-- Nepieskaras `src/routes/leadi.tsx`, `uzdevumi.tsx`, `iestatijumi.lietotaji.tsx`.
-- Nepieskaras `src/styles.css`, `src/components/ui/*`, `src/components/crm/CrmLayout.tsx`.
-- Nepieskaras auth, RPC, query hooks.
-- Nepievieno jaunas CSS tokenu definīcijas — viss jau eksistē.
+## Explicitly NOT changed
+- `UzdevumiTab` and its `v_tasks_queue_ui_v2` usage
+- Supabase schema, RPCs, views, workflow/task-generation logic
+- Page route and overall layout structure
+- No mock data, no frontend business logic, no SIS-membership computation, no tasks/activities join
 
-## Pārbaude pēc ieviešanas
-
-- `/_crm-table-demo` ielādējas.
-- Header un filter rinda — 40px; filtru kontroles 32px; body rindas ≥44px; teksts 13/14px.
-- Sortēšana un filtrēšana strādā uz fake datiem.
-- Sticky header paliek redzams ritinot.
-- Esošās lapas vizuāli nemainās.
-- Build/typecheck zaļš.
+## Verification
+- Run build; fix only TypeScript/UI errors.
+- Confirm KomunikacijaTab uses `useCrmView("v_sis_communication_history", ...)`.
+- Confirm the tasks+activities join logic is removed.
+- Confirm only frontend files changed (`sis-darba-rinda.tsx` + `analytics.ts` allow-list); no backend/schema/RPC/view edits.
