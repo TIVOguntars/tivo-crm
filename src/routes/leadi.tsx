@@ -305,7 +305,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "priority",
     width: 92,
     sortKey: "priority_score",
-    headerLabel: "Prioritāte",
+    headerLabel: "Prior",
     renderFilter: (f) => (
       <CrmFilterSelect
         value={f.colFilterValue("priority_label")}
