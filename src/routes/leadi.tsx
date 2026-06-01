@@ -2083,322 +2083,35 @@ function LeadRow({
         : noContact
           ? "before:bg-muted-foreground/30"
           : "before:bg-transparent";
-  const commLabel =
-    l.communication_label ||
-    (l.communication_state === "unread"
-      ? "Atbildēja"
-      : l.communication_state === "waiting"
-        ? "Gaida atbildi"
-        : l.communication_state === "active"
-          ? "Aktīva saziņa"
-          : l.communication_state === "event_only"
-            ? "Ir notikums"
-            : l.communication_state === "no_contact"
-              ? "Nav kontakta"
-              : "");
+  const cellCtx: ColumnCellCtx = {
+    isChecked,
+    toggleChecked,
+    openLead,
+    bumpActivity,
+    commCounts,
+  };
   return (
     <CrmDataRow
       onClick={() => openLead(l.lead_id)}
-        className={cn(
-          "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
+      className={cn(
+        "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         accentClass,
         isChecked && "opacity-60",
       )}
     >
-      {/* 1 — Check */}
-      <CrmDataCell
-        align="center"
-        className="!p-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={isChecked}
-            onCheckedChange={() => toggleChecked(l.lead_id)}
-            className="h-3.5 w-3.5"
-            aria-label="Atzīmēt kā pārskatītu"
-          />
-        </div>
-      </CrmDataCell>
-      {/* 2 — Izveidots */}
-      <CrmDataCell>
-        <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
-          {fmtDate(l.created_at)}
-        </span>
-      </CrmDataCell>
-      {/* 3 — Prioritāte */}
-      <CrmDataCell>
-        {(() => {
-          const stars = l.priority_stars ?? 0;
-          const score = l.priority_score;
-          const tooltipLines = [
-            l.priority_label || "Bez prioritātes",
-            l.priority_breakdown,
-            l.priority_updated_at
-              ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join("\n");
-          return (
-            <div
-              className="flex min-w-0 flex-col leading-tight"
-              title={tooltipLines}
-            >
-              <div className="flex items-center gap-0.5 overflow-hidden">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      "h-2.5 w-2.5 shrink-0",
-                      i < stars
-                        ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
-                        : "text-muted-foreground/30",
-                    )}
-                  />
-                ))}
-              </div>
-              <span className="truncate text-[12px] tabular-nums text-muted-foreground/70">
-                {stars} {stars === 1 ? "zvaigzne" : "zvaigznes"}
-                {score != null && ` · ${score}`}
-              </span>
-            </div>
-          );
-        })()}
-      </CrmDataCell>
-      {/* 4 — Lead (name + country + comm summary) */}
-      <CrmDataCell className="min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5" title={l.name || l.company_name || l.lead_number}>
-          <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
-            {l.name || (
-              <span className="font-normal italic text-muted-foreground">
-                Neidentificēts leads
-              </span>
-            )}
-          </span>
-          {hasUnread && (
-            <span
-              className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--tivo-blue)]"
-              aria-label="Ir neatbildēta klienta atbilde"
-            />
-          )}
-        </div>
-        <div className="truncate text-[12px] text-muted-foreground/80 tabular-nums" title={l.country || undefined}>
-          <span className="text-muted-foreground/70">{l.country || "—"}</span>
-          <span className="mx-1 opacity-40">•</span>
-          <CommStats counts={commCounts.get(l.lead_id)} hasUnread={hasUnread} />
-        </div>
-      </CrmDataCell>
-      {/* 5 — PPV */}
-      <CrmDataCell>
-        <span
-          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
-          title={l.ppv_name || l.ppv_user_code || "-"}
+      {LEADS_COLUMNS.map((col) => (
+        <CrmDataCell
+          key={col.id}
+          align={col.align}
+          className={col.cellClassName}
+          onClick={
+            col.stopPropagation ? (e) => e.stopPropagation() : undefined
+          }
         >
-          {l.ppv_user_code || (
-            <span className="text-muted-foreground/60">-</span>
-          )}
-        </span>
-      </CrmDataCell>
-      {/* 6 — Statuss */}
-      <CrmDataCell>
-        <StatusBadge status={l.status} />
-      </CrmDataCell>
-      {/* 7 — Tagi */}
-      <CrmDataCell>
-        {l.tags.length === 0 ? (
-          <span className="text-muted-foreground/50">—</span>
-        ) : (
-          <div
-            className="flex min-w-0 flex-wrap items-center gap-0.5"
-            title={l.tags.join(", ")}
-          >
-            {normalizeTags(l.tags).slice(0, 2).map((t) => (
-              <Tag key={t} tag={t} />
-            ))}
-            {normalizeTags(l.tags).length > 2 && (
-              <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{normalizeTags(l.tags).length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </CrmDataCell>
-      {/* 8 — Atbildīgais */}
-      <CrmDataCell>
-        {l.owner_user_code ? (
-          <span
-            className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
-            title={l.owner || l.owner_user_code}
-          >
-            {l.owner_user_code}
-          </span>
-        ) : (
-          <span className="text-muted-foreground/50">-</span>
-        )}
-      </CrmDataCell>
-      {/* 9 — Nākamā darbība */}
-      <CrmDataCell>
-        <div className="flex flex-col leading-tight">
-          <span
-            className={cn(
-              "truncate text-[13px] font-medium",
-              l.has_task && l.next_action
-                ? "text-foreground"
-                : "text-muted-foreground/60",
-            )}
-            title={l.next_action || undefined}
-          >
-            {l.has_task ? l.next_action || "-" : "-"}
-          </span>
-          {l.has_task && l.next_action_due && (
-            <span
-              className={cn(
-                "truncate text-[12px] tabular-nums",
-                isOverdue
-                  ? "text-[var(--tivo-red)]"
-                  : "text-muted-foreground/70",
-              )}
-            >
-              {fmtDate(l.next_action_due)}
-            </span>
-          )}
-        </div>
-      </CrmDataCell>
-      {/* 10 — Pēdējā aktivitāte */}
-      <CrmDataCell>
-        {(() => {
-          let bestDate: string | null = null;
-          let src: "reply" | "inbound" | "outbound" | "communication" | null =
-            null;
-          if (l.last_reply_at) {
-            bestDate = l.last_reply_at;
-            src = "reply";
-          } else if (l.last_inbound_at) {
-            bestDate = l.last_inbound_at;
-            src = "inbound";
-          } else if (l.last_outbound_at) {
-            bestDate = l.last_outbound_at;
-            src = "outbound";
-          } else if (l.last_communication_at) {
-            bestDate = l.last_communication_at;
-            src = "communication";
-          }
-          const channel = detectChannel(commLabel);
-          const direction = directionFromTimestampSource(src);
-          const tone = CHANNEL_DIRECTION_TONE[channel][direction];
-          // Activity/channel type label (never a reply-state badge).
-          const dirWord =
-            direction === "inbound"
-              ? "Ienākošs"
-              : direction === "outbound"
-                ? "Izejošs"
-                : "";
-          const channelName =
-            channel === "email"
-              ? "e-pasts"
-              : channel === "call"
-                ? "zvans"
-                : channel === "sms"
-                  ? "SMS"
-                  : channel === "whatsapp"
-                    ? "WhatsApp"
-                    : "";
-          let activityLabel: string;
-          if (channel === "whatsapp") {
-            activityLabel = "WhatsApp";
-          } else if (channelName) {
-            activityLabel = dirWord
-              ? `${dirWord} ${channelName}`
-              : channelName.charAt(0).toUpperCase() + channelName.slice(1);
-          } else {
-            // Fallback derived from timestamp source when channel is unknown.
-            activityLabel =
-              src === "reply"
-                ? "Ienākoša atbilde"
-                : src === "inbound"
-                  ? "Ienākoša komunikācija"
-                  : src === "outbound"
-                    ? "Izejoša komunikācija"
-                    : src === "communication"
-                      ? "Komunikācija"
-                      : "";
-          }
-          return (
-            <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-              {activityLabel ? (
-                <span
-                  className={cn(
-                    "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
-                    tone,
-                  )}
-                  title={activityLabel}
-                >
-                  {activityLabel}
-                </span>
-              ) : (
-                <span className="text-muted-foreground/60 text-[12px]">—</span>
-              )}
-              {bestDate && (
-                <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
-                  {fmtDate(bestDate)}
-                </span>
-              )}
-            </div>
-          );
-        })()}
-      </CrmDataCell>
-      {/* 11 — Īsā piezīme */}
-      <CrmDataCell>
-        {l.short_note ? (
-          <span
-            className="block truncate text-[12px] text-muted-foreground/80"
-            title={l.short_note}
-          >
-            {l.short_note}
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40">—</span>
-        )}
-      </CrmDataCell>
-      {/* 12 — Darbības */}
-      <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-end gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
-          <RowAction
-            icon={<Phone className="h-3.5 w-3.5" />}
-            label="Zvanīt"
-            href={l.phone ? `tel:${l.phone}` : undefined}
-            onActivate={() => bumpActivity(l.lead_id)}
-          />
-          <RowAction
-            icon={<MessageCircle className="h-3.5 w-3.5" />}
-            label="WhatsApp"
-            href={
-              l.phone
-                ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}`
-                : undefined
-            }
-            onActivate={() => bumpActivity(l.lead_id)}
-          />
-          <RowAction
-            icon={<Mail className="h-3.5 w-3.5" />}
-            label="E-pasts"
-            href={l.email ? `mailto:${l.email}` : undefined}
-            onActivate={() => bumpActivity(l.lead_id)}
-          />
-          <RowAction
-            icon={<CheckSquare className="h-3.5 w-3.5" />}
-            label="Uzdevums"
-            onClick={() => openLead(l.lead_id)}
-          />
-          <RowAction
-            icon={<StickyNote className="h-3.5 w-3.5" />}
-            label="Piezīme"
-            onClick={() => openLead(l.lead_id)}
-          />
-        </div>
-      </CrmDataCell>
+          {col.renderCell(l, cellCtx)}
+        </CrmDataCell>
+      ))}
     </CrmDataRow>
   );
 }
