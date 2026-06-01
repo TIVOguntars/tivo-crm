@@ -1368,17 +1368,19 @@ function LeadiPage() {
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow className="!top-9">
                 {/* 1 — Check */}
-                <CrmFilterCell className="!pl-1 !pr-0">
-                  <CrmFilterSelect
-                    value={checkFilter === "all" ? "" : checkFilter}
-                    onValueChange={(v) =>
-                      setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
-                    }
-                    options={[
-                      { value: "checked", label: "Atzīmēti" },
-                      { value: "unchecked", label: "Neatzīmēti" },
-                    ]}
-                  />
+                <CrmFilterCell align="center" className="!p-0">
+                  <div className="flex items-center justify-center">
+                    <CrmFilterSelect
+                      value={checkFilter === "all" ? "" : checkFilter}
+                      onValueChange={(v) =>
+                        setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
+                      }
+                      options={[
+                        { value: "checked", label: "Atzīmēti" },
+                        { value: "unchecked", label: "Neatzīmēti" },
+                      ]}
+                    />
+                  </div>
                 </CrmFilterCell>
                 {/* 2 — Izveidots */}
                 <CrmFilterCell>
