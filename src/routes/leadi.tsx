@@ -70,7 +70,6 @@ import {
 } from "@/components/crm/table/CrmDataTable";
 import {
   CHANNEL_DIRECTION_TONE,
-  UNREAD_REPLY_TONE,
   detectChannel,
   directionFromTimestampSource,
 } from "@/lib/channelTones";
@@ -118,18 +117,18 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "checked", width: 34 },
-  { key: "created", width: 88 },
-  { key: "priority", width: 96 },
-  { key: "lead" },
-  { key: "ppv", width: 42 },
-  { key: "status", width: 112 },
-  { key: "tags", width: 112 },
-  { key: "owner", width: 78 },
-  { key: "next_action", width: 128 },
+  { key: "checked", width: 30 },
+  { key: "created", width: 78 },
+  { key: "priority", width: 92 },
+  { key: "lead" }, // main readable column — absorbs remaining width
+  { key: "ppv", width: 58 }, // wide enough for "PPV" header + code on one line
+  { key: "status", width: 100 },
+  { key: "tags", width: 132 }, // full tag names across up to two lines
+  { key: "owner", width: 70 },
+  { key: "next_action", width: 122 },
   { key: "last_activity", width: 132 },
-  { key: "short_note", width: 132 },
-  { key: "actions", width: 66 },
+  { key: "short_note", width: 116 },
+  { key: "actions", width: 60 },
 ] as const;
 
 function LeadsTableColGroup() {
@@ -222,20 +221,6 @@ const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
-/* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
-const QUEUE_BUCKET_TONE: Record<string, string> = {
-  overdue: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
-  today: "bg-[var(--tivo-orange-soft)] text-[var(--tivo-orange)]",
-  upcoming: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
-  scheduled: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
-  backlog: "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]",
-  done: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)]",
-};
-function queueBucketTone(bucket: string): string {
-  const key = (bucket || "").toLowerCase();
-  return QUEUE_BUCKET_TONE[key] ?? "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]";
-}
-
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
@@ -267,12 +252,6 @@ function fmtRelative(v: string | null): string {
   if (mo < 12) return `pirms ${mo} ${mo === 1 ? "mēneša" : "mēnešiem"}`;
   const y = Math.floor(d / 365);
   return `pirms ${y} ${y === 1 ? "gada" : "gadiem"}`;
-}
-
-function isFutureDate(v: string | null): boolean {
-  const t = parseDate(v);
-  if (t == null) return false;
-  return t > Date.now() + 5 * 60_000;
 }
 
 /* ----- Europe/Riga calendar helpers (next_action_date) ----- */
@@ -1726,6 +1705,7 @@ function LeadRow({
       <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
+          const score = l.priority_score;
           const tooltipLines = [
             l.priority_label || "Bez prioritātes",
             l.priority_breakdown,
@@ -1752,17 +1732,11 @@ function LeadRow({
                     )}
                   />
                 ))}
-                {l.priority_score != null && (
-                  <span className="ml-0.5 truncate text-[11px] tabular-nums text-muted-foreground/80">
-                    {l.priority_score}
-                  </span>
-                )}
               </div>
-              {l.priority_label && (
-                <span className="truncate text-[12px] text-muted-foreground/70">
-                  {l.priority_label}
-                </span>
-              )}
+              <span className="truncate text-[12px] tabular-nums text-muted-foreground/70">
+                {stars} {stars === 1 ? "zvaigzne" : "zvaigznes"}
+                {score != null && ` · ${score}`}
+              </span>
             </div>
           );
         })()}
@@ -1803,41 +1777,23 @@ function LeadRow({
       </CrmDataCell>
       {/* 6 — Statuss */}
       <CrmDataCell>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <StatusBadge status={l.status} />
-          <div className="flex items-center gap-1">
-            <span
-              className={cn(
-                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[11px] font-medium",
-                queueBucketTone(l.queue_bucket),
-              )}
-              title={l.queue_bucket_label || "Nav rindas"}
-            >
-              {l.queue_bucket_label || "Nav rindas"}
-            </span>
-            {l.needs_attention && (
-              <AlertTriangle
-                className="h-3 w-3 shrink-0 text-[var(--tivo-orange)]"
-                aria-label="Vajadzīga uzmanība"
-              />
-            )}
-          </div>
-        </div>
+        <StatusBadge status={l.status} />
       </CrmDataCell>
       {/* 7 — Tagi */}
       <CrmDataCell>
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
-          <div className="flex min-w-0 items-center gap-0.5" title={l.tags.join(", ")}>
-            {normalizeTags(l.tags).slice(0, 1).map((t) => (
-              <span key={t} className="min-w-0 max-w-[86px] truncate">
-                <Tag tag={t} />
-              </span>
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-0.5"
+            title={l.tags.join(", ")}
+          >
+            {normalizeTags(l.tags).slice(0, 2).map((t) => (
+              <Tag key={t} tag={t} />
             ))}
-            {l.tags.length > 1 && (
+            {normalizeTags(l.tags).length > 2 && (
               <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 1}
+                +{normalizeTags(l.tags).length - 2}
               </span>
             )}
           </div>
@@ -1906,36 +1862,61 @@ function LeadRow({
           const channel = detectChannel(commLabel);
           const direction = directionFromTimestampSource(src);
           const tone = CHANNEL_DIRECTION_TONE[channel][direction];
+          // Activity/channel type label (never a reply-state badge).
+          const dirWord =
+            direction === "inbound"
+              ? "Ienākošs"
+              : direction === "outbound"
+                ? "Izejošs"
+                : "";
+          const channelName =
+            channel === "email"
+              ? "e-pasts"
+              : channel === "call"
+                ? "zvans"
+                : channel === "sms"
+                  ? "SMS"
+                  : channel === "whatsapp"
+                    ? "WhatsApp"
+                    : "";
+          let activityLabel: string;
+          if (channel === "whatsapp") {
+            activityLabel = "WhatsApp";
+          } else if (channelName) {
+            activityLabel = dirWord
+              ? `${dirWord} ${channelName}`
+              : channelName.charAt(0).toUpperCase() + channelName.slice(1);
+          } else {
+            // Fallback derived from timestamp source when channel is unknown.
+            activityLabel =
+              src === "reply"
+                ? "Ienākoša atbilde"
+                : src === "inbound"
+                  ? "Ienākoša komunikācija"
+                  : src === "outbound"
+                    ? "Izejoša komunikācija"
+                    : src === "communication"
+                      ? "Komunikācija"
+                      : "";
+          }
           return (
             <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {commLabel ? (
-                  <span
-                    className={cn(
-                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
-                      tone,
-                    )}
-                    title={commLabel}
-                  >
-                    {commLabel}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground/60 text-[12px]">—</span>
-                )}
-                {l.has_unread_reply && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded px-1.5 py-[1px] text-[11px] font-semibold",
-                      UNREAD_REPLY_TONE,
-                    )}
-                  >
-                    Jauna atbilde
-                  </span>
-                )}
-              </div>
-              {bestDate && !isFutureDate(bestDate) && (
+              {activityLabel ? (
+                <span
+                  className={cn(
+                    "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
+                    tone,
+                  )}
+                  title={activityLabel}
+                >
+                  {activityLabel}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/60 text-[12px]">—</span>
+              )}
+              {bestDate && (
                 <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
-                  {fmtRelative(bestDate)}
+                  {fmtDate(bestDate)}
                 </span>
               )}
             </div>
