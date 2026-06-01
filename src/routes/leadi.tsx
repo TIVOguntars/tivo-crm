@@ -286,7 +286,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "created",
     width: 78,
     sortKey: "created_at",
-    headerLabel: "Izveidots",
+    headerLabel: "Jauns",
     renderFilter: (f) => (
       <CrmFilterSelect
         value={f.createdFilterValue()}
@@ -305,7 +305,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "priority",
     width: 92,
     sortKey: "priority_score",
-    headerLabel: "Prioritāte",
+    headerLabel: "Prior",
     renderFilter: (f) => (
       <CrmFilterSelect
         value={f.colFilterValue("priority_label")}
@@ -473,7 +473,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "owner",
     width: 70,
     sortKey: "owner",
-    headerLabel: "Atbildīgais",
+    headerLabel: "Atbild.",
     renderFilter: (f) => (
       <CrmFilterSelect
         value={f.colFilterValue("owner")}
@@ -498,7 +498,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "next_action",
     width: 122,
     sortKey: "effective_due_at",
-    headerLabel: "Nākamā darbība",
+    headerLabel: "Nākamais",
     renderFilter: (f) => (
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
@@ -556,7 +556,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "last_activity",
     width: 132,
     sortKey: "last_communication_at",
-    headerLabel: "Pēdējā aktivitāte",
+    headerLabel: "Pēdjais",
     renderFilter: (f) => (
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
