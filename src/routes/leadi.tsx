@@ -1802,18 +1802,7 @@ function LeadiPage() {
           <Plus className="h-3.5 w-3.5" />
           Jauns leads
         </Button>
-        {/* TEMP DEBUG — remove before production */}
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 gap-1.5 text-xs"
-          onClick={() => setShowColDebug((v) => !v)}
-        >
-          Debug columns
-        </Button>
       </CrmPageActionsRow>
-
-      {showColDebug && <ColumnAlignDebug onClose={() => setShowColDebug(false)} />}
 
       <CrmTableToolbar
         groupSlot={<SavedViewSelector value={view} onChange={setView} />}
