@@ -473,7 +473,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "owner",
     width: 70,
     sortKey: "owner",
-    headerLabel: "Atbildīgais",
+    headerLabel: "Atbild.",
     renderFilter: (f) => (
       <CrmFilterSelect
         value={f.colFilterValue("owner")}
