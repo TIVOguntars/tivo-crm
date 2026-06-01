@@ -222,20 +222,6 @@ const MS_MIN = 60_000;
 const MS_HOUR = 60 * MS_MIN;
 const MS_DAY = 24 * MS_HOUR;
 
-/* UI-only tone mapping for v3 queue_bucket. No business logic — pure display. */
-const QUEUE_BUCKET_TONE: Record<string, string> = {
-  overdue: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
-  today: "bg-[var(--tivo-orange-soft)] text-[var(--tivo-orange)]",
-  upcoming: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
-  scheduled: "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]",
-  backlog: "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]",
-  done: "bg-[var(--tivo-green-soft)] text-[var(--tivo-green)]",
-};
-function queueBucketTone(bucket: string): string {
-  const key = (bucket || "").toLowerCase();
-  return QUEUE_BUCKET_TONE[key] ?? "bg-[var(--crm-muted)] text-[var(--crm-text-muted)]";
-}
-
 function fmtDate(v: string | null): string {
   const t = parseDate(v);
   if (t == null) return "—";
