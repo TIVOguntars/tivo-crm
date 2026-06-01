@@ -780,6 +780,8 @@ function LeadiPage() {
 
   /* ---- session-only "Check" column (operator review marker; resets on reload, never persisted) ---- */
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+  // TEMP DEBUG: column alignment overlay (not persisted, dev diagnostic only)
+  const [showColDebug, setShowColDebug] = useState(false);
   const toggleChecked = useCallback((id: string) => {
     setCheckedRows((prev) => {
       const next = new Set(prev);
