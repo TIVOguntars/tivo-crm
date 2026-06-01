@@ -2069,20 +2069,6 @@ function LeadRow({
   bumpActivity: (id: string) => void;
   commCounts: Map<string, CommBuckets>;
 }) {
-  const dueT = parseDate(l.next_action_due);
-  const isOverdue = dueT != null && dueT < Date.now();
-  const isHot = l.tags.some((t) => /^(hot|karst)/i.test(t));
-  const hasUnread = l.has_unread_reply;
-  const noContact = !parseDate(l.last_activity);
-  const accentClass = hasUnread
-    ? "before:bg-[var(--tivo-blue)]"
-    : isOverdue
-      ? "before:bg-[var(--tivo-red)]"
-      : isHot
-        ? "before:bg-[var(--tivo-orange)]"
-        : noContact
-          ? "before:bg-muted-foreground/30"
-          : "before:bg-transparent";
   const cellCtx: ColumnCellCtx = {
     isChecked,
     toggleChecked,
@@ -2095,9 +2081,7 @@ function LeadRow({
       onClick={() => openLead(l.lead_id)}
       className={cn(
         "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
-        "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
         "ml-0 pl-0 pr-0",
-        accentClass,
         isChecked && "opacity-60",
       )}
     >
