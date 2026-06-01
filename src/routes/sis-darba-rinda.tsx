@@ -155,11 +155,12 @@ function SearchInput({
   );
 }
 
-/* ----- Priority badge (label provided by backend, no calculation) ----- */
+/* ----- Priority badge (label provided by backend, no calculation) -----
+ * SIS palette: High/Augsta = red accent, Medium/Vidēja = orange, Low/Zema = neutral. */
 const PRIORITY_TONE: Record<string, string> = {
-  kritiska: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300",
-  augsta: "bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300",
-  vidēja: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+  kritiska: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
+  augsta: "bg-[var(--tivo-red-soft)] text-[var(--tivo-red)]",
+  vidēja: "bg-[var(--tivo-orange-soft)] text-[var(--tivo-orange)]",
   zema: "bg-muted text-muted-foreground",
 };
 function PriorityBadge({ label }: { label: string }) {
@@ -169,6 +170,27 @@ function PriorityBadge({ label }: { label: string }) {
     <span
       className={cn(
         "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
+        tone,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ----- Calm status badge (blue/gray) for SIS task status ----- */
+function CalmStatusBadge({ status }: { status: string }) {
+  if (!status) return <span className="text-muted-foreground/50">—</span>;
+  const label = lv(TASK_STATUS_LV, status, status);
+  const k = status.toLowerCase().trim();
+  const done = k === "completed" || k === "done";
+  const tone = done
+    ? "bg-muted text-muted-foreground"
+    : "bg-[var(--tivo-blue-soft)] text-[var(--tivo-blue)]";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium",
         tone,
       )}
     >
