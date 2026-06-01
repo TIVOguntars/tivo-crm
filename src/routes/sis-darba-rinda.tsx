@@ -18,7 +18,14 @@ import {
 } from "@/components/ui/sheet";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
-import { CHANNEL_LV, DIRECTION_LV, lv } from "@/lib/i18nLabels";
+import { CHANNEL_LV, DIRECTION_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
+
+/**
+ * SIS system profile. A SIS task is a crm.tasks row whose assigned_user_id
+ * equals this id. Frontend filter only — no backend / SIS logic here.
+ */
+const SIS_PROFILE_ID = "7db59c70-95b0-4b3b-814a-213630504aea";
+const SIS_OWNER_LABEL = "SIS";
 
 export const Route = createFileRoute("/sis-darba-rinda")({
   component: SisCentrsPage,
