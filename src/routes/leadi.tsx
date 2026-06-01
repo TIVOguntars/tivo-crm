@@ -1313,7 +1313,9 @@ function LeadiPage() {
               "[&_td]:min-w-0 [&_td]:overflow-hidden [&_th]:min-w-0 [&_th]:overflow-hidden",
               // Filter controls: compact
               "[&_.crm-filter-control]:!px-1 [&_.crm-filter-control]:!text-[11px]",
-              "[&_.crm-table-filter-cell]:!px-1",
+              // Filter cells: match header/data horizontal padding (6px) so the
+              // filter control's outer-left edge aligns with header/data content.
+              "[&_.crm-table-filter-cell]:!px-1.5",
               // Header cells: allow two-line, readable (never ellipsis) labels
               "[&_.crm-table-header-row]:!h-9 [&_.crm-table-header-cell]:!h-9",
               "[&_.crm-table-header-cell]:!px-1.5 [&_.crm-table-header-cell]:!py-0.5",
@@ -2097,13 +2099,15 @@ function MultiSelectInline({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="h-7 w-full truncate rounded border border-input bg-background px-1.5 text-left text-[11px]"
+          className="crm-filter-control justify-start border-0 shadow-none"
         >
-          {value.length === 0
-            ? "Tagi"
-            : value.length <= 2
-              ? value.join(", ")
-              : `${value.length} izv.`}
+          <span className="min-w-0 flex-1 truncate text-left">
+            {value.length === 0
+              ? "Tagi"
+              : value.length <= 2
+                ? value.join(", ")
+                : `${value.length} izv.`}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
