@@ -117,7 +117,7 @@ type Row = Record<string, unknown>;
 const PAGE_SIZE = 2000;
 
 const LEADS_TABLE_COLUMNS = [
-  { key: "checked", width: 30 },
+  { key: "checked", width: 34 },
   { key: "created", width: 78 },
   { key: "priority", width: 92 },
   { key: "lead" }, // main readable column — absorbs remaining width
