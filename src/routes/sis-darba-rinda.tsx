@@ -322,30 +322,29 @@ function SisCentrsPage() {
 function UzdevumiTab() {
   const navigate = useNavigate();
   const query = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
-  const rows = (query.data?.rows ?? []) as Row[];
+  const allRows = (query.data?.rows ?? []) as Row[];
+  // Strict SIS filter: only tasks assigned to the SIS system profile.
+  const rows = useMemo(
+    () => allRows.filter((r) => str(r.assigned_user_id) === SIS_PROFILE_ID),
+    [allRows],
+  );
   const errorMsg = (query.error as Error | null)?.message || query.data?.error;
   const loading = query.isLoading;
 
   const [search, setSearch] = useState("");
-  const [fPpv, setFPpv] = useState("");
-  const [fCountry, setFCountry] = useState("");
-  const [fTag, setFTag] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fTaskType, setFTaskType] = useState("");
   const [fPriority, setFPriority] = useState("");
-  const [fBucket, setFBucket] = useState("");
   const [fDue, setFDue] = useState("");
+  const [fSource, setFSource] = useState("");
   const [detail, setDetail] = useState<Row | null>(null);
 
   const options = useMemo(
     () => ({
-      ppv: uniqueSorted(rows.map((r) => shortId(r.ppv_user_id))),
-      country: uniqueSorted(rows.map((r) => str(r.country))),
-      tags: uniqueSorted(rows.flatMap((r) => toTags(r.tags))),
-      status: uniqueSorted(rows.map((r) => str(r.lead_status))),
+      status: uniqueSorted(rows.map((r) => str(r.task_status))),
       taskType: uniqueSorted(rows.map((r) => str(r.task_type))),
       priority: uniqueSorted(rows.map((r) => str(r.priority_label))),
-      bucket: uniqueSorted(rows.map((r) => str(r.queue_bucket))),
+      source: uniqueSorted(rows.map((r) => str(r.task_source))),
     }),
     [rows],
   );
@@ -353,13 +352,10 @@ function UzdevumiTab() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (fPpv && shortId(r.ppv_user_id) !== fPpv) return false;
-      if (fCountry && str(r.country) !== fCountry) return false;
-      if (fTag && !toTags(r.tags).includes(fTag)) return false;
-      if (fStatus && str(r.lead_status) !== fStatus) return false;
+      if (fStatus && str(r.task_status) !== fStatus) return false;
       if (fTaskType && str(r.task_type) !== fTaskType) return false;
       if (fPriority && str(r.priority_label) !== fPriority) return false;
-      if (fBucket && str(r.queue_bucket) !== fBucket) return false;
+      if (fSource && str(r.task_source) !== fSource) return false;
       if (fDue === "overdue" && str(r.queue_bucket).toLowerCase() !== "overdue")
         return false;
       if (fDue === "today" && !isSameRigaDay(r.effective_due_at ?? r.due_at))
@@ -372,8 +368,8 @@ function UzdevumiTab() {
           r.country,
           r.action_label,
           r.tags,
-          r.lead_status,
-          r.action_owner_label,
+          r.task_status,
+          r.task_type,
         ]
           .map((v) => str(v).toLowerCase())
           .join(" ");
@@ -381,24 +377,25 @@ function UzdevumiTab() {
       }
       return true;
     });
-  }, [rows, search, fPpv, fCountry, fTag, fStatus, fTaskType, fPriority, fBucket, fDue]);
+  }, [rows, search, fStatus, fTaskType, fPriority, fSource, fDue]);
 
   // Counters — visual only, from already-loaded rows. No business logic.
   const counters = useMemo(() => {
     let overdue = 0;
-    let today = 0;
+    let waiting = 0;
     let high = 0;
     for (const r of rows) {
       const bucket = str(r.queue_bucket).toLowerCase();
       const pr = str(r.priority).toLowerCase();
       const prLabel = str(r.priority_label).toLowerCase();
+      const ts = str(r.task_status).toLowerCase();
       if (bucket === "overdue") overdue += 1;
-      if (bucket === "today" || bucket === "due_today") today += 1;
-      else if (isSameRigaDay(r.effective_due_at ?? r.due_at)) today += 1;
+      if (ts === "planned" || ts === "pending" || ts === "open" || ts === "scheduled")
+        waiting += 1;
       if (pr === "high" || pr === "urgent" || prLabel === "augsta" || prLabel === "kritiska")
         high += 1;
     }
-    return { total: rows.length, overdue, today, high };
+    return { total: rows.length, overdue, waiting, high };
   }, [rows]);
 
   const openLead = (leadId: unknown) => {
@@ -412,26 +409,23 @@ function UzdevumiTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard label="Visi SIS uzdevumi" value={counters.total} tone="blue" />
+        <StatCard label="Gaida izpildi" value={counters.waiting} tone="amber" />
         <StatCard label="Nokavēti" value={counters.overdue} tone="red" />
-        <StatCard label="Šodien" value={counters.today} tone="amber" />
         <StatCard label="Augsta prioritāte" value={counters.high} tone="orange" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput value={search} onChange={setSearch} placeholder="Meklēt uzdevumus..." />
-        <FilterSelect value={fPpv} onChange={setFPpv} options={options.ppv} placeholder="PPV" />
-        <FilterSelect value={fCountry} onChange={setFCountry} options={options.country} placeholder="Valsts" />
-        <FilterSelect value={fTag} onChange={setFTag} options={options.tags} placeholder="Tagi" />
-        <FilterSelect value={fStatus} onChange={setFStatus} options={options.status} placeholder="Lead Status" />
-        <FilterSelect value={fTaskType} onChange={setFTaskType} options={options.taskType} placeholder="Task Type" />
+        <FilterSelect value={fStatus} onChange={setFStatus} options={options.status} placeholder="Statuss" />
         <FilterSelect value={fPriority} onChange={setFPriority} options={options.priority} placeholder="Prioritāte" />
-        <FilterSelect value={fBucket} onChange={setFBucket} options={options.bucket} placeholder="Queue Bucket" />
         <FilterSelect
           value={fDue}
           onChange={setFDue}
           options={["overdue", "today"]}
           placeholder="Termiņš"
         />
+        <FilterSelect value={fTaskType} onChange={setFTaskType} options={options.taskType} placeholder="Task Type" />
+        <FilterSelect value={fSource} onChange={setFSource} options={options.source} placeholder="Avots" />
       </div>
 
       {loading ? (
@@ -445,17 +439,15 @@ function UzdevumiTab() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">PPV</th>
-                <th className="px-3 py-2 text-left font-medium">Vārds Uzvārds</th>
+                <th className="px-3 py-2 text-left font-medium">Darbība</th>
+                <th className="px-3 py-2 text-left font-medium">Statuss</th>
+                <th className="px-3 py-2 text-left font-medium">Termiņš</th>
+                <th className="px-3 py-2 text-left font-medium">Prioritāte</th>
+                <th className="px-3 py-2 text-left font-medium">Lead</th>
                 <th className="px-3 py-2 text-left font-medium">Valsts</th>
                 <th className="px-3 py-2 text-left font-medium">Tagi</th>
-                <th className="px-3 py-2 text-left font-medium">Lead Status</th>
                 <th className="px-3 py-2 text-left font-medium">Atbildīgais</th>
-                <th className="px-3 py-2 text-left font-medium">Darbība</th>
-                <th className="px-3 py-2 text-left font-medium">Task Type</th>
-                <th className="px-3 py-2 text-left font-medium">Prioritāte</th>
-                <th className="px-3 py-2 text-left font-medium">Termiņš</th>
-                <th className="px-3 py-2 text-left font-medium">Queue Bucket</th>
+                <th className="px-3 py-2 text-left font-medium">Avots</th>
                 <th className="px-3 py-2 text-right font-medium">Darbības</th>
               </tr>
             </thead>
@@ -464,17 +456,42 @@ function UzdevumiTab() {
                 const dueT = parseDate(r.effective_due_at ?? r.due_at);
                 const overdue = str(r.queue_bucket).toLowerCase() === "overdue";
                 const tags = normalizeTags(toTags(r.tags));
+                const leadName = str(r.full_name);
+                const leadNumber = str(r.lead_number);
                 return (
                   <tr
                     key={str(r.id) || i}
                     className="cursor-pointer border-t border-border hover:bg-secondary/30"
                     onClick={() => setDetail(r)}
                   >
-                    <td className="px-3 py-2 font-mono text-[12px] text-foreground/80" title={str(r.ppv_user_id)}>
-                      {shortId(r.ppv_user_id)}
-                    </td>
                     <td className="px-3 py-2 font-medium text-foreground">
-                      {str(r.full_name) || <span className="italic text-muted-foreground">—</span>}
+                      {str(r.action_label) || str(r.task_type) || "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <CalmStatusBadge status={str(r.task_status)} />
+                    </td>
+                    <td
+                      className={cn(
+                        "px-3 py-2 tabular-nums",
+                        overdue ? "text-[var(--tivo-red)]" : "text-muted-foreground",
+                      )}
+                    >
+                      {dueT != null ? fmtDate(r.effective_due_at ?? r.due_at) : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <PriorityBadge label={str(r.priority_label)} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium text-foreground">
+                          {leadName || <span className="italic text-muted-foreground">—</span>}
+                        </span>
+                        {leadNumber && (
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {leadNumber}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{str(r.country) || "—"}</td>
                     <td className="px-3 py-2">
@@ -492,26 +509,12 @@ function UzdevumiTab() {
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <StatusBadge status={str(r.lead_status) || null} />
+                      <Badge variant="secondary" className="text-[11px] font-medium">
+                        {SIS_OWNER_LABEL}
+                      </Badge>
                     </td>
-                    <td className="px-3 py-2 font-mono text-[12px] text-foreground/80">
-                      {str(r.action_owner_label) || "—"}
-                    </td>
-                    <td className="px-3 py-2 text-foreground">{str(r.action_label) || "—"}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{str(r.task_type) || "—"}</td>
-                    <td className="px-3 py-2">
-                      <PriorityBadge label={str(r.priority_label)} />
-                    </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2 tabular-nums",
-                        overdue ? "text-[var(--tivo-red)]" : "text-muted-foreground",
-                      )}
-                    >
-                      {dueT != null ? fmtDate(r.effective_due_at ?? r.due_at) : "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <QueueBucketBadge bucket={str(r.queue_bucket)} />
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {str(r.task_source) || "—"}
                     </td>
                     <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
