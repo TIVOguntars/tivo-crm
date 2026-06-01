@@ -577,18 +577,18 @@ function TaskDetailDrawer({
         </SheetHeader>
         {row && (
           <div className="mt-4">
+            <DetailField label="Darbība" value={str(row.action_label) || "—"} />
+            <DetailField label="Task Type" value={str(row.task_type) || "—"} />
+            <DetailField label="Statuss" value={<CalmStatusBadge status={str(row.task_status)} />} />
+            <DetailField label="Prioritāte" value={<PriorityBadge label={str(row.priority_label)} />} />
+            <DetailField label="Termiņš" value={fmtDateTime(row.effective_due_at ?? row.due_at)} />
+            <DetailField label="Atbildīgais" value={SIS_OWNER_LABEL} />
+            <DetailField label="Avots" value={str(row.task_source) || "—"} />
             <DetailField label="Lead numurs" value={str(row.lead_number) || "—"} />
+            <DetailField label="Lead" value={str(row.full_name) || "—"} />
             <DetailField label="Objekts" value={str(row.object_name) || "—"} />
             <DetailField label="Valsts" value={str(row.country) || "—"} />
             <DetailField label="Lead Status" value={<StatusBadge status={str(row.lead_status) || null} />} />
-            <DetailField label="Atbildīgais" value={str(row.action_owner_label) || "—"} />
-            <DetailField label="Task Type" value={str(row.task_type) || "—"} />
-            <DetailField label="Prioritāte" value={<PriorityBadge label={str(row.priority_label)} />} />
-            <DetailField label="Prioritātes punkti" value={str(row.priority_score) || "—"} />
-            <DetailField label="Termiņš" value={fmtDateTime(row.effective_due_at ?? row.due_at)} />
-            <DetailField label="Queue Bucket" value={<QueueBucketBadge bucket={str(row.queue_bucket)} />} />
-            <DetailField label="Task statuss" value={str(row.task_status) || "—"} />
-            <DetailField label="PPV" value={str(row.ppv_user_id) || "—"} />
             <Button className="mt-4 w-full" onClick={() => onOpenLead(row.lead_id)}>
               <ExternalLink className="mr-1.5 h-4 w-4" />
               Atvērt Lead
