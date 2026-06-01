@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
-import { CHANNEL_LV, DIRECTION_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
+import { CHANNEL_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
 
 /**
  * SIS system profile. A SIS task is a crm.tasks row whose assigned_user_id
