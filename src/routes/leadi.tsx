@@ -144,6 +144,254 @@ function LeadsTableColGroup() {
   );
 }
 
+/* ===================================================================
+ * TEMP DEBUG — Column alignment overlay (NOT for production)
+ * Measures real rendered DOM via getBoundingClientRect() in the
+ * authenticated session. Remove this component + its trigger button
+ * once alignment is verified.
+ * =================================================================== */
+
+const DEBUG_COLS = [
+  "Check",
+  "Izveidots",
+  "Prioritāte",
+  "Lead",
+  "PPV",
+  "Statuss",
+  "Tagi",
+  "Atbildīgais",
+  "Nākamā darbība",
+  "Pēdējā aktivitāte",
+  "Īsā piezīme",
+  "Darbības",
+] as const;
+
+interface ColMeasure {
+  col: string;
+  headerLeft: number;
+  headerWidth: number;
+  filterLeft: number;
+  filterWidth: number;
+  dataLeft: number;
+  dataWidth: number;
+  headerContentLeft: number;
+  filterContentLeft: number;
+  dataContentLeft: number;
+  deltaHeaderData: number;
+  deltaFilterData: number;
+}
+
+interface TableMeasure {
+  tableLeft: number;
+  tableWidth: number;
+  theadWidth: number;
+  tbodyWidth: number;
+  scrollRectWidth: number;
+  scrollClientWidth: number;
+  scrollOffsetWidth: number;
+  scrollbarWidth: number;
+  devicePixelRatio: number;
+  zoom: number | string;
+}
+
+function r1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+
+/** Best-effort "inner content" left for a header/filter/data cell. */
+function innerContentLeft(cell: Element): number {
+  const candidate =
+    cell.querySelector(
+      ".crm-sort-trigger, .crm-filter-control, button, input, .truncate, span, [class*='rounded-full']",
+    ) ?? cell.firstElementChild ?? cell;
+  return candidate.getBoundingClientRect().left;
+}
+
+function ColumnAlignDebug({ onClose }: { onClose: () => void }) {
+  const [cols, setCols] = useState<ColMeasure[]>([]);
+  const [tbl, setTbl] = useState<TableMeasure | null>(null);
+
+  const measure = useCallback(() => {
+    const scrollOuter = document.querySelector(".crm-table-scroll");
+    const scrollInner = scrollOuter?.querySelector(
+      ":scope > div",
+    ) as HTMLElement | null;
+    const table = (scrollInner ?? document).querySelector(
+      "table",
+    ) as HTMLTableElement | null;
+    if (!table) return;
+
+    const headRow = table.querySelector("tr.crm-table-header-row");
+    const filterRow = table.querySelector("tr.crm-table-filter-row");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+    const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+    const dataRow = bodyRows.find((r) => r.children.length === 12) ?? null;
+
+    const headCells = headRow ? Array.from(headRow.children) : [];
+    const filterCells = filterRow ? Array.from(filterRow.children) : [];
+    const dataCells = dataRow ? Array.from(dataRow.children) : [];
+
+    const out: ColMeasure[] = DEBUG_COLS.map((name, i) => {
+      const h = headCells[i];
+      const f = filterCells[i];
+      const d = dataCells[i];
+      const hr = h?.getBoundingClientRect();
+      const fr = f?.getBoundingClientRect();
+      const dr = d?.getBoundingClientRect();
+      const headerContentLeft = h ? innerContentLeft(h) : NaN;
+      const filterContentLeft = f ? innerContentLeft(f) : NaN;
+      const dataContentLeft = d ? innerContentLeft(d) : NaN;
+      return {
+        col: name,
+        headerLeft: r1(hr?.left ?? NaN),
+        headerWidth: r1(hr?.width ?? NaN),
+        filterLeft: r1(fr?.left ?? NaN),
+        filterWidth: r1(fr?.width ?? NaN),
+        dataLeft: r1(dr?.left ?? NaN),
+        dataWidth: r1(dr?.width ?? NaN),
+        headerContentLeft: r1(headerContentLeft),
+        filterContentLeft: r1(filterContentLeft),
+        dataContentLeft: r1(dataContentLeft),
+        deltaHeaderData: r1(headerContentLeft - dataContentLeft),
+        deltaFilterData: r1(filterContentLeft - dataContentLeft),
+      };
+    });
+
+    const tableRect = table.getBoundingClientRect();
+    const theadRect = thead?.getBoundingClientRect();
+    const tbodyRect = tbody?.getBoundingClientRect();
+    const scrollRect = scrollInner?.getBoundingClientRect();
+    const clientWidth = scrollInner?.clientWidth ?? NaN;
+    const offsetWidth = scrollInner?.offsetWidth ?? NaN;
+    const w = window as unknown as { visualViewport?: { scale?: number } };
+    const zoom = w.visualViewport?.scale ?? "n/a";
+
+    setTbl({
+      tableLeft: r1(tableRect.left),
+      tableWidth: r1(tableRect.width),
+      theadWidth: r1(theadRect?.width ?? NaN),
+      tbodyWidth: r1(tbodyRect?.width ?? NaN),
+      scrollRectWidth: r1(scrollRect?.width ?? NaN),
+      scrollClientWidth: r1(clientWidth),
+      scrollOffsetWidth: r1(offsetWidth),
+      scrollbarWidth: r1(offsetWidth - clientWidth),
+      devicePixelRatio: window.devicePixelRatio,
+      zoom: typeof zoom === "number" ? r1(zoom) : zoom,
+    });
+    setCols(out);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(measure, 50);
+    return () => clearTimeout(t);
+  }, [measure]);
+
+  return (
+    <>
+      {/* Vertical guide lines at each column's CONTENT-left */}
+      <div className="pointer-events-none fixed inset-0 z-[9998]">
+        {cols.map((c, i) => (
+          <div key={`g-${i}`}>
+            {Number.isFinite(c.headerContentLeft) && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-red-500/70"
+                style={{ left: c.headerContentLeft }}
+              />
+            )}
+            {Number.isFinite(c.filterContentLeft) && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-blue-500/70"
+                style={{ left: c.filterContentLeft }}
+              />
+            )}
+            {Number.isFinite(c.dataContentLeft) && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-green-500/70"
+                style={{ left: c.dataContentLeft }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Measurement panel */}
+      <div className="fixed right-2 top-2 z-[9999] max-h-[95vh] w-[640px] max-w-[95vw] overflow-auto rounded-md border border-border bg-white p-3 text-[11px] text-foreground shadow-xl">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="font-semibold">Column alignment debug</span>
+          <span className="flex items-center gap-2">
+            <span className="text-red-500">| header</span>
+            <span className="text-blue-500">| filter</span>
+            <span className="text-green-600">| data</span>
+            <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={measure}>
+              Re-measure
+            </Button>
+            <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onClose}>
+              Close
+            </Button>
+          </span>
+        </div>
+
+        {tbl && (
+          <div className="mb-2 grid grid-cols-2 gap-x-4 gap-y-0.5 font-mono">
+            <span>table.left: {tbl.tableLeft}</span>
+            <span>table.width: {tbl.tableWidth}</span>
+            <span>thead.width: {tbl.theadWidth}</span>
+            <span>tbody.width: {tbl.tbodyWidth}</span>
+            <span>scroll.rectW: {tbl.scrollRectWidth}</span>
+            <span>scroll.clientW: {tbl.scrollClientWidth}</span>
+            <span>scroll.offsetW: {tbl.scrollOffsetWidth}</span>
+            <span>scrollbarW: {tbl.scrollbarWidth}</span>
+            <span>devicePixelRatio: {tbl.devicePixelRatio}</span>
+            <span>zoom(scale): {tbl.zoom}</span>
+          </div>
+        )}
+
+        <table className="w-full border-collapse font-mono text-[10px]">
+          <thead>
+            <tr className="text-left">
+              <th className="border-b px-1 py-0.5">Col</th>
+              <th className="border-b px-1 py-0.5">H.left</th>
+              <th className="border-b px-1 py-0.5">H.w</th>
+              <th className="border-b px-1 py-0.5">F.left</th>
+              <th className="border-b px-1 py-0.5">F.w</th>
+              <th className="border-b px-1 py-0.5">D.left</th>
+              <th className="border-b px-1 py-0.5">D.w</th>
+              <th className="border-b px-1 py-0.5">H.cont</th>
+              <th className="border-b px-1 py-0.5">F.cont</th>
+              <th className="border-b px-1 py-0.5">D.cont</th>
+              <th className="border-b px-1 py-0.5">Δh-d</th>
+              <th className="border-b px-1 py-0.5">Δf-d</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cols.map((c) => {
+              const bad =
+                Math.abs(c.deltaHeaderData) > 1 || Math.abs(c.deltaFilterData) > 1;
+              return (
+                <tr key={c.col} className={bad ? "bg-red-50" : undefined}>
+                  <td className="border-b px-1 py-0.5">{c.col}</td>
+                  <td className="border-b px-1 py-0.5">{c.headerLeft}</td>
+                  <td className="border-b px-1 py-0.5">{c.headerWidth}</td>
+                  <td className="border-b px-1 py-0.5">{c.filterLeft}</td>
+                  <td className="border-b px-1 py-0.5">{c.filterWidth}</td>
+                  <td className="border-b px-1 py-0.5">{c.dataLeft}</td>
+                  <td className="border-b px-1 py-0.5">{c.dataWidth}</td>
+                  <td className="border-b px-1 py-0.5">{c.headerContentLeft}</td>
+                  <td className="border-b px-1 py-0.5">{c.filterContentLeft}</td>
+                  <td className="border-b px-1 py-0.5">{c.dataContentLeft}</td>
+                  <td className="border-b px-1 py-0.5 font-bold">{c.deltaHeaderData}</td>
+                  <td className="border-b px-1 py-0.5 font-bold">{c.deltaFilterData}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 interface Lead {
   lead_id: string;
   name: string;
@@ -780,6 +1028,8 @@ function LeadiPage() {
 
   /* ---- session-only "Check" column (operator review marker; resets on reload, never persisted) ---- */
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+  // TEMP DEBUG: column alignment overlay (not persisted, dev diagnostic only)
+  const [showColDebug, setShowColDebug] = useState(false);
   const toggleChecked = useCallback((id: string) => {
     setCheckedRows((prev) => {
       const next = new Set(prev);
@@ -1261,7 +1511,18 @@ function LeadiPage() {
           <Plus className="h-3.5 w-3.5" />
           Jauns leads
         </Button>
+        {/* TEMP DEBUG — remove before production */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => setShowColDebug((v) => !v)}
+        >
+          Debug columns
+        </Button>
       </CrmPageActionsRow>
+
+      {showColDebug && <ColumnAlignDebug onClose={() => setShowColDebug(false)} />}
 
       <CrmTableToolbar
         groupSlot={<SavedViewSelector value={view} onChange={setView} />}
