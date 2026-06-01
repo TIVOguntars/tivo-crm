@@ -1338,8 +1338,8 @@ function LeadiPage() {
                   label={
                     <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
                   }
-                  align="left"
-                  className="!pl-1 !pr-0"
+                  align="center"
+                  className="!p-0 [&>*]:flex [&>*]:items-center [&>*]:justify-center"
                 />
                 {/* 2 — Izveidots */}
                 <CrmSortableHead sortKey="created_at" label="Izveidots" />
