@@ -1775,6 +1775,25 @@ function LeadiPage() {
     setCollapsed({});
   };
 
+  /* Single context bag consumed by every column's filter renderer. */
+  const filterCtx: ColumnFilterCtx = {
+    options,
+    checkFilter,
+    setCheckFilter,
+    colFilterValue,
+    setColFilter,
+    createdFilterValue,
+    setCreatedFilter,
+    tagsFilterValue,
+    setTagsFilter,
+    dueFilterValue,
+    setDueFilter,
+    activityDateFilterValue,
+    setActivityDateFilter,
+    anyColFilterActive,
+    clearAll,
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
       <div
