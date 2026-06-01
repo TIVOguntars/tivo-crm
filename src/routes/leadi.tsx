@@ -1784,41 +1784,23 @@ function LeadRow({
       </CrmDataCell>
       {/* 6 — Statuss */}
       <CrmDataCell>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <StatusBadge status={l.status} />
-          <div className="flex items-center gap-1">
-            <span
-              className={cn(
-                "inline-flex max-w-full truncate rounded px-1 py-[1px] text-[11px] font-medium",
-                queueBucketTone(l.queue_bucket),
-              )}
-              title={l.queue_bucket_label || "Nav rindas"}
-            >
-              {l.queue_bucket_label || "Nav rindas"}
-            </span>
-            {l.needs_attention && (
-              <AlertTriangle
-                className="h-3 w-3 shrink-0 text-[var(--tivo-orange)]"
-                aria-label="Vajadzīga uzmanība"
-              />
-            )}
-          </div>
-        </div>
+        <StatusBadge status={l.status} />
       </CrmDataCell>
       {/* 7 — Tagi */}
       <CrmDataCell>
         {l.tags.length === 0 ? (
           <span className="text-muted-foreground/50">—</span>
         ) : (
-          <div className="flex min-w-0 items-center gap-0.5" title={l.tags.join(", ")}>
-            {normalizeTags(l.tags).slice(0, 1).map((t) => (
-              <span key={t} className="min-w-0 max-w-[86px] truncate">
-                <Tag tag={t} />
-              </span>
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-0.5"
+            title={l.tags.join(", ")}
+          >
+            {normalizeTags(l.tags).slice(0, 2).map((t) => (
+              <Tag key={t} tag={t} />
             ))}
-            {l.tags.length > 1 && (
+            {normalizeTags(l.tags).length > 2 && (
               <span className="text-[12px] text-muted-foreground/60 tabular-nums">
-                +{l.tags.length - 1}
+                +{normalizeTags(l.tags).length - 2}
               </span>
             )}
           </div>
