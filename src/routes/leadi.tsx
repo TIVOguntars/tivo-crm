@@ -1237,7 +1237,7 @@ function LeadiPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div
-        className="mx-auto flex w-full max-w-[1600px] flex-col px-4 sm:px-6"
+        className="mx-auto flex w-full max-w-none flex-col px-4 sm:px-6"
         style={{ height: "calc(100vh - 4rem)" }}
       >
       <HeaderSlot>
