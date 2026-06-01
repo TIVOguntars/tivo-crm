@@ -1876,168 +1876,26 @@ function LeadiPage() {
             <LeadsTableColGroup />
             <CrmDataTableHeader>
               <CrmDataTableLabelRow>
-                {/* 1 — Check (session review marker) */}
-                <CrmSortableHead
-                  label={
-                    <div className="flex items-center justify-center">
-                      <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                  }
-                  align="center"
-                  className="!p-0"
-                />
-                {/* 2 — Izveidots */}
-                <CrmSortableHead sortKey="created_at" label="Izveidots" />
-                {/* 3 — Prioritāte */}
-                <CrmSortableHead sortKey="priority_score" label="Prioritāte" />
-                {/* 4 — Lead */}
-                <CrmSortableHead sortKey="lead" label="Lead" />
-                {/* 5 — PPV */}
-                <CrmSortableHead sortKey="ppv" label="PPV" />
-                {/* 6 — Statuss */}
-                <CrmSortableHead sortKey="status" label="Statuss" />
-                {/* 7 — Tagi */}
-                <CrmSortableHead sortKey="tags" label="Tagi" />
-                {/* 8 — Atbildīgais */}
-                <CrmSortableHead sortKey="owner" label="Atbildīgais" />
-                {/* 9 — Nākamā darbība */}
-                <CrmSortableHead sortKey="effective_due_at" label="Nākamā darbība" />
-                {/* 10 — Pēdējā aktivitāte */}
-                <CrmSortableHead sortKey="last_communication_at" label="Pēdējā aktivitāte" />
-                {/* 11 — Īsā piezīme */}
-                <CrmSortableHead label="Īsā piezīme" />
-                {/* 12 — Darbības (empty header) */}
-                <CrmSortableHead label="" align="right" />
+                {LEADS_COLUMNS.map((col) => (
+                  <CrmSortableHead
+                    key={col.id}
+                    sortKey={col.sortKey}
+                    label={col.headerLabel}
+                    align={col.align}
+                    className={col.headerClassName}
+                  />
+                ))}
               </CrmDataTableLabelRow>
               <CrmDataTableFilterRow className="!top-9">
-                {/* 1 — Check */}
-                <CrmFilterCell align="center" className="!p-0">
-                  <div className="flex items-center justify-center">
-                    <CrmFilterSelect
-                      value={checkFilter === "all" ? "" : checkFilter}
-                      onValueChange={(v) =>
-                        setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
-                      }
-                      options={[
-                        { value: "checked", label: "Atzīmēti" },
-                        { value: "unchecked", label: "Neatzīmēti" },
-                      ]}
-                    />
-                  </div>
-                </CrmFilterCell>
-                {/* 2 — Izveidots */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={createdFilterValue()}
-                    onValueChange={setCreatedFilter}
-                    options={CREATED_FILTER_OPTIONS}
-                  />
-                </CrmFilterCell>
-                {/* 3 — Prioritāte */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("priority_label")}
-                    onValueChange={(v) => setColFilter("priority_label", v)}
-                    options={options.priority_label.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                {/* 4 — Lead → Valsts filter (country is part of Lead column) */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("country")}
-                    onValueChange={(v) => setColFilter("country", v)}
-                    options={options.country.map((o) => ({ value: o, label: o }))}
-                    placeholder="Valstis"
-                    allLabel="Valstis"
-                  />
-                </CrmFilterCell>
-                {/* 5 — PPV */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("ppv")}
-                    onValueChange={(v) => setColFilter("ppv", v)}
-                    options={options.ppv.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                {/* 6 — Statuss */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("status")}
-                    onValueChange={(v) => setColFilter("status", v)}
-                    options={options.status.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                {/* 7 — Tagi */}
-                <CrmFilterCell>
-                  <MultiSelectInline
-                    options={options.tags}
-                    value={tagsFilterValue()}
-                    onChange={setTagsFilter}
-                  />
-                </CrmFilterCell>
-                {/* 8 — Atbildīgais */}
-                <CrmFilterCell>
-                  <CrmFilterSelect
-                    value={colFilterValue("owner")}
-                    onValueChange={(v) => setColFilter("owner", v)}
-                    options={options.owner.map((o) => ({ value: o, label: o }))}
-                  />
-                </CrmFilterCell>
-                {/* 9 — Nākamā darbība → Darbība + Termiņš */}
-                <CrmFilterCell>
-                  <div className="flex items-center gap-1">
-                    <div className="min-w-0 flex-1">
-                    <CrmFilterSelect
-                      value={colFilterValue("action_label")}
-                      onValueChange={(v) => setColFilter("action_label", v)}
-                      options={options.action_label.map((o) => ({ value: o, label: o }))}
-                      placeholder="Darbība"
-                      allLabel="Visas darbības"
-                    />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                    <CrmFilterSelect
-                      value={dueFilterValue()}
-                      onValueChange={setDueFilter}
-                      options={DUE_FILTER_OPTIONS}
-                      placeholder="Termiņš"
-                      allLabel="Jebkurš termiņš"
-                    />
-                    </div>
-                  </div>
-                </CrmFilterCell>
-                {/* 10 — Pēdējā aktivitāte → Aktivitāte + Datums */}
-                <CrmFilterCell>
-                  <div className="flex items-center gap-1">
-                    <div className="min-w-0 flex-1">
-                    <CrmFilterSelect
-                      value={colFilterValue("communication_state")}
-                      onValueChange={(v) => setColFilter("communication_state", v)}
-                      options={options.communication_state.map((o) => ({ value: o, label: o }))}
-                      placeholder="Aktivitāte"
-                      allLabel="Jebkura aktivitāte"
-                    />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                    <CrmFilterSelect
-                      value={activityDateFilterValue()}
-                      onValueChange={setActivityDateFilter}
-                      options={CREATED_FILTER_OPTIONS}
-                      placeholder="Datums"
-                      allLabel="Jebkurš datums"
-                    />
-                    </div>
-                  </div>
-                </CrmFilterCell>
-                {/* 11 — Īsā piezīme (searchable via global search) */}
-                <CrmFilterCell />
-                {/* 12 — Darbības → clear filters */}
-                <CrmFilterCell align="right">
-                  <CrmClearFiltersButton
-                    active={anyColFilterActive}
-                    onClick={clearAll}
-                  />
-                </CrmFilterCell>
+                {LEADS_COLUMNS.map((col) => (
+                  <CrmFilterCell
+                    key={col.id}
+                    align={col.align}
+                    className={col.filterCellClassName}
+                  >
+                    {col.renderFilter?.(filterCtx)}
+                  </CrmFilterCell>
+                ))}
               </CrmDataTableFilterRow>
             </CrmDataTableHeader>
             <CrmDataBody>
