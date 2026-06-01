@@ -622,8 +622,8 @@ function KomunikacijaTab() {
 
   const enrich = (r: Row) => {
     const ev = eventByMsg.get(str(r.provider_message_id));
-    const direction =
-      str((r.metadata as Row | null)?.direction) || str(ev?.event_type ? "" : "");
+    const meta = (r.metadata ?? null) as Row | null;
+    const direction = meta ? str(meta.direction) : "";
     return {
       eventType: str(ev?.event_type) || str(r.activity_type),
       status: str(ev?.event_status) || str(r.outcome_code),
