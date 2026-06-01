@@ -613,10 +613,41 @@ function KomunikacijaTab() {
     { all: true },
   );
 
-  const rows = (activities.data?.rows ?? []) as Row[];
+  // SIS communication history = activities linked to SIS "send_email" tasks.
+  // v_tasks_queue_ui_v2 excludes completed tasks, so we load crm.tasks directly
+  // and join logically in the frontend via crm.activities.task_id.
+  const tasks = useCrmView("tasks", undefined, { all: true });
+
+  const taskRows = (tasks.data?.rows ?? []) as Row[];
+  const allActivities = (activities.data?.rows ?? []) as Row[];
   const eventRows = (events.data?.rows ?? []) as Row[];
-  const errorMsg = (activities.error as Error | null)?.message || activities.data?.error;
-  const loading = activities.isLoading;
+
+  const sisSendEmailTaskIds = useMemo(
+    () =>
+      new Set(
+        taskRows
+          .filter(
+            (t) =>
+              str(t.assigned_user_id) === SIS_PROFILE_ID &&
+              str(t.task_type) === "send_email",
+          )
+          .map((t) => str(t.id))
+          .filter(Boolean),
+      ),
+    [taskRows],
+  );
+
+  const rows = useMemo(
+    () => allActivities.filter((a) => sisSendEmailTaskIds.has(str(a.task_id))),
+    [allActivities, sisSendEmailTaskIds],
+  );
+
+  const errorMsg =
+    (activities.error as Error | null)?.message ||
+    activities.data?.error ||
+    (tasks.error as Error | null)?.message ||
+    tasks.data?.error;
+  const loading = activities.isLoading || tasks.isLoading;
 
   const [search, setSearch] = useState("");
   const [fChannel, setFChannel] = useState("");
@@ -710,9 +741,17 @@ function KomunikacijaTab() {
       else if (k === "clicked" || k === "click") clicked += 1;
       else if (k === "replied" || k === "reply") replied += 1;
     };
-    for (const e of eventRows) bump(str(e.event_type));
+    // Count only events related to the filtered SIS communication rows.
+    const sisMsgIds = new Set(
+      rows.map((r) => str(r.provider_message_id)).filter(Boolean),
+    );
+    for (const e of eventRows) {
+      const key = str(e.provider_message_id);
+      if (!key || !sisMsgIds.has(key)) continue;
+      bump(str(e.event_type));
+    }
     return { sent, opened, clicked, replied };
-  }, [eventRows]);
+  }, [eventRows, rows]);
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
