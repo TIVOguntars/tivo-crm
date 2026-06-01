@@ -1688,16 +1688,18 @@ function LeadRow({
     >
       {/* 1 — Check */}
       <CrmDataCell
-        align="left"
-        className="!pl-1 !pr-0"
+        align="center"
+        className="!p-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <Checkbox
-          checked={isChecked}
-          onCheckedChange={() => toggleChecked(l.lead_id)}
-          className="h-3.5 w-3.5"
-          aria-label="Atzīmēt kā pārskatītu"
-        />
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={() => toggleChecked(l.lead_id)}
+            className="h-3.5 w-3.5"
+            aria-label="Atzīmēt kā pārskatītu"
+          />
+        </div>
       </CrmDataCell>
       {/* 2 — Izveidots */}
       <CrmDataCell>
