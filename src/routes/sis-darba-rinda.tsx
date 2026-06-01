@@ -604,50 +604,27 @@ function TaskDetailDrawer({
 
 function KomunikacijaTab() {
   const navigate = useNavigate();
-  // crm.activities is the primary source. communication_events enriches the
-  // tracking status. crm.communications is not exposed — handled gracefully.
-  const activities = useCrmView("activities", "order=created_at.desc", { all: true });
+  // Displayed rows come solely from the prepared Supabase view
+  // crm.v_sis_communication_history. No frontend tasks+activities join.
+  const history = useCrmView(
+    "v_sis_communication_history",
+    "order=activity_at.desc",
+    { all: true },
+  );
+  // communication_events is kept ONLY to enrich the detail-drawer event
+  // timeline (by lead_id). It never decides which rows are shown.
   const events = useCrmView(
     "communication_events",
     "select=id,event_type,event_status,created_at,provider_message_id,metadata,lead_id,channel",
     { all: true },
   );
 
-  // SIS communication history = activities linked to SIS "send_email" tasks.
-  // v_tasks_queue_ui_v2 excludes completed tasks, so we load crm.tasks directly
-  // and join logically in the frontend via crm.activities.task_id.
-  const tasks = useCrmView("tasks", undefined, { all: true });
-
-  const taskRows = (tasks.data?.rows ?? []) as Row[];
-  const allActivities = (activities.data?.rows ?? []) as Row[];
+  const rows = (history.data?.rows ?? []) as Row[];
   const eventRows = (events.data?.rows ?? []) as Row[];
 
-  const sisSendEmailTaskIds = useMemo(
-    () =>
-      new Set(
-        taskRows
-          .filter(
-            (t) =>
-              str(t.assigned_user_id) === SIS_PROFILE_ID &&
-              str(t.task_type) === "send_email",
-          )
-          .map((t) => str(t.id))
-          .filter(Boolean),
-      ),
-    [taskRows],
-  );
-
-  const rows = useMemo(
-    () => allActivities.filter((a) => sisSendEmailTaskIds.has(str(a.task_id))),
-    [allActivities, sisSendEmailTaskIds],
-  );
-
   const errorMsg =
-    (activities.error as Error | null)?.message ||
-    activities.data?.error ||
-    (tasks.error as Error | null)?.message ||
-    tasks.data?.error;
-  const loading = activities.isLoading || tasks.isLoading;
+    (history.error as Error | null)?.message || history.data?.error;
+  const loading = history.isLoading;
 
   const [search, setSearch] = useState("");
   const [fChannel, setFChannel] = useState("");
@@ -656,20 +633,6 @@ function KomunikacijaTab() {
   const [fLead, setFLead] = useState("");
   const [fContact, setFContact] = useState("");
   const [detail, setDetail] = useState<Row | null>(null);
-
-  // Map latest event by provider_message_id for status/event enrichment.
-  const eventByMsg = useMemo(() => {
-    const m = new Map<string, Row>();
-    for (const e of eventRows) {
-      const key = str(e.provider_message_id);
-      if (!key) continue;
-      const prev = m.get(key);
-      if (!prev || (parseDate(e.created_at) ?? 0) > (parseDate(prev.created_at) ?? 0)) {
-        m.set(key, e);
-      }
-    }
-    return m;
-  }, [eventRows]);
 
   const eventByLead = useMemo(() => {
     const m = new Map<string, Row[]>();
@@ -683,38 +646,30 @@ function KomunikacijaTab() {
     return m;
   }, [eventRows]);
 
-  const enrich = (r: Row) => {
-    const ev = eventByMsg.get(str(r.provider_message_id));
-    const meta = (r.metadata ?? null) as Row | null;
-    const direction = meta ? str(meta.direction) : "";
-    return {
-      eventType: str(ev?.event_type) || str(r.activity_type),
-      status: str(ev?.event_status) || str(r.outcome_code),
-      direction,
-    };
-  };
+  // Per-row badge values, read directly from the view columns.
+  const rowEventType = (r: Row) =>
+    str(r.latest_event_type) || str(r.activity_type);
+  const rowStatus = (r: Row) =>
+    str(r.latest_event_status) || str(r.outcome_code);
 
   const options = useMemo(
     () => ({
       channel: uniqueSorted(rows.map((r) => str(r.channel))),
-      eventType: uniqueSorted([
-        ...rows.map((r) => str(enrich(r).eventType)),
-      ]),
-      status: uniqueSorted([...rows.map((r) => str(enrich(r).status))]),
+      eventType: uniqueSorted(rows.map((r) => rowEventType(r))),
+      status: uniqueSorted(rows.map((r) => rowStatus(r))),
       lead: uniqueSorted(rows.map((r) => shortId(r.lead_id))),
       contact: uniqueSorted(rows.map((r) => shortId(r.contact_id))),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, eventByMsg],
+    [rows],
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const e = enrich(r);
       if (fChannel && str(r.channel) !== fChannel) return false;
-      if (fEventType && e.eventType !== fEventType) return false;
-      if (fStatus && e.status !== fStatus) return false;
+      if (fEventType && rowEventType(r) !== fEventType) return false;
+      if (fStatus && rowStatus(r) !== fStatus) return false;
       if (fLead && shortId(r.lead_id) !== fLead) return false;
       if (fContact && shortId(r.contact_id) !== fContact) return false;
       if (q) {
@@ -726,7 +681,7 @@ function KomunikacijaTab() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, eventByMsg, search, fChannel, fEventType, fStatus, fLead, fContact]);
+  }, [rows, search, fChannel, fEventType, fStatus, fLead, fContact]);
 
   // Counters — visual only.
   const counters = useMemo(() => {
@@ -734,24 +689,17 @@ function KomunikacijaTab() {
     let opened = 0;
     let clicked = 0;
     let replied = 0;
-    const bump = (t: string) => {
-      const k = t.toLowerCase().trim();
-      if (k === "sent" || k === "send") sent += 1;
-      else if (k === "opened" || k === "open") opened += 1;
-      else if (k === "clicked" || k === "click") clicked += 1;
-      else if (k === "replied" || k === "reply") replied += 1;
-    };
-    // Count only events related to the filtered SIS communication rows.
-    const sisMsgIds = new Set(
-      rows.map((r) => str(r.provider_message_id)).filter(Boolean),
-    );
-    for (const e of eventRows) {
-      const key = str(e.provider_message_id);
-      if (!key || !sisMsgIds.has(key)) continue;
-      bump(str(e.event_type));
+    // Count from view rows only — no global communication_events.
+    for (const r of rows) {
+      const et = str(r.latest_event_type).toLowerCase().trim();
+      const oc = str(r.outcome_code).toLowerCase().trim();
+      if (et === "sent" || et === "send" || oc === "sent" || oc === "send") sent += 1;
+      if (et === "opened" || et === "open") opened += 1;
+      if (et === "clicked" || et === "click") clicked += 1;
+      if (et === "replied" || et === "reply" || oc === "replied") replied += 1;
     }
     return { sent, opened, clicked, replied };
-  }, [eventRows, rows]);
+  }, [rows]);
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
