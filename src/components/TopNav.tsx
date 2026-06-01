@@ -125,7 +125,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/objekti": { title: "Objekti", subtitle: "Objektu pārvaldība" },
   "/uzdevumi": { title: "Uzdevumi", subtitle: "Aktīvie un plānotie uzdevumi" },
   "/uzdevumi-sis": { title: "Uzdevumi SIS", subtitle: "SIS ģenerētie uzdevumi" },
-  "/sis-darba-rinda": { title: "SIS darba rinda", subtitle: "Automātiskā darba rinda" },
+  "/sis-darba-rinda": {
+    title: "SIS centrs",
+    subtitle: "SIS darba vide, uzdevumi un komunikācijas izsekojamība",
+  },
   "/e-pasti": { title: "E-pasti", subtitle: "Ienākošā un izejošā e-pasta plūsma" },
   "/sarakstes": { title: "Sarakstes", subtitle: "Klientu sarakstes vēsture" },
   "/import-review": { title: "Import review", subtitle: "Importēto datu pārskats" },
