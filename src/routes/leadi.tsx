@@ -170,6 +170,587 @@ interface Lead {
   priority_updated_at: string | null;
 }
 
+/* =====================================================================
+ * SINGLE COLUMN SOURCE
+ * ---------------------------------------------------------------------
+ * The Leads table renders ONE <table> with ONE <colgroup> and exactly
+ * 12 columns. The header row, filter row and every data row are all
+ * generated from this single LEADS_COLUMNS array, in the same order, so
+ * every cell shares the same column index — header is directly above its
+ * filter, and filter is directly above its data. No spacer cells, hidden
+ * cells, pseudo columns, absolute positioning, transforms or negative
+ * margins are used for layout.
+ * ===================================================================== */
+
+const CREATED_FILTER_OPTIONS = [
+  { value: "1", label: "Šodien" },
+  { value: "7", label: "7 dienas" },
+  { value: "30", label: "30 dienas" },
+  { value: "90", label: "90 dienas" },
+];
+const DUE_FILTER_OPTIONS = [
+  { value: "overdue", label: "Kavēts" },
+  { value: "today", label: "Šodien" },
+  { value: "next_7", label: "7 dienas" },
+  { value: "next_30", label: "30 dienas" },
+];
+
+/** Context passed to a column's filter renderer (filter row). */
+interface ColumnFilterCtx {
+  options: Record<string, string[]>;
+  checkFilter: "all" | "checked" | "unchecked";
+  setCheckFilter: (v: "all" | "checked" | "unchecked") => void;
+  colFilterValue: (key: string) => string;
+  setColFilter: (key: string, value: string) => void;
+  createdFilterValue: () => string;
+  setCreatedFilter: (value: string) => void;
+  tagsFilterValue: () => string[];
+  setTagsFilter: (vals: string[]) => void;
+  dueFilterValue: () => string;
+  setDueFilter: (value: string) => void;
+  activityDateFilterValue: () => string;
+  setActivityDateFilter: (value: string) => void;
+  anyColFilterActive: boolean;
+  clearAll: () => void;
+}
+
+/** Context passed to a column's cell renderer (data rows). */
+interface ColumnCellCtx {
+  isChecked: boolean;
+  toggleChecked: (id: string) => void;
+  openLead: (id: string) => void;
+  bumpActivity: (id: string) => void;
+  commCounts: Map<string, CommBuckets>;
+}
+
+type ColAlign = "left" | "right" | "center";
+
+interface LeadColumn {
+  id: string;
+  /** Fixed pixel width for the <col>. Omit for the flexible Lead column. */
+  width?: number;
+  align?: ColAlign;
+  sortKey?: string;
+  headerLabel: React.ReactNode;
+  headerClassName?: string;
+  filterCellClassName?: string;
+  cellClassName?: string;
+  /** Stop row-click propagation on interactive cells (Check, Darbības). */
+  stopPropagation?: boolean;
+  renderFilter?: (ctx: ColumnFilterCtx) => React.ReactNode;
+  renderCell: (l: Lead, ctx: ColumnCellCtx) => React.ReactNode;
+}
+
+const LEADS_COLUMNS: LeadColumn[] = [
+  /* 1 — Check (session review marker) */
+  {
+    id: "checked",
+    width: 34,
+    align: "center",
+    headerClassName: "!p-0",
+    filterCellClassName: "!p-0",
+    cellClassName: "!p-0",
+    stopPropagation: true,
+    headerLabel: (
+      <div className="flex items-center justify-center">
+        <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    ),
+    renderFilter: (f) => (
+      <div className="flex items-center justify-center">
+        <CrmFilterSelect
+          value={f.checkFilter === "all" ? "" : f.checkFilter}
+          onValueChange={(v) =>
+            f.setCheckFilter((v || "all") as "all" | "checked" | "unchecked")
+          }
+          options={[
+            { value: "checked", label: "Atzīmēti" },
+            { value: "unchecked", label: "Neatzīmēti" },
+          ]}
+        />
+      </div>
+    ),
+    renderCell: (l, c) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={c.isChecked}
+          onCheckedChange={() => c.toggleChecked(l.lead_id)}
+          className="h-3.5 w-3.5"
+          aria-label="Atzīmēt kā pārskatītu"
+        />
+      </div>
+    ),
+  },
+  /* 2 — Izveidots */
+  {
+    id: "created",
+    width: 78,
+    sortKey: "created_at",
+    headerLabel: "Izveidots",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.createdFilterValue()}
+        onValueChange={f.setCreatedFilter}
+        options={CREATED_FILTER_OPTIONS}
+      />
+    ),
+    renderCell: (l) => (
+      <span className="truncate text-[12px] tabular-nums text-muted-foreground/80">
+        {fmtDate(l.created_at)}
+      </span>
+    ),
+  },
+  /* 3 — Prioritāte */
+  {
+    id: "priority",
+    width: 92,
+    sortKey: "priority_score",
+    headerLabel: "Prioritāte",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.colFilterValue("priority_label")}
+        onValueChange={(v) => f.setColFilter("priority_label", v)}
+        options={f.options.priority_label.map((o) => ({ value: o, label: o }))}
+      />
+    ),
+    renderCell: (l) => {
+      const stars = l.priority_stars ?? 0;
+      const score = l.priority_score;
+      const tooltipLines = [
+        l.priority_label || "Bez prioritātes",
+        l.priority_breakdown,
+        l.priority_updated_at
+          ? `Atjaunots ${fmtRelative(l.priority_updated_at)}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return (
+        <div className="flex min-w-0 flex-col leading-tight" title={tooltipLines}>
+          <div className="flex items-center gap-0.5 overflow-hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={cn(
+                  "h-2.5 w-2.5 shrink-0",
+                  i < stars
+                    ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
+                    : "text-muted-foreground/30",
+                )}
+              />
+            ))}
+          </div>
+          <span className="truncate text-[12px] tabular-nums text-muted-foreground/70">
+            {stars} {stars === 1 ? "zvaigzne" : "zvaigznes"}
+            {score != null && ` · ${score}`}
+          </span>
+        </div>
+      );
+    },
+  },
+  /* 4 — Lead (name + country + comm summary) — flexible width */
+  {
+    id: "lead",
+    sortKey: "lead",
+    headerLabel: "Lead",
+    cellClassName: "min-w-0",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.colFilterValue("country")}
+        onValueChange={(v) => f.setColFilter("country", v)}
+        options={f.options.country.map((o) => ({ value: o, label: o }))}
+        placeholder="Valstis"
+        allLabel="Valstis"
+      />
+    ),
+    renderCell: (l, c) => {
+      const hasUnread = l.has_unread_reply;
+      return (
+        <>
+          <div
+            className="flex min-w-0 items-center gap-1.5"
+            title={l.name || l.company_name || l.lead_number}
+          >
+            <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
+              {l.name || (
+                <span className="font-normal italic text-muted-foreground">
+                  Neidentificēts leads
+                </span>
+              )}
+            </span>
+            {hasUnread && (
+              <span
+                className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--tivo-blue)]"
+                aria-label="Ir neatbildēta klienta atbilde"
+              />
+            )}
+          </div>
+          <div
+            className="truncate text-[12px] text-muted-foreground/80 tabular-nums"
+            title={l.country || undefined}
+          >
+            <span className="text-muted-foreground/70">{l.country || "—"}</span>
+            <span className="mx-1 opacity-40">•</span>
+            <CommStats counts={c.commCounts.get(l.lead_id)} hasUnread={hasUnread} />
+          </div>
+        </>
+      );
+    },
+  },
+  /* 5 — PPV */
+  {
+    id: "ppv",
+    width: 58,
+    sortKey: "ppv",
+    headerLabel: "PPV",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.colFilterValue("ppv")}
+        onValueChange={(v) => f.setColFilter("ppv", v)}
+        options={f.options.ppv.map((o) => ({ value: o, label: o }))}
+      />
+    ),
+    renderCell: (l) => (
+      <span
+        className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
+        title={l.ppv_name || l.ppv_user_code || "-"}
+      >
+        {l.ppv_user_code || <span className="text-muted-foreground/60">-</span>}
+      </span>
+    ),
+  },
+  /* 6 — Statuss */
+  {
+    id: "status",
+    width: 100,
+    sortKey: "status",
+    headerLabel: "Statuss",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.colFilterValue("status")}
+        onValueChange={(v) => f.setColFilter("status", v)}
+        options={f.options.status.map((o) => ({ value: o, label: o }))}
+      />
+    ),
+    renderCell: (l) => <StatusBadge status={l.status} />,
+  },
+  /* 7 — Tagi */
+  {
+    id: "tags",
+    width: 132,
+    sortKey: "tags",
+    headerLabel: "Tagi",
+    renderFilter: (f) => (
+      <MultiSelectInline
+        options={f.options.tags}
+        value={f.tagsFilterValue()}
+        onChange={f.setTagsFilter}
+      />
+    ),
+    renderCell: (l) =>
+      l.tags.length === 0 ? (
+        <span className="text-muted-foreground/50">—</span>
+      ) : (
+        <div
+          className="flex min-w-0 flex-wrap items-center gap-0.5"
+          title={l.tags.join(", ")}
+        >
+          {normalizeTags(l.tags)
+            .slice(0, 2)
+            .map((t) => (
+              <Tag key={t} tag={t} />
+            ))}
+          {normalizeTags(l.tags).length > 2 && (
+            <span className="text-[12px] text-muted-foreground/60 tabular-nums">
+              +{normalizeTags(l.tags).length - 2}
+            </span>
+          )}
+        </div>
+      ),
+  },
+  /* 8 — Atbildīgais */
+  {
+    id: "owner",
+    width: 70,
+    sortKey: "owner",
+    headerLabel: "Atbildīgais",
+    renderFilter: (f) => (
+      <CrmFilterSelect
+        value={f.colFilterValue("owner")}
+        onValueChange={(v) => f.setColFilter("owner", v)}
+        options={f.options.owner.map((o) => ({ value: o, label: o }))}
+      />
+    ),
+    renderCell: (l) =>
+      l.owner_user_code ? (
+        <span
+          className="truncate font-mono text-[12px] tabular-nums text-foreground/90"
+          title={l.owner || l.owner_user_code}
+        >
+          {l.owner_user_code}
+        </span>
+      ) : (
+        <span className="text-muted-foreground/50">-</span>
+      ),
+  },
+  /* 9 — Nākamā darbība (darbība + termiņš) */
+  {
+    id: "next_action",
+    width: 122,
+    sortKey: "effective_due_at",
+    headerLabel: "Nākamā darbība",
+    renderFilter: (f) => (
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <CrmFilterSelect
+            value={f.colFilterValue("action_label")}
+            onValueChange={(v) => f.setColFilter("action_label", v)}
+            options={f.options.action_label.map((o) => ({ value: o, label: o }))}
+            placeholder="Darbība"
+            allLabel="Visas darbības"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <CrmFilterSelect
+            value={f.dueFilterValue()}
+            onValueChange={f.setDueFilter}
+            options={DUE_FILTER_OPTIONS}
+            placeholder="Termiņš"
+            allLabel="Jebkurš termiņš"
+          />
+        </div>
+      </div>
+    ),
+    renderCell: (l) => {
+      const dueT = parseDate(l.next_action_due);
+      const isOverdue = dueT != null && dueT < Date.now();
+      return (
+        <div className="flex flex-col leading-tight">
+          <span
+            className={cn(
+              "truncate text-[13px] font-medium",
+              l.has_task && l.next_action
+                ? "text-foreground"
+                : "text-muted-foreground/60",
+            )}
+            title={l.next_action || undefined}
+          >
+            {l.has_task ? l.next_action || "-" : "-"}
+          </span>
+          {l.has_task && l.next_action_due && (
+            <span
+              className={cn(
+                "truncate text-[12px] tabular-nums",
+                isOverdue ? "text-[var(--tivo-red)]" : "text-muted-foreground/70",
+              )}
+            >
+              {fmtDate(l.next_action_due)}
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  /* 10 — Pēdējā aktivitāte (aktivitāte + datums) */
+  {
+    id: "last_activity",
+    width: 132,
+    sortKey: "last_communication_at",
+    headerLabel: "Pēdējā aktivitāte",
+    renderFilter: (f) => (
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <CrmFilterSelect
+            value={f.colFilterValue("communication_state")}
+            onValueChange={(v) => f.setColFilter("communication_state", v)}
+            options={f.options.communication_state.map((o) => ({
+              value: o,
+              label: o,
+            }))}
+            placeholder="Aktivitāte"
+            allLabel="Jebkura aktivitāte"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <CrmFilterSelect
+            value={f.activityDateFilterValue()}
+            onValueChange={f.setActivityDateFilter}
+            options={CREATED_FILTER_OPTIONS}
+            placeholder="Datums"
+            allLabel="Jebkurš datums"
+          />
+        </div>
+      </div>
+    ),
+    renderCell: (l) => {
+      const commLabel =
+        l.communication_label ||
+        (l.communication_state === "unread"
+          ? "Atbildēja"
+          : l.communication_state === "waiting"
+            ? "Gaida atbildi"
+            : l.communication_state === "active"
+              ? "Aktīva saziņa"
+              : l.communication_state === "event_only"
+                ? "Ir notikums"
+                : l.communication_state === "no_contact"
+                  ? "Nav kontakta"
+                  : "");
+      let bestDate: string | null = null;
+      let src: "reply" | "inbound" | "outbound" | "communication" | null = null;
+      if (l.last_reply_at) {
+        bestDate = l.last_reply_at;
+        src = "reply";
+      } else if (l.last_inbound_at) {
+        bestDate = l.last_inbound_at;
+        src = "inbound";
+      } else if (l.last_outbound_at) {
+        bestDate = l.last_outbound_at;
+        src = "outbound";
+      } else if (l.last_communication_at) {
+        bestDate = l.last_communication_at;
+        src = "communication";
+      }
+      const channel = detectChannel(commLabel);
+      const direction = directionFromTimestampSource(src);
+      const tone = CHANNEL_DIRECTION_TONE[channel][direction];
+      const dirWord =
+        direction === "inbound"
+          ? "Ienākošs"
+          : direction === "outbound"
+            ? "Izejošs"
+            : "";
+      const channelName =
+        channel === "email"
+          ? "e-pasts"
+          : channel === "call"
+            ? "zvans"
+            : channel === "sms"
+              ? "SMS"
+              : channel === "whatsapp"
+                ? "WhatsApp"
+                : "";
+      let activityLabel: string;
+      if (channel === "whatsapp") {
+        activityLabel = "WhatsApp";
+      } else if (channelName) {
+        activityLabel = dirWord
+          ? `${dirWord} ${channelName}`
+          : channelName.charAt(0).toUpperCase() + channelName.slice(1);
+      } else {
+        activityLabel =
+          src === "reply"
+            ? "Ienākoša atbilde"
+            : src === "inbound"
+              ? "Ienākoša komunikācija"
+              : src === "outbound"
+                ? "Izejoša komunikācija"
+                : src === "communication"
+                  ? "Komunikācija"
+                  : "";
+      }
+      return (
+        <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+          {activityLabel ? (
+            <span
+              className={cn(
+                "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
+                tone,
+              )}
+              title={activityLabel}
+            >
+              {activityLabel}
+            </span>
+          ) : (
+            <span className="text-muted-foreground/60 text-[12px]">—</span>
+          )}
+          {bestDate && (
+            <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
+              {fmtDate(bestDate)}
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  /* 11 — Īsā piezīme (searchable via global search) */
+  {
+    id: "short_note",
+    width: 116,
+    headerLabel: "Īsā piezīme",
+    renderCell: (l) =>
+      l.short_note ? (
+        <span
+          className="block truncate text-[12px] text-muted-foreground/80"
+          title={l.short_note}
+        >
+          {l.short_note}
+        </span>
+      ) : (
+        <span className="text-muted-foreground/40">—</span>
+      ),
+  },
+  /* 12 — Darbības */
+  {
+    id: "actions",
+    width: 60,
+    align: "right",
+    headerLabel: "",
+    stopPropagation: true,
+    renderFilter: (f) => (
+      <CrmClearFiltersButton active={f.anyColFilterActive} onClick={f.clearAll} />
+    ),
+    renderCell: (l, c) => (
+      <div className="flex justify-end gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
+        <RowAction
+          icon={<Phone className="h-3.5 w-3.5" />}
+          label="Zvanīt"
+          href={l.phone ? `tel:${l.phone}` : undefined}
+          onActivate={() => c.bumpActivity(l.lead_id)}
+        />
+        <RowAction
+          icon={<MessageCircle className="h-3.5 w-3.5" />}
+          label="WhatsApp"
+          href={
+            l.phone ? `https://wa.me/${l.phone.replace(/[^0-9]/g, "")}` : undefined
+          }
+          onActivate={() => c.bumpActivity(l.lead_id)}
+        />
+        <RowAction
+          icon={<Mail className="h-3.5 w-3.5" />}
+          label="E-pasts"
+          href={l.email ? `mailto:${l.email}` : undefined}
+          onActivate={() => c.bumpActivity(l.lead_id)}
+        />
+        <RowAction
+          icon={<CheckSquare className="h-3.5 w-3.5" />}
+          label="Uzdevums"
+          onClick={() => c.openLead(l.lead_id)}
+        />
+        <RowAction
+          icon={<StickyNote className="h-3.5 w-3.5" />}
+          label="Piezīme"
+          onClick={() => c.openLead(l.lead_id)}
+        />
+      </div>
+    ),
+  },
+];
+
+/** ONE colgroup, generated from the single column source. */
+function LeadsTableColGroup() {
+  return (
+    <colgroup>
+      {LEADS_COLUMNS.map((col) => (
+        <col
+          key={col.id}
+          style={col.width != null ? { width: col.width } : undefined}
+        />
+      ))}
+    </colgroup>
+  );
+}
+
 function s(v: unknown): string {
   if (v == null) return "";
   if (Array.isArray(v)) return v.join(", ");
