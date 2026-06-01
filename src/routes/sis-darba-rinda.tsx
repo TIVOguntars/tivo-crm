@@ -741,9 +741,17 @@ function KomunikacijaTab() {
       else if (k === "clicked" || k === "click") clicked += 1;
       else if (k === "replied" || k === "reply") replied += 1;
     };
-    for (const e of eventRows) bump(str(e.event_type));
+    // Count only events related to the filtered SIS communication rows.
+    const sisMsgIds = new Set(
+      rows.map((r) => str(r.provider_message_id)).filter(Boolean),
+    );
+    for (const e of eventRows) {
+      const key = str(e.provider_message_id);
+      if (!key || !sisMsgIds.has(key)) continue;
+      bump(str(e.event_type));
+    }
     return { sent, opened, clicked, replied };
-  }, [eventRows]);
+  }, [eventRows, rows]);
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
