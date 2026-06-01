@@ -2096,6 +2096,7 @@ function LeadRow({
       className={cn(
         "group relative cursor-pointer [&_.crm-table-body-cell]:px-1.5 [&_.crm-table-body-cell]:py-1.5",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:content-['']",
+        "ml-0 pl-0 pr-0",
         accentClass,
         isChecked && "opacity-60",
       )}
