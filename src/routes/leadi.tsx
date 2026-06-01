@@ -556,7 +556,7 @@ const LEADS_COLUMNS: LeadColumn[] = [
     id: "last_activity",
     width: 132,
     sortKey: "last_communication_at",
-    headerLabel: "Pēdējā aktivitāte",
+    headerLabel: "Pēdjais",
     renderFilter: (f) => (
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
