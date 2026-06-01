@@ -254,6 +254,7 @@ const CRM_VIEWS = [
   "task_types",
   "tasks",
   "v_unified_timeline",
+  "v_sis_communication_history",
   "profiles",
   "roles",
   "user_roles",
