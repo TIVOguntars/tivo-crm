@@ -70,7 +70,6 @@ import {
 } from "@/components/crm/table/CrmDataTable";
 import {
   CHANNEL_DIRECTION_TONE,
-  UNREAD_REPLY_TONE,
   detectChannel,
   directionFromTimestampSource,
 } from "@/lib/channelTones";
