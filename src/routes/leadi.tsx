@@ -1712,6 +1712,7 @@ function LeadRow({
       <CrmDataCell>
         {(() => {
           const stars = l.priority_stars ?? 0;
+          const score = l.priority_score;
           const tooltipLines = [
             l.priority_label || "Bez prioritātes",
             l.priority_breakdown,
@@ -1738,17 +1739,11 @@ function LeadRow({
                     )}
                   />
                 ))}
-                {l.priority_score != null && (
-                  <span className="ml-0.5 truncate text-[11px] tabular-nums text-muted-foreground/80">
-                    {l.priority_score}
-                  </span>
-                )}
               </div>
-              {l.priority_label && (
-                <span className="truncate text-[12px] text-muted-foreground/70">
-                  {l.priority_label}
-                </span>
-              )}
+              <span className="truncate text-[12px] tabular-nums text-muted-foreground/70">
+                {stars} {stars === 1 ? "zvaigzne" : "zvaigznes"}
+                {score != null && ` · ${score}`}
+              </span>
             </div>
           );
         })()}
