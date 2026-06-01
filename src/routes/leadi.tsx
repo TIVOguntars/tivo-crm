@@ -1869,36 +1869,61 @@ function LeadRow({
           const channel = detectChannel(commLabel);
           const direction = directionFromTimestampSource(src);
           const tone = CHANNEL_DIRECTION_TONE[channel][direction];
+          // Activity/channel type label (never a reply-state badge).
+          const dirWord =
+            direction === "inbound"
+              ? "Ienākošs"
+              : direction === "outbound"
+                ? "Izejošs"
+                : "";
+          const channelName =
+            channel === "email"
+              ? "e-pasts"
+              : channel === "call"
+                ? "zvans"
+                : channel === "sms"
+                  ? "SMS"
+                  : channel === "whatsapp"
+                    ? "WhatsApp"
+                    : "";
+          let activityLabel: string;
+          if (channel === "whatsapp") {
+            activityLabel = "WhatsApp";
+          } else if (channelName) {
+            activityLabel = dirWord
+              ? `${dirWord} ${channelName}`
+              : channelName.charAt(0).toUpperCase() + channelName.slice(1);
+          } else {
+            // Fallback derived from timestamp source when channel is unknown.
+            activityLabel =
+              src === "reply"
+                ? "Ienākoša atbilde"
+                : src === "inbound"
+                  ? "Ienākoša komunikācija"
+                  : src === "outbound"
+                    ? "Izejoša komunikācija"
+                    : src === "communication"
+                      ? "Komunikācija"
+                      : "";
+          }
           return (
             <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {commLabel ? (
-                  <span
-                    className={cn(
-                      "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
-                      tone,
-                    )}
-                    title={commLabel}
-                  >
-                    {commLabel}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground/60 text-[12px]">—</span>
-                )}
-                {l.has_unread_reply && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded px-1.5 py-[1px] text-[11px] font-semibold",
-                      UNREAD_REPLY_TONE,
-                    )}
-                  >
-                    Jauna atbilde
-                  </span>
-                )}
-              </div>
-              {bestDate && !isFutureDate(bestDate) && (
+              {activityLabel ? (
+                <span
+                  className={cn(
+                    "inline-flex max-w-full truncate rounded px-1.5 py-[1px] text-[12px] font-medium",
+                    tone,
+                  )}
+                  title={activityLabel}
+                >
+                  {activityLabel}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/60 text-[12px]">—</span>
+              )}
+              {bestDate && (
                 <span className="truncate text-[12px] text-muted-foreground/70 tabular-nums">
-                  {fmtRelative(bestDate)}
+                  {fmtDate(bestDate)}
                 </span>
               )}
             </div>
