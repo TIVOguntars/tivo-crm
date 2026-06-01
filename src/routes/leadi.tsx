@@ -254,12 +254,6 @@ function fmtRelative(v: string | null): string {
   return `pirms ${y} ${y === 1 ? "gada" : "gadiem"}`;
 }
 
-function isFutureDate(v: string | null): boolean {
-  const t = parseDate(v);
-  if (t == null) return false;
-  return t > Date.now() + 5 * 60_000;
-}
-
 /* ----- Europe/Riga calendar helpers (next_action_date) ----- */
 
 function rigaYmd(t: number): { y: number; m: number; d: number } {
