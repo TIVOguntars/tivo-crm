@@ -752,10 +752,9 @@ function KomunikacijaTab() {
             </thead>
             <tbody>
               {filtered.map((r, i) => {
-                const e = enrich(r);
                 return (
                   <tr
-                    key={str(r.id) || i}
+                    key={str(r.activity_id) || i}
                     className="cursor-pointer border-t border-border hover:bg-secondary/30"
                     onClick={() => setDetail(r)}
                   >
@@ -772,16 +771,16 @@ function KomunikacijaTab() {
                       <ChannelBadge channel={str(r.channel)} />
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {e.direction ? lv(DIRECTION_LV, e.direction, e.direction) : "—"}
+                      {"—"}
                     </td>
                     <td className="px-3 py-2 max-w-[260px] truncate text-foreground" title={str(r.subject) || str(r.summary)}>
                       {str(r.subject) || str(r.summary) || "—"}
                     </td>
                     <td className="px-3 py-2">
-                      {e.status ? <EventTypeBadge value={e.status} /> : <span className="text-muted-foreground/50">—</span>}
+                      {rowStatus(r) ? <EventTypeBadge value={rowStatus(r)} /> : <span className="text-muted-foreground/50">—</span>}
                     </td>
                     <td className="px-3 py-2">
-                      <EventTypeBadge value={e.eventType} />
+                      <EventTypeBadge value={rowEventType(r)} />
                     </td>
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground" title={str(r.provider_message_id)}>
                       {str(r.provider_message_id) ? str(r.provider_message_id).slice(0, 18) : "—"}
