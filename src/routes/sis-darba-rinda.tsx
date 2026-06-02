@@ -758,6 +758,9 @@ function KomunikacijaTab() {
   const [fChannel, setFChannel] = useState("");
   const [fLead, setFLead] = useState("");
   const [fResult, setFResult] = useState("");
+  const [datePreset, setDatePreset] = useState<"" | "7" | "14" | "month">("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "desc" });
   const [detail, setDetail] = useState<Row | null>(null);
 
