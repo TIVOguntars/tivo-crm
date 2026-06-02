@@ -824,6 +824,12 @@ function KomunikacijaTab() {
       if (fChannel && str(r.channel) !== fChannel) return false;
       if (fResult && rowResultLabel(r) !== fResult) return false;
       if (fLead && leadPrimary(r) !== fLead) return false;
+      if (dateRange) {
+        const t = parseDate(r.activity_at ?? r.created_at);
+        if (t == null) return false;
+        if (dateRange.min != null && t < dateRange.min) return false;
+        if (dateRange.max != null && t > dateRange.max) return false;
+      }
       if (q) {
         const hay = [
           r.subject,
@@ -866,7 +872,7 @@ function KomunikacijaTab() {
       });
     }
     return list;
-  }, [rows, search, fChannel, fResult, fLead, sort]);
+  }, [rows, search, fChannel, fResult, fLead, dateRange, sort]);
 
   // KPI counters — visual only, normalized from view rows.
   const counters = useMemo(() => {
