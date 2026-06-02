@@ -401,14 +401,14 @@ function leadPrimary(r: Row): string {
   return str(r.lead_name) || str(r.full_name) || shortId(r.lead_id);
 }
 function leadSecondary(r: Row): string {
-  const val = str(r.country) || str(r.valsts);
+  const country = str(r.lead_country);
   const primary = str(r.lead_name) || str(r.full_name);
   const contact = str(r.contact_name);
   const showContact = !!contact && contact !== primary;
-  const parts: string[] = [];
-  if (val) parts.push(val);
-  if (showContact) parts.push(contact);
-  return parts.join(" • ");
+  if (showContact) {
+    return country ? `${country} * ${contact}` : contact;
+  }
+  return country;
 }
 function directionLabel(r: Row): string {
   const raw = (str(r.direction) || str(r.communication_basis))
