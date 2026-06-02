@@ -781,6 +781,33 @@ function KomunikacijaTab() {
     else setSort({ key, dir });
   };
 
+  // Date range bounds (ms) derived from quick preset or custom inputs.
+  // Custom inputs (No/Līdz) take priority over presets. activity_at only.
+  const dateRange = useMemo<{ min: number | null; max: number | null } | null>(
+    () => {
+      if (dateFrom || dateTo) {
+        const min = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+        const max = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+        return { min, max };
+      }
+      if (datePreset) {
+        const now = Date.now();
+        const d = new Date();
+        if (datePreset === "7") d.setDate(d.getDate() - 7);
+        else if (datePreset === "14") d.setDate(d.getDate() - 14);
+        else if (datePreset === "month") d.setMonth(d.getMonth() - 1);
+        return { min: d.getTime(), max: now };
+      }
+      return null;
+    },
+    [datePreset, dateFrom, dateTo],
+  );
+  const pickPreset = (p: "7" | "14" | "month") => {
+    setDateFrom("");
+    setDateTo("");
+    setDatePreset((prev) => (prev === p ? "" : p));
+  };
+
   // Filter option lists — derived from already-loaded view rows only.
   const options = useMemo(
     () => ({
