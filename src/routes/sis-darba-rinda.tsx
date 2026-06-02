@@ -312,6 +312,103 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
 }
 
+/* ----- Result normalization (display-only, no DB change) -----
+ * Frontend mapping of outcome_code / latest_event_status into a small set
+ * of canonical SIS communication results. Pure presentation. */
+const RESULT_LV: Record<string, string> = {
+  sent: "Nosūtīts",
+  delivered: "Piegādāts",
+  bounced: "Atgriezts",
+  opened: "Atvērts",
+  clicked: "Click",
+  replied: "Atbildēts",
+};
+const RESULT_TONE: Record<string, string> = {
+  sent: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
+  delivered: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  bounced: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300",
+  opened: "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300",
+  clicked: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+  replied: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+};
+/** Canonical key from a raw result string, or "" when unmapped. */
+function resultKey(raw: string): string {
+  switch (raw.toLowerCase().trim()) {
+    case "sent":
+    case "send":
+      return "sent";
+    case "delivered":
+    case "delivery":
+      return "delivered";
+    case "bounced":
+    case "bounce":
+    case "failed":
+      return "bounced";
+    case "opened":
+    case "open":
+      return "opened";
+    case "clicked":
+    case "click":
+      return "clicked";
+    case "replied":
+    case "reply":
+      return "replied";
+    default:
+      return "";
+  }
+}
+/** Raw result source: outcome_code first, latest_event_status fallback. */
+function rowResultRaw(r: Row): string {
+  return str(r.outcome_code) || str(r.latest_event_status);
+}
+/** Display label for the normalized result (or raw passthrough). */
+function rowResultLabel(r: Row): string {
+  const raw = rowResultRaw(r);
+  if (!raw) return "";
+  const key = resultKey(raw);
+  return key ? RESULT_LV[key] : raw;
+}
+function ResultBadge({ row }: { row: Row }) {
+  const raw = rowResultRaw(row);
+  if (!raw) return <span className="text-muted-foreground/50">—</span>;
+  const key = resultKey(raw);
+  const tone = key ? RESULT_TONE[key] : "bg-muted text-muted-foreground";
+  const label = key ? RESULT_LV[key] : raw;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium",
+        tone,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ----- Lead / direction display helpers (display-only) ----- */
+function leadPrimary(r: Row): string {
+  return str(r.lead_name) || str(r.full_name) || shortId(r.lead_id);
+}
+function leadSecondary(r: Row): string {
+  const val = str(r.country) || str(r.valsts);
+  const primary = str(r.lead_name) || str(r.full_name);
+  const contact = str(r.contact_name);
+  const showContact = !!contact && contact !== primary;
+  const parts: string[] = [];
+  if (val) parts.push(val);
+  if (showContact) parts.push(contact);
+  return parts.join(" • ");
+}
+function directionLabel(r: Row): string {
+  const raw = (str(r.direction) || str(r.communication_basis))
+    .toLowerCase()
+    .trim();
+  if (raw === "outbound") return "Izejošs";
+  if (raw === "inbound") return "Ienākošs";
+  return "—";
+}
+
 /* ============================ Page shell ============================ */
 
 function SisCentrsPage() {
