@@ -947,7 +947,109 @@ function KomunikacijaTab() {
               <CrmSortableHead label="Darbības" align="right" style={{ width: 72 }} />
             </CrmDataTableLabelRow>
             <CrmDataTableFilterRow>
-              <CrmFilterCell />
+              <CrmFilterCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "crm-filter-control justify-between gap-1",
+                        hasDateFilter && "font-medium text-foreground",
+                      )}
+                      title="Filtrēt pēc datuma"
+                    >
+                      <span className="flex items-center gap-1 truncate">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        {datePreset === "7"
+                          ? "7 dienas"
+                          : datePreset === "14"
+                            ? "14 dienas"
+                            : datePreset === "month"
+                              ? "Mēnesis"
+                              : dateFrom || dateTo
+                                ? "Pielāgots"
+                                : "Datums"}
+                      </span>
+                      {hasDateFilter && (
+                        <X
+                          className="h-3 w-3 shrink-0 opacity-60 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDatePreset("");
+                            setDateFrom("");
+                            setDateTo("");
+                          }}
+                        />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          { v: "7", l: "7 dienas" },
+                          { v: "14", l: "14 dienas" },
+                          { v: "month", l: "Mēnesis" },
+                        ] as const
+                      ).map((o) => (
+                        <Button
+                          key={o.v}
+                          type="button"
+                          variant={datePreset === o.v ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 px-2.5 text-xs"
+                          onClick={() => pickPreset(o.v)}
+                        >
+                          {o.l}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="w-10">No</span>
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          max={dateTo || undefined}
+                          onChange={(e) => {
+                            setDatePreset("");
+                            setDateFrom(e.target.value);
+                          }}
+                          className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="w-10">Līdz</span>
+                        <input
+                          type="date"
+                          value={dateTo}
+                          min={dateFrom || undefined}
+                          onChange={(e) => {
+                            setDatePreset("");
+                            setDateTo(e.target.value);
+                          }}
+                          className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
+                        />
+                      </label>
+                    </div>
+                    {hasDateFilter && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs"
+                        onClick={() => {
+                          setDatePreset("");
+                          setDateFrom("");
+                          setDateTo("");
+                        }}
+                      >
+                        Notīrīt datumu
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </CrmFilterCell>
               <CrmFilterCell>
                 <CrmFilterSelect
                   value={fLead}
