@@ -1139,7 +1139,7 @@ function KomunikacijaTab() {
                     </div>
                   </CrmDataCell>
                   <CrmDataCell
-                    className="max-w-[320px] align-top text-foreground"
+                    className="align-top text-foreground"
                     title={str(r.subject) || str(r.summary)}
                   >
                     <span className="line-clamp-2">
@@ -1150,13 +1150,26 @@ function KomunikacijaTab() {
                     <ResultBadge row={r} />
                   </CrmDataCell>
                   <CrmDataCell align="right" onClick={(ev) => ev.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetail(r)}>
-                        Detaļas
+                    <div className="flex justify-end gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Detaļas"
+                        aria-label="Detaļas"
+                        onClick={() => setDetail(r)}
+                      >
+                        <Info className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openLead(r.lead_id)}>
-                        <ExternalLink className="mr-1 h-3 w-3" />
-                        Atvērt Lead
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Atvērt Lead"
+                        aria-label="Atvērt Lead"
+                        onClick={() => openLead(r.lead_id)}
+                      >
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                     </div>
                   </CrmDataCell>
