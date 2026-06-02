@@ -90,6 +90,16 @@ function fmtDateTime(v: unknown): string {
     .replace(/\//g, ".");
 }
 
+function fmtTime(v: unknown): string {
+  const t = parseDate(v);
+  if (t == null) return "";
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(t));
+}
+
 function toTags(v: unknown): string[] {
   if (Array.isArray(v)) return v.map((t) => String(t).trim()).filter(Boolean);
   if (typeof v === "string")
