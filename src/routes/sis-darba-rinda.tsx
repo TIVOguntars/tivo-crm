@@ -741,10 +741,9 @@ function KomunikacijaTab() {
 
   const [search, setSearch] = useState("");
   const [fChannel, setFChannel] = useState("");
-  const [fEventType, setFEventType] = useState("");
-  const [fStatus, setFStatus] = useState("");
   const [fLead, setFLead] = useState("");
-  const [fContact, setFContact] = useState("");
+  const [fResult, setFResult] = useState("");
+  const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "desc" });
   const [detail, setDetail] = useState<Row | null>(null);
 
   const eventByLead = useMemo(() => {
@@ -759,60 +758,104 @@ function KomunikacijaTab() {
     return m;
   }, [eventRows]);
 
-  // Per-row badge values, read directly from the view columns.
-  const rowEventType = (r: Row) =>
-    str(r.latest_event_type) || str(r.activity_type);
-  const rowStatus = (r: Row) =>
-    str(r.latest_event_status) || str(r.outcome_code);
+  const handleSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort({ key: null, dir: "desc" });
+    else setSort({ key, dir });
+  };
 
+  // Filter option lists — derived from already-loaded view rows only.
   const options = useMemo(
     () => ({
       channel: uniqueSorted(rows.map((r) => str(r.channel))),
-      eventType: uniqueSorted(rows.map((r) => rowEventType(r))),
-      status: uniqueSorted(rows.map((r) => rowStatus(r))),
-      lead: uniqueSorted(rows.map((r) => shortId(r.lead_id))),
-      contact: uniqueSorted(rows.map((r) => shortId(r.contact_id))),
+      result: uniqueSorted(rows.map((r) => rowResultLabel(r))),
+      lead: uniqueSorted(rows.map((r) => leadPrimary(r))),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows],
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    const list = rows.filter((r) => {
       if (fChannel && str(r.channel) !== fChannel) return false;
-      if (fEventType && rowEventType(r) !== fEventType) return false;
-      if (fStatus && rowStatus(r) !== fStatus) return false;
-      if (fLead && shortId(r.lead_id) !== fLead) return false;
-      if (fContact && shortId(r.contact_id) !== fContact) return false;
+      if (fResult && rowResultLabel(r) !== fResult) return false;
+      if (fLead && leadPrimary(r) !== fLead) return false;
       if (q) {
-        const hay = [r.subject, r.summary, r.channel, r.activity_type, r.provider_message_id]
+        const hay = [
+          r.subject,
+          r.summary,
+          leadPrimary(r),
+          r.channel,
+          r.outcome_code,
+          r.latest_event_status,
+        ]
           .map((v) => str(v).toLowerCase())
           .join(" ");
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, search, fChannel, fEventType, fStatus, fLead, fContact]);
+    if (sort.key) {
+      const dir = sort.dir === "asc" ? 1 : -1;
+      const val = (r: Row): string | number => {
+        switch (sort.key) {
+          case "date":
+            return parseDate(r.activity_at ?? r.created_at) ?? 0;
+          case "lead":
+            return leadPrimary(r).toLowerCase();
+          case "channel":
+            return lv(CHANNEL_LV, str(r.channel), str(r.channel)).toLowerCase();
+          case "subject":
+            return (str(r.subject) || str(r.summary)).toLowerCase();
+          case "result":
+            return rowResultLabel(r).toLowerCase();
+          default:
+            return "";
+        }
+      };
+      list.sort((a, b) => {
+        const av = val(a);
+        const bv = val(b);
+        if (typeof av === "number" && typeof bv === "number")
+          return (av - bv) * dir;
+        return String(av).localeCompare(String(bv), "lv") * dir;
+      });
+    }
+    return list;
+  }, [rows, search, fChannel, fResult, fLead, sort]);
 
-  // Counters — visual only.
+  // KPI counters — visual only, normalized from view rows.
   const counters = useMemo(() => {
     let sent = 0;
     let opened = 0;
     let clicked = 0;
     let replied = 0;
-    // Count from view rows only — no global communication_events.
     for (const r of rows) {
-      const et = str(r.latest_event_type).toLowerCase().trim();
-      const oc = str(r.outcome_code).toLowerCase().trim();
-      if (et === "sent" || et === "send" || oc === "sent" || oc === "send") sent += 1;
-      if (et === "opened" || et === "open") opened += 1;
-      if (et === "clicked" || et === "click") clicked += 1;
-      if (et === "replied" || et === "reply" || oc === "replied") replied += 1;
+      switch (resultKey(rowResultRaw(r))) {
+        case "sent":
+          sent += 1;
+          break;
+        case "opened":
+          opened += 1;
+          break;
+        case "clicked":
+          clicked += 1;
+          break;
+        case "replied":
+          replied += 1;
+          break;
+      }
     }
     return { sent, opened, clicked, replied };
   }, [rows]);
+
+  const hasActiveFilters =
+    !!search || !!fChannel || !!fResult || !!fLead;
+  const clearAllFilters = () => {
+    setSearch("");
+    setFChannel("");
+    setFResult("");
+    setFLead("");
+  };
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
@@ -830,92 +873,127 @@ function KomunikacijaTab() {
         <StatCard label="Atbildēts" value={counters.replied} tone="orange" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput value={search} onChange={setSearch} placeholder="Meklēt komunikāciju..." />
-        <FilterSelect value={fChannel} onChange={setFChannel} options={options.channel} placeholder="Kanāls" />
-        <FilterSelect value={fEventType} onChange={setFEventType} options={options.eventType} placeholder="Event Type" />
-        <FilterSelect value={fStatus} onChange={setFStatus} options={options.status} placeholder="Statuss" />
-        <FilterSelect value={fLead} onChange={setFLead} options={options.lead} placeholder="Lead" />
-        <FilterSelect value={fContact} onChange={setFContact} options={options.contact} placeholder="Kontakts" />
-      </div>
-
       {loading ? (
         <LoadingState label="Ielādē SIS komunikāciju..." />
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <EmptyState label="Nav SIS komunikācijas ierakstu." />
-        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Datums</th>
-                <th className="px-3 py-2 text-left font-medium">Lead</th>
-                <th className="px-3 py-2 text-left font-medium">Kontakts</th>
-                <th className="px-3 py-2 text-left font-medium">Kanāls</th>
-                <th className="px-3 py-2 text-left font-medium">Virziens</th>
-                <th className="px-3 py-2 text-left font-medium">Subject / Summary</th>
-                <th className="px-3 py-2 text-left font-medium">Statuss</th>
-                <th className="px-3 py-2 text-left font-medium">Event Type</th>
-                <th className="px-3 py-2 text-left font-medium">Provider Message ID</th>
-                <th className="px-3 py-2 text-left font-medium">Rezultāts</th>
-                <th className="px-3 py-2 text-right font-medium">Darbības</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => {
-                return (
-                  <tr
-                    key={str(r.activity_id) || i}
-                    className="cursor-pointer border-t border-border hover:bg-secondary/30"
-                    onClick={() => setDetail(r)}
-                  >
-                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                      {fmtDateTime(r.activity_at ?? r.created_at)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[12px] text-foreground/80" title={str(r.lead_id)}>
-                      {shortId(r.lead_id)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[12px] text-foreground/80" title={str(r.contact_id)}>
-                      {shortId(r.contact_id)}
-                    </td>
-                    <td className="px-3 py-2">
+        <CrmDataTable sort={sort} onSortChange={handleSort}>
+          <CrmDataTableHeader>
+            <CrmDataTableLabelRow>
+              <CrmSortableHead sortKey="date" label="Datums" style={{ width: 150 }} />
+              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+              <CrmSortableHead sortKey="channel" label="Kanāls" style={{ width: 140 }} />
+              <CrmSortableHead sortKey="subject" label="Subject / Summary" style={{ width: "auto" }} />
+              <CrmSortableHead sortKey="result" label="Rezultāts" style={{ width: 130 }} />
+              <CrmSortableHead label="Darbības" align="right" style={{ width: 80 }} />
+            </CrmDataTableLabelRow>
+            <CrmDataTableFilterRow>
+              <CrmFilterCell />
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fLead}
+                  onValueChange={setFLead}
+                  options={options.lead.map((o) => ({ value: o, label: o }))}
+                  placeholder="Lead"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fChannel}
+                  onValueChange={setFChannel}
+                  options={options.channel.map((o) => ({
+                    value: o,
+                    label: lv(CHANNEL_LV, o, o),
+                  }))}
+                  placeholder="Kanāls"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmSearchInput
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Meklēt komunikāciju..."
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fResult}
+                  onValueChange={setFResult}
+                  options={options.result.map((o) => ({ value: o, label: o }))}
+                  placeholder="Rezultāts"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell align="right">
+                <CrmClearFiltersButton
+                  active={hasActiveFilters}
+                  onClick={clearAllFilters}
+                />
+              </CrmFilterCell>
+            </CrmDataTableFilterRow>
+          </CrmDataTableHeader>
+          <CrmDataBody>
+            {filtered.length === 0 ? (
+              <CrmDataRow>
+                <CrmDataCell colSpan={6} align="center" className="text-muted-foreground">
+                  {hasActiveFilters
+                    ? "Nav ierakstu, kas atbilst filtriem."
+                    : "Nav SIS komunikācijas ierakstu."}
+                </CrmDataCell>
+              </CrmDataRow>
+            ) : (
+              filtered.map((r, i) => (
+                <CrmDataRow
+                  key={str(r.activity_id) || i}
+                  className="cursor-pointer"
+                  onClick={() => setDetail(r)}
+                >
+                  <CrmDataCell className="tabular-nums text-muted-foreground">
+                    {fmtDateTime(r.activity_at ?? r.created_at)}
+                  </CrmDataCell>
+                  <CrmDataCell className="align-top">
+                    <div className="flex flex-col leading-tight">
+                      <span className="font-medium text-foreground">
+                        {leadPrimary(r)}
+                      </span>
+                      {leadSecondary(r) && (
+                        <span className="mt-0.5 text-[12px] text-muted-foreground">
+                          {leadSecondary(r)}
+                        </span>
+                      )}
+                    </div>
+                  </CrmDataCell>
+                  <CrmDataCell className="align-top">
+                    <div className="flex flex-col gap-0.5 leading-tight">
                       <ChannelBadge channel={str(r.channel)} />
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {"—"}
-                    </td>
-                    <td className="px-3 py-2 max-w-[260px] truncate text-foreground" title={str(r.subject) || str(r.summary)}>
-                      {str(r.subject) || str(r.summary) || "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {rowStatus(r) ? <EventTypeBadge value={rowStatus(r)} /> : <span className="text-muted-foreground/50">—</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <EventTypeBadge value={rowEventType(r)} />
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground" title={str(r.provider_message_id)}>
-                      {str(r.provider_message_id) ? str(r.provider_message_id).slice(0, 18) : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{str(r.outcome_code) || "—"}</td>
-                    <td className="px-3 py-2 text-right" onClick={(ev) => ev.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetail(r)}>
-                          Detaļas
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openLead(r.lead_id)}>
-                          <ExternalLink className="mr-1 h-3 w-3" />
-                          Atvērt Lead
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <span className="text-[12px] text-muted-foreground">
+                        {directionLabel(r)}
+                      </span>
+                    </div>
+                  </CrmDataCell>
+                  <CrmDataCell
+                    className="max-w-[320px] truncate text-foreground"
+                    title={str(r.subject) || str(r.summary)}
+                  >
+                    {str(r.subject) || str(r.summary) || "—"}
+                  </CrmDataCell>
+                  <CrmDataCell>
+                    <ResultBadge row={r} />
+                  </CrmDataCell>
+                  <CrmDataCell align="right" onClick={(ev) => ev.stopPropagation()}>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetail(r)}>
+                        Detaļas
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openLead(r.lead_id)}>
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        Atvērt Lead
+                      </Button>
+                    </div>
+                  </CrmDataCell>
+                </CrmDataRow>
+              ))
+            )}
+          </CrmDataBody>
+        </CrmDataTable>
       )}
 
       <CommDetailDrawer
