@@ -939,12 +939,12 @@ function KomunikacijaTab() {
         <CrmDataTable sort={sort} onSortChange={handleSort}>
           <CrmDataTableHeader>
             <CrmDataTableLabelRow>
-              <CrmSortableHead sortKey="date" label="Datums" style={{ width: 150 }} />
-              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
-              <CrmSortableHead sortKey="channel" label="Kanāls" style={{ width: 140 }} />
+              <CrmSortableHead sortKey="date" label="Datums" style={{ width: 112 }} />
+              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: 220 }} />
+              <CrmSortableHead sortKey="channel" label="Kanāls" style={{ width: 120 }} />
               <CrmSortableHead sortKey="subject" label="Subject / Summary" style={{ width: "auto" }} />
-              <CrmSortableHead sortKey="result" label="Rezultāts" style={{ width: 130 }} />
-              <CrmSortableHead label="Darbības" align="right" style={{ width: 80 }} />
+              <CrmSortableHead sortKey="result" label="Rezultāts" style={{ width: 120 }} />
+              <CrmSortableHead label="Darbības" align="right" style={{ width: 72 }} />
             </CrmDataTableLabelRow>
             <CrmDataTableFilterRow>
               <CrmFilterCell />
