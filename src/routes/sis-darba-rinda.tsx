@@ -903,13 +903,17 @@ function KomunikacijaTab() {
     return { sent, delivered, opened, clicked, replied };
   }, [rows]);
 
+  const hasDateFilter = !!datePreset || !!dateFrom || !!dateTo;
   const hasActiveFilters =
-    !!search || !!fChannel || !!fResult || !!fLead;
+    !!search || !!fChannel || !!fResult || !!fLead || hasDateFilter;
   const clearAllFilters = () => {
     setSearch("");
     setFChannel("");
     setFResult("");
     setFLead("");
+    setDatePreset("");
+    setDateFrom("");
+    setDateTo("");
   };
 
   const openLead = (leadId: unknown) => {
