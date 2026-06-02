@@ -925,8 +925,9 @@ function KomunikacijaTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
         <StatCard label="Nosūtīts" value={counters.sent} tone="blue" />
+        <StatCard label="Piegādāts" value={counters.delivered} tone="blue" />
         <StatCard label="Atvērts" value={counters.opened} tone="purple" />
         <StatCard label="Click" value={counters.clicked} tone="amber" />
         <StatCard label="Atbildēts" value={counters.replied} tone="orange" />
