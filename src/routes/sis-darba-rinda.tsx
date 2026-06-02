@@ -841,6 +841,7 @@ function KomunikacijaTab() {
   // KPI counters — visual only, normalized from view rows.
   const counters = useMemo(() => {
     let sent = 0;
+    let delivered = 0;
     let opened = 0;
     let clicked = 0;
     let replied = 0;
@@ -848,6 +849,9 @@ function KomunikacijaTab() {
       switch (resultKey(rowResultRaw(r))) {
         case "sent":
           sent += 1;
+          break;
+        case "delivered":
+          delivered += 1;
           break;
         case "opened":
           opened += 1;
@@ -860,7 +864,7 @@ function KomunikacijaTab() {
           break;
       }
     }
-    return { sent, opened, clicked, replied };
+    return { sent, delivered, opened, clicked, replied };
   }, [rows]);
 
   const hasActiveFilters =
