@@ -956,8 +956,15 @@ function KomunikacijaTab() {
                   className="cursor-pointer"
                   onClick={() => setDetail(r)}
                 >
-                  <CrmDataCell className="tabular-nums text-muted-foreground">
-                    {fmtDateTime(r.activity_at ?? r.created_at)}
+                  <CrmDataCell className="tabular-nums align-top text-muted-foreground">
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-foreground">
+                        {fmtDate(r.activity_at ?? r.created_at)}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {fmtTime(r.activity_at ?? r.created_at)}
+                      </span>
+                    </div>
                   </CrmDataCell>
                   <CrmDataCell className="align-top">
                     <div className="flex flex-col leading-tight">
@@ -980,10 +987,12 @@ function KomunikacijaTab() {
                     </div>
                   </CrmDataCell>
                   <CrmDataCell
-                    className="max-w-[320px] truncate text-foreground"
+                    className="max-w-[320px] align-top text-foreground"
                     title={str(r.subject) || str(r.summary)}
                   >
-                    {str(r.subject) || str(r.summary) || "—"}
+                    <span className="line-clamp-2">
+                      {str(r.subject) || str(r.summary) || "—"}
+                    </span>
                   </CrmDataCell>
                   <CrmDataCell>
                     <ResultBadge row={r} />
