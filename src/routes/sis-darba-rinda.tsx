@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ExternalLink, Search, Info } from "lucide-react";
+import { ExternalLink, Search, Info, CalendarDays, X } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,11 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { CHANNEL_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
@@ -753,6 +758,9 @@ function KomunikacijaTab() {
   const [fChannel, setFChannel] = useState("");
   const [fLead, setFLead] = useState("");
   const [fResult, setFResult] = useState("");
+  const [datePreset, setDatePreset] = useState<"" | "7" | "14" | "month">("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "desc" });
   const [detail, setDetail] = useState<Row | null>(null);
 
@@ -773,6 +781,33 @@ function KomunikacijaTab() {
     else setSort({ key, dir });
   };
 
+  // Date range bounds (ms) derived from quick preset or custom inputs.
+  // Custom inputs (No/Līdz) take priority over presets. activity_at only.
+  const dateRange = useMemo<{ min: number | null; max: number | null } | null>(
+    () => {
+      if (dateFrom || dateTo) {
+        const min = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+        const max = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+        return { min, max };
+      }
+      if (datePreset) {
+        const now = Date.now();
+        const d = new Date();
+        if (datePreset === "7") d.setDate(d.getDate() - 7);
+        else if (datePreset === "14") d.setDate(d.getDate() - 14);
+        else if (datePreset === "month") d.setMonth(d.getMonth() - 1);
+        return { min: d.getTime(), max: now };
+      }
+      return null;
+    },
+    [datePreset, dateFrom, dateTo],
+  );
+  const pickPreset = (p: "7" | "14" | "month") => {
+    setDateFrom("");
+    setDateTo("");
+    setDatePreset((prev) => (prev === p ? "" : p));
+  };
+
   // Filter option lists — derived from already-loaded view rows only.
   const options = useMemo(
     () => ({
@@ -789,6 +824,12 @@ function KomunikacijaTab() {
       if (fChannel && str(r.channel) !== fChannel) return false;
       if (fResult && rowResultLabel(r) !== fResult) return false;
       if (fLead && leadPrimary(r) !== fLead) return false;
+      if (dateRange) {
+        const t = parseDate(r.activity_at ?? r.created_at);
+        if (t == null) return false;
+        if (dateRange.min != null && t < dateRange.min) return false;
+        if (dateRange.max != null && t > dateRange.max) return false;
+      }
       if (q) {
         const hay = [
           r.subject,
@@ -831,11 +872,12 @@ function KomunikacijaTab() {
       });
     }
     return list;
-  }, [rows, search, fChannel, fResult, fLead, sort]);
+  }, [rows, search, fChannel, fResult, fLead, dateRange, sort]);
 
   // KPI counters — visual only, normalized from view rows.
   const counters = useMemo(() => {
     let sent = 0;
+    let delivered = 0;
     let opened = 0;
     let clicked = 0;
     let replied = 0;
@@ -843,6 +885,9 @@ function KomunikacijaTab() {
       switch (resultKey(rowResultRaw(r))) {
         case "sent":
           sent += 1;
+          break;
+        case "delivered":
+          delivered += 1;
           break;
         case "opened":
           opened += 1;
@@ -855,16 +900,20 @@ function KomunikacijaTab() {
           break;
       }
     }
-    return { sent, opened, clicked, replied };
+    return { sent, delivered, opened, clicked, replied };
   }, [rows]);
 
+  const hasDateFilter = !!datePreset || !!dateFrom || !!dateTo;
   const hasActiveFilters =
-    !!search || !!fChannel || !!fResult || !!fLead;
+    !!search || !!fChannel || !!fResult || !!fLead || hasDateFilter;
   const clearAllFilters = () => {
     setSearch("");
     setFChannel("");
     setFResult("");
     setFLead("");
+    setDatePreset("");
+    setDateFrom("");
+    setDateTo("");
   };
 
   const openLead = (leadId: unknown) => {
@@ -876,8 +925,9 @@ function KomunikacijaTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
         <StatCard label="Nosūtīts" value={counters.sent} tone="blue" />
+        <StatCard label="Piegādāts" value={counters.delivered} tone="blue" />
         <StatCard label="Atvērts" value={counters.opened} tone="purple" />
         <StatCard label="Click" value={counters.clicked} tone="amber" />
         <StatCard label="Atbildēts" value={counters.replied} tone="orange" />
@@ -889,15 +939,117 @@ function KomunikacijaTab() {
         <CrmDataTable sort={sort} onSortChange={handleSort}>
           <CrmDataTableHeader>
             <CrmDataTableLabelRow>
-              <CrmSortableHead sortKey="date" label="Datums" style={{ width: 150 }} />
-              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
-              <CrmSortableHead sortKey="channel" label="Kanāls" style={{ width: 140 }} />
+              <CrmSortableHead sortKey="date" label="Datums" style={{ width: 112 }} />
+              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: 220 }} />
+              <CrmSortableHead sortKey="channel" label="Kanāls" style={{ width: 120 }} />
               <CrmSortableHead sortKey="subject" label="Subject / Summary" style={{ width: "auto" }} />
-              <CrmSortableHead sortKey="result" label="Rezultāts" style={{ width: 130 }} />
-              <CrmSortableHead label="Darbības" align="right" style={{ width: 80 }} />
+              <CrmSortableHead sortKey="result" label="Rezultāts" style={{ width: 120 }} />
+              <CrmSortableHead label="Darbības" align="right" style={{ width: 72 }} />
             </CrmDataTableLabelRow>
             <CrmDataTableFilterRow>
-              <CrmFilterCell />
+              <CrmFilterCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "crm-filter-control justify-between gap-1",
+                        hasDateFilter && "font-medium text-foreground",
+                      )}
+                      title="Filtrēt pēc datuma"
+                    >
+                      <span className="flex items-center gap-1 truncate">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        {datePreset === "7"
+                          ? "7 dienas"
+                          : datePreset === "14"
+                            ? "14 dienas"
+                            : datePreset === "month"
+                              ? "Mēnesis"
+                              : dateFrom || dateTo
+                                ? "Pielāgots"
+                                : "Datums"}
+                      </span>
+                      {hasDateFilter && (
+                        <X
+                          className="h-3 w-3 shrink-0 opacity-60 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDatePreset("");
+                            setDateFrom("");
+                            setDateTo("");
+                          }}
+                        />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          { v: "7", l: "7 dienas" },
+                          { v: "14", l: "14 dienas" },
+                          { v: "month", l: "Mēnesis" },
+                        ] as const
+                      ).map((o) => (
+                        <Button
+                          key={o.v}
+                          type="button"
+                          variant={datePreset === o.v ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 px-2.5 text-xs"
+                          onClick={() => pickPreset(o.v)}
+                        >
+                          {o.l}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="w-10">No</span>
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          max={dateTo || undefined}
+                          onChange={(e) => {
+                            setDatePreset("");
+                            setDateFrom(e.target.value);
+                          }}
+                          className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="w-10">Līdz</span>
+                        <input
+                          type="date"
+                          value={dateTo}
+                          min={dateFrom || undefined}
+                          onChange={(e) => {
+                            setDatePreset("");
+                            setDateTo(e.target.value);
+                          }}
+                          className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
+                        />
+                      </label>
+                    </div>
+                    {hasDateFilter && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs"
+                        onClick={() => {
+                          setDatePreset("");
+                          setDateFrom("");
+                          setDateTo("");
+                        }}
+                      >
+                        Notīrīt datumu
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </CrmFilterCell>
               <CrmFilterCell>
                 <CrmFilterSelect
                   value={fLead}
@@ -987,7 +1139,7 @@ function KomunikacijaTab() {
                     </div>
                   </CrmDataCell>
                   <CrmDataCell
-                    className="max-w-[320px] align-top text-foreground"
+                    className="align-top text-foreground"
                     title={str(r.subject) || str(r.summary)}
                   >
                     <span className="line-clamp-2">
@@ -998,13 +1150,26 @@ function KomunikacijaTab() {
                     <ResultBadge row={r} />
                   </CrmDataCell>
                   <CrmDataCell align="right" onClick={(ev) => ev.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetail(r)}>
-                        Detaļas
+                    <div className="flex justify-end gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Detaļas"
+                        aria-label="Detaļas"
+                        onClick={() => setDetail(r)}
+                      >
+                        <Info className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openLead(r.lead_id)}>
-                        <ExternalLink className="mr-1 h-3 w-3" />
-                        Atvērt Lead
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Atvērt Lead"
+                        aria-label="Atvērt Lead"
+                        onClick={() => openLead(r.lead_id)}
+                      >
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                     </div>
                   </CrmDataCell>
