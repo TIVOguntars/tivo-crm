@@ -90,6 +90,16 @@ function fmtDateTime(v: unknown): string {
     .replace(/\//g, ".");
 }
 
+function fmtTime(v: unknown): string {
+  const t = parseDate(v);
+  if (t == null) return "";
+  return new Intl.DateTimeFormat("lv-LV", {
+    timeZone: "Europe/Riga",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(t));
+}
+
 function toTags(v: unknown): string[] {
   if (Array.isArray(v)) return v.map((t) => String(t).trim()).filter(Boolean);
   if (typeof v === "string")
@@ -391,14 +401,14 @@ function leadPrimary(r: Row): string {
   return str(r.lead_name) || str(r.full_name) || shortId(r.lead_id);
 }
 function leadSecondary(r: Row): string {
-  const val = str(r.country) || str(r.valsts);
+  const country = str(r.lead_country);
   const primary = str(r.lead_name) || str(r.full_name);
   const contact = str(r.contact_name);
   const showContact = !!contact && contact !== primary;
-  const parts: string[] = [];
-  if (val) parts.push(val);
-  if (showContact) parts.push(contact);
-  return parts.join(" • ");
+  if (showContact) {
+    return country ? `${country} * ${contact}` : contact;
+  }
+  return country;
 }
 function directionLabel(r: Row): string {
   const raw = (str(r.direction) || str(r.communication_basis))
@@ -946,8 +956,15 @@ function KomunikacijaTab() {
                   className="cursor-pointer"
                   onClick={() => setDetail(r)}
                 >
-                  <CrmDataCell className="tabular-nums text-muted-foreground">
-                    {fmtDateTime(r.activity_at ?? r.created_at)}
+                  <CrmDataCell className="tabular-nums align-top text-muted-foreground">
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-foreground">
+                        {fmtDate(r.activity_at ?? r.created_at)}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {fmtTime(r.activity_at ?? r.created_at)}
+                      </span>
+                    </div>
                   </CrmDataCell>
                   <CrmDataCell className="align-top">
                     <div className="flex flex-col leading-tight">
@@ -970,10 +987,12 @@ function KomunikacijaTab() {
                     </div>
                   </CrmDataCell>
                   <CrmDataCell
-                    className="max-w-[320px] truncate text-foreground"
+                    className="max-w-[320px] align-top text-foreground"
                     title={str(r.subject) || str(r.summary)}
                   >
-                    {str(r.subject) || str(r.summary) || "—"}
+                    <span className="line-clamp-2">
+                      {str(r.subject) || str(r.summary) || "—"}
+                    </span>
                   </CrmDataCell>
                   <CrmDataCell>
                     <ResultBadge row={r} />
