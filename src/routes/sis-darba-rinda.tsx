@@ -19,6 +19,22 @@ import {
 import { useCrmView } from "@/hooks/useCrmView";
 import { cn } from "@/lib/utils";
 import { CHANNEL_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
+import {
+  CrmClearFiltersButton,
+  CrmDataBody,
+  CrmDataCell,
+  CrmDataRow,
+  CrmDataTable,
+  CrmDataTableFilterRow,
+  CrmDataTableHeader,
+  CrmDataTableLabelRow,
+  CrmFilterCell,
+  CrmFilterSelect,
+  CrmSearchInput,
+  CrmSortableHead,
+  type CrmTableSort,
+  type SortDir,
+} from "@/components/crm/table/CrmDataTable";
 
 /**
  * SIS system profile. A SIS task is a crm.tasks row whose assigned_user_id
