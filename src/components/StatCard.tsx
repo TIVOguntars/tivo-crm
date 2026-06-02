@@ -108,7 +108,7 @@ export function StatCard({
       <p className="text-xs font-medium uppercase leading-tight tracking-wide text-muted-foreground line-clamp-1 min-h-[1.125rem]">
         {label}
       </p>
-      <p className={cn("mt-2 text-3xl font-bold tabular-nums leading-tight min-h-[4.5rem]", styles.value)}>
+      <p className={cn("mt-2 text-3xl font-bold tabular-nums leading-tight text-right", styles.value)}>
         {value}
       </p>
       {hint ? (
