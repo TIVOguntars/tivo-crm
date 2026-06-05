@@ -460,7 +460,11 @@ function SisCentrsPage() {
 
 function UzdevumiTab() {
   const navigate = useNavigate();
-  const query = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
+  const query = useCrmView(
+    "v_tasks_queue_ui_v2",
+    `assigned_user_id=eq.${SIS_PROFILE_ID}`,
+    { all: true },
+  );
   const allRows = (query.data?.rows ?? []) as Row[];
   // Strict SIS filter: only tasks assigned to the SIS system profile.
   const rows = useMemo(
