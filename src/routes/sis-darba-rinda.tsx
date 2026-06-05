@@ -470,31 +470,44 @@ function UzdevumiTab() {
   const errorMsg = (query.error as Error | null)?.message || query.data?.error;
   const loading = query.isLoading;
 
+  // Reference lookup only: resolve ppv_user_id (uuid) → user code/name.
+  // Does not change the task data source (v_tasks_queue_ui_v2).
+  const { resolveCode: resolvePpvCode, resolve: resolvePpvName } = useUserMap();
+
   const [search, setSearch] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const [fTaskType, setFTaskType] = useState("");
+  const [fTemplate, setFTemplate] = useState("");
   const [fPriority, setFPriority] = useState("");
+  const [fPpv, setFPpv] = useState("");
+  const [fTag, setFTag] = useState("");
+  const [fLeadStatus, setFLeadStatus] = useState("");
   const [fDue, setFDue] = useState("");
-  const [fSource, setFSource] = useState("");
+  const [sort, setSort] = useState<CrmTableSort>({ key: null, dir: "asc" });
   const [detail, setDetail] = useState<Row | null>(null);
+
+  const handleSort = (key: string, dir: SortDir) => {
+    if (dir === null) setSort({ key: null, dir: "asc" });
+    else setSort({ key, dir });
+  };
 
   const options = useMemo(
     () => ({
-      status: uniqueSorted(rows.map((r) => str(r.task_status))),
-      taskType: uniqueSorted(rows.map((r) => str(r.task_type))),
+      template: uniqueSorted(rows.map((r) => taskTemplate(r))),
       priority: uniqueSorted(rows.map((r) => str(r.priority_label))),
-      source: uniqueSorted(rows.map((r) => str(r.task_source))),
+      ppv: uniqueSorted(rows.map((r) => resolvePpvCode(str(r.ppv_user_id)))),
+      tag: uniqueSorted(rows.flatMap((r) => toTags(r.tags))),
+      leadStatus: uniqueSorted(rows.map((r) => str(r.lead_status))),
     }),
-    [rows],
+    [rows, resolvePpvCode],
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (fStatus && str(r.task_status) !== fStatus) return false;
-      if (fTaskType && str(r.task_type) !== fTaskType) return false;
+    const list = rows.filter((r) => {
+      if (fTemplate && taskTemplate(r) !== fTemplate) return false;
       if (fPriority && str(r.priority_label) !== fPriority) return false;
-      if (fSource && str(r.task_source) !== fSource) return false;
+      if (fPpv && resolvePpvCode(str(r.ppv_user_id)) !== fPpv) return false;
+      if (fTag && !toTags(r.tags).includes(fTag)) return false;
+      if (fLeadStatus && str(r.lead_status) !== fLeadStatus) return false;
       if (fDue === "overdue" && str(r.queue_bucket).toLowerCase() !== "overdue")
         return false;
       if (fDue === "today" && !isSameRigaDay(r.effective_due_at ?? r.due_at))
@@ -505,10 +518,9 @@ function UzdevumiTab() {
           r.lead_number,
           r.object_name,
           r.country,
-          r.action_label,
+          taskTemplate(r),
           r.tags,
-          r.task_status,
-          r.task_type,
+          r.lead_status,
         ]
           .map((v) => str(v).toLowerCase())
           .join(" ");
@@ -516,7 +528,47 @@ function UzdevumiTab() {
       }
       return true;
     });
-  }, [rows, search, fStatus, fTaskType, fPriority, fSource, fDue]);
+    if (sort.key) {
+      const dir = sort.dir === "asc" ? 1 : -1;
+      const val = (r: Row): string | number => {
+        switch (sort.key) {
+          case "template":
+            return taskTemplate(r).toLowerCase();
+          case "priority":
+            return numOrNull(r.priority_score) ?? -1;
+          case "ppv":
+            return resolvePpvCode(str(r.ppv_user_id)).toLowerCase();
+          case "status":
+            return str(r.lead_status).toLowerCase();
+          case "lead":
+            return taskLeadPrimary(r).toLowerCase();
+          case "due":
+            return parseDate(r.effective_due_at ?? r.due_at) ?? 0;
+          default:
+            return "";
+        }
+      };
+      list.sort((a, b) => {
+        const av = val(a);
+        const bv = val(b);
+        if (typeof av === "number" && typeof bv === "number")
+          return (av - bv) * dir;
+        return String(av).localeCompare(String(bv), "lv") * dir;
+      });
+    }
+    return list;
+  }, [
+    rows,
+    search,
+    fTemplate,
+    fPriority,
+    fPpv,
+    fTag,
+    fLeadStatus,
+    fDue,
+    sort,
+    resolvePpvCode,
+  ]);
 
   // Counters — visual only, from already-loaded rows. No business logic.
   const counters = useMemo(() => {
@@ -537,6 +589,24 @@ function UzdevumiTab() {
     return { total: rows.length, overdue, waiting, high };
   }, [rows]);
 
+  const hasActiveFilters =
+    !!search ||
+    !!fTemplate ||
+    !!fPriority ||
+    !!fPpv ||
+    !!fTag ||
+    !!fLeadStatus ||
+    !!fDue;
+  const clearAllFilters = () => {
+    setSearch("");
+    setFTemplate("");
+    setFPriority("");
+    setFPpv("");
+    setFTag("");
+    setFLeadStatus("");
+    setFDue("");
+  };
+
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
     if (id) navigate({ to: "/lead/$leadId", params: { leadId: id } });
@@ -553,87 +623,125 @@ function UzdevumiTab() {
         <StatCard label="Augsta prioritāte" value={counters.high} tone="orange" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput value={search} onChange={setSearch} placeholder="Meklēt uzdevumus..." />
-        <FilterSelect value={fStatus} onChange={setFStatus} options={options.status} placeholder="Statuss" />
-        <FilterSelect value={fPriority} onChange={setFPriority} options={options.priority} placeholder="Prioritāte" />
-        <FilterSelect
-          value={fDue}
-          onChange={setFDue}
-          options={["overdue", "today"]}
-          placeholder="Termiņš"
-        />
-        <FilterSelect value={fTaskType} onChange={setFTaskType} options={options.taskType} placeholder="Task Type" />
-        <FilterSelect value={fSource} onChange={setFSource} options={options.source} placeholder="Avots" />
-      </div>
-
       {loading ? (
         <LoadingState label="Ielādē SIS uzdevumus..." />
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <EmptyState label="Nav SIS uzdevumu." />
-        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Darbība</th>
-                <th className="px-3 py-2 text-left font-medium">Statuss</th>
-                <th className="px-3 py-2 text-left font-medium">Termiņš</th>
-                <th className="px-3 py-2 text-left font-medium">Prioritāte</th>
-                <th className="px-3 py-2 text-left font-medium">Lead</th>
-                <th className="px-3 py-2 text-left font-medium">Valsts</th>
-                <th className="px-3 py-2 text-left font-medium">Tagi</th>
-                <th className="px-3 py-2 text-left font-medium">Atbildīgais</th>
-                <th className="px-3 py-2 text-left font-medium">Avots</th>
-                <th className="px-3 py-2 text-right font-medium">Darbības</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => {
-                const dueT = parseDate(r.effective_due_at ?? r.due_at);
+        <CrmDataTable sort={sort} onSortChange={handleSort}>
+          <CrmDataTableHeader>
+            <CrmDataTableLabelRow>
+              <CrmSortableHead sortKey="template" label="Template" style={{ width: 160 }} />
+              <CrmSortableHead sortKey="priority" label="Prioritāte" style={{ width: 84 }} />
+              <CrmSortableHead sortKey="ppv" label="PPV" style={{ width: 72 }} />
+              <CrmSortableHead label="Tagi" style={{ width: 150 }} />
+              <CrmSortableHead sortKey="status" label="Lead statuss" style={{ width: 130 }} />
+              <CrmSortableHead sortKey="lead" label="Lead" style={{ width: "auto" }} />
+              <CrmSortableHead label="Atbildīgais" style={{ width: 110 }} />
+              <CrmSortableHead sortKey="due" label="Termiņš" style={{ width: 116 }} />
+              <CrmSortableHead label="Darbības" align="right" style={{ width: 72 }} />
+            </CrmDataTableLabelRow>
+            <CrmDataTableFilterRow>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fTemplate}
+                  onValueChange={setFTemplate}
+                  options={options.template.map((o) => ({ value: o, label: o }))}
+                  placeholder="Template"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fPriority}
+                  onValueChange={setFPriority}
+                  options={options.priority.map((o) => ({ value: o, label: o }))}
+                  placeholder="Prioritāte"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fPpv}
+                  onValueChange={setFPpv}
+                  options={options.ppv.map((o) => ({ value: o, label: o }))}
+                  placeholder="PPV"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fTag}
+                  onValueChange={setFTag}
+                  options={options.tag.map((o) => ({ value: o, label: o }))}
+                  placeholder="Tagi"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fLeadStatus}
+                  onValueChange={setFLeadStatus}
+                  options={options.leadStatus.map((o) => ({ value: o, label: o }))}
+                  placeholder="Statuss"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell>
+                <CrmSearchInput
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Meklēt uzdevumus..."
+                />
+              </CrmFilterCell>
+              <CrmFilterCell />
+              <CrmFilterCell>
+                <CrmFilterSelect
+                  value={fDue}
+                  onValueChange={setFDue}
+                  options={[
+                    { value: "overdue", label: "Kavēts" },
+                    { value: "today", label: "Šodien" },
+                  ]}
+                  placeholder="Termiņš"
+                />
+              </CrmFilterCell>
+              <CrmFilterCell align="right">
+                <CrmClearFiltersButton
+                  active={hasActiveFilters}
+                  onClick={clearAllFilters}
+                />
+              </CrmFilterCell>
+            </CrmDataTableFilterRow>
+          </CrmDataTableHeader>
+          <CrmDataBody>
+            {filtered.length === 0 ? (
+              <CrmDataRow>
+                <CrmDataCell colSpan={9} align="center" className="text-muted-foreground">
+                  {hasActiveFilters
+                    ? "Nav uzdevumu, kas atbilst filtriem."
+                    : "Nav SIS uzdevumu."}
+                </CrmDataCell>
+              </CrmDataRow>
+            ) : (
+              filtered.map((r, i) => {
                 const overdue = str(r.queue_bucket).toLowerCase() === "overdue";
                 const tags = normalizeTags(toTags(r.tags));
-                const leadName = str(r.full_name);
-                const leadNumber = str(r.lead_number);
+                const ppvCode = resolvePpvCode(str(r.ppv_user_id));
+                const ppvName = resolvePpvName(str(r.ppv_user_id));
+                const secondary = taskLeadSecondary(r);
                 return (
-                  <tr
+                  <CrmDataRow
                     key={str(r.id) || i}
-                    className="cursor-pointer border-t border-border hover:bg-secondary/30"
+                    className="cursor-pointer"
                     onClick={() => setDetail(r)}
                   >
-                    <td className="px-3 py-2 font-medium text-foreground">
-                      {str(r.action_label) || str(r.task_type) || "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <CalmStatusBadge status={str(r.task_status)} />
-                    </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2 tabular-nums",
-                        overdue ? "text-[var(--tivo-red)]" : "text-muted-foreground",
-                      )}
+                    <CrmDataCell className="align-top font-medium text-foreground">
+                      {taskTemplate(r) || "—"}
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
+                      <TaskPriorityCell row={r} />
+                    </CrmDataCell>
+                    <CrmDataCell
+                      className="align-top text-muted-foreground"
+                      title={ppvName || ppvCode || undefined}
                     >
-                      {dueT != null ? fmtDate(r.effective_due_at ?? r.due_at) : "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <PriorityBadge label={str(r.priority_label)} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-medium text-foreground">
-                          {leadName || <span className="italic text-muted-foreground">—</span>}
-                        </span>
-                        {leadNumber && (
-                          <span className="font-mono text-[11px] text-muted-foreground">
-                            {leadNumber}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{str(r.country) || "—"}</td>
-                    <td className="px-3 py-2">
+                      {ppvCode || <span className="text-muted-foreground/50">—</span>}
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
                       {tags.length === 0 ? (
                         <span className="text-muted-foreground/50">—</span>
                       ) : (
@@ -642,46 +750,75 @@ function UzdevumiTab() {
                             <Tag key={t} tag={t} />
                           ))}
                           {tags.length > 2 && (
-                            <span className="text-[12px] text-muted-foreground/60">+{tags.length - 2}</span>
+                            <span className="text-[12px] text-muted-foreground/60">
+                              +{tags.length - 2}
+                            </span>
                           )}
                         </div>
                       )}
-                    </td>
-                    <td className="px-3 py-2">
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
+                      <StatusBadge status={str(r.lead_status) || null} />
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium text-foreground">
+                          {taskLeadPrimary(r) || (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </span>
+                        {secondary && (
+                          <span className="mt-0.5 text-[12px] text-muted-foreground">
+                            {secondary}
+                          </span>
+                        )}
+                      </div>
+                    </CrmDataCell>
+                    <CrmDataCell className="align-top">
                       <Badge variant="secondary" className="text-[11px] font-medium">
-                        {SIS_OWNER_LABEL}
+                        {SIS_OWNER_LABEL} / Sistēma
                       </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {str(r.task_source) || "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
+                    </CrmDataCell>
+                    <CrmDataCell
+                      className={cn(
+                        "align-top tabular-nums",
+                        overdue
+                          ? "text-[var(--tivo-red)]"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {fmtDate(r.effective_due_at ?? r.due_at)}
+                    </CrmDataCell>
+                    <CrmDataCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-0.5">
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Detaļas"
+                          aria-label="Detaļas"
                           onClick={() => setDetail(r)}
                         >
-                          Detaļas
+                          <Info className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Atvērt Lead"
+                          aria-label="Atvērt Lead"
                           onClick={() => openLead(r.lead_id)}
                         >
-                          <ExternalLink className="mr-1 h-3 w-3" />
-                          Atvērt Lead
+                          <ExternalLink className="h-4 w-4" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </CrmDataCell>
+                  </CrmDataRow>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              })
+            )}
+          </CrmDataBody>
+        </CrmDataTable>
       )}
 
       <TaskDetailDrawer row={detail} onClose={() => setDetail(null)} onOpenLead={openLead} />
