@@ -371,6 +371,70 @@ function directionLabel(r: Row): string {
   return "—";
 }
 
+/* ----- Task display helpers (display-only, no backend logic) ----- */
+
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Template key for a SIS task, taken from existing row data. */
+function taskTemplate(r: Row): string {
+  return str(r.action_label) || str(r.generator_rule_key);
+}
+
+/** Star count (0–3) derived from the prepared priority_score. */
+function priorityStarCount(score: number | null): number {
+  if (score == null) return 0;
+  if (score >= 60) return 3;
+  if (score >= 35) return 2;
+  if (score > 0) return 1;
+  return 0;
+}
+
+/** Stars row + numeric score row. No text labels. "—" when no value. */
+function TaskPriorityCell({ row }: { row: Row }) {
+  const score = numOrNull(row.priority_score);
+  const hasValue = score != null || !!str(row.priority);
+  if (!hasValue) return <span className="text-muted-foreground/50">—</span>;
+  const stars = priorityStarCount(score);
+  return (
+    <div className="flex flex-col leading-tight">
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Star
+            key={i}
+            className={cn(
+              "h-3 w-3 shrink-0",
+              i < stars
+                ? "fill-[var(--tivo-orange)] text-[var(--tivo-orange)]"
+                : "text-muted-foreground/30",
+            )}
+          />
+        ))}
+      </div>
+      <span className="text-[12px] tabular-nums text-muted-foreground">
+        {score != null ? score : "—"}
+      </span>
+    </div>
+  );
+}
+
+/** Lead primary name for a task row. */
+function taskLeadPrimary(r: Row): string {
+  return str(r.full_name) || str(r.lead_number);
+}
+/** Secondary line: country, plus contact name only when it differs from lead. */
+function taskLeadSecondary(r: Row): string {
+  const country = str(r.country);
+  const primary = str(r.full_name);
+  const contact = str(r.contact_name);
+  const showContact = !!contact && contact !== primary;
+  if (showContact) return country ? `${country} · ${contact}` : contact;
+  return country;
+}
+
 /* ============================ Page shell ============================ */
 
 function SisCentrsPage() {
