@@ -460,7 +460,11 @@ function SisCentrsPage() {
 
 function UzdevumiTab() {
   const navigate = useNavigate();
-  const query = useCrmView("v_tasks_queue_ui_v2", undefined, { all: true });
+  const query = useCrmView(
+    "v_tasks_queue_ui_v2",
+    `assigned_user_id=eq.${SIS_PROFILE_ID}`,
+    { all: true },
+  );
   const allRows = (query.data?.rows ?? []) as Row[];
   // Strict SIS filter: only tasks assigned to the SIS system profile.
   const rows = useMemo(
@@ -609,7 +613,14 @@ function UzdevumiTab() {
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
-    if (id) navigate({ to: "/lead/$leadId", params: { leadId: id } });
+    if (id) {
+      try {
+        sessionStorage.setItem("lead360:returnTo", "/sis-darba-rinda");
+      } catch {
+        /* ignore */
+      }
+      navigate({ to: "/lead/$leadId", params: { leadId: id } });
+    }
   };
 
   if (errorMsg) return <ErrorState message="Neizdevās ielādēt SIS uzdevumus." />;
