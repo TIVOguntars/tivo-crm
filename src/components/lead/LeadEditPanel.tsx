@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserPicker } from "@/components/users/UserPicker";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { useAnalyticsView } from "@/hooks/useAnalyticsView";
 import { statusRank } from "@/lib/statusRank";
 

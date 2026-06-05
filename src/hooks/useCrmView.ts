@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchCrmView, type CrmView } from "@/server/analytics";
+import { fetchCrmView, type CrmView } from "@/lib/analytics";
 
 export function useCrmView(view: CrmView, query?: string, options?: { all?: boolean }) {
   const all = !!options?.all;

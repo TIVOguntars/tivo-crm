@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchAnalyticsView, type AnalyticsView } from "@/server/analytics";
+import { fetchAnalyticsView, type AnalyticsView } from "@/lib/analytics";
 
 /**
  * Fetch the exact total row count for an analytics view with a given filter

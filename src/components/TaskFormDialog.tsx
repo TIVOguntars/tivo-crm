@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useTaskTypes } from "@/hooks/useTaskTypes";
 import { UserPicker } from "@/components/users/UserPicker";

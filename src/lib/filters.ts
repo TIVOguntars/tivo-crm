@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fallback } from "@tanstack/zod-adapter";
-import type { AnalyticsFilters } from "@/server/analytics";
+import type { AnalyticsFilters } from "@/lib/analytics";
 
 export type DateRangePreset =
   | "all"

@@ -20,7 +20,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 

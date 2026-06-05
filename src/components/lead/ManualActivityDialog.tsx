@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   MANUAL_KIND_LABELS,

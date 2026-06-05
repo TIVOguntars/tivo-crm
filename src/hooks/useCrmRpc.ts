@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { callCrmRpc, type CrmRpc } from "@/server/analytics";
+import { callCrmRpc, type CrmRpc } from "@/lib/analytics";
 
 export function useCrmRpc(
   fn: CrmRpc,
