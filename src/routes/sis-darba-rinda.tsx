@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ExternalLink, Search, Info, CalendarDays, X } from "lucide-react";
+import { ExternalLink, Info, CalendarDays, X, Star } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useCrmView } from "@/hooks/useCrmView";
+import { useUserMap } from "@/hooks/useUsers";
 import { cn } from "@/lib/utils";
 import { CHANNEL_LV, TASK_STATUS_LV, lv } from "@/lib/i18nLabels";
 import {
