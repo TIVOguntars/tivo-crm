@@ -23,7 +23,7 @@ import {
 import { Reply, Forward, X, Paperclip, ExternalLink } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 import { useCrmView } from "@/hooks/useCrmView";
-import { fetchCrmView } from "@/server/analytics";
+import { fetchCrmView } from "@/lib/analytics";
 import { buildAnalyticsFilters } from "@/lib/filters";
 import type { FiltersSearch } from "@/lib/filters";
 import { CHANNEL_LV, lv } from "@/lib/i18nLabels";

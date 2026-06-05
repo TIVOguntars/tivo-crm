@@ -23,7 +23,7 @@ import {
 import { UserPicker } from "@/components/users/UserPicker";
 import { useCrmView } from "@/hooks/useCrmView";
 import { useTaskTypes } from "@/hooks/useTaskTypes";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
 
 type Priority = "low" | "normal" | "high";

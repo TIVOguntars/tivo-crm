@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { statusRank } from "@/lib/statusRank";
 

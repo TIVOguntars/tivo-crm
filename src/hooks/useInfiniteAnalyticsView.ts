@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchAnalyticsView, type AnalyticsView } from "@/server/analytics";
+import { fetchAnalyticsView, type AnalyticsView } from "@/lib/analytics";
 
 const PAGE_SIZE = 100;
 

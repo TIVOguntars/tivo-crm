@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
 import { CompleteTaskModal } from "@/components/CompleteTaskModal";
 import { TaskEditDialog } from "@/components/TaskEditDialog";

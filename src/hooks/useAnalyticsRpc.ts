@@ -3,7 +3,7 @@ import {
   fetchAnalyticsRpc,
   type AnalyticsRpc,
   type AnalyticsFilters,
-} from "@/server/analytics";
+} from "@/lib/analytics";
 
 export function useAnalyticsRpc(fn: AnalyticsRpc, filters: AnalyticsFilters) {
   return useQuery({

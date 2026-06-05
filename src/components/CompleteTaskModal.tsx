@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { callCrmRpc } from "@/server/analytics";
+import { callCrmRpc } from "@/lib/analytics";
 import { formatCrmError } from "@/lib/crmErrors";
 import { useTaskTypes } from "@/hooks/useTaskTypes";
 import {
