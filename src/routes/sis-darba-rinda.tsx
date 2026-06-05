@@ -613,7 +613,14 @@ function UzdevumiTab() {
 
   const openLead = (leadId: unknown) => {
     const id = str(leadId);
-    if (id) navigate({ to: "/lead/$leadId", params: { leadId: id } });
+    if (id) {
+      try {
+        sessionStorage.setItem("lead360:returnTo", "/sis-darba-rinda");
+      } catch {
+        /* ignore */
+      }
+      navigate({ to: "/lead/$leadId", params: { leadId: id } });
+    }
   };
 
   if (errorMsg) return <ErrorState message="Neizdevās ielādēt SIS uzdevumus." />;
