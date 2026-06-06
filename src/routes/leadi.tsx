@@ -1362,9 +1362,9 @@ function LeadiPage() {
     const map = new Map<string, CommBuckets>();
     const rows = (overview.data?.rows ?? []) as Row[];
     for (const r of rows) {
-      const ln = s(r.lead_number);
-      if (!ln) continue;
-      map.set(ln, {
+      const id = s(r.lead_id);
+      if (!id) continue;
+      map.set(id, {
         email: [
           Number(r.email_outbound_count) || 0,
           Number(r.email_inbound_count) || 0,
@@ -1390,11 +1390,12 @@ function LeadiPage() {
     const rows = (overview.data?.rows ?? []) as Row[];
     return rows
       .map((r) => {
-        const lead_number = s(r.lead_number);
-        if (!lead_number) return null;
-        // UUID stays internal (RPC payloads, navigation). Never rendered.
+        // lead_id (UUID) is the ONLY required identifier — stays internal
+        // (RPC payloads, navigation). Never rendered.
         const id = s(r.lead_id);
         if (!id) return null;
+        // lead_number is optional/back-compat (display + search only).
+        const lead_number = s(r.lead_number);
         const phone = s(
           r.phone_e164,
         );
