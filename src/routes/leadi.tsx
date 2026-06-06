@@ -1254,7 +1254,11 @@ function LeadiPage() {
    * Only filters / sorting / grouping are persisted — never the session-only
    * "Check" column or collapsed/expanded group state. */
   const VIEW_KEY = "leads_list";
-  const { operatorId } = useCurrentUser();
+  const { operatorId, currentAuthUserId } = useCurrentUser();
+  // Only call the auth-protected prefs server fns once a Supabase session
+  // exists; operatorId comes from localStorage and is present before auth
+  // hydrates, which would otherwise 401 ("No authorization header provided").
+  const prefsReady = !!operatorId && !!currentAuthUserId;
   const loadPrefs = useServerFn(getViewPreference);
   const savePrefs = useServerFn(saveViewPreference);
   const prefsRestoredRef = useRef(false);
@@ -1262,7 +1266,7 @@ function LeadiPage() {
 
   useEffect(() => {
     if (prefsRestoredRef.current) return;
-    if (!operatorId) return;
+    if (!prefsReady) return;
     let cancelled = false;
     const urlIsFresh =
       (search.view ?? "all") === "all" &&
@@ -1292,11 +1296,11 @@ function LeadiPage() {
     return () => {
       cancelled = true;
     };
-  }, [operatorId, search, setSearch, loadPrefs]);
+  }, [prefsReady, operatorId, search, setSearch, loadPrefs]);
 
   useEffect(() => {
     if (!prefsRestoredRef.current) return;
-    if (!operatorId) return;
+    if (!prefsReady) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const filters = (search.flt ?? []) as StoredFilter[];
     const sorting = (search.sort ?? []) as StoredSort[];
@@ -1312,7 +1316,7 @@ function LeadiPage() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [search.flt, search.sort, search.gby, operatorId, savePrefs]);
+  }, [search.flt, search.sort, search.gby, prefsReady, operatorId, savePrefs]);
 
   const view = search.view ?? "all";
   const q = (search.q ?? "").trim().toLowerCase();
